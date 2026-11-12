@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "packageManager": "bun@1.4",
+  "catalog": {
+    "@types/bun": "^1.4.4",
+    "typescript": "^6"
+  },
   "scripts": {
     "check": "bun run check-types && bun run lint",
     "check-types": "bun run check-types:shared && bun run check-types:api",
@@ -36,16 +40,16 @@
     "types:sync": "cd apps/api && bun run openapi:generate"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.2",
-    "eslint-plugin-oxlint": "1.92.0",
+    "@types/bun": "catalog:",
+    "eslint-plugin-oxlint": "1.93.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
-    "oxfmt": "0.77.0",
-    "oxlint": "1.92.0",
+    "oxfmt": "0.78.0",
+    "oxlint": "1.93.0",
     "oxlint-config-presets": "0.1.21",
     "oxlint-tsgolint": "7.0.2006",
     "syncpack": "^15.3.3",
-    "typescript": "^6"
+    "typescript": "catalog:"
   },
   "workspaces": [
     "apps/*",

@@ -4,15 +4,19 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./constants": "./src/constants.ts",
-    "./enums": "./src/enums.ts"
+    ".": "./src/index.ts",
+    "./constants": "./src/business.constants.ts",
+    "./business-constants": "./src/business.constants.ts",
+    "./enums": "./src/domain.enums.ts",
+    "./domain-enums": "./src/domain.enums.ts",
+    "./jsonb-contracts": "./src/jsonb-contracts.type.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",
     "test": "bun test src/"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.2",
-    "typescript": "^6"
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
   }
 }
