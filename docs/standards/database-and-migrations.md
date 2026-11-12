@@ -1,0 +1,78 @@
+# Database & Migration Standards
+
+## 1. Schema Conventions
+
+- **Database columns**: `snake_case` in PostgreSQL.
+- **TypeScript properties**: `camelCase`.
+- **Primary keys**: UUIDv7 generated via `primaryKeyUuid`.
+- **Timestamps**: every base entity includes timezone-aware `created_at` and `updated_at`.
+- **Money**: stored as integer VND in `*_vnd` columns. Never use `numeric`, `float`, or `double` for money.
+- **Enums**: stored as text with a `CHECK` constraint aligned to `@greenroots/shared`. Never introduce a status value that is absent from the shared enum.
+- **Foreign keys**: indexed on the referencing column. Choose `ON DELETE` behavior explicitly; never rely on the database default by accident.
+- **Soft delete**: only when the domain requires history. If used, add `deleted_at timestamptz` and filter it in every query.
+
+## 2. Indexing Strategy & Performance Rules
+
+| Index Type             | Use For                                             | GreenRoots Example                                               |
+| :--------------------- | :-------------------------------------------------- | :--------------------------------------------------------------- |
+| **B-Tree**             | Equality and range lookups                          | `users.email`, `products.slug`, `orders.user_id`                 |
+| **Composite**          | Multi-column filters; high-cardinality column first | `(order_id, created_at)`, `(product_id, status)`                 |
+| **Partial**            | Sparse states                                       | `CREATE INDEX ... ON batches (status) WHERE status = 'in_stock'` |
+| **Unique partial**     | One active record per scope                         | One active subscription per `(user_id, product_id)`              |
+| **Exclusion (`gist`)** | Non-overlapping ranges                              | Delivery windows or seasonal plot allocation                     |
+| **GIN**                | JSONB containment and audit payloads                | `jsonb_contracts` lookups                                        |
+
+- Every index MUST answer a real query. Do not add speculative indexes.
+- Verify with `EXPLAIN (ANALYZE, BUFFERS)` before shipping a hot-path query change.
+
+## 3. Query Optimization: Selective Projections
+
+- **PROHIBITION**: Never execute `SELECT *` in production hot paths.
+- **MANDATORY**: Project only the required columns.
+
+```ts
+const rows = await db
+  .select({
+    id: products.id,
+    name: products.name,
+    basePriceVnd: products.basePriceVnd,
+    status: products.status,
+  })
+  .from(products)
+  .where(eq(products.status, "active"));
+```
+
+- Use keyset/cursor pagination for large, changing lists (`created_at`, `id`) instead of deep `OFFSET`.
+
+## 4. Transaction Boundaries & Concurrency Safety
+
+- **Atomic consistency**: combine interdependent mutations in a single `db.transaction(async (tx) => { ... })`.
+- **Checkout example**: lock batch rows, verify stock, decrement stock, create order and line items, and write the payment intent in one transaction.
+- **Short-lived**: never perform external HTTP calls, email delivery, image uploads, or heavy hashing inside an active DB transaction.
+- **Isolation**: default to `READ COMMITTED`. Use explicit row locks or constraints for correctness; do not raise isolation levels without a measured reason.
+- **Recompute server-side**: order totals, discounts, and shipping fees are recalculated from persisted data. Never trust client-provided totals.
+
+## 5. Zero-Downtime Migration Policy (Expand & Contract)
+
+1. **Step 1 (Expand)**: add nullable columns or new tables. Deploy code that writes to both old and new columns.
+2. **Step 2 (Backfill)**: run a batched background migration to populate existing rows.
+3. **Step 3 (Contract)**: deploy code that reads only from the new column. Drop the old column in a later release.
+
+Example: renaming `products.price` to `products.base_price_vnd`:
+
+```text
+Release A: add base_price_vnd NULL; write both columns; backfill in batches.
+Release B: read base_price_vnd; stop writing price.
+Release C: drop price.
+```
+
+- Migrations are forward-only. Destructive changes require an ADR.
+- Never lock a large table for a long rewrite. Use `CONCURRENTLY` for index creation where supported.
+
+## 6. Data Integrity Rules
+
+- `CHECK (stock_quantity >= 0)` on batches.
+- `CHECK (base_price_vnd >= 0)` and `CHECK (shipping_fee_vnd >= 0)`.
+- `CHECK (quantity > 0)` on order line items.
+- Order status transitions are validated in the domain service and covered by integration tests.
+- All timestamps use `timestamptz`; never store local-time timestamps.
