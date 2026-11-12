@@ -1,0 +1,23 @@
+{
+  "source": ["package.json", "apps/*/package.json", "packages/*/package.json"],
+  "indent": "  ",
+  "sortFirst": [
+    "name",
+    "version",
+    "description",
+    "private",
+    "type",
+    "exports",
+    "packageManager",
+    "scripts",
+    "dependencies",
+    "devDependencies",
+    "peerDependencies"
+  ],
+  "sortAz": [
+    "scripts",
+    "dependencies",
+    "devDependencies",
+    "peerDependencies"
+  ]
+}

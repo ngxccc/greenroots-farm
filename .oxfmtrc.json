@@ -1,0 +1,38 @@
+{
+  "arrowParens": "always",
+  "tabWidth": 2,
+  "useTabs": false,
+  "printWidth": 80,
+  "semi": true,
+  "endOfLine": "lf",
+  "sortPackageJson": false,
+  "sortTailwindcss": {
+    "stylesheet": "apps/backoffice/src/styles/globals.css",
+    "functions": ["cn", "clsx"]
+  },
+  "overrides": [
+    {
+      "files": ["apps/storefront/**"],
+      "options": {
+        "sortTailwindcss": {
+          "stylesheet": "apps/storefront/src/styles/globals.css",
+          "functions": ["cn", "clsx"]
+        }
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.next/**",
+    ".*/**",
+    "!/.github/**",
+    "CHANGELOG.md",
+    "**/api-schema.d.ts",
+    "**/api-enums.ts",
+    "**/openapi.json",
+    "**/src/generated/**",
+    "**/.engineered-config.json"
+  ]
+}

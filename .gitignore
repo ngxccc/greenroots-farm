@@ -1,0 +1,47 @@
+# Dependency Directories
+node_modules/
+.pnp
+.pnp.js
+
+# Production & Build outputs
+dist/
+build/
+.next/
+out/
+
+# Coverage & Logs
+coverage/
+logs/
+.logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment Variables
+.env*
+!.env.example
+*.pem
+
+# OS & Editor Configs
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local AI & Scratch tooling configs
+.omp/
+.claude/
+.scratch/
+.engineered-config.json
+graphify-out/
+second-brain/
