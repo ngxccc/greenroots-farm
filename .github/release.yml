@@ -1,0 +1,38 @@
+changelog:
+  exclude:
+    labels:
+      - dependencies
+      - github_actions
+  categories:
+    - title: Features
+      labels:
+        - type:feat
+        - enhancement
+    - title: Bug Fixes
+      labels:
+        - type:fix
+        - type:bug
+        - bug
+    - title: Performance
+      labels:
+        - type:perf
+    - title: Refactors
+      labels:
+        - type:refactor
+    - title: Security
+      labels:
+        - security
+    - title: CI
+      labels:
+        - type:ci
+        - type:chore
+    - title: Documentation
+      labels:
+        - type:docs
+        - documentation
+    - title: Tests
+      labels:
+        - type:test
+    - title: Other Changes
+      labels:
+        - "*"

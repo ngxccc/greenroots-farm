@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "Engineering Standards"
+    url: "https://github.com/ngxccc/greenroots-farm/tree/main/docs/standards"
+    about: "Read the API, database, testing, security, and git-flow standards before opening a ticket."
+  - name: "Domain Glossary & ADRs"
+    url: "https://github.com/ngxccc/greenroots-farm/blob/main/GLOSSARY-MAP.md"
+    about: "Check the shared vocabulary and architecture decisions before proposing domain changes."

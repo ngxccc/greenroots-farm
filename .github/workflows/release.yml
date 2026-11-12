@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g. v0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  check-release:
+    name: Detect & Tag Release
+    runs-on: ubuntu-22.04
+    outputs:
+      should_release: ${{ steps.detect.outputs.should_release }}
+      tag_name: ${{ steps.detect.outputs.tag_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          cache: "false"
+
+      - name: Detect and tag release
+        id: detect
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_TAG: ${{ inputs.tag_name }}
+        run: bun scripts/detect-and-tag-release.ts "$REF_TYPE" "$REF_NAME" "$EVENT_NAME" "$MANUAL_TAG"
+
+  publish:
+    name: Publish Release
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          install: "true"
+          doppler: "true"
+          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
+
+      - name: Verify
+        run: |
+          bun run version:check
+          if [ -d apps/api ]; then
+            bun run check
+            bun run test
+          else
+            bun run check-types:shared
+            bun run test:shared
+          fi
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check-release.outputs.tag_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; skipping."
+            exit 0
+          fi
+          gh release create "$TAG" --title "$TAG" --generate-notes

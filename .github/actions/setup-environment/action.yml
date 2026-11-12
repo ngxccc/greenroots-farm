@@ -1,0 +1,81 @@
+name: "Setup Environment"
+description: "Bootstraps the Bun runtime, dependency caching, and the Doppler CLI"
+
+inputs:
+  bun-version:
+    description: "Bun version to install"
+    required: false
+    default: "1.4.x"
+  cache:
+    description: "Enable caching for the Bun install cache"
+    required: false
+    default: "true"
+  lockfile:
+    description: "Path to the lockfile used as the cache key"
+    required: false
+    default: "bun.lock"
+  install:
+    description: "Install workspace dependencies after setup"
+    required: false
+    default: "false"
+  doppler:
+    description: "Install the Doppler CLI and authenticate with doppler-token"
+    required: false
+    default: "false"
+  doppler-token:
+    description: "Doppler token exported as DOPPLER_TOKEN; omit to install the CLI without auth"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check pre-installed Bun
+      id: check-bun
+      shell: bash
+      run: |
+        if command -v bun >/dev/null 2>&1; then
+          echo "has_bun=true" >> "$GITHUB_OUTPUT"
+          echo "Bun already installed ($(bun --version))."
+        else
+          echo "has_bun=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Setup Bun
+      if: steps.check-bun.outputs.has_bun != 'true'
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      with:
+        bun-version: ${{ inputs.bun-version }}
+
+    - name: Cache Bun dependencies
+      if: inputs.cache == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ~/.bun/install/cache
+        key: ${{ runner.os }}-bun-${{ hashFiles(inputs.lockfile) }}
+        restore-keys: |
+          ${{ runner.os }}-bun-
+
+    - name: Install Doppler CLI
+      if: inputs.doppler == 'true'
+      uses: dopplerhq/cli-action@cdd4670c26c06688d7afe8ff3b76b1cac918f4da # v4
+
+    - name: Export Doppler token
+      if: inputs.doppler == 'true' && inputs.doppler-token != ''
+      shell: bash
+      env:
+        DOPPLER_TOKEN_INPUT: ${{ inputs.doppler-token }}
+      run: |
+        echo "::add-mask::$DOPPLER_TOKEN_INPUT"
+        echo "DOPPLER_TOKEN=$DOPPLER_TOKEN_INPUT" >> "$GITHUB_ENV"
+
+    - name: Verify Doppler CLI
+      if: inputs.doppler == 'true'
+      shell: bash
+      run: doppler --version
+
+    # Runs after the token export so lifecycle scripts can read real secrets.
+    - name: Install dependencies
+      if: inputs.install == 'true'
+      shell: bash
+      run: bun install --frozen-lockfile
