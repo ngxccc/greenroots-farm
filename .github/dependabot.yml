@@ -1,0 +1,59 @@
+version: 2
+updates:
+  # ── Bun Workspace Dependencies ──
+  # The `bun` ecosystem updates bun.lock directly. Group non-breaking updates (minor
+  # and patch) into one weekly PR; major updates stay manual so automated PRs do not
+  # break CI. Dependabot cannot open automated security-update PRs for Bun yet, so
+  # `bun audit` in .github/workflows/security.yml is the compensating control.
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - type:chore
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      workspace-dependencies:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # ── GitHub Actions Workflows & Composite Actions ──
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 2
+    labels:
+      - dependencies
+      - github_actions
+      - type:ci
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions-updates:
+        patterns: ["*"]
+
+  # ── Docker Compose Base Images (PostgreSQL, Redis) ──
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 2
+    labels:
+      - dependencies
+      - type:chore
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      docker-images:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

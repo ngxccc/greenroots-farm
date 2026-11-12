@@ -1,0 +1,99 @@
+# .github/labeler.yml - `area:*` labels from modified file paths (v5 schema).
+#
+# Only "where" lives here. "What" — `type:*` — comes from the pull request's
+# conventional-commit prefix, set by pr-type-label.yml. Both workflows write a
+# different label set, so they never fight over the same label.
+
+"area:auth":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/api/src/**/auth/**/*"
+
+"area:catalog":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/api/src/**/catalog/**/*"
+
+"area:farming":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/api/src/**/farming/**/*"
+
+"area:orders":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/api/src/**/orders/**/*"
+
+"area:payments":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/api/src/**/payments/**/*"
+
+"area:delivery":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/api/src/**/delivery/**/*"
+
+"area:subscriptions":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/api/src/**/subscriptions/**/*"
+
+"area:api":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/api/**/*"
+          - "!apps/api/src/**/auth/**/*"
+          - "!apps/api/src/**/catalog/**/*"
+          - "!apps/api/src/**/farming/**/*"
+          - "!apps/api/src/**/orders/**/*"
+          - "!apps/api/src/**/payments/**/*"
+          - "!apps/api/src/**/delivery/**/*"
+          - "!apps/api/src/**/subscriptions/**/*"
+
+"area:ui":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/storefront/**/*"
+          - "apps/backoffice/**/*"
+
+"area:core":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/shared/**/*"
+          - "package.json"
+          - "bun.lock"
+          - "tsconfig*.json"
+          - "docker-compose.yml"
+          - ".env.example"
+          - ".syncpackrc"
+          - ".oxlintrc.json"
+          - ".oxfmtrc.json"
+          - ".lintstagedrc.json"
+
+"area:docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**/*"
+          - "README.md"
+          - "AGENTS.md"
+          - "GLOSSARY-MAP.md"
+          - "packages/shared/GLOSSARY.md"
+
+"area:ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**/*"
+          - ".husky/**/*"
+
+"area:harness":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "AGENTS.md"
+          - "GLOSSARY-MAP.md"
+          - ".omp/**/*"
+          - ".claude/**/*"
+          - ".vscode/**/*"
+          - ".gitignore"
+          - ".engineered-config.json"
+          - "scripts/**/*"

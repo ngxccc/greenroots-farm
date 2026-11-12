@@ -1,0 +1,86 @@
+name: "Bug Report"
+description: "Report a reproducible bug, crash, or unexpected behavior"
+title: "fix(<scope>): <summary>"
+labels: ["type:fix"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please provide detailed steps to reproduce.
+
+        **SECURITY WARNING: NEVER paste `.env` values, database URLs, JWT secrets, PayOS keys, customer phone numbers, addresses, or unredacted payment data.**
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: "Expected correct behavior once this bug is resolved."
+      placeholder: "e.g. Checkout returns 409 with a clear message when batch stock is insufficient."
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: "Observed buggy behavior, reproduction steps, error codes, and environment."
+      value: |
+        ### Observed Behavior
+
+        ### Steps to Reproduce
+        1. 
+        2. 
+        3. 
+
+        ### Environment & Error Codes
+        - App: API / Storefront / Backoffice
+        - Environment: local / staging / production
+        - Version or commit:
+        - Request ID / error code:
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: "Conditions to verify that the bug is fixed without regression."
+      value: |
+        - [ ] Root cause identified and resolved.
+        - [ ] Regression test added covering the failure path.
+        - [ ] `bun run check` and `bun run test` pass.
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: "Explicit non-goals for this bug fix."
+      placeholder: "e.g. Do not refactor the entire checkout flow in this fix."
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: "Select the affected domain."
+      options:
+        - "area:auth (login, tokens, sessions, roles)"
+        - "area:core (shared contracts, config, repo tooling)"
+        - "area:api (routing, DTOs, errors, OpenAPI)"
+        - "area:ui (storefront and backoffice UI)"
+        - "area:catalog (products, batches, pricing, expiry)"
+        - "area:farming (seasons, farming actions, harvest)"
+        - "area:orders (cart, checkout, order lifecycle)"
+        - "area:payments (PayOS, COD, refunds)"
+        - "area:delivery (delivery days, routes, shipping fees)"
+        - "area:subscriptions (recurring plans, pauses)"
+        - "area:ci (GitHub Actions workflows)"
+        - "area:harness (AGENTS.md, skills, agent tooling)"
+        - "area:docs (documentation, ADRs, standards)"
+    validations:
+      required: true
+  - type: checkboxes
+    id: secrets
+    attributes:
+      label: Compliance & Secret Redaction Check
+      options:
+        - label: "I confirm that no secrets, credentials, customer PII, or unredacted payment data are included."
+          required: true

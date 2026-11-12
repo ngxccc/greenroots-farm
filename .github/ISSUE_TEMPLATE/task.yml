@@ -1,0 +1,80 @@
+name: "Task / Chore / Maintenance"
+description: "Work item for chore, refactor, task, docs, or dependency updates"
+title: "task(<scope>): <summary>"
+labels: ["type:task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Track a planned engineering task, chore, refactoring, dependency update, or documentation work.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: "One-sentence observable behavior or state when complete (not a file inventory)."
+      placeholder: "e.g. All apps consume shared enums from @greenroots/shared instead of redeclaring status values."
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: "Background, current problem, discrepancy, or rationale."
+      placeholder: "e.g. Order status strings are duplicated between the API and backoffice."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: "Checklist of measurable conditions required for completion."
+      value: |
+        - [ ] 
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: "Explicit non-goals to prevent scope creep."
+      placeholder: "e.g. Do not rename the GitHub repository (ngxccc/greenroots-farm)."
+    validations:
+      required: false
+  - type: dropdown
+    id: type
+    attributes:
+      label: Work Type
+      description: "Select the Conventional Commits work type."
+      options:
+        - "type:task"
+        - "type:chore"
+        - "type:refactor"
+        - "type:docs"
+        - "type:perf"
+        - "type:test"
+        - "type:ci"
+        - "type:style"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: "Select the primary domain."
+      options:
+        - "area:auth (login, tokens, sessions, roles)"
+        - "area:core (shared contracts, config, repo tooling)"
+        - "area:api (routing, DTOs, errors, OpenAPI)"
+        - "area:ui (storefront and backoffice UI)"
+        - "area:catalog (products, batches, pricing, expiry)"
+        - "area:farming (seasons, farming actions, harvest)"
+        - "area:orders (cart, checkout, order lifecycle)"
+        - "area:payments (PayOS, COD, refunds)"
+        - "area:delivery (delivery days, routes, shipping fees)"
+        - "area:subscriptions (recurring plans, pauses)"
+        - "area:ci (GitHub Actions workflows)"
+        - "area:harness (AGENTS.md, skills, agent tooling)"
+        - "area:docs (documentation, ADRs, standards)"
+    validations:
+      required: true

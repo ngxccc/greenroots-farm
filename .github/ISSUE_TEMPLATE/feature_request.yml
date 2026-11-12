@@ -1,0 +1,66 @@
+name: "Feature Request"
+description: "Suggest an idea, enhancement, or architectural improvement"
+title: "feat(<scope>): <summary>"
+labels: ["type:feat"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Suggest an enhancement or new capability for GreenRoots Farm.
+
+        *Note: Changes that do not serve the farm-to-customer flow (catalog, orders, subscriptions, delivery, payments, farm operations) may be closed as wontfix.*
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: "One-sentence observable behavior or state when complete (not a file inventory)."
+      placeholder: "e.g. Customers can pause a subscription for one delivery cycle without losing the plan."
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: "Background, motivation, or limitation being addressed."
+      placeholder: "e.g. Subscriptions currently support cancel only; customers cannot skip a single delivery."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: "Checklist of measurable conditions required for completion."
+      value: |
+        - [ ] 
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: "Explicit non-goals to prevent scope creep."
+      placeholder: "e.g. Do not implement refunds or proration for paused subscriptions."
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: "Select the primary domain."
+      options:
+        - "area:auth (login, tokens, sessions, roles)"
+        - "area:core (shared contracts, config, repo tooling)"
+        - "area:api (routing, DTOs, errors, OpenAPI)"
+        - "area:ui (storefront and backoffice UI)"
+        - "area:catalog (products, batches, pricing, expiry)"
+        - "area:farming (seasons, farming actions, harvest)"
+        - "area:orders (cart, checkout, order lifecycle)"
+        - "area:payments (PayOS, COD, refunds)"
+        - "area:delivery (delivery days, routes, shipping fees)"
+        - "area:subscriptions (recurring plans, pauses)"
+        - "area:ci (GitHub Actions workflows)"
+        - "area:harness (AGENTS.md, skills, agent tooling)"
+        - "area:docs (documentation, ADRs, standards)"
+    validations:
+      required: true
