@@ -2,6 +2,7 @@
   "name": "greenroots-farm",
   "version": "0.0.1",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "packageManager": "bun@1.4",
   "catalog": {
@@ -9,6 +10,7 @@
     "typescript": "^6"
   },
   "scripts": {
+    "actions:pin": "bun scripts/pin-actions.ts",
     "check": "bun run check-types && bun run lint",
     "check-types": "bun run check-types:shared && bun run check-types:api",
     "check-types:api": "cd apps/api && bun run check-types",
@@ -32,12 +34,16 @@
     "lint:fast": "oxlint --type-aware --fix",
     "lint:storefront": "cd apps/storefront && bun run lint",
     "prepare": "husky",
+    "release": "bun scripts/release.ts",
     "test": "bun run test:shared && bun run test:api",
     "test:api": "cd apps/api && bun run test",
     "test:backoffice": "cd apps/backoffice && bun run test",
+    "test:scripts": "bun test scripts/",
     "test:shared": "cd packages/shared && bun run test",
     "test:storefront": "cd apps/storefront && bun run test",
-    "types:sync": "cd apps/api && bun run openapi:generate"
+    "types:sync": "cd apps/api && bun run openapi:generate",
+    "version:bump": "bun scripts/version.ts bump",
+    "version:check": "bun scripts/version.ts check"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

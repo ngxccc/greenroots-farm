@@ -1,0 +1,52 @@
+GreenRoots Farm Source-Available & Non-Commercial License
+Version 1.0 (2026)
+
+Copyright (c) 2026 ngxc <ngoc.dev@gmail.com>
+Repository: https://github.com/ngxccc/greenroots-farm
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to inspect,
+study, modify, and run the Software, subject to the following conditions:
+
+1. NON-COMMERCIAL & PERSONAL USE ONLY
+   The Software may be used, modified, and executed solely for personal, non-commercial,
+   educational, and technical evaluation purposes. Any commercial use, monetization,
+   commercial distribution, or inclusion in paid services is prohibited, except by the
+   copyright holder.
+
+2. PROHIBITED USES
+   You may NOT, directly or indirectly:
+   (a) Sell, rent, lease, sublicense, or charge a fee for the Software, derivative works,
+       or compiled artifacts thereof;
+   (b) Offer the functionality of the Software as a hosted service, API, SaaS, or commercial
+       platform;
+   (c) Remove, obscure, or alter the copyright notice, this license, or the attribution
+       required by Section 3;
+   (d) Use the Software to process real customer, payment, or personal data in a commercial
+       production environment without a separate written license from the copyright holder.
+
+3. MANDATORY ATTRIBUTION
+   All copies, substantial portions, forks, or derivative works of the Software must retain
+   the above copyright notice, this license document, and prominent attribution to the
+   original author (ngxc) and repository URL
+   (https://github.com/ngxccc/greenroots-farm) in all documentation, source distributions,
+   and user-facing application interfaces.
+
+4. COPYRIGHT HOLDER RIGHTS
+   The copyright holder may use, license, and distribute the Software for any purpose,
+   including commercial use, without being bound by the restrictions in Sections 1 and 2.
+
+5. AUTOMATIC TERMINATION
+   Any breach of the terms and conditions of this License immediately and automatically
+   terminates your rights to use, copy, modify, or distribute the Software. Continued use
+   after termination constitutes willful copyright infringement.
+
+6. DISCLAIMER OF WARRANTY & LIMITATION OF LIABILITY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+   CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+   OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+This license is source-available and is not an OSI-approved open-source license.
