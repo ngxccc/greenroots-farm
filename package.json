@@ -2,19 +2,20 @@
   "name": "greenroots-farm",
   "version": "0.0.1",
   "private": true,
-  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "packageManager": "bun@1.4",
   "catalog": {
     "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.6",
     "typescript": "^6"
   },
   "scripts": {
     "actions:pin": "bun scripts/pin-actions.ts",
     "check": "bun run check-types && bun run lint",
-    "check-types": "bun run check-types:shared && bun run check-types:api",
+    "check-types": "bun run check-types:shared && bun run check-types:api && bun run check-types:scripts",
     "check-types:api": "cd apps/api && bun run check-types",
     "check-types:backoffice": "cd apps/backoffice && bun run check-types",
+    "check-types:scripts": "tsc --noEmit -p scripts/tsconfig.json",
     "check-types:shared": "cd packages/shared && bun run check-types",
     "check-types:storefront": "cd apps/storefront && bun run check-types",
     "clean": "rm -rf apps/api/dist apps/storefront/.next apps/backoffice/dist",
@@ -47,6 +48,7 @@
   },
   "devDependencies": {
     "@types/bun": "catalog:",
+    "@types/node": "catalog:",
     "eslint-plugin-oxlint": "1.93.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
@@ -57,6 +59,7 @@
     "syncpack": "^15.3.3",
     "typescript": "catalog:"
   },
+  "license": "SEE LICENSE IN LICENSE",
   "workspaces": [
     "apps/*",
     "packages/*"

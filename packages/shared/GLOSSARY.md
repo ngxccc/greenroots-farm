@@ -8,20 +8,20 @@ GreenRoots Farm sells farm-grown produce through a storefront and operates produ
 
 ## Terms
 
-| Term                | Definition                                                                                                                | Source of truth                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Season              | A planned production cycle for one or more crops, from planning through harvest and archive.                              | `SeasonStatus`                          |
-| Batch               | A harvested lot of a product with stock, expiry, and sale status.                                                         | `BatchStatus`                           |
-| Farming Action      | A recorded field operation (seeding, watering, fertilizing, weeding, pest control, soil testing, harvesting, correction). | `FarmingActionType`                     |
-| Product             | A sellable catalog item sourced from one or more batches.                                                                 | Catalog domain                          |
-| Order               | A customer purchase progressing from payment through delivery.                                                            | `OrderStatus`                           |
-| Subscription        | A recurring delivery plan with a fixed delivery day.                                                                      | `SubscriptionStatus`, `EnumDeliveryDay` |
-| Delivery Day        | A scheduled delivery window: Tuesday, Friday, or both.                                                                    | `EnumDeliveryDay`                       |
-| Flash Sale          | A 50% discount applied to batches within 48 hours of expiry.                                                              | `BUSINESS_RULES`                        |
-| Loyalty Points      | Points earned at 1% of the value of a delivered order.                                                                    | `BUSINESS_RULES`                        |
-| Waste Log           | A recorded loss of stock that requires approval.                                                                          | `WasteLogStatus`                        |
-| Complaint           | A customer-reported issue resolved within the 24-hour complaint window.                                                   | `ComplaintStatus`                       |
-| Payment Transaction | A payment or refund recorded against an order.                                                                            | `PaymentTransactionType`                |
+| Term                | Definition                                                                                                                | Source of truth                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Season              | A planned production cycle for one or more crops, from planning through harvest and archive.                              | `SeasonStatus`                      |
+| Batch               | A harvested lot of a product with stock, expiry, and sale status.                                                         | `BatchStatus`                       |
+| Farming Action      | A recorded field operation (seeding, watering, fertilizing, weeding, pest control, soil testing, harvesting, correction). | `FarmingActionType`                 |
+| Product             | A sellable catalog item sourced from one or more batches.                                                                 | Catalog domain                      |
+| Order               | A customer purchase progressing from payment through delivery.                                                            | `OrderStatus`                       |
+| Subscription        | A recurring delivery plan with a fixed delivery day.                                                                      | `SubscriptionStatus`, `DeliveryDay` |
+| Delivery Day        | A scheduled delivery window: Tuesday, Friday, or both.                                                                    | `DeliveryDay`                       |
+| Flash Sale          | A 50% discount applied to batches within 48 hours of expiry.                                                              | `BUSINESS_RULES`                    |
+| Loyalty Points      | Points earned at 1% of the value of a delivered order.                                                                    | `BUSINESS_RULES`                    |
+| Waste Log           | A recorded loss of stock that requires approval.                                                                          | `WasteLogStatus`                    |
+| Complaint           | A customer-reported issue resolved within the 24-hour complaint window.                                                   | `ComplaintStatus`                   |
+| Payment Transaction | A payment or refund recorded against an order.                                                                            | `PaymentTransactionType`            |
 
 ## Invariants
 

@@ -9,6 +9,9 @@
  *   - apps/backoffice/package.json (when present)
  *   - packages/shared/package.json
  *
+ * The API OpenAPI document reads `apps/api/package.json` at runtime, so it
+ * follows this script without a second version constant.
+ *
  * Usage:
  *   bun scripts/version.ts check                    # exit 1 if manifests disagree
  *   bun scripts/version.ts current                  # print current root version
@@ -89,7 +92,7 @@ export function resolveTarget(
   if (SEMVER.test(cleanInput)) return cleanInput;
   if (input === "patch" || input === "minor" || input === "major") {
     const clean = baseVersion.replace(/^v/, "").split("-")[0] ?? "0.0.0";
-    const [major, minor, patch] = clean.split(".").map(Number);
+    const [major = 0, minor = 0, patch = 0] = clean.split(".").map(Number);
     if (input === "major") return `${major + 1}.0.0`;
     if (input === "minor") return `${major}.${minor + 1}.0`;
     return `${major}.${minor}.${patch + 1}`;
