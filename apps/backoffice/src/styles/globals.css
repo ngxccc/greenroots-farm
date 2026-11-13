@@ -1,0 +1,5 @@
+@import "@greenroots/ui/globals.css";
+
+@theme inline {
+  --font-be-vietnam-pro: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+}
