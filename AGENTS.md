@@ -51,10 +51,10 @@ Issues and specifications live in **GitHub Issues** (`ngxccc/greenroots-farm`). 
 
 Pull requests use `.github/PULL_REQUEST_TEMPLATE.md`. GitHub automation lives in `.github/workflows/`:
 
-- `.github/labeler.yml` + `.github/workflows/labeler.yml` — `area:*` labels from changed paths.
-- `.github/workflows/pr-type-label.yml` — one `type:*` label synced from the PR title.
-- `.github/release.yml` + `.github/workflows/release.yml` — GitHub Releases on `v*` tags.
-- `.github/workflows/security.yml` — weekly Trivy, `bun audit`, and CodeQL scans.
+- `.github/workflows/ci.yml` — the pull request quality gate: version consistency, shared/tooling, API, database, and an aggregate `Quality Gate` check.
+- `.github/workflows/labels.yml` + `.github/labeler.yml` — `area:*` labels from changed paths and one `type:*` label from the PR title.
+- `.github/release.yml` + `.github/workflows/release.yml` — GitHub Releases on `v*` tags and `chore(release):` merges.
+- `.github/workflows/security.yml` — Trivy, `bun audit`, and CodeQL scans on pull requests, `main`, and a weekly schedule.
 - `.github/dependabot.yml` — grouped weekly dependency updates (Bun ecosystem; security-update PRs are not supported for Bun, so `bun audit` covers that gap).
 - `.github/actions/setup-environment/action.yml` — shared environment bootstrap: runtime, install cache, optional dependency install (`install`), optional Doppler CLI and `DOPPLER_TOKEN` export (`doppler`, `doppler-token`).
 - `.husky/pre-commit` — `check-types` (once `apps/api` exists) plus `lint-staged` on staged files.
@@ -72,6 +72,7 @@ MUST read the corresponding standard file under `docs/standards/` before modifyi
 - **Tests, factories, and fixtures** → `docs/standards/testing-and-fixtures.md`
 - **Auth, hashing, and sanitization** → `docs/standards/security-and-cryptography.md`
 - **Branches, commits, and PRs** → `docs/standards/git-flow-and-pr-matrix.md`
+- **CI, release, and automation** → `docs/standards/ci-and-release.md`
 
 ## Conventions
 

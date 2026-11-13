@@ -3,7 +3,7 @@
 ## 1. Password Hashing (Scrypt)
 
 - Parameters: `N=16384`, `r=8`, `p=5`, key length `64 bytes`, salt `16 bytes`.
-- Stored format: `salt:derivedKey` (hex).
+- Stored format: `s1$<salt>$<hash>` (hex-encoded salt and 64-byte derived key; `s1` is the scheme version tag).
 - Never log passwords, derived keys, salts, or reset tokens.
 
 ## 2. Constant-Time Comparison (Timing Attack Defense)
