@@ -6,36 +6,38 @@ GreenRoots Farm — farm-to-customer commerce monorepo (Bun workspaces, TypeScri
 
 - Runtime/package manager: Bun 1.4
 - Backend: `apps/api` (PostgreSQL 18 + Redis 8 via Docker Compose)
-- Storefront: `apps/storefront`
-- Backoffice: `apps/backoffice`
+- Storefront: `apps/storefront` (Next.js 16 + Tailwind CSS v4)
+- Backoffice: `apps/backoffice` (React 19 + Vite SPA + TanStack Suite)
 - Shared contracts: `packages/shared`
+- Shared UI: `packages/ui` (Shadcn Base UI + Tailwind tokens)
 
 ## Repository Layout
 
-| Path              | Purpose                                                       |
-| ----------------- | ------------------------------------------------------------- |
-| `apps/api`        | REST API, domain services, persistence, integrations          |
-| `apps/storefront` | Customer-facing storefront                                    |
-| `apps/backoffice` | Farm operations and admin console                             |
-| `packages/shared` | Enums, business constants, JSONB contracts shared across apps |
-| `scripts/`        | Release, version sync, and GitHub Actions pinning scripts     |
-| `docs/standards`  | Engineering standards (SSOT)                                  |
-| `docs/adr`        | Repo-wide architecture decisions                              |
-| `GLOSSARY-MAP.md` | Entry point for context glossaries and ADRs                   |
+| Path              | Purpose                                                     |
+| ----------------- | ----------------------------------------------------------- |
+| `apps/api`        | REST API, domain services, persistence, integrations        |
+| `apps/storefront` | Customer-facing storefront                                  |
+| `apps/backoffice` | Farm operations and admin console                           |
+| `packages/shared` | Enums, business constants, Haversine, JSONB, shared labels  |
+| `packages/ui`     | Shared Shadcn Base UI primitives and Organic Minimalism CSS |
+| `scripts/`        | Release, version sync, and GitHub Actions pinning scripts   |
+| `docs/standards`  | Engineering standards (SSOT)                                |
+| `docs/adr`        | Repo-wide architecture decisions                            |
+| `GLOSSARY-MAP.md` | Entry point for context glossaries and ADRs                 |
 
 ## Commands
 
-| Command                  | Purpose                          |
-| ------------------------ | -------------------------------- |
-| `bun install`            | Install workspace dependencies   |
-| `bun run docker:up`      | Start PostgreSQL + Redis         |
-| `bun run docker:down`    | Stop PostgreSQL + Redis          |
-| `bun run dev:api`        | Run API in watch mode            |
-| `bun run dev:storefront` | Run storefront                   |
-| `bun run dev:backoffice` | Run backoffice                   |
-| `bun run check`          | Type-check + lint all workspaces |
-| `bun run test`           | Run shared + API tests           |
-| `bun run format`         | Format with oxfmt                |
+| Command                  | Purpose                             |
+| ------------------------ | ----------------------------------- |
+| `bun install`            | Install workspace dependencies      |
+| `bun run docker:up`      | Start PostgreSQL + Redis            |
+| `bun run docker:down`    | Stop PostgreSQL + Redis             |
+| `bun run dev:api`        | Run API in watch mode               |
+| `bun run dev:storefront` | Run storefront                      |
+| `bun run dev:backoffice` | Run backoffice                      |
+| `bun run check`          | Type-check + lint all workspaces    |
+| `bun run test`           | Run shared + API + storefront tests |
+| `bun run format`         | Format with oxfmt                   |
 
 ## Release
 
@@ -77,5 +79,6 @@ MUST read the corresponding standard file under `docs/standards/` before modifyi
 ## Conventions
 
 - Code, comments, commit messages, and engineering docs are written in English. Vietnamese is reserved for user-facing copy.
-- Use `@greenroots/shared` as the SSOT for enums, business constants, and JSONB contracts. Do not duplicate these values in app code.
+- Use `@greenroots/shared` as the SSOT for enums, business constants, JSONB contracts, shared Vietnamese order/payment/delivery labels, and the RFC 9457 error dictionary. Do not duplicate these values in app code. Keep surface-specific labels (customer vs staff batch statuses) in each app.
+- Manage shared dependency versions via root `package.json` `catalog:` (`react`, `react-dom`, `@types/react*`, `lucide-react`, `tailwindcss`, `zod`, `typescript`).
 - Secrets come from Doppler, not from committed files. Run local commands as `doppler run -- <command>` and see `docs/standards/security-and-cryptography.md`.

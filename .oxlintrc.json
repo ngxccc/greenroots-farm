@@ -11,6 +11,7 @@
     "apps/api/test/generated/**",
     "apps/backoffice/src/components/ui/**",
     "apps/storefront/src/components/ui/**",
+    "packages/ui/src/components/ui/**",
     "**/api-schema.d.ts",
     "**/api-enums.ts",
     "scripts/**",
@@ -78,11 +79,19 @@
   },
   "overrides": [
     {
-      "files": ["apps/backoffice/**", "apps/storefront/**"],
+      "files": ["apps/backoffice/**", "apps/storefront/**", "packages/ui/**"],
+      "plugins": ["react"],
+      "rules": {
+        "react/react-in-jsx-scope": "off"
+      },
       "env": {
         "browser": true,
         "node": true
       }
+    },
+    {
+      "files": ["apps/storefront/**"],
+      "plugins": ["nextjs"]
     },
     {
       "files": [

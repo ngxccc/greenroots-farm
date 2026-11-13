@@ -5,10 +5,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./constants": "./src/business.constants.ts",
     "./business-constants": "./src/business.constants.ts",
-    "./enums": "./src/domain.enums.ts",
+    "./constants": "./src/business.constants.ts",
     "./domain-enums": "./src/domain.enums.ts",
+    "./enums": "./src/domain.enums.ts",
+    "./haversine": "./src/haversine.ts",
     "./jsonb-contracts": "./src/jsonb-contracts.type.ts"
   },
   "scripts": {

@@ -7,20 +7,9 @@
   "endOfLine": "lf",
   "sortPackageJson": false,
   "sortTailwindcss": {
-    "stylesheet": "apps/backoffice/src/styles/globals.css",
+    "stylesheet": "packages/ui/src/styles/globals.css",
     "functions": ["cn", "clsx"]
   },
-  "overrides": [
-    {
-      "files": ["apps/storefront/**"],
-      "options": {
-        "sortTailwindcss": {
-          "stylesheet": "apps/storefront/src/styles/globals.css",
-          "functions": ["cn", "clsx"]
-        }
-      }
-    }
-  ],
   "ignorePatterns": [
     "**/node_modules/**",
     "**/dist/**",

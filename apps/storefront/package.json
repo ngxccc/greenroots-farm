@@ -1,0 +1,40 @@
+{
+  "name": "@greenroots/storefront",
+  "version": "0.0.1",
+  "description": "GreenRoots Farm Customer Storefront - Next.js 16, React 19, Tailwind CSS v4 and Base UI",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "check-types": "tsc --noEmit",
+    "dev": "next dev -p 3000",
+    "doppler:dev": "doppler run -- bun run dev",
+    "doppler:start": "doppler run -- bun run start",
+    "lint": "oxlint --type-aware src app",
+    "start": "next start -p 3000",
+    "test": "bun test src/"
+  },
+  "dependencies": {
+    "@greenroots/shared": "workspace:*",
+    "@greenroots/ui": "workspace:*",
+    "@t3-oss/env-nextjs": "^0.13.11",
+    "lucide-react": "catalog:",
+    "next": "^16.4.6",
+    "openapi-fetch": "^0.17.0",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "openapi-typescript": "^7.13.0",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:"
+  }
+}

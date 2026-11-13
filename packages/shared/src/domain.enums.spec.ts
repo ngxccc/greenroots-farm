@@ -14,7 +14,7 @@ import {
   UserRole,
   UserStatus,
   WasteLogStatus,
-} from "./domain.enums.js";
+} from "./domain.enums";
 
 /**
  * SSOT guard: every enum value must match Database_Schema.dbml exactly.
