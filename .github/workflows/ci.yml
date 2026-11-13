@@ -177,9 +177,43 @@ jobs:
         working-directory: apps/storefront
         run: bun run build
 
+  backoffice:
+    name: Backoffice
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          install: "true"
+
+      - name: Type check the Backoffice
+        run: bun run check-types:backoffice
+
+      - name: Lint the Backoffice
+        run: bun run lint:backoffice
+
+      - name: Test the Backoffice
+        run: bun run test:backoffice
+
+      - name: Build the Backoffice
+        working-directory: apps/backoffice
+        run: bun run build
+
   quality-gate:
     name: Quality Gate
-    needs: [version-consistency, shared-package, api, storefront, database]
+    needs:
+      [
+        version-consistency,
+        shared-package,
+        api,
+        storefront,
+        backoffice,
+        database,
+      ]
     if: always()
     runs-on: ubuntu-22.04
     timeout-minutes: 5
@@ -190,10 +224,11 @@ jobs:
           SHARED: ${{ needs.shared-package.result }}
           API: ${{ needs.api.result }}
           STOREFRONT: ${{ needs.storefront.result }}
+          BACKOFFICE: ${{ needs.backoffice.result }}
           DATABASE: ${{ needs.database.result }}
         run: |
           failed=0
-          for entry in "version-consistency:$VERSION" "shared-package:$SHARED" "api:$API" "storefront:$STOREFRONT" "database:$DATABASE"; do
+          for entry in "version-consistency:$VERSION" "shared-package:$SHARED" "api:$API" "storefront:$STOREFRONT" "backoffice:$BACKOFFICE" "database:$DATABASE"; do
             name="${entry%%:*}"
             result="${entry#*:}"
             echo "${name}: ${result}"

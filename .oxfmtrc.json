@@ -21,6 +21,7 @@
     "**/api-schema.d.ts",
     "**/api-enums.ts",
     "**/openapi.json",
+    "**/routeTree.gen.ts",
     "**/src/generated/**",
     "**/.engineered-config.json"
   ]
