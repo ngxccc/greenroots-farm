@@ -1,4 +1,4 @@
-name: "PR Type Label"
+name: Labels
 
 on:
   pull_request_target:
@@ -9,15 +9,28 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: pr-type-label-${{ github.event.pull_request.number }}
+  group: pr-labels-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  label:
-    name: Type Labeler
+  area:
+    name: Area Labels
+    if: |
+      !startsWith(github.event.pull_request.title, 'chore(release):') &&
+      !startsWith(github.event.pull_request.head.ref, 'chore/release-')
     runs-on: ubuntu-22.04
     steps:
-      - name: Sync Type Label
+      - name: Sync area labels
+        uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: true
+
+  type:
+    name: Type Label
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Sync type label
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -28,6 +41,7 @@ jobs:
               refactor: "type:refactor",
               docs: "type:docs",
               test: "type:test",
+              task: "type:task",
               ci: "type:ci",
               chore: "type:chore",
               build: "type:chore",
