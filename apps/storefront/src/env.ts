@@ -27,10 +27,10 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
-    BACKEND_API_URL: sanitizeUrl("http://127.0.0.1:3001"),
+    BACKEND_API_URL: sanitizeUrl("http://127.0.0.1:3000"),
   },
   client: {
-    NEXT_PUBLIC_APP_URL: sanitizeUrl("http://localhost:3000"),
+    NEXT_PUBLIC_APP_URL: sanitizeUrl("http://localhost:3001"),
   },
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,

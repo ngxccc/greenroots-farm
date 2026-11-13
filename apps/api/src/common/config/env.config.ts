@@ -12,7 +12,7 @@ const envSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(Number(process.env["API_PORT"] ?? 3001)),
+    .default(Number(process.env["API_PORT"] ?? 3000)),
   NODE_ENV: z.enum(NODE_ENVIRONMENTS).default("development"),
 
   // Runtime database connection, also used by drizzle-kit migrations.
