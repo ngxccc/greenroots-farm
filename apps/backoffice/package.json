@@ -1,0 +1,41 @@
+{
+  "name": "@greenroots/backoffice",
+  "version": "0.0.1",
+  "description": "GreenRoots Farm Internal Operations Console - React 19, Vite, TanStack Router, Query, and Table",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "check-types": "tsc --noEmit",
+    "dev": "vite --port 3002",
+    "doppler:dev": "doppler run -- bun run dev",
+    "lint": "oxlint --type-aware src",
+    "preview": "vite preview --port 3002",
+    "test": "bun test src/"
+  },
+  "dependencies": {
+    "@greenroots/shared": "workspace:*",
+    "@greenroots/ui": "workspace:*",
+    "@tanstack/react-query": "^5.90.2",
+    "@tanstack/react-router": "^1.132.0",
+    "@tanstack/react-table": "^8.21.3",
+    "lucide-react": "catalog:",
+    "openapi-fetch": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
+    "@tanstack/router-plugin": "^1.132.0",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "^5.0.4",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "^7.1.9"
+  }
+}
