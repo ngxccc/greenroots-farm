@@ -8,33 +8,10 @@
 - Relates to: # <!-- If referencing an issue without closing -->
 - None <!-- If standalone change -->
 
-## Type
-
-- [ ] feat: New feature
-- [ ] fix: Bug fix
-- [ ] refactor: Code refactoring
-- [ ] perf: Performance improvement
-- [ ] test: Testing updates
-- [ ] docs: Documentation update
-- [ ] ci: CI/CD or workflow update
-- [ ] chore: Maintenance or dependencies
-- [ ] style: Formatting or cosmetic change
-
 ## Verification & Evidence
 
-- **App(s) affected**:
-  - [ ] API (`apps/api`)
-  - [ ] Storefront (`apps/storefront`, not created yet)
-  - [ ] Backoffice (`apps/backoffice`, not created yet)
-  - [ ] Shared (`packages/shared`)
-- **Commands run**:
-  - [ ] `bun run check-types`
-  - [ ] `bun run lint:api`
-  - [ ] `bun run test`
-  - [ ] `bun run format:check`
-  - [ ] `bunx syncpack lint`
-  - [ ] `bun audit --audit-level=high`
-  - [ ] `bun run --cwd apps/api build`
+- **Commands run** (for the affected workspaces):
+  - `bun run check` / `bun run test` / `bun run format:check` <!-- Replace or extend with exact build/lint/test commands run -->
 - **Database / migration**:
   - [ ] No schema change
   - [ ] Migration included and backward-compatible (expand/contract)

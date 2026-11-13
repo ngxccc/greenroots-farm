@@ -1,8 +1,5 @@
 #!/bin/sh
-# Type-check the workspaces that exist, then format and lint only staged files.
-# The guard keeps commits working while apps/api is still being scaffolded.
-if [ -d apps/api ]; then
-  bun run check-types
-fi
-
+bun run check-types
 bunx lint-staged
+bun run format
+bun run version:check

@@ -62,19 +62,13 @@ body:
       label: Area
       description: "Select the affected domain."
       options:
-        - "area:auth (login, tokens, sessions, roles)"
-        - "area:core (database, shared contracts, config, repo tooling)"
-        - "area:api (routing, DTOs, errors, OpenAPI)"
-        - "area:ui (storefront and backoffice UI)"
-        - "area:catalog (products, batches, inventory, pricing, expiry)"
-        - "area:farming (seasons, farming actions, harvest)"
-        - "area:orders (cart, checkout, order lifecycle)"
-        - "area:payments (PayOS, COD, refunds)"
-        - "area:delivery (delivery days, routes, shipping fees)"
-        - "area:subscriptions (recurring plans, pauses)"
-        - "area:ci (GitHub Actions workflows)"
-        - "area:harness (AGENTS.md, skills, agent tooling)"
-        - "area:docs (documentation, ADRs, standards)"
+        - "area:api (NestJS backend, schemas, migrations, domain modules)"
+        - "area:storefront (Next.js customer storefront)"
+        - "area:backoffice (React + Vite internal operations console)"
+        - "area:shared (shared enums, constants, Haversine, JSONB, labels)"
+        - "area:ui (shared Shadcn Base UI primitives & design tokens)"
+        - "area:ci (GitHub Actions, Husky hooks, root configs, scripts)"
+        - "area:docs (documentation, ADRs, glossaries, standards)"
     validations:
       required: true
   - type: checkboxes

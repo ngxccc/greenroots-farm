@@ -52,37 +52,17 @@ jobs:
       - name: Type check repository scripts
         run: bun run check-types:scripts
 
+      - name: Type check shared UI
+        run: bun run check-types:ui
+
+      - name: Lint shared UI
+        run: bun run lint:ui
+
       - name: Test shared contracts
         run: bun run test:shared
 
       - name: Test repository scripts
         run: bun run test:scripts
-
-  api:
-    name: API
-    runs-on: ubuntu-22.04
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Setup Environment
-        uses: ./.github/actions/setup-environment
-        with:
-          install: "true"
-
-      - name: Type check the API
-        run: bun run check-types:api
-
-      - name: Lint the API
-        run: bun run lint:api
-
-      - name: Test the API
-        run: bun run test:api
-
-      - name: Build the API
-        working-directory: apps/api
-        run: bun run build
 
   database:
     name: Migrations and Seed
@@ -142,9 +122,64 @@ jobs:
         working-directory: apps/api
         run: bun run db:seed --clean
 
+  api:
+    name: API
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          install: "true"
+
+      - name: Type check the API
+        run: bun run check-types:api
+
+      - name: Lint the API
+        run: bun run lint:api
+
+      - name: Test the API
+        run: bun run test:api
+
+      - name: Build the API
+        working-directory: apps/api
+        run: bun run build
+
+  storefront:
+    name: Storefront
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      SKIP_ENV_VALIDATION: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          install: "true"
+
+      - name: Type check the Storefront
+        run: bun run check-types:storefront
+
+      - name: Lint the Storefront
+        run: bun run lint:storefront
+
+      - name: Test the Storefront
+        run: bun run test:storefront
+
+      - name: Build the Storefront
+        working-directory: apps/storefront
+        run: bun run build
+
   quality-gate:
     name: Quality Gate
-    needs: [version-consistency, shared-package, api, database]
+    needs: [version-consistency, shared-package, api, storefront, database]
     if: always()
     runs-on: ubuntu-22.04
     timeout-minutes: 5
@@ -154,10 +189,11 @@ jobs:
           VERSION: ${{ needs.version-consistency.result }}
           SHARED: ${{ needs.shared-package.result }}
           API: ${{ needs.api.result }}
+          STOREFRONT: ${{ needs.storefront.result }}
           DATABASE: ${{ needs.database.result }}
         run: |
           failed=0
-          for entry in "version-consistency:$VERSION" "shared-package:$SHARED" "api:$API" "database:$DATABASE"; do
+          for entry in "version-consistency:$VERSION" "shared-package:$SHARED" "api:$API" "storefront:$STOREFRONT" "database:$DATABASE"; do
             name="${entry%%:*}"
             result="${entry#*:}"
             echo "${name}: ${result}"

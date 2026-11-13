@@ -36,27 +36,24 @@ Issue lifecycle is automated natively via Pull Requests (`Fixes #<id>`) and GitH
 - `type:style` — Formatting or cosmetic changes.
 - `type:task` — Vertical slice or implementation sub-task.
 
-### C. Area Labels (GreenRoots Farm Domain Scopes)
+### C. Area Labels (Monorepo Workspaces)
 
-- `area:auth` — Authentication, authorization, tokens, passwords.
-- `area:core` — Core application infrastructure, database, modules, configs.
-- `area:api` — REST API routing, pipes, filters, OpenAPI.
-- `area:ui` — Storefront/backoffice UI and navigation.
-- `area:ci` — CI/CD workflows and build pipelines.
-- `area:harness` — Agent harness, engineering standards, skills, prompts.
-- `area:catalog` — Products, batches, inventory, pricing, expiry.
-- `area:farming` — Seasons, farming actions, harvest records.
-- `area:orders` — Cart, checkout, order lifecycle.
-- `area:payments` — PayOS, COD, refunds, payment transactions.
-- `area:delivery` — Delivery days, routes, shipping fees.
-- `area:subscriptions` — Recurring delivery plans and pauses.
-- `area:docs` — Documentation, ADRs, standards.
+- `area:api` — NestJS backend (`apps/api`), Drizzle schemas, migrations, and domain modules.
+- `area:storefront` — Next.js customer storefront (`apps/storefront`).
+- `area:backoffice` — React + Vite internal operations console (`apps/backoffice`).
+- `area:shared` — Shared enums, business constants, Haversine, JSONB contracts, and shared labels (`packages/shared`).
+- `area:ui` — Shared Shadcn Base UI primitives and Organic Minimalism tokens (`packages/ui`).
+- `area:ci` — CI/CD workflows, Husky hooks, root tooling configs, and scripts.
+- `area:docs` — Documentation, ADRs, glossaries, and standards.
 
-### D. Priority Labels
+### D. Priority & Automation Labels
 
 - `priority:p0` — Critical blocker (emergency / system down).
 - `priority:p1` — High priority (blocks release milestone).
 - `priority:p2` — Normal priority (default).
+- `dependencies` — Automated dependency bump PRs (Dependabot).
+- `github_actions` — Automated GitHub Actions update PRs (Dependabot).
+- `security` — Security fix or vulnerability alert (grouped in release notes).
 
 ## Triage Label Vocabulary
 

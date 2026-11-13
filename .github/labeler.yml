@@ -1,76 +1,43 @@
-# .github/labeler.yml - `area:*` labels from modified file paths (v5 schema).
+# .github/labeler.yml - `area:*` labels by monorepo workspace (v5 schema).
 #
 # Only "where" lives here. "What" — `type:*` — comes from the pull request's
-# conventional-commit prefix, set by the `type` job in labels.yml. Both jobs
-# write a different label set, so they never fight over the same label.
-
-"area:auth":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "apps/api/src/**/auth/**/*"
-
-"area:catalog":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "apps/api/src/**/catalog/**/*"
-          - "apps/api/src/**/inventory/**/*"
-
-"area:farming":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "apps/api/src/**/farms/**/*"
-
-"area:orders":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "apps/api/src/**/orders/**/*"
-
-"area:payments":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "apps/api/src/**/payments/**/*"
-
-"area:delivery":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "apps/api/src/**/delivery/**/*"
-
-"area:subscriptions":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "apps/api/src/**/subscriptions/**/*"
+# conventional-commit prefix, set by the `type` job in labels.yml.
 
 "area:api":
   - changed-files:
       - any-glob-to-any-file:
           - "apps/api/**/*"
-          - "!apps/api/src/**/auth/**/*"
-          - "!apps/api/src/**/catalog/**/*"
-          - "!apps/api/src/**/inventory/**/*"
-          - "!apps/api/src/**/farms/**/*"
-          - "!apps/api/src/**/orders/**/*"
-          - "!apps/api/src/**/payments/**/*"
-          - "!apps/api/src/**/delivery/**/*"
-          - "!apps/api/src/**/subscriptions/**/*"
+
+"area:storefront":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/storefront/**/*"
+
+"area:backoffice":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/backoffice/**/*"
+
+"area:shared":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/shared/**/*"
 
 "area:ui":
   - changed-files:
       - any-glob-to-any-file:
-          - "apps/storefront/**/*"
-          - "apps/backoffice/**/*"
+          - "packages/ui/**/*"
 
-"area:core":
+"area:ci":
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/shared/**/*"
-          - "apps/api/drizzle/**/*"
-          - "apps/api/drizzle.config.ts"
-          - "apps/api/src/database/**/*"
+          - ".github/**/*"
+          - ".husky/**/*"
+          - "scripts/**/*"
           - "package.json"
           - "bun.lock"
           - "tsconfig*.json"
           - "docker-compose.yml"
-          - "apps/api/.env.example"
           - ".syncpackrc"
           - ".oxlintrc.json"
           - ".oxfmtrc.json"
@@ -80,25 +47,4 @@
   - changed-files:
       - any-glob-to-any-file:
           - "docs/**/*"
-          - "README.md"
-          - "AGENTS.md"
-          - "GLOSSARY-MAP.md"
-          - "packages/shared/GLOSSARY.md"
-
-"area:ci":
-  - changed-files:
-      - any-glob-to-any-file:
-          - ".github/**/*"
-          - ".husky/**/*"
-
-"area:harness":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "AGENTS.md"
-          - "GLOSSARY-MAP.md"
-          - ".omp/**/*"
-          - ".claude/**/*"
-          - ".vscode/**/*"
-          - ".gitignore"
-          - ".engineered-config.json"
-          - "scripts/**/*"
+          - "*.md"
