@@ -20,11 +20,11 @@
     "@t3-oss/env-nextjs": "^0.13.11",
     "lucide-react": "catalog:",
     "next": "^16.4.6",
-    "openapi-fetch": "^0.17.0",
+    "openapi-fetch": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "zod": "catalog:",
-    "zustand": "^5.0.15"
+    "zustand": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
