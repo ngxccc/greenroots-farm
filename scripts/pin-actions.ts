@@ -59,8 +59,8 @@ function resolveActionSha(
 
   if (lsRemote.status === 0 && lsRemote.stdout.trim()) {
     const lines = lsRemote.stdout.trim().split("\n");
-    const lastLine = lines[lines.length - 1];
-    const sha = lastLine.split(/\s+/)[0];
+    const lastLine = lines.at(-1);
+    const sha = lastLine?.split(/\s+/)[0];
     if (sha && sha.length === 40) {
       const res = { sha, tag: ref };
       shaCache.set(cacheKey, res);
@@ -83,25 +83,29 @@ function resolveActionSha(
       .filter((l) => !l.includes("^{}"));
     if (tagLines.length > 0) {
       tagLines.sort((a, b) => {
-        const tagA = a.split(/\s+/)[1].replace("refs/tags/", "");
-        const tagB = b.split(/\s+/)[1].replace("refs/tags/", "");
+        const tagA = a.split(/\s+/)[1]?.replace("refs/tags/", "") ?? "";
+        const tagB = b.split(/\s+/)[1]?.replace("refs/tags/", "") ?? "";
         return tagA.localeCompare(tagB, undefined, {
           numeric: true,
           sensitivity: "base",
         });
       });
-      const latestLine = tagLines[tagLines.length - 1];
-      const fallbackSha = latestLine.split(/\s+/)[0];
-      const fallbackTag = latestLine.split(/\s+/)[1].replace("refs/tags/", "");
-      console.warn(
-        `Warning: ${ownerRepo}@${ref} not found on remote. Falling back to latest tag: ${fallbackTag}`,
-      );
-      const res = {
-        sha: fallbackSha,
-        tag: `${fallbackTag} (fallback from ${ref})`,
-      };
-      shaCache.set(cacheKey, res);
-      return res;
+      const latestLine = tagLines.at(-1);
+      const fallbackSha = latestLine?.split(/\s+/)[0];
+      const fallbackTag = latestLine
+        ?.split(/\s+/)[1]
+        ?.replace("refs/tags/", "");
+      if (fallbackSha && fallbackTag) {
+        console.warn(
+          `Warning: ${ownerRepo}@${ref} not found on remote. Falling back to latest tag: ${fallbackTag}`,
+        );
+        const res = {
+          sha: fallbackSha,
+          tag: `${fallbackTag} (fallback from ${ref})`,
+        };
+        shaCache.set(cacheKey, res);
+        return res;
+      }
     }
   }
 
@@ -155,6 +159,7 @@ async function main() {
       if (!match) return line;
 
       const [, prefix, actionPath, ref] = match;
+      if (!prefix || !actionPath || !ref) return line;
       if (actionPath.startsWith("./")) return line;
 
       if (/^[0-9a-f]{40}$/i.test(ref)) {

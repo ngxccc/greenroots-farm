@@ -39,12 +39,12 @@ Issue lifecycle is automated natively via Pull Requests (`Fixes #<id>`) and GitH
 ### C. Area Labels (GreenRoots Farm Domain Scopes)
 
 - `area:auth` — Authentication, authorization, tokens, passwords.
-- `area:core` — Core application infrastructure, modules, configs.
+- `area:core` — Core application infrastructure, database, modules, configs.
 - `area:api` — REST API routing, pipes, filters, OpenAPI.
 - `area:ui` — Storefront/backoffice UI and navigation.
 - `area:ci` — CI/CD workflows and build pipelines.
 - `area:harness` — Agent harness, engineering standards, skills, prompts.
-- `area:catalog` — Products, batches, pricing, expiry.
+- `area:catalog` — Products, batches, inventory, pricing, expiry.
 - `area:farming` — Seasons, farming actions, harvest records.
 - `area:orders` — Cart, checkout, order lifecycle.
 - `area:payments` — PayOS, COD, refunds, payment transactions.
@@ -83,17 +83,17 @@ All templates require an `area:*` selection. The bug template applies `type:fix`
 
 ## Repository Automation
 
-| File                                           | Purpose                                                                          |
-| :--------------------------------------------- | :------------------------------------------------------------------------------- |
-| `.github/PULL_REQUEST_TEMPLATE.md`             | 5-section PR body, verification evidence, standards checklist.                   |
-| `.github/dependabot.yml`                       | Weekly grouped updates for the Bun workspace, GitHub Actions, and Docker images. |
-| `.github/actions/setup-environment/action.yml` | Bun + cache + deps, with the Doppler CLI behind the `doppler` input.             |
-| `.github/labeler.yml`                          | Applies `area:*` labels from changed file paths.                                 |
-| `.github/workflows/labeler.yml`                | Runs the path-based area labeler.                                                |
-| `.github/workflows/pr-type-label.yml`          | Keeps exactly one `type:*` label in sync with the Conventional Commit PR title.  |
-| `.github/workflows/release.yml`                | Creates a GitHub Release on `v*` tags, using `.github/release.yml` categories.   |
-| `.github/workflows/security.yml`               | Weekly/manual Trivy + CodeQL (SARIF) and `bun audit` dependency checks.          |
-| `.github/release.yml`                          | Groups release notes by `type:*` labels.                                         |
+| File                                           | Purpose                                                                                 |
+| :--------------------------------------------- | :-------------------------------------------------------------------------------------- |
+| `.github/PULL_REQUEST_TEMPLATE.md`             | 5-section PR body, verification evidence, standards checklist.                          |
+| `.github/dependabot.yml`                       | Weekly grouped updates for the Bun workspace, GitHub Actions, and Docker images.        |
+| `.github/actions/setup-environment/action.yml` | Bun + cache + deps, with the Doppler CLI behind the `doppler` input.                    |
+| `.github/labeler.yml`                          | Declares `area:*` labels from changed file paths.                                       |
+| `.github/workflows/ci.yml`                     | Pull request quality gate; `CI / Quality Gate` is the required check.                   |
+| `.github/workflows/labels.yml`                 | Applies `area:*` labels and keeps exactly one `type:*` label in sync with the PR title. |
+| `.github/workflows/release.yml`                | Creates a GitHub Release on `v*` tags, using `.github/release.yml` categories.          |
+| `.github/workflows/security.yml`               | Weekly/manual Trivy + CodeQL (SARIF) and `bun audit` dependency checks.                 |
+| `.github/release.yml`                          | Groups release notes by `type:*` labels.                                                |
 
 Labels used by automation MUST exist in the repository. Create them with `gh label create` before enabling the workflows.
 

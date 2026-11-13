@@ -18,11 +18,11 @@ export function parseReleaseTag(subject: string): string | null {
 }
 
 if (import.meta.main) {
-  const refType = process.argv[2] ?? process.env.GITHUB_REF_TYPE ?? "";
-  const refName = process.argv[3] ?? process.env.GITHUB_REF_NAME ?? "";
-  const eventName = process.argv[4] ?? process.env.GITHUB_EVENT_NAME ?? "";
+  const refType = process.argv[2] ?? process.env["GITHUB_REF_TYPE"] ?? "";
+  const refName = process.argv[3] ?? process.env["GITHUB_REF_NAME"] ?? "";
+  const eventName = process.argv[4] ?? process.env["GITHUB_EVENT_NAME"] ?? "";
   const manualTag = process.argv[5] ?? "";
-  const outputFile = process.env.GITHUB_OUTPUT ?? "/dev/null";
+  const outputFile = process.env["GITHUB_OUTPUT"] ?? "/dev/null";
 
   const setOutput = (shouldRelease: boolean, tagName = "") => {
     appendFileSync(

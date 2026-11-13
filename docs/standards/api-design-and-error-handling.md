@@ -49,7 +49,7 @@ All error responses MUST follow **RFC 9457**:
 
 ```json
 {
-  "type": "https://greenroots.farm/problems/insufficient-stock",
+  "type": "/errors/insufficient-stock",
   "title": "Insufficient stock",
   "status": 409,
   "detail": "Batch 019fa8bc only has 3 units left, but 5 were requested.",
@@ -60,6 +60,7 @@ All error responses MUST follow **RFC 9457**:
 }
 ```
 
+- `type` is a stable URN of the form `/errors/<slug>`; slugs are centralized in `apps/api/src/common/constants/messages.constant.ts`.
 - `detail` MUST be safe to show to the client: no SQL, stack traces, secrets, or internal IDs.
 - Log the full internal error privately and return the sanitized problem document.
 

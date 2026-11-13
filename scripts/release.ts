@@ -205,7 +205,7 @@ function repoSlug(): string {
     allowFailure: true,
   });
   const match = remote.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?$/);
-  if (match) return match[1];
+  if (match?.[1]) return match[1];
   return run(
     ["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
     {

@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version-consistency:
+    name: Version Consistency
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+
+      - name: Check workspace manifest versions
+        run: bun run version:check
+
+  shared-package:
+    name: Shared and Tooling
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          install: "true"
+
+      - name: Check formatting
+        run: bun run format:check
+
+      - name: Check package manifests
+        run: bunx syncpack lint
+
+      - name: Type check shared contracts
+        run: bun run check-types:shared
+
+      - name: Type check repository scripts
+        run: bun run check-types:scripts
+
+      - name: Test shared contracts
+        run: bun run test:shared
+
+      - name: Test repository scripts
+        run: bun run test:scripts
+
+  api:
+    name: API
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          install: "true"
+
+      - name: Type check the API
+        run: bun run check-types:api
+
+      - name: Lint the API
+        run: bun run lint:api
+
+      - name: Test the API
+        run: bun run test:api
+
+      - name: Build the API
+        working-directory: apps/api
+        run: bun run build
+
+  database:
+    name: Migrations and Seed
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: greenroots_farm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d greenroots_farm"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_URL: postgresql://postgres:postgrespassword@localhost:5432/greenroots_farm
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          install: "true"
+
+      - name: Apply migrations
+        working-directory: apps/api
+        run: bun run db:migrate
+
+      - name: Verify migration snapshots are current
+        run: |
+          cd apps/api
+          bun run db:generate
+          cd ../..
+          if [ -n "$(git status --porcelain apps/api/drizzle)" ]; then
+            echo "::error::Drizzle snapshots are out of date; run bun run db:generate locally."
+            git status --porcelain apps/api/drizzle
+            exit 1
+          fi
+
+      - name: Seed the database
+        working-directory: apps/api
+        run: bun run db:seed --clean
+
+  quality-gate:
+    name: Quality Gate
+    needs: [version-consistency, shared-package, api, database]
+    if: always()
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Confirm every gate passed
+        env:
+          VERSION: ${{ needs.version-consistency.result }}
+          SHARED: ${{ needs.shared-package.result }}
+          API: ${{ needs.api.result }}
+          DATABASE: ${{ needs.database.result }}
+        run: |
+          failed=0
+          for entry in "version-consistency:$VERSION" "shared-package:$SHARED" "api:$API" "database:$DATABASE"; do
+            name="${entry%%:*}"
+            result="${entry#*:}"
+            echo "${name}: ${result}"
+            if [ "${result}" != "success" ]; then
+              echo "::error::${name} did not succeed (${result})"
+              failed=1
+            fi
+          done
+          exit "${failed}"

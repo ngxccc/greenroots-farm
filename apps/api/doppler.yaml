@@ -1,0 +1,3 @@
+setup:
+  project: greenroots-farm-api
+  config: dev

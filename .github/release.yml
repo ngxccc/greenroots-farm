@@ -22,10 +22,12 @@ changelog:
     - title: Security
       labels:
         - security
-    - title: CI
+    - title: Maintenance
       labels:
         - type:ci
         - type:chore
+        - type:task
+        - type:style
     - title: Documentation
       labels:
         - type:docs

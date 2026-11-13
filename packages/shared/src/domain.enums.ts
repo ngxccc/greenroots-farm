@@ -23,7 +23,7 @@ export const SeasonStatus = {
   PLANNING: "planning",
   ACTIVE: "active",
   HARVESTED: "harvested",
-  ARCHIVED: "archived",
+  COMPLETED: "completed",
 } as const;
 export type SeasonStatus = (typeof SeasonStatus)[keyof typeof SeasonStatus];
 
@@ -50,11 +50,11 @@ export type BatchStatus = (typeof BatchStatus)[keyof typeof BatchStatus];
 
 export const OrderStatus = {
   PENDING_PAYMENT: "pending_payment",
-  PAID: "paid",
-  CONFIRMED: "confirmed",
+  PENDING_CONFIRMATION: "pending_confirmation",
   PACKING: "packing",
   SHIPPING: "shipping",
   DELIVERED: "delivered",
+  COMPLETED: "completed",
   CANCELLED: "cancelled",
 } as const;
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
@@ -62,12 +62,14 @@ export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 export const PaymentMethod = {
   COD: "cod",
   PAYOS: "payos",
+  SUBSCRIPTION: "subscription",
 } as const;
 export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
 
 export const PaymentStatus = {
   PENDING: "pending",
   PAID: "paid",
+  FAILED: "failed",
   REFUNDED: "refunded",
 } as const;
 export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus];
@@ -79,21 +81,36 @@ export const PaymentTransactionType = {
 export type PaymentTransactionType =
   (typeof PaymentTransactionType)[keyof typeof PaymentTransactionType];
 
-export const EnumDeliveryDay = {
+export const DeliveryDay = {
   TUESDAY: "tuesday",
   FRIDAY: "friday",
   BOTH: "both",
 } as const;
-export type EnumDeliveryDay =
-  (typeof EnumDeliveryDay)[keyof typeof EnumDeliveryDay];
+export type DeliveryDay = (typeof DeliveryDay)[keyof typeof DeliveryDay];
 
 export const SubscriptionStatus = {
   ACTIVE: "active",
   PAUSED: "paused",
+  COMPLETED: "completed",
   CANCELLED: "cancelled",
 } as const;
 export type SubscriptionStatus =
   (typeof SubscriptionStatus)[keyof typeof SubscriptionStatus];
+
+export const ComplaintStatus = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+} as const;
+export type ComplaintStatus =
+  (typeof ComplaintStatus)[keyof typeof ComplaintStatus];
+
+export const ComplaintResolution = {
+  REFUND: "refund",
+  REPLACEMENT: "replacement",
+} as const;
+export type ComplaintResolution =
+  (typeof ComplaintResolution)[keyof typeof ComplaintResolution];
 
 export const WasteLogStatus = {
   PENDING_APPROVAL: "pending_approval",
@@ -102,11 +119,3 @@ export const WasteLogStatus = {
 } as const;
 export type WasteLogStatus =
   (typeof WasteLogStatus)[keyof typeof WasteLogStatus];
-
-export const ComplaintStatus = {
-  PENDING: "pending",
-  RESOLVED: "resolved",
-  REJECTED: "rejected",
-} as const;
-export type ComplaintStatus =
-  (typeof ComplaintStatus)[keyof typeof ComplaintStatus];

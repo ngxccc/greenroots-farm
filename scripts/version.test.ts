@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   compareVersions,
   currentVersion,
+  MANIFESTS,
   mismatchedManifests,
   resolveTarget,
   SEMVER,
@@ -39,5 +40,9 @@ describe("version scripts", () => {
   it("keeps every workspace manifest aligned with the root version", () => {
     expect(currentVersion()).toMatch(/^\d+\.\d+\.\d+/);
     expect(mismatchedManifests()).toEqual([]);
+  });
+
+  it("bumps the API manifest that drives the OpenAPI version", () => {
+    expect(MANIFESTS).toContain("apps/api/package.json");
   });
 });

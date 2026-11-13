@@ -50,10 +50,10 @@ body:
       description: "Select the primary domain."
       options:
         - "area:auth (login, tokens, sessions, roles)"
-        - "area:core (shared contracts, config, repo tooling)"
+        - "area:core (database, shared contracts, config, repo tooling)"
         - "area:api (routing, DTOs, errors, OpenAPI)"
         - "area:ui (storefront and backoffice UI)"
-        - "area:catalog (products, batches, pricing, expiry)"
+        - "area:catalog (products, batches, inventory, pricing, expiry)"
         - "area:farming (seasons, farming actions, harvest)"
         - "area:orders (cart, checkout, order lifecycle)"
         - "area:payments (PayOS, COD, refunds)"

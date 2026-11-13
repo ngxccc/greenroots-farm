@@ -1,0 +1,53 @@
+{
+  "name": "@greenroots/api",
+  "version": "0.0.1",
+  "description": "GreenRoots Farm REST API - NestJS 12, Drizzle ORM, PostgreSQL and Redis",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run --cwd ../../packages/shared build && nest build",
+    "check-types": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
+    "db:push": "drizzle-kit push --config drizzle.config.ts",
+    "db:seed": "bun src/database/seeds/index.ts",
+    "dev": "nest start --watch --exec bun",
+    "doppler:db:migrate": "doppler run -- bun run db:migrate",
+    "doppler:db:seed": "doppler run -- bun run db:seed",
+    "doppler:dev": "doppler run -- bun run dev",
+    "lint": "oxlint --type-aware src",
+    "start": "bun dist/main.js",
+    "test": "bun test src/"
+  },
+  "dependencies": {
+    "@greenroots/shared": "workspace:*",
+    "@nestjs/bullmq": "^12.0.1",
+    "@nestjs/common": "^12.0.3",
+    "@nestjs/config": "^12.0.0",
+    "@nestjs/core": "^12.0.3",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/platform-express": "^12.0.3",
+    "@nestjs/swagger": "^12.0.1",
+    "@nestjs/throttler": "^6.4.0",
+    "@scalar/nestjs-api-reference": "^1.2.37",
+    "bullmq": "^6.3.8",
+    "drizzle-orm": "^1.0.0-rc.5-169397b",
+    "ioredis": "^6.0.0",
+    "nestjs-zod": "^5.5.0",
+    "pg": "^8.23.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "uuid": "^14.0.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^12.0.3",
+    "@nestjs/schematics": "^12.0.3",
+    "@types/bun": "catalog:",
+    "@types/express": "^5.0.6",
+    "@types/node": "catalog:",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^1.0.0-rc.5-ab785fc",
+    "typescript": "catalog:"
+  }
+}

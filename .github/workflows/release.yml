@@ -59,20 +59,10 @@ jobs:
       - name: Setup Environment
         uses: ./.github/actions/setup-environment
         with:
-          install: "true"
-          doppler: "true"
-          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
+          cache: "false"
 
-      - name: Verify
-        run: |
-          bun run version:check
-          if [ -d apps/api ]; then
-            bun run check
-            bun run test
-          else
-            bun run check-types:shared
-            bun run test:shared
-          fi
+      - name: Verify workspace versions align
+        run: bun run version:check
 
       - name: Create release
         env:

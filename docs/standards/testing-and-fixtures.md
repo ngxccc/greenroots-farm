@@ -4,7 +4,7 @@
 
 - **Level 1**: `describe("<Domain> Module Integration")`
 - **Level 2**: `describe("<HTTP_METHOD> <route> [(<Scope>)]")` or `describe("Database Invariants: <Topic>")`
-- **Level 3**: `it("should <expected outcome> when <condition>")`
+- **Level 3**: `it("should <expected outcome> when <condition>")`; Bun's `test()` alias is accepted and used by unit suites.
 
 ```ts
 describe("Orders Module Integration", () => {
@@ -47,7 +47,7 @@ describe("Orders Module Integration", () => {
 
 - **PROHIBITION**: Never declare local inline response interfaces in tests.
 - **MANDATORY**: Import types from the generated schema (`test/generated/api-schema.d.ts`, `components["schemas"]`).
-- Regenerate types with `bun run types:sync` after API contract changes.
+- Regenerate types with `bun run types:sync` after API contract changes. The command depends on the API's OpenAPI generation script, which is tracked as follow-up work in ADR-0001.
 
 ```ts
 import type { components } from "../generated/api-schema";
@@ -73,12 +73,12 @@ type OrderResponse = components["schemas"]["OrderResponseDto"];
 
 ## 7. Test Commands & Placement
 
-| Command                                       | Scope                              |
-| :-------------------------------------------- | :--------------------------------- |
-| `bun run test:shared`                         | `packages/shared/src/**/*.test.ts` |
-| `bun run test:api`                            | `apps/api` test suite              |
-| `bun run test`                                | Shared + API tests                 |
-| `bun run test:storefront` / `test:backoffice` | App test suites once scaffolded    |
+| Command                                       | Scope                                     |
+| :-------------------------------------------- | :---------------------------------------- |
+| `bun run test:shared`                         | `packages/shared/src/**/*.{test,spec}.ts` |
+| `bun run test:api`                            | `apps/api` test suite                     |
+| `bun run test`                                | Shared + API tests                        |
+| `bun run test:storefront` / `test:backoffice` | App test suites once scaffolded           |
 
 - Unit-test pure domain logic and calculations.
 - Integration-test database constraints, transactions, HTTP contracts, and payment/idempotency flows.

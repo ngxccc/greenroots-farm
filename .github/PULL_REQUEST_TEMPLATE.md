@@ -18,21 +18,27 @@
 - [ ] docs: Documentation update
 - [ ] ci: CI/CD or workflow update
 - [ ] chore: Maintenance or dependencies
+- [ ] style: Formatting or cosmetic change
 
 ## Verification & Evidence
 
 - **App(s) affected**:
   - [ ] API (`apps/api`)
-  - [ ] Storefront (`apps/storefront`)
-  - [ ] Backoffice (`apps/backoffice`)
+  - [ ] Storefront (`apps/storefront`, not created yet)
+  - [ ] Backoffice (`apps/backoffice`, not created yet)
   - [ ] Shared (`packages/shared`)
 - **Commands run**:
-  - [ ] `bun run check`
+  - [ ] `bun run check-types`
+  - [ ] `bun run lint:api`
   - [ ] `bun run test`
   - [ ] `bun run format:check`
+  - [ ] `bunx syncpack lint`
+  - [ ] `bun audit --audit-level=high`
+  - [ ] `bun run --cwd apps/api build`
 - **Database / migration**:
   - [ ] No schema change
   - [ ] Migration included and backward-compatible (expand/contract)
+  - [ ] `bun run db:migrate` and `bun run db:seed --clean` verified locally
 - **Evidence**:
   - Output / screenshots / test logs: <!-- Attach screenshots for UI changes, or paste test output -->
 
