@@ -25,6 +25,7 @@ const CANDIDATES = [
   "apps/storefront/package.json",
   "apps/backoffice/package.json",
   "packages/shared/package.json",
+  "packages/ui/package.json",
 ] as const;
 
 export const MANIFESTS = CANDIDATES.filter((path) => existsSync(path));
