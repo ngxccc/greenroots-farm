@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GreenRoots Farm – Siêu thị Nông sản Sạch</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config={theme:{extend:{colors:{'brand-forest':'#15803D','brand-dark':'#166534','accent-harvest':'#D97706','surface-warm':'#FAF8F5','surface-card':'#FFFFFF','border-subtle':'#E5E7EB','status-fresh':'#059669','status-spoiled':'#DC2626'},fontFamily:{sans:['"Be Vietnam Pro"','sans-serif'],mono:['"JetBrains Mono"','monospace']}}}}
+</script>
+<style>.no-sb::-webkit-scrollbar{display:none}.no-sb{scrollbar-width:none}html{scroll-behavior:smooth}</style>
+</head>
+<body class="bg-surface-warm font-sans text-gray-900 antialiased">
+
+<!-- HEADER -->
+<header class="fixed top-0 inset-x-0 z-40 bg-brand-forest text-white shadow">
+ <div class="max-w-screen-xl mx-auto px-3 lg:px-4 py-2 lg:py-0 lg:h-[90px] flex flex-wrap lg:flex-nowrap items-center gap-x-3 gap-y-2">
+  <div class="lg:w-[260px] flex lg:flex-col lg:items-stretch lg:gap-1 items-center gap-2 order-1">
+   <a href="#" class="flex items-center gap-2 font-extrabold text-lg lg:text-xl"><span data-i="leaf" class="inline-flex w-6 h-6"></span>GreenRoots Farm</a>
+   <button id="menuBtn" class="hidden lg:flex items-center gap-2 bg-brand-dark hover:bg-green-900 rounded-lg px-4 h-10 text-sm font-bold tracking-wide"><span data-i="menu" class="inline-flex w-5 h-5"></span>DANH MỤC SẢN PHẨM</button>
+  </div>
+  <div class="order-3 lg:order-2 w-full lg:w-auto lg:flex-1">
+   <form id="searchForm" class="flex bg-white rounded-full overflow-hidden h-11">
+    <input id="q" class="flex-1 min-w-0 px-5 text-sm text-gray-900 outline-none" placeholder="Bạn tìm rau sạch gì cho bữa cơm hôm nay?" aria-label="Tìm kiếm">
+    <button class="px-5 text-brand-forest" aria-label="Tìm"><span data-i="search" class="inline-flex w-5 h-5"></span></button>
+   </form>
+  </div>
+  <div class="order-2 lg:order-3 ml-auto flex items-center gap-2 text-sm font-semibold">
+   <button data-open="addr" class="hidden xl:flex items-center gap-2 bg-[#1e964b] hover:bg-[#25a655] rounded-full px-4 h-11"><span data-i="pin" class="inline-flex w-4 h-4"></span>Giao đến: Quận 1, TP.HCM (~6.2 km)</button>
+   <button data-open="addr" class="xl:hidden flex items-center justify-center bg-[#1e964b] rounded-full w-11 h-11" aria-label="Địa chỉ giao hàng"><span data-i="pin" class="inline-flex w-5 h-5"></span></button>
+   <button data-open="qr" class="flex items-center gap-2 bg-[#1e964b] hover:bg-[#25a655] rounded-full px-3 lg:px-4 h-11"><span data-i="qr" class="inline-flex w-5 h-5"></span><span class="hidden lg:inline">Quét QR</span></button>
+   <button data-open="cart" class="flex items-center gap-2 bg-white text-brand-forest rounded-full px-3 lg:px-4 h-11 relative"><span data-i="cart" class="inline-flex w-5 h-5"></span><span class="hidden sm:inline">Giỏ hàng</span><span id="cartBadge" class="bg-accent-harvest text-white rounded-full text-xs px-2 py-0.5 font-mono">0</span><span id="cartTotal" class="hidden lg:inline font-mono text-xs">0đ</span></button>
+   <button class="hidden lg:flex items-center gap-2 hover:bg-brand-dark rounded-full px-4 h-11"><span data-i="user" class="inline-flex w-5 h-5"></span>Đăng nhập</button>
+  </div>
+ </div>
+</header>
+
+<div class="max-w-screen-xl mx-auto px-3 lg:px-4 pt-[112px] lg:pt-[106px] pb-10 lg:flex lg:gap-5 lg:items-start">
+ <!-- SIDEBAR -->
+ <nav id="side" class="no-sb flex lg:flex-col gap-2 lg:gap-0 overflow-x-auto lg:overflow-visible lg:w-[260px] lg:shrink-0 lg:sticky lg:top-[106px] lg:bg-white lg:border lg:border-border-subtle lg:rounded-xl lg:p-2 mb-4 lg:mb-0"></nav>
+
+ <main class="flex-1 min-w-0 space-y-6">
+  <!-- QUICK STRIP -->
+  <div id="quick" class="no-sb flex lg:grid lg:grid-cols-8 gap-2 overflow-x-auto"></div>
+
+  <!-- BANNER -->
+  <section class="grid md:grid-cols-10 gap-3">
+   <div class="md:col-span-7 rounded-2xl bg-brand-forest text-white p-6 min-h-[210px] flex flex-col justify-center gap-3 relative overflow-hidden">
+    <span data-i="leaf" class="absolute -right-6 -bottom-8 w-52 h-52 text-white/10"></span>
+    <span class="text-xs font-semibold bg-brand-dark rounded-full px-3 py-1 self-start">GreenRoots Củ Chi</span>
+    <h1 class="text-2xl lg:text-3xl font-extrabold leading-tight">Rau hữu cơ cắt lúc 4h sáng<br><span class="text-green-200 text-lg lg:text-xl font-semibold">Minh bạch nhật ký bất biến qua QR</span></h1>
+    <button data-open="cert" class="self-start bg-white text-brand-dark font-bold rounded-full px-5 h-11 flex items-center gap-2 text-sm"><span data-i="shield" class="inline-flex w-5 h-5"></span>Xem chứng chỉ VietGAP</button>
+   </div>
+   <div class="md:col-span-3 bg-white border-2 border-brand-forest rounded-2xl p-4 flex flex-col justify-center gap-3">
+    <b class="flex items-center gap-2 text-brand-dark"><span data-i="qr" class="inline-flex w-5 h-5"></span>Kiểm tra nguồn gốc nhanh</b>
+    <input id="batchIn" class="font-mono text-xs border border-border-subtle rounded-lg px-3 h-11 w-full" placeholder="BATCH-20261112-TOM-01" aria-label="Mã lô">
+    <button data-open="qr" class="bg-brand-forest hover:bg-brand-dark text-white font-bold rounded-lg h-11 text-sm">Tra cứu QR</button>
+   </div>
+  </section>
+
+  <!-- SHELF 1 -->
+  <section id="rescue" class="border-2 border-accent-harvest bg-[#FFF8E7] rounded-2xl p-4 scroll-mt-28">
+   <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <h2 class="font-extrabold text-accent-harvest flex items-center gap-2 text-base lg:text-lg"><span data-i="flame" class="inline-flex w-6 h-6"></span>GIẢI CỨU NÔNG SẢN CẬN HẠN (&lt; 48H) – GIẢM 50%</h2>
+    <div class="flex items-center gap-1 text-white font-mono font-bold text-sm"><span data-i="clock" class="inline-flex w-5 h-5 text-accent-harvest mr-1"></span><span id="cd" class="bg-accent-harvest rounded-md px-2 py-1">17:42:10</span></div>
+   </div>
+   <div id="g-rescue" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
+  </section>
+
+  <!-- SHELF 2 -->
+  <section id="fresh" class="scroll-mt-28">
+   <h2 class="font-extrabold text-brand-dark text-base lg:text-lg mb-3 flex items-center gap-2"><span data-i="sun" class="inline-flex w-6 h-6"></span>RAU ĂN LÁ &amp; CỦ QUẢ THU HOẠCH HÔM NAY</h2>
+   <div id="tabs" class="no-sb flex gap-2 overflow-x-auto mb-3"></div>
+   <div id="g-fresh" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
+  </section>
+
+  <!-- SHELF 3 -->
+  <section id="plans" class="scroll-mt-28">
+   <h2 class="font-extrabold text-brand-dark text-base lg:text-lg mb-3 flex items-center gap-2"><span data-i="cal" class="inline-flex w-6 h-6"></span>GÓI RAU ĐỊNH KỲ GIA ĐÌNH (GIAO THỨ 3 &amp; THỨ 6)</h2>
+   <div id="g-plans" class="grid md:grid-cols-2 gap-3"></div>
+  </section>
+ </main>
+</div>
+
+<footer class="bg-brand-dark text-green-50 text-sm">
+ <div class="max-w-screen-xl mx-auto px-4 py-8 grid md:grid-cols-3 gap-6">
+  <div><b class="flex items-center gap-2 text-white text-base mb-2"><span data-i="leaf" class="inline-flex w-5 h-5"></span>GreenRoots Farm</b>Nông trại GreenRoots, Củ Chi, TP.HCM. Rau trồng và bán trực tiếp, không qua trung gian.</div>
+  <div><b class="text-white block mb-2">Cam kết tươi sống</b>Thu hoạch trong ngày, giao nhanh. Lô cận hạn được giảm 50% thay vì bỏ đi.</div>
+  <div><b class="text-white block mb-2">Liên hệ &amp; chứng nhận</b><div class="flex items-center gap-2"><span data-i="shield" class="inline-flex w-4 h-4"></span>VietGAP · USDA Organic</div>Hotline: [SỐ HOTLINE]</div>
+ </div>
+</footer>
+
+<!-- OVERLAY / MODALS -->
+<div id="ov" class="fixed inset-0 z-50 bg-black/50 hidden"></div>
+<aside id="cart" class="fixed top-0 right-0 bottom-0 z-[60] w-full max-w-sm bg-white shadow-2xl translate-x-full transition-transform flex flex-col">
+ <div class="flex items-center justify-between p-4 border-b border-border-subtle"><b class="flex items-center gap-2"><span data-i="cart" class="inline-flex w-5 h-5 text-brand-forest"></span>Giỏ hàng của bạn</b><button data-close class="w-10 h-10 flex items-center justify-center" aria-label="Đóng"><span data-i="x" class="inline-flex w-5 h-5"></span></button></div>
+ <div id="cartItems" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+ <div class="p-4 border-t border-border-subtle space-y-3"><div class="flex justify-between font-semibold"><span>Tạm tính</span><span id="cartSum" class="font-mono">0đ</span></div><div class="text-xs text-gray-500">Phí ship tính theo khoảng cách ở bước thanh toán.</div><button class="w-full bg-brand-forest hover:bg-brand-dark text-white font-bold rounded-xl h-12">Thanh toán</button></div>
+</aside>
+<div id="modal" class="fixed z-[60] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md bg-white rounded-2xl p-5 hidden"></div>
+
+<script>
+const IC={leaf:'<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',pin:'<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',qr:'<rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3M21 21v.01M12 7v3a2 2 0 0 1-2 2H7M3 12h.01M12 3h.01M12 16v.01M16 12h1M21 12v.01M12 21v-1"/>',cart:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',x:'<path d="M18 6 6 18M6 6l12 12"/>',plus:'<path d="M5 12h14M12 5v14"/>',minus:'<path d="M5 12h14"/>',cal:'<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>',truck:'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',pkg:'<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12m-8.7-5 8.7 5 8.7-5"/>',drop:'<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',sprout:'<path d="M7 20h10M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>'};
+const svg=n=>`<svg viewBox="0 0 24 24" class="w-full h-full" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
+const hyd=()=>document.querySelectorAll('[data-i]:empty').forEach(e=>e.innerHTML=svg(e.dataset.i));
+const $=s=>document.querySelector(s), money=n=>n.toLocaleString('vi-VN')+'đ';
+
+// DATA (giá & tồn kho minh hoạ)
+const P=[
+{id:1,n:'Xà lách Romaine',u:'300g',p:18000,o:36000,s:12.5,c:'leaf',b:'VietGAP',h:'HSD còn 18h',r:1,i:'leaf'},
+{id:2,n:'Cà chua bi',u:'500g',p:28000,o:56000,s:18.5,c:'fruit',b:'Cắt 4h sáng',h:'HSD còn 26h',r:1,i:'drop'},
+{id:3,n:'Cải ngọt baby',u:'500g',p:15000,o:30000,s:9,c:'leaf',b:'VietGAP',h:'HSD còn 30h',r:1,i:'sprout'},
+{id:4,n:'Dưa leo baby',u:'500g',p:17000,o:34000,s:14,c:'fruit',b:'Cắt 4h sáng',h:'HSD còn 40h',r:1,i:'pkg'},
+{id:5,n:'Rau muống hữu cơ',u:'bó 500g',p:18000,s:25,c:'leaf',b:'Cắt 4h sáng',i:'sprout',us:1},
+{id:6,n:'Cải bó xôi',u:'bó 300g',p:32000,s:11,c:'leaf',b:'VietGAP',i:'leaf',us:1},
+{id:7,n:'Cà rốt Đà Lạt',u:'1 kg',p:38000,s:30,c:'fruit',b:'VietGAP',i:'pkg',us:1},
+{id:8,n:'Bí đỏ hồ lô',u:'1 kg',p:34000,s:22,c:'fruit',b:'Cắt 4h sáng',i:'drop'},
+{id:9,n:'Hành lá',u:'bó 100g',p:12000,s:16,c:'spice',b:'VietGAP',i:'sprout',us:1},
+{id:10,n:'Nấm bào ngư',u:'300g',p:35000,s:8,c:'spice',b:'Cắt 4h sáng',i:'leaf'},
+{id:11,n:'Ớt sừng đỏ',u:'200g',p:15000,s:6.5,c:'spice',b:'VietGAP',i:'flame',us:1},
+{id:12,n:'Cà chua thân leo',u:'1 kg',p:42000,s:20,c:'fruit',b:'Cắt 4h sáng',i:'drop'}];
+const T=[['all','Tất cả'],['leaf','Rau ăn lá'],['fruit','Củ & Quả'],['spice','Gia vị'],['cert','Đạt chuẩn USDA/VietGAP']];
+const PLANS=[{id:101,n:'Gói Gia Đình 5kg',d:'Giỏ rau mùa vụ cho 4–5 người',p:1200000,k:5},{id:102,n:'Gói Ăn Dặm 2kg',d:'Rau củ mềm, sạch cho bé',p:550000,k:2}];
+const SIDE=[['flame','Giải cứu cận hạn (-50%)','rescue',1],['sun','Thu hoạch sáng nay','fresh'],['leaf','Rau ăn lá hữu cơ','fresh','leaf'],['pkg','Củ & Quả tươi','fresh','fruit'],['sprout','Rau gia vị & Nấm','fresh','spice'],['cal','Gói rau định kỳ (T3 & T6)','plans'],['qr','Tra cứu nguồn gốc QR','qr'],['shield','Chứng nhận VietGAP / USDA','cert']];
+const Q=[['flame','-50% Cận hạn',0],['leaf','Rau ăn lá',2],['pkg','Củ quả',3],['sprout','Gia vị',4],['cal','Gói T3/T6',5],['qr','Tra cứu QR',6],['shield','Chứng nhận',7],['truck','Giao 2h',1]];
+let cart={}, tab='all';
+
+function ctl(id){const q=cart[id]||0;
+ return q?`<div class="flex items-center justify-between bg-brand-forest text-white rounded-lg h-11"><button data-a="dec" data-id="${id}" class="w-12 h-11 flex items-center justify-center" aria-label="Giảm"><span data-i="minus" class="inline-flex w-4 h-4"></span></button><b class="font-mono">${q}</b><button data-a="inc" data-id="${id}" class="w-12 h-11 flex items-center justify-center" aria-label="Tăng"><span data-i="plus" class="inline-flex w-4 h-4"></span></button></div>`
+ :`<button data-a="inc" data-id="${id}" class="w-full h-11 rounded-lg border-2 border-brand-forest text-brand-forest hover:bg-brand-forest hover:text-white font-bold transition">MUA</button>`}
+function card(p){
+ return `<article class="bg-surface-card border border-border-subtle rounded-xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition flex flex-col">
+ <div class="relative aspect-square bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center text-brand-forest/40"><span data-i="${p.i}" class="inline-flex w-1/3 h-1/3"></span>
+ <span class="absolute top-2 left-2 bg-white text-brand-dark text-[11px] font-bold rounded-full px-2 py-0.5 border border-border-subtle">${p.b}</span>
+ ${p.o?`<span class="absolute top-2 right-2 bg-accent-harvest text-white text-[11px] font-bold rounded-full px-2 py-0.5">-50%</span><span class="absolute bottom-2 right-2 bg-white text-[#92400E] text-[11px] font-bold rounded-full px-2 py-0.5">${p.h}</span>`:''}</div>
+ <div class="p-3 flex flex-col gap-1 flex-1"><h3 class="font-semibold text-sm leading-snug line-clamp-2 min-h-[2.5rem]">${p.n}</h3><span class="text-xs text-gray-500">${p.u}</span>
+ <span class="text-xs text-status-fresh font-semibold">Khả dụng: ${p.s} kg</span>
+ <div class="mt-1 mb-2"><b class="font-mono text-lg ${p.o?'text-status-spoiled':'text-brand-dark'}">${money(p.p)}</b>${p.o?` <s class="font-mono text-xs text-gray-400">${money(p.o)}</s>`:''}</div>
+ <div class="mt-auto" data-ctl="${p.id}">${ctl(p.id)}</div></div></article>`}
+function shelves(){
+ $('#g-rescue').innerHTML=P.filter(p=>p.r).map(card).join('');
+ const list=P.filter(p=>!p.r&&(tab=='all'||(tab=='cert'?p.us||p.b=='VietGAP':p.c==tab)));
+ $('#g-fresh').innerHTML=list.map(card).join('');
+ $('#tabs').innerHTML=T.map(([k,l])=>`<button data-tab="${k}" class="shrink-0 h-10 px-4 rounded-full text-sm font-semibold border ${tab==k?'bg-brand-forest text-white border-brand-forest':'bg-white border-border-subtle'}">${l}</button>`).join('');
+ $('#g-plans').innerHTML=PLANS.map(p=>`<article class="bg-white border border-border-subtle rounded-2xl p-5 flex gap-4 items-center"><span class="w-14 h-14 rounded-xl bg-green-100 text-brand-forest flex items-center justify-center shrink-0"><span data-i="pkg" class="inline-flex w-7 h-7"></span></span><div class="flex-1"><h3 class="font-bold">${p.n}</h3><p class="text-xs text-gray-500">${p.d} · 8 lần/tháng</p><span class="inline-flex items-center gap-1 text-xs font-semibold text-status-fresh mt-1"><span data-i="truck" class="inline-flex w-4 h-4"></span>Freeship tuyến gom cố định</span><div class="font-mono font-bold text-lg text-brand-dark mt-1">${money(p.p)}</div></div><button data-a="inc" data-id="${p.id}" class="bg-brand-forest hover:bg-brand-dark text-white font-bold rounded-lg h-11 px-4 text-sm">Đăng ký</button></article>`).join('');
+ hyd()}
+function items(){return [...P,...PLANS.map(p=>({...p,u:'8 lần/tháng'}))].filter(p=>cart[p.id])}
+function sync(){
+ const L=items(), n=L.reduce((a,p)=>a+cart[p.id],0), t=L.reduce((a,p)=>a+cart[p.id]*p.p,0);
+ $('#cartBadge').textContent=n;$('#cartTotal').textContent=money(t);$('#cartSum').textContent=money(t);
+ document.querySelectorAll('[data-ctl]').forEach(e=>e.innerHTML=ctl(+e.dataset.ctl));
+ $('#cartItems').innerHTML=L.length?L.map(p=>`<div class="flex items-center gap-3 border border-border-subtle rounded-xl p-3"><div class="flex-1"><b class="text-sm">${p.n}</b><div class="text-xs text-gray-500">${p.u}</div><b class="font-mono text-sm">${money(p.p*cart[p.id])}</b></div><div class="w-28" >${ctl(p.id)}</div></div>`).join(''):'<p class="text-center text-gray-500 mt-10">Giỏ hàng đang trống. Chọn rau bỏ giỏ nhé!</p>';
+ hyd()}
+function go(k,f){const s=SIDE.find(x=>x[2]==k&&(x[3]||'')==(f||''));
+ if(k=='qr')return open('qr');if(k=='cert')return open('cert');
+ if(k=='fresh'){tab=f||'all';shelves();sync()}
+ $('#'+k).scrollIntoView({behavior:'smooth'})}
+function open(w){const m=$('#modal');
+ if(w=='cart'){$('#cart').classList.remove('translate-x-full');$('#ov').classList.remove('hidden');return}
+ const H={addr:`<b class="text-lg">Chọn khu vực giao hàng</b><div class="mt-3 space-y-2">${[['Quận 1','6.2 km'],['Quận 3','7.4 km'],['Bình Thạnh','9.8 km'],['Thủ Đức','14.5 km']].map(([a,b])=>`<button data-pick="${a}" class="w-full flex justify-between border border-border-subtle hover:border-brand-forest rounded-xl px-4 h-12 text-sm"><span>${a}, TP.HCM</span><span class="font-mono text-gray-500">~${b}</span></button>`).join('')}</div>`,
+ qr:`<b class="text-lg flex items-center gap-2"><span data-i="qr" class="inline-flex w-5 h-5 text-brand-forest"></span>Tra cứu nguồn gốc</b><p class="text-sm text-gray-500 my-2">Nhập mã trên tem QR dán thùng hàng.</p><input class="font-mono text-sm border border-border-subtle rounded-lg px-3 h-11 w-full" value="${$('#batchIn').value||'BATCH-20261112-TOM-01'}"><div class="mt-3 border border-border-subtle rounded-xl p-3 text-sm space-y-1"><div class="flex justify-between"><span>Sản phẩm</span><b>Cà chua bi hữu cơ</b></div><div class="flex justify-between"><span>Thu hoạch</span><b class="font-mono">12/11/2026</b></div><div class="flex justify-between"><span>Hạn dùng</span><b class="font-mono">19/11/2026</b></div><div class="flex justify-between"><span>Nhật ký</span><b class="text-status-fresh">Bất biến, đã xác thực</b></div></div><button class="mt-3 w-full bg-brand-forest text-white font-bold rounded-lg h-11">Xem hồ sơ truy xuất đầy đủ</button>`,
+ cert:`<b class="text-lg flex items-center gap-2"><span data-i="shield" class="inline-flex w-5 h-5 text-brand-forest"></span>Chứng nhận</b><p class="text-sm text-gray-600 mt-2">GreenRoots Farm canh tác theo tiêu chuẩn VietGAP và USDA Organic. [SỐ CHỨNG NHẬN]</p>`};
+ m.innerHTML=H[w]+`<button data-close class="absolute top-3 right-3 w-10 h-10 flex items-center justify-center" aria-label="Đóng"><span data-i="x" class="inline-flex w-5 h-5"></span></button>`;
+ m.classList.remove('hidden');$('#ov').classList.remove('hidden');hyd()}
+function close(){$('#cart').classList.add('translate-x-full');$('#modal').classList.add('hidden');$('#ov').classList.add('hidden')}
+
+document.addEventListener('click',e=>{const t=e.target.closest('button,[data-side]');if(!t)return;
+ if(t.dataset.a){const id=t.dataset.id;cart[id]=Math.max(0,(cart[id]||0)+(t.dataset.a=='inc'?1:-1));if(!cart[id])delete cart[id];sync()}
+ else if(t.dataset.tab){tab=t.dataset.tab;shelves();sync()}
+ else if(t.dataset.open)open(t.dataset.open);
+ else if(t.dataset.pick){close()}
+ else if(t.dataset.close!==undefined)close();
+ else if(t.dataset.k){go(t.dataset.k,t.dataset.f)}
+ else if(t.id=='menuBtn')$('#side').scrollIntoView({behavior:'smooth'})});
+$('#ov').onclick=close;$('#searchForm').onsubmit=e=>{e.preventDefault();$('#fresh').scrollIntoView({behavior:'smooth'})};
+
+$('#side').innerHTML=SIDE.map(([i,l,k,f],x)=>`<button data-k="${k}" data-f="${typeof f=='string'?f:''}" class="shrink-0 flex items-center gap-3 px-3 h-11 rounded-lg text-sm font-semibold whitespace-nowrap hover:bg-green-50 ${x==0?'text-accent-harvest':'text-gray-800'} max-lg:bg-white max-lg:border max-lg:border-border-subtle"><span data-i="${i}" class="inline-flex w-5 h-5 ${x==0?'':'text-brand-forest'}"></span>${l}${x==0?'<span class="w-2 h-2 rounded-full bg-accent-harvest ml-auto"></span>':''}</button>`).join('');
+$('#quick').innerHTML=Q.map(([i,l,x])=>{const s=SIDE[x];return `<button data-k="${s[2]}" data-f="${typeof s[3]=='string'?s[3]:''}" class="shrink-0 w-24 lg:w-auto aspect-square bg-white border border-border-subtle rounded-xl flex flex-col items-center justify-center gap-2 text-xs font-semibold hover:border-brand-forest"><span class="w-10 h-10 rounded-full flex items-center justify-center ${x==0?'bg-orange-100 text-accent-harvest':'bg-green-50 text-brand-forest'}"><span data-i="${i}" class="inline-flex w-5 h-5"></span></span>${l}</button>`}).join('');
+let sec=17*3600+42*60+10;setInterval(()=>{sec=sec>0?sec-1:0;const f=n=>String(n).padStart(2,'0');$('#cd').textContent=`${f(sec/3600|0)}:${f(sec%3600/60|0)}:${f(sec%60)}`},1000);
+shelves();sync();hyd();
+</script>
+</body>
+</html>
