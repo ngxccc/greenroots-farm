@@ -22,6 +22,9 @@ GreenRoots Farm sells farm-grown produce through a storefront and operates produ
 | Waste Log           | A recorded loss of stock that requires approval.                                                                          | `WasteLogStatus`                    |
 | Complaint           | A customer-reported issue resolved within the 24-hour complaint window.                                                   | `ComplaintStatus`                   |
 | Payment Transaction | A payment or refund recorded against an order.                                                                            | `PaymentTransactionType`            |
+| Idempotency Key     | A UUID header (`Idempotency-Key`) caching mutation responses for 24 hours to prevent double-execution.                    | `ADR-0002`, API standards           |
+| Signed Media Upload | A backend HMAC SHA-256 signature granting direct client uploads to Cloudinary with strict size constraints.               | `ADR-0002`, `MEDIA_CONSTRAINTS`     |
+| Mail Queue          | An asynchronous BullMQ queue dispatching customer emails via Resend or an in-memory test driver.                          | `ADR-0002`, `MAIL_QUEUE_NAME`       |
 
 ## Invariants
 
@@ -30,3 +33,5 @@ GreenRoots Farm sells farm-grown produce through a storefront and operates produ
 - An order can transition only along the transitions defined by `OrderStatus`; cancelled and delivered are terminal.
 - A subscription has exactly one active delivery-day selection at a time.
 - Shared enums and constants are defined once in `packages/shared` and imported by apps. Apps MUST NOT redeclare them.
+- Mutating commands (checkout, payments, refunds) must be guarded with an `Idempotency-Key`; replays with matching payloads return cached responses, while mismatched payloads are rejected with `422`.
+- Media uploads are restricted to $\le 5\text{MB}$ for images and $\le 15\text{MB}$ for videos; oversized uploads are rejected at the signature boundary.

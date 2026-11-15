@@ -82,10 +82,16 @@ All error responses MUST follow **RFC 9457**:
 
 ## 6. Idempotency Key Handling
 
-- **Header**: `Idempotency-Key: <UUIDv7>`
-- **Required** for: `POST /api/v1/orders/checkout`, payment initiation, refunds.
-- Cache the response in Redis for 24 hours. A replay with the same key returns the original response.
-- Reusing a key with a different payload returns `422 Unprocessable`.
+- **Header**: `Idempotency-Key: <UUID>` (or UUIDv7). Missing or non-UUID headers on required routes return `400 Bad Request`.
+- **Required** for: `POST /api/v1/orders/checkout`, payment initiation, refunds, and mutating commands.
+- **Lifecycle & Cache**:
+  - Stores key in Redis under `idempotency:<UUID>` with `PROCESSING` status during execution (60s lock TTL).
+  - Caches completed response in Redis for 24 hours (`86400s`) under `COMPLETED` status.
+  - Replay with identical payload within 24h returns original cached status and body without re-executing business logic (`INV-IDEMP-1`).
+  - Replaying a key with a different payload returns `422 Unprocessable Entity` (`INV-IDEMP-2`).
+  - Concurrent requests while key is `PROCESSING` return `409 Conflict` (`INV-IDEMP-3`).
+  - When Redis connection fails during acquisition, the interceptor strictly **fails closed** returning `503 Service Unavailable` (`INV-IDEMP-4`).
+  - Downstream exception or database transaction rollback releases the key (`DEL idempotency:<key>`), allowing immediate client retry (`INV-IDEMP-5`).
 - Payment webhooks are idempotent by provider transaction ID, independent of the request header.
 
 ## 7. DTO Validation & Boundary Rules
@@ -94,3 +100,15 @@ All error responses MUST follow **RFC 9457**:
 - Use shared enums from `@greenroots/shared`; never redeclare statuses or roles in DTOs.
 - Reject unknown fields (`whitelist: true`, `forbidNonWhitelisted: true`).
 - DTOs never expose persistence entities, ORM relations, password hashes, or internal flags.
+
+## 8. Signed Media Upload API
+
+- **Endpoint**: `POST /api/v1/media/upload-signature`
+- **Payload**: `{ folder: "farming_logs" | "complaints" | "products", resourceType: "image" | "video", fileSizeBytes: number }`
+- **Strict Constraints**:
+  - Images $\le 5\text{MB}$ (`image/jpeg`, `image/png`, `image/webp`).
+  - Videos $\le 15\text{MB}$ (`video/mp4`, `video/quicktime`, `video/webm`).
+  - Oversized payloads rejected at HTTP boundary with `422 Unprocessable Entity` (`INV-MEDIA-1`).
+  - Invalid folder or MIME type rejected with `400 Bad Request`.
+- **Direct Client Upload**: Backend generates timestamp and HMAC SHA-256 signature using `CLOUDINARY_API_SECRET`. Client uploads directly to Cloudinary CDN via multipart form-data.
+- **Local Mock Fallback**: If `CLOUDINARY_API_SECRET` is unset, returns mock credentials for local development and offline testing.

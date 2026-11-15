@@ -13,7 +13,8 @@ Multi-context domain documentation. Read the glossary for every context you touc
 
 ## Repo-wide Decisions
 
-- `docs/adr/` — cross-context decisions (runtime, persistence, integrations, deployment).
+- `docs/adr/0001-backend-database-infrastructure.md` — Backend and database infrastructure baseline.
+- `docs/adr/0002-api-infra-idempotency-media-mail.md` — Offline OpenAPI generation, Idempotency interceptor, Mail/Cloudinary infra, and E2E test harness.
 
 ## Ownership Rules
 
