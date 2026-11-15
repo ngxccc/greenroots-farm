@@ -9,6 +9,14 @@ import {
 import { RedisService } from "./redis.service";
 import { canonicalJson } from "@/common/utils/canonical-json.util";
 import { sha256 } from "@/common/utils/crypto.util";
+import {
+  COMPLETED_CACHE_TTL_SECONDS,
+  IDEMPOTENCY_KEY_PREFIX,
+  IDEMPOTENCY_STATUS,
+  type IdempotencyStatus,
+  PROCESSING_LOCK_TTL_SECONDS,
+  UUID_V4_OR_V7_REGEX,
+} from "@/common/constants/idempotency.constant";
 
 export interface CachedResponse {
   statusCode: number;
@@ -21,19 +29,13 @@ export interface AcquireResult {
 }
 
 interface StoredIdempotencyRecord {
-  status: "PROCESSING" | "COMPLETED";
+  status: IdempotencyStatus;
   payloadHash: string;
   statusCode?: number;
   body?: unknown;
   createdAt: string;
   completedAt?: string;
 }
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const IDEMPOTENCY_KEY_PREFIX = "idempotency:";
-const PROCESSING_LOCK_TTL_SECONDS = 60;
-const COMPLETED_CACHE_TTL_SECONDS = 86_400; // 24 hours
 
 @Injectable()
 export class IdempotencyService {
@@ -46,7 +48,7 @@ export class IdempotencyService {
    * Fail-closed: Throws ServiceUnavailableException if Redis is down.
    */
   async acquire(key: string, body: unknown): Promise<AcquireResult> {
-    if (!UUID_REGEX.test(key)) {
+    if (!UUID_V4_OR_V7_REGEX.test(key)) {
       throw new BadRequestException(
         "Định dạng Idempotency-Key không hợp lệ, yêu cầu định dạng UUID",
       );
@@ -57,7 +59,7 @@ export class IdempotencyService {
     const client = this.redisService.getClient();
 
     const initialRecord: StoredIdempotencyRecord = {
-      status: "PROCESSING",
+      status: IDEMPOTENCY_STATUS.PROCESSING,
       payloadHash,
       createdAt: new Date().toISOString(),
     };
@@ -122,7 +124,7 @@ export class IdempotencyService {
       );
     }
 
-    if (stored.status === "PROCESSING") {
+    if (stored.status === IDEMPOTENCY_STATUS.PROCESSING) {
       throw new ConflictException(
         "Yêu cầu với khóa định danh này đang được xử lý, vui lòng thử lại sau",
       );
@@ -170,7 +172,7 @@ export class IdempotencyService {
       }
 
       const completedRecord: StoredIdempotencyRecord = {
-        status: "COMPLETED",
+        status: IDEMPOTENCY_STATUS.COMPLETED,
         payloadHash,
         statusCode,
         body,

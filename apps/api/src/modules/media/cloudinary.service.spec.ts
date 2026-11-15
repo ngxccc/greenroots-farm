@@ -1,62 +1,154 @@
-import { describe, expect, it } from "bun:test";
-import { UnprocessableEntityException } from "@nestjs/common";
+import {
+  describe,
+  expect,
+  it,
+  beforeEach,
+  afterEach,
+  spyOn,
+  setSystemTime,
+} from "bun:test";
+import { Logger, UnprocessableEntityException } from "@nestjs/common";
 import { CloudinaryService } from "./cloudinary.service";
 import { MEDIA_CONSTRAINTS } from "./media.interface";
+import { env } from "@/common/config/env.config";
 
-describe("CloudinaryService Integration", () => {
-  const service = new CloudinaryService();
+describe("CloudinaryService", () => {
+  const FIXED_EPOCH_SECONDS = 1700000000;
+  const FIXED_EPOCH_MS = FIXED_EPOCH_SECONDS * 1000;
 
-  it("should generate signed upload signature for valid image (<=5MB) (INV-MEDIA-1)", () => {
-    const validBytes = 4.5 * 1024 * 1024; // 4.5MB
-    const result = service.createUploadSignature({
-      resourceType: "image",
-      fileSizeBytes: validBytes,
-      folder: "farming_logs",
-    });
+  const TEST_CONFIG = {
+    API_KEY: "test-api-key-xyz",
+    API_SECRET: "test-api-secret-1234567890",
+    CLOUD_NAME: "greenroots-test",
+  } as const;
 
-    expect(result).toBeDefined();
-    expect(result.resourceType).toBe("image");
-    expect(result.folder).toBe("farming_logs");
-    expect(result.maxBytes).toBe(MEDIA_CONSTRAINTS.IMAGE.MAX_BYTES);
-    expect(result.signature).toBeDefined();
-    expect(result.timestamp).toBeGreaterThan(0);
+  // Ground truth hashes precomputed independently from Cloudinary signing specification:
+  // SHA-256(folder=farming_logs&timestamp=1700000000test-api-secret-1234567890)
+  const EXPECTED_IMAGE_SIGNATURE =
+    "ac802c871d0e4cb333d8d21ff9e35252b6e8b96eebf11b7d37dde6a4d7c05158";
+
+  // SHA-256(folder=complaints&timestamp=1700000000test-api-secret-1234567890)
+  const EXPECTED_VIDEO_SIGNATURE =
+    "ac6a3ea19df18adc64acab9b2754d07554d6cda9c71caa7a3d00c808860478a1";
+
+  const originalEnv = {
+    apiKey: env.CLOUDINARY_API_KEY,
+    apiSecret: env.CLOUDINARY_API_SECRET,
+    cloudName: env.CLOUDINARY_CLOUD_NAME,
+  };
+
+  let service: CloudinaryService;
+  let warnSpy: ReturnType<typeof spyOn>;
+  let errorSpy: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    setSystemTime(new Date(FIXED_EPOCH_MS));
+
+    warnSpy = spyOn(Logger.prototype, "warn").mockImplementation(
+      () => undefined,
+    );
+    errorSpy = spyOn(Logger.prototype, "error").mockImplementation(
+      () => undefined,
+    );
+
+    const envRecord = env as Record<string, unknown>;
+    envRecord["CLOUDINARY_API_KEY"] = TEST_CONFIG.API_KEY;
+    envRecord["CLOUDINARY_API_SECRET"] = TEST_CONFIG.API_SECRET;
+    envRecord["CLOUDINARY_CLOUD_NAME"] = TEST_CONFIG.CLOUD_NAME;
+
+    service = new CloudinaryService();
   });
 
-  it("should generate signed upload signature for valid video (<=15MB) (INV-MEDIA-1)", () => {
-    const validBytes = 14 * 1024 * 1024; // 14MB
-    const result = service.createUploadSignature({
-      resourceType: "video",
-      fileSizeBytes: validBytes,
-      folder: "complaints",
-    });
+  afterEach(() => {
+    setSystemTime();
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
 
-    expect(result).toBeDefined();
-    expect(result.resourceType).toBe("video");
-    expect(result.folder).toBe("complaints");
-    expect(result.maxBytes).toBe(MEDIA_CONSTRAINTS.VIDEO.MAX_BYTES);
+    const envRecord = env as Record<string, unknown>;
+    envRecord["CLOUDINARY_API_KEY"] = originalEnv.apiKey;
+    envRecord["CLOUDINARY_API_SECRET"] = originalEnv.apiSecret;
+    envRecord["CLOUDINARY_CLOUD_NAME"] = originalEnv.cloudName;
   });
 
-  it("should reject image exceeding 5MB with 422 Unprocessable Entity (INV-MEDIA-1)", () => {
-    const oversizedImageBytes = 5.2 * 1024 * 1024; // 5.2MB
-
-    expect(() =>
-      service.createUploadSignature({
+  describe("createUploadSignature", () => {
+    it("should generate signed upload signature when image file size is within 5MB limit", () => {
+      const result = service.createUploadSignature({
         resourceType: "image",
-        fileSizeBytes: oversizedImageBytes,
-        folder: "products",
-      }),
-    ).toThrow(UnprocessableEntityException);
-  });
+        fileSizeBytes: MEDIA_CONSTRAINTS.IMAGE.MAX_BYTES,
+        folder: "farming_logs",
+      });
 
-  it("should reject video exceeding 15MB with 422 Unprocessable Entity (INV-MEDIA-1)", () => {
-    const oversizedVideoBytes = 16 * 1024 * 1024; // 16MB
+      expect(result).toEqual({
+        signature: EXPECTED_IMAGE_SIGNATURE,
+        timestamp: FIXED_EPOCH_SECONDS,
+        apiKey: TEST_CONFIG.API_KEY,
+        cloudName: TEST_CONFIG.CLOUD_NAME,
+        folder: "farming_logs",
+        resourceType: "image",
+        maxBytes: 5 * 1024 * 1024,
+      });
+    });
 
-    expect(() =>
-      service.createUploadSignature({
+    it("should generate signed upload signature when video file size is within 15MB limit", () => {
+      const result = service.createUploadSignature({
         resourceType: "video",
-        fileSizeBytes: oversizedVideoBytes,
+        fileSizeBytes: MEDIA_CONSTRAINTS.VIDEO.MAX_BYTES,
         folder: "complaints",
-      }),
-    ).toThrow(UnprocessableEntityException);
+      });
+
+      expect(result).toEqual({
+        signature: EXPECTED_VIDEO_SIGNATURE,
+        timestamp: FIXED_EPOCH_SECONDS,
+        apiKey: TEST_CONFIG.API_KEY,
+        cloudName: TEST_CONFIG.CLOUD_NAME,
+        folder: "complaints",
+        resourceType: "video",
+        maxBytes: 15 * 1024 * 1024,
+      });
+    });
+
+    it("should reject with 422 Unprocessable Entity when image exceeds 5MB", () => {
+      const oversizedImageBytes = MEDIA_CONSTRAINTS.IMAGE.MAX_BYTES + 1;
+
+      expect(() =>
+        service.createUploadSignature({
+          resourceType: "image",
+          fileSizeBytes: oversizedImageBytes,
+          folder: "products",
+        }),
+      ).toThrow(UnprocessableEntityException);
+    });
+
+    it("should reject with 422 Unprocessable Entity when video exceeds 15MB", () => {
+      const oversizedVideoBytes = MEDIA_CONSTRAINTS.VIDEO.MAX_BYTES + 1;
+
+      expect(() =>
+        service.createUploadSignature({
+          resourceType: "video",
+          fileSizeBytes: oversizedVideoBytes,
+          folder: "complaints",
+        }),
+      ).toThrow(UnprocessableEntityException);
+    });
+
+    it("should generate mock signature when API secret is not configured", () => {
+      (env as Record<string, unknown>)["CLOUDINARY_API_SECRET"] = undefined;
+
+      const result = service.createUploadSignature({
+        resourceType: "image",
+        fileSizeBytes: 1024,
+        folder: "products",
+      });
+
+      expect(result).toEqual({
+        signature: `mock-signature-${FIXED_EPOCH_SECONDS}`,
+        timestamp: FIXED_EPOCH_SECONDS,
+        apiKey: TEST_CONFIG.API_KEY,
+        cloudName: TEST_CONFIG.CLOUD_NAME,
+        folder: "products",
+        resourceType: "image",
+        maxBytes: 5 * 1024 * 1024,
+      });
+    });
   });
 });

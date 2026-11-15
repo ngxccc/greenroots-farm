@@ -68,7 +68,7 @@ jobs:
     name: Migrations and Seed
     runs-on: ubuntu-22.04
     timeout-minutes: 15
-    services:
+    services: &services-db-redis
       postgres:
         image: postgres:18-alpine
         env:
@@ -91,7 +91,7 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-    env:
+    env: &env-db-redis
       DB_URL: postgresql://postgres:postgrespassword@localhost:5432/greenroots_farm
       REDIS_URL: redis://localhost:6379
     steps:
@@ -126,6 +126,8 @@ jobs:
     name: API
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    services: *services-db-redis
+    env: *env-db-redis
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -141,8 +143,8 @@ jobs:
       - name: Lint the API
         run: bun run lint:api
 
-      - name: Test the API
-        run: bun run test:api
+      - name: Test the API (Unit & E2E)
+        run: bun run test:api && bun run test:e2e
 
       - name: Build the API
         working-directory: apps/api

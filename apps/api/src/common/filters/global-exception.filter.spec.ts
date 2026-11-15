@@ -42,7 +42,7 @@ function createMockHost(url = "/api/v1/test") {
   return { response, host };
 }
 
-describe("GlobalExceptionFilter (RFC 9457)", () => {
+describe("GlobalExceptionFilter RFC 9457", () => {
   const filter = new GlobalExceptionFilter();
 
   test("maps PostgreSQL P0001 trigger rejection to HTTP 403", () => {

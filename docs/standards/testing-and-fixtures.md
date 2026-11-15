@@ -76,8 +76,10 @@ type OrderResponse = components["schemas"]["OrderResponseDto"];
 | Command                                       | Scope                                     |
 | :-------------------------------------------- | :---------------------------------------- |
 | `bun run test:shared`                         | `packages/shared/src/**/*.{test,spec}.ts` |
-| `bun run test:api`                            | `apps/api` test suite                     |
-| `bun run test`                                | Shared + API tests                        |
+| `bun run test:api`                            | `apps/api` unit test suite (in-memory)    |
+| `bun run test:e2e`                            | `apps/api/test/` supertest e2e suite      |
+| `bun run test`                                | Monorepo unit test suite (shared, apps)   |
+| `bun run test:all`                            | Complete test suite (unit + E2E)          |
 | `bun run test:storefront` / `test:backoffice` | App test suites once scaffolded           |
 
 - Unit-test pure domain logic and calculations.

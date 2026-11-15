@@ -40,7 +40,7 @@ describe("Mail Module Integration", () => {
     processor = new MailProcessor(mockDriver);
   });
 
-  describe("MailService (Producer)", () => {
+  describe("MailService Producer", () => {
     it("should enqueue a generic mail job with retry configuration", async () => {
       const payload: SendEmailPayload = {
         to: "customer@greenroots.farm",
@@ -89,7 +89,7 @@ describe("Mail Module Integration", () => {
     });
   });
 
-  describe("MailProcessor & MockMailDriver (Consumer)", () => {
+  describe("MailProcessor and MockMailDriver Consumer", () => {
     it("should process mail job and capture payload into MockMailDriver", async () => {
       const payload: SendEmailPayload = {
         to: "recipient@example.com",

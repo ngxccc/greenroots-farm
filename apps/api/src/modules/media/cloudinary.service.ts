@@ -3,7 +3,7 @@ import {
   Logger,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { createHash } from "node:crypto";
+import { sha256 } from "@/common/utils/crypto.util";
 import { env } from "@/common/config/env.config";
 import {
   MEDIA_CONSTRAINTS,
@@ -58,8 +58,7 @@ export class CloudinaryService {
     // Sort parameters alphabetically: folder=...&timestamp=...
     const paramsToSign = [`folder=${folder}`, `timestamp=${timestamp}`].sort();
     const stringToSign = `${paramsToSign.join("&")}${apiSecret}`;
-    const signature = createHash("sha1").update(stringToSign).digest("hex");
-
+    const signature = sha256(stringToSign);
     return {
       signature,
       timestamp,

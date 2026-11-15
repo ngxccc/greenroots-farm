@@ -7,7 +7,7 @@ import {
   verifyPassword,
 } from "./crypto.util";
 
-describe("password hashing (scrypt s1$<salt>$<hash>)", () => {
+describe("password hashing with scrypt", () => {
   test("produces a versioned scrypt hash", async () => {
     const hash = await hashPassword("GreenRoots@2026");
 

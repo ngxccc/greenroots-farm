@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, beforeEach } from "bun:test";
 import { firstValueFrom, of, throwError } from "rxjs";
 import {
   BadRequestException,
@@ -13,6 +13,7 @@ import type { IdempotencyService } from "@/common/services/idempotency.service";
 interface MockResponse extends Response {
   statusCode: number;
 }
+
 class TestContextController {
   checkout() {
     return "ok";
@@ -50,125 +51,147 @@ function createMockContext(
   return { context, request, response };
 }
 
-describe("IdempotencyInterceptor Integration", () => {
-  describe("POST with Idempotency-Key", () => {
-    it("should execute handler and return response on first request (INV-IDEMP-1)", async () => {
-      let completed = false;
-      const mockService = {
-        acquire: () => Promise.resolve({ isNew: true, cached: null }),
-        complete: () => {
-          completed = true;
-          return Promise.resolve();
-        },
-        release: () => Promise.resolve(),
-      } as unknown as IdempotencyService;
+describe("IdempotencyInterceptor", () => {
+  let completedKeys: string[];
+  let releasedKeys: string[];
+  let mockService: IdempotencyService;
 
-      const interceptor = new IdempotencyInterceptor(mockService);
-      const { context } = createMockContext({
-        "idempotency-key": "019318b7-657d-7848-8df0-e374528148b1",
+  beforeEach(() => {
+    completedKeys = [];
+    releasedKeys = [];
+    mockService = {
+      acquire: (_key: string) => Promise.resolve({ isNew: true, cached: null }),
+      complete: (key: string) => {
+        completedKeys.push(key);
+        return Promise.resolve();
+      },
+      release: (key: string) => {
+        releasedKeys.push(key);
+        return Promise.resolve();
+      },
+    } as unknown as IdempotencyService;
+  });
+
+  describe("intercept", () => {
+    const validKey = "019318b7-657d-7848-8df0-e374528148b1";
+
+    describe("when Idempotency-Key header is present", () => {
+      it("should execute handler and record completion when request is new", async () => {
+        const interceptor = new IdempotencyInterceptor(mockService);
+        const { context } = createMockContext({
+          "idempotency-key": validKey,
+        });
+
+        let handlerCalls = 0;
+        const callHandler: CallHandler = {
+          handle: () => {
+            handlerCalls++;
+            return of({ success: true, data: { orderId: "order-123" } });
+          },
+        };
+
+        const result = await firstValueFrom(
+          interceptor.intercept(context, callHandler),
+        );
+
+        expect(handlerCalls).toBe(1);
+        expect(completedKeys).toContain(validKey);
+        expect(result).toEqual({
+          success: true,
+          data: { orderId: "order-123" },
+        });
       });
 
-      let handlerCalls = 0;
-      const callHandler: CallHandler = {
-        handle: () => {
-          handlerCalls++;
-          return of({ success: true, data: { orderId: "order-123" } });
-        },
-      };
+      it("should return cached response and skip handler execution when request is replayed", async () => {
+        const cachedService = {
+          acquire: () =>
+            Promise.resolve({
+              isNew: false,
+              cached: { statusCode: 201, body: { orderId: "cached-123" } },
+            }),
+          complete: () => Promise.resolve(),
+          release: () => Promise.resolve(),
+        } as unknown as IdempotencyService;
 
-      const result = await firstValueFrom(
-        interceptor.intercept(context, callHandler),
-      );
+        const interceptor = new IdempotencyInterceptor(cachedService);
+        const { context, response } = createMockContext({
+          "idempotency-key": validKey,
+        });
 
-      expect(handlerCalls).toBe(1);
-      expect(completed).toBe(true);
-      expect(result).toEqual({ success: true, data: { orderId: "order-123" } });
-    });
+        let handlerCalls = 0;
+        const callHandler: CallHandler = {
+          handle: () => {
+            handlerCalls++;
+            return of({ success: true });
+          },
+        };
 
-    it("should return cached response and skip handler execution on replay (INV-IDEMP-1)", async () => {
-      const mockService = {
-        acquire: () =>
-          Promise.resolve({
-            isNew: false,
-            cached: { statusCode: 201, body: { orderId: "cached-123" } },
-          }),
-        complete: () => Promise.resolve(),
-        release: () => Promise.resolve(),
-      } as unknown as IdempotencyService;
+        const result = await firstValueFrom(
+          interceptor.intercept(context, callHandler),
+        );
 
-      const interceptor = new IdempotencyInterceptor(mockService);
-      const { context, response } = createMockContext({
-        "idempotency-key": "019318b7-657d-7848-8df0-e374528148b1",
+        expect(handlerCalls).toBe(0);
+        expect(response.statusCode).toBe(201);
+        expect(result).toEqual({ orderId: "cached-123" });
       });
 
-      let handlerCalls = 0;
-      const callHandler: CallHandler = {
-        handle: () => {
-          handlerCalls++;
-          return of({ success: true });
-        },
-      };
+      it("should release key when downstream handler throws an error", () => {
+        const interceptor = new IdempotencyInterceptor(mockService);
+        const { context } = createMockContext({ "idempotency-key": validKey });
 
-      const result = await firstValueFrom(
-        interceptor.intercept(context, callHandler),
-      );
+        const callHandler: CallHandler = {
+          handle: () =>
+            throwError(() => new Error("Database transaction rolled back")),
+        };
 
-      expect(handlerCalls).toBe(0);
-      expect(response.statusCode).toBe(201);
-      expect(result).toEqual({ orderId: "cached-123" });
+        expect(
+          firstValueFrom(interceptor.intercept(context, callHandler)),
+        ).rejects.toThrow("Database transaction rolled back");
+
+        expect(releasedKeys).toContain(validKey);
+      });
     });
 
-    it("should release key if handler throws an error (INV-IDEMP-5)", async () => {
-      let releasedKey: string | undefined;
-      const mockService = {
-        acquire: () => Promise.resolve({ isNew: true, cached: null }),
-        complete: () => Promise.resolve(),
-        release: (k: string) => {
-          releasedKey = k;
-          return Promise.resolve();
-        },
-      } as unknown as IdempotencyService;
+    describe("when Idempotency-Key header is missing", () => {
+      it("should reject with 400 Bad Request when route requires idempotency", () => {
+        const mockReflector = {
+          getAllAndOverride: () => ({ required: true }),
+        } as unknown as Reflector;
 
-      const interceptor = new IdempotencyInterceptor(mockService);
-      const testKey = "019318b7-657d-7848-8df0-e374528148b1";
-      const { context } = createMockContext({ "idempotency-key": testKey });
+        const interceptor = new IdempotencyInterceptor(
+          mockService,
+          mockReflector,
+        );
+        const { context } = createMockContext({});
 
-      const callHandler: CallHandler = {
-        handle: () =>
-          throwError(() => new Error("Database transaction rolled back")),
-      };
+        const callHandler: CallHandler = {
+          handle: () => of({ success: true }),
+        };
 
-      let caughtError: Error | undefined;
-      try {
-        await firstValueFrom(interceptor.intercept(context, callHandler));
-      } catch (err) {
-        caughtError = err as Error;
-      }
+        expect(() => interceptor.intercept(context, callHandler)).toThrow(
+          BadRequestException,
+        );
+      });
 
-      expect(caughtError).toBeDefined();
-      expect(caughtError?.message).toBe("Database transaction rolled back");
-      expect(releasedKey).toBe(testKey);
-    });
+      it("should pass through to next handler when route does not require idempotency", async () => {
+        const interceptor = new IdempotencyInterceptor(mockService);
+        const { context } = createMockContext({});
 
-    it("should reject with 400 Bad Request when header is required but missing", () => {
-      const mockService = {} as unknown as IdempotencyService;
-      const mockReflector = {
-        getAllAndOverride: () => ({ required: true }),
-      } as unknown as Reflector;
+        let handlerCalled = false;
+        const callHandler: CallHandler = {
+          handle: () => {
+            handlerCalled = true;
+            return of({ success: true, passthrough: true });
+          },
+        };
 
-      const interceptor = new IdempotencyInterceptor(
-        mockService,
-        mockReflector,
-      );
-      const { context } = createMockContext({}); // No Idempotency-Key header
+        const result = await firstValueFrom(
+          interceptor.intercept(context, callHandler),
+        );
 
-      const callHandler: CallHandler = {
-        handle: () => of({ success: true }),
-      };
-
-      expect(() => interceptor.intercept(context, callHandler)).toThrow(
-        BadRequestException,
-      );
+        expect(handlerCalled).toBe(true);
+        expect(result).toEqual({ success: true, passthrough: true });
+      });
     });
   });
 });

@@ -1,6 +1,15 @@
 import { describe, expect, it, beforeAll, afterAll } from "bun:test";
 import request from "supertest";
-import { type INestApplication } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  type INestApplication,
+  InternalServerErrorException,
+  Post,
+} from "@nestjs/common";
+import { Idempotent } from "@/common/decorators/idempotent.decorator";
+import { Public } from "@/common/decorators/public.decorator";
+import { apiSuccess } from "@/common/utils/api-response.util";
 import { randomUUID } from "node:crypto";
 import {
   createTestApp,
@@ -9,12 +18,34 @@ import {
 } from "../helpers/app.helper";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
 
+@Public()
+@Controller()
+class TestIdempotentController {
+  @Post("test/idempotent-mutation")
+  @Idempotent({ required: true })
+  testMutation(@Body() body: Record<string, unknown>) {
+    if (body.simulateError === true) {
+      throw new InternalServerErrorException(
+        "Mô phỏng lỗi giao dịch để kiểm tra giải phóng khóa Idempotency",
+      );
+    }
+    return apiSuccess({
+      status: "processed",
+      echo: body,
+      executionId: randomUUID(),
+      processedAt: new Date().toISOString(),
+    });
+  }
+}
+
 describe("Idempotency Interceptor E2E Integration", () => {
   let setup: TestAppSetup;
   let app: INestApplication;
 
   beforeAll(async () => {
-    setup = await createTestApp();
+    setup = await createTestApp({
+      controllers: [TestIdempotentController],
+    });
     app = setup.app;
   }, 30000);
 
@@ -48,7 +79,7 @@ describe("Idempotency Interceptor E2E Integration", () => {
     });
   });
 
-  describe("INV-IDEMP-1: Cache Replay Consistency within 24h", () => {
+  describe("Cache Replay Consistency within 24h", () => {
     it("should process initial request and return identical cached response on replay without re-executing", async () => {
       const key = randomUUID();
       const payload = {
@@ -82,7 +113,7 @@ describe("Idempotency Interceptor E2E Integration", () => {
     });
   });
 
-  describe("INV-IDEMP-2: Payload Mismatch Detection", () => {
+  describe("Payload Mismatch Detection", () => {
     it("should return 422 Unprocessable Entity when same key is reused with a different body", async () => {
       const key = randomUUID();
 
@@ -107,7 +138,7 @@ describe("Idempotency Interceptor E2E Integration", () => {
     });
   });
 
-  describe("INV-IDEMP-5: Error Rollback and Key Release", () => {
+  describe("Error Rollback and Key Release", () => {
     it("should release idempotency key when request fails, allowing subsequent retry", async () => {
       const key = randomUUID();
       const payload = { test: "rollback", simulateError: true };
