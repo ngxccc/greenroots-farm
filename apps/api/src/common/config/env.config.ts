@@ -36,6 +36,16 @@ const envSchema = z.object({
     ),
   JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
+
+  // Mail (Resend) configuration
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default("GreenRoots Farm <no-reply@greenroots.farm>"),
+  FRONTEND_URL: z.string().default("http://localhost:3000"),
+
+  // Cloudinary media storage configuration
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 export type ApiEnvironment = z.infer<typeof envSchema>;

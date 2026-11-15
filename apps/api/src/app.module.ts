@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
-import { APP_FILTER, APP_GUARD, APP_PIPE } from "@nestjs/core";
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
+import { IdempotencyInterceptor } from "@/common/interceptors/idempotency.interceptor";
 import { BullModule } from "@nestjs/bullmq";
 import { ConfigModule } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
@@ -17,6 +18,8 @@ import { CatalogModule } from "@/modules/catalog/catalog.module";
 import { FarmsModule } from "@/modules/farms/farms.module";
 import { InventoryModule } from "@/modules/inventory/inventory.module";
 import { UsersModule } from "@/modules/users/users.module";
+import { MailModule } from "@/modules/mail/mail.module";
+import { MediaModule } from "@/modules/media/media.module";
 
 @Module({
   imports: [
@@ -36,11 +39,14 @@ import { UsersModule } from "@/modules/users/users.module";
     FarmsModule,
     CatalogModule,
     InventoryModule,
+    MailModule,
+    MediaModule,
   ],
   controllers: [AppController],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     { provide: APP_PIPE, useClass: ZodValidationPipe },
   ],

@@ -1,7 +1,7 @@
 {
   "*.{ts,tsx,js,jsx}": [
-    "oxfmt",
+    "oxfmt --no-error-on-unmatched-pattern",
     "oxlint --type-aware --fix --no-error-on-unmatched-pattern"
   ],
-  "*.{json,yml,yaml,md}": ["oxfmt"]
+  "*.{json,yml,yaml,md}": ["oxfmt --no-error-on-unmatched-pattern"]
 }

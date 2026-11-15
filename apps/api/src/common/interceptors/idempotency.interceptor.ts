@@ -60,6 +60,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
                 response.statusCode,
                 body,
                 options?.ttlSeconds,
+                request.body,
               );
             },
             error: () => {

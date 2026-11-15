@@ -19,12 +19,12 @@ async function generate(): Promise<void> {
     // Set global prefix to match runtime main.ts
     app.setGlobalPrefix("api/v1");
     const document = createOpenApiDocument(app);
+    const jsonContent = JSON.stringify(document, null, 2);
 
     // 1. Output openapi.json at apps/api/openapi.json
     const currentDir = fileURLToPath(new URL(".", import.meta.url));
     const openApiPath = resolve(currentDir, "../openapi.json");
     writeFileSync(openApiPath, `${jsonContent}\n`, "utf-8");
-
     // 2. Generate TypeScript AST and serialize to string
     const ast = await openapiTS(document);
     const generatedTypes = astToString(ast);

@@ -1,3 +1,4 @@
+import { ZodError } from "zod";
 import {
   type ArgumentsHost,
   Catch,
@@ -114,6 +115,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       detail = this.normalizeDetail(parsed.detail, status);
       invalidParams = parsed.invalidParams;
       title = this.readExceptionError(exception);
+    } else if (exception instanceof ZodError) {
+      status = HttpStatus.BAD_REQUEST;
+      detail = MESSAGES.VALIDATION.INVALID_INPUT;
+      title = HTTP_TITLES[HttpStatus.BAD_REQUEST];
+      invalidParams = exception.issues.map((issue) => ({
+        name: issue.path.join("."),
+        reason: issue.message,
+      }));
     } else {
       const databaseError = extractDatabaseErrorDetails(exception);
 

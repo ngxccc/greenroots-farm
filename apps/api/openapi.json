@@ -54,6 +54,36 @@
           "health"
         ]
       }
+    },
+    "/api/v1/test/idempotent-mutation": {
+      "post": {
+        "operationId": "AppController_testMutation",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Test endpoint for idempotency chaos and failure injection",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/media/upload-signature": {
+      "post": {
+        "operationId": "MediaController_getUploadSignature",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Generate Cloudinary signed upload signature (<=5MB image, <=15MB video)",
+        "tags": [
+          "media"
+        ]
+      }
     }
   },
   "info": {

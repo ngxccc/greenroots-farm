@@ -56,7 +56,38 @@ export class IdempotencyService {
     const redisKey = `${IDEMPOTENCY_KEY_PREFIX}${key}`;
     const client = this.redisService.getClient();
 
-    let rawRecord: string | null;
+    const initialRecord: StoredIdempotencyRecord = {
+      status: "PROCESSING",
+      payloadHash,
+      createdAt: new Date().toISOString(),
+    };
+
+    let setResult: string | null = null;
+    try {
+      setResult = await client.set(
+        redisKey,
+        JSON.stringify(initialRecord),
+        "EX",
+        PROCESSING_LOCK_TTL_SECONDS,
+        "NX",
+      );
+    } catch (error) {
+      this.logger.error(
+        `Redis failure acquiring idempotency lock: ${key}`,
+        error,
+      );
+      throw new ServiceUnavailableException(
+        "Dịch vụ Idempotency tạm thời không khả dụng, vui lòng thử lại",
+      );
+    }
+
+    // If NX succeeded, key was completely new: lock acquired in 1 round trip
+    if (setResult === "OK") {
+      return { isNew: true, cached: null };
+    }
+
+    // Key already exists (either concurrent PROCESSING or COMPLETED)
+    let rawRecord: string | null = null;
     try {
       rawRecord = await client.get(redisKey);
     } catch (error) {
@@ -70,39 +101,10 @@ export class IdempotencyService {
     }
 
     if (!rawRecord) {
-      const initialRecord: StoredIdempotencyRecord = {
-        status: "PROCESSING",
-        payloadHash,
-        createdAt: new Date().toISOString(),
-      };
-
-      try {
-        const setResult = await client.set(
-          redisKey,
-          JSON.stringify(initialRecord),
-          "EX",
-          PROCESSING_LOCK_TTL_SECONDS,
-          "NX",
-        );
-
-        if (setResult !== "OK") {
-          // Another concurrent worker acquired the key simultaneously
-          throw new ConflictException(
-            "Yêu cầu với khóa định danh này đang được xử lý, vui lòng thử lại sau",
-          );
-        }
-
-        return { isNew: true, cached: null };
-      } catch (error) {
-        if (error instanceof ConflictException) throw error;
-        this.logger.error(
-          `Redis failure acquiring idempotency lock: ${key}`,
-          error,
-        );
-        throw new ServiceUnavailableException(
-          "Dịch vụ Idempotency tạm thời không khả dụng, vui lòng thử lại",
-        );
-      }
+      // In case the key expired between SET NX and GET, treat as concurrent contention
+      throw new ConflictException(
+        "Yêu cầu với khóa định danh này đang được xử lý, vui lòng thử lại sau",
+      );
     }
 
     let stored: StoredIdempotencyRecord;
@@ -143,22 +145,36 @@ export class IdempotencyService {
     statusCode: number,
     body: unknown,
     ttlSeconds = COMPLETED_CACHE_TTL_SECONDS,
+    requestPayload?: unknown,
   ): Promise<void> {
     const redisKey = `${IDEMPOTENCY_KEY_PREFIX}${key}`;
     const client = this.redisService.getClient();
 
     try {
-      const existingRaw = await client.get(redisKey);
-      const existing = existingRaw
-        ? (JSON.parse(existingRaw) as StoredIdempotencyRecord)
-        : null;
+      let payloadHash = "";
+      let createdAt = new Date().toISOString();
+
+      if (requestPayload !== undefined) {
+        payloadHash = sha256(canonicalJson(requestPayload));
+      } else {
+        const existingRaw = await client.get(redisKey);
+        if (existingRaw) {
+          try {
+            const existing = JSON.parse(existingRaw) as StoredIdempotencyRecord;
+            payloadHash = existing.payloadHash;
+            createdAt = existing.createdAt;
+          } catch {
+            // Ignore parse errors on fallback
+          }
+        }
+      }
 
       const completedRecord: StoredIdempotencyRecord = {
         status: "COMPLETED",
-        payloadHash: existing?.payloadHash ?? "",
+        payloadHash,
         statusCode,
         body,
-        createdAt: existing?.createdAt ?? new Date().toISOString(),
+        createdAt,
         completedAt: new Date().toISOString(),
       };
 
