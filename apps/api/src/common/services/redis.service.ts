@@ -37,6 +37,12 @@ export class RedisService implements OnModuleDestroy {
       // EventEmitter's default unhandled-error behaviour.
     });
   }
+  /**
+   * Returns the underlying Redis client for fail-closed critical sections.
+   */
+  getClient(): Redis {
+    return this.client;
+  }
 
   /**
    * Returns whether the user's access tokens are revoked.

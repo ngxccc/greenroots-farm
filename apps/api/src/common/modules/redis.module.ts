@@ -1,13 +1,14 @@
 import { Global, Module } from "@nestjs/common";
 import { RedisService } from "@/common/services/redis.service";
+import { IdempotencyService } from "@/common/services/idempotency.service";
+import { IdempotencyInterceptor } from "@/common/interceptors/idempotency.interceptor";
 
 /**
- * Global Redis connection provider. BullMQ reuses the same parsed connection
- * options from `AppModule`; no queue workers are registered in this step.
+ * Global Redis connection and Idempotency provider.
  */
 @Global()
 @Module({
-  providers: [RedisService],
-  exports: [RedisService],
+  providers: [RedisService, IdempotencyService, IdempotencyInterceptor],
+  exports: [RedisService, IdempotencyService, IdempotencyInterceptor],
 })
 export class RedisModule {}
