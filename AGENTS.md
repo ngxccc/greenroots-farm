@@ -27,17 +27,24 @@ GreenRoots Farm — farm-to-customer commerce monorepo (Bun workspaces, TypeScri
 
 ## Commands
 
-| Command                  | Purpose                             |
-| ------------------------ | ----------------------------------- |
-| `bun install`            | Install workspace dependencies      |
-| `bun run docker:up`      | Start PostgreSQL + Redis            |
-| `bun run docker:down`    | Stop PostgreSQL + Redis             |
-| `bun run dev:api`        | Run API in watch mode               |
-| `bun run dev:storefront` | Run storefront                      |
-| `bun run dev:backoffice` | Run backoffice                      |
-| `bun run check`          | Type-check + lint all workspaces    |
-| `bun run test`           | Run shared + API + storefront tests |
-| `bun run format`         | Format with oxfmt                   |
+| Command                          | Purpose                                             |
+| -------------------------------- | --------------------------------------------------- |
+| `bun install`                    | Install workspace dependencies                      |
+| `bun run docker:up`              | Start PostgreSQL + Redis                            |
+| `bun run docker:down`            | Stop PostgreSQL + Redis                             |
+| `bun run dev`                    | Run all workspaces in parallel via Bun              |
+| `bun run dev:api`                | Run API in watch mode                               |
+| `bun run dev:storefront`         | Run storefront                                      |
+| `bun run dev:backoffice`         | Run backoffice                                      |
+| `bun run doppler:dev`            | Run all workspaces with Doppler secrets             |
+| `bun run doppler:dev:api`        | Run API with Doppler secrets                        |
+| `bun run doppler:dev:storefront` | Run storefront with Doppler secrets                 |
+| `bun run doppler:dev:backoffice` | Run backoffice with Doppler secrets                 |
+| `bun run types:sync`             | Offline OpenAPI generation & sync TypeScript types  |
+| `bun run check`                  | Type-check + lint all workspaces                    |
+| `bun run test`                   | Run fast unit tests across all workspaces (offline) |
+| `bun run test:e2e`               | Run API E2E integration tests (requires Docker)     |
+| `bun run format`                 | Format with oxfmt                                   |
 
 ## Release
 

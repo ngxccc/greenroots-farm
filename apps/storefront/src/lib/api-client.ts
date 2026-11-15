@@ -64,7 +64,7 @@ const serverCookieBridgeMiddleware: Middleware = {
  * Strictly server-side OpenAPI client with automatic `httpOnly` cookie bridging (Q28).
  */
 export const api = createClient<paths>({
-  baseUrl: env.BACKEND_API_URL,
+  baseUrl: env.API_BASE_URL,
 });
 
 api.use(serverCookieBridgeMiddleware);

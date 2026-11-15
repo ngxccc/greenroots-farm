@@ -45,10 +45,7 @@ export default defineConfig({
         port: Number(process.env["DB_PORT"] ?? 5432),
         user: process.env["DB_USERNAME"] ?? "postgres",
         password: process.env["DB_PASSWORD"] ?? "postgrespassword",
-        database:
-          process.env["DB_NAME"] ??
-          process.env["DB_DATABASE"] ??
-          "greenroots_farm",
+        database: process.env["DB_NAME"] ?? "greenroots_farm",
         ssl: false,
       },
   introspect: {

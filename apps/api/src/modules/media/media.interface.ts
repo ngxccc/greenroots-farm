@@ -21,10 +21,12 @@ export const ALLOWED_MEDIA_FOLDERS = [
 ] as const;
 
 export type MediaFolder = (typeof ALLOWED_MEDIA_FOLDERS)[number];
-export type MediaResourceType = "image" | "video";
+
+export const MEDIA_RESOURCE_TYPES = ["image", "video"] as const;
+export type MediaResourceType = (typeof MEDIA_RESOURCE_TYPES)[number];
 
 export const signedUploadSchema = z.object({
-  resourceType: z.enum(["image", "video"]).default("image"),
+  resourceType: z.enum(MEDIA_RESOURCE_TYPES).default("image"),
   fileSizeBytes: z.number().int().positive(),
   folder: z.enum(ALLOWED_MEDIA_FOLDERS),
 });

@@ -13,12 +13,14 @@
     "db:seed": "bun src/database/seeds/index.ts",
     "dev": "nest start --watch --exec bun",
     "doppler:db:migrate": "doppler run -- bun run db:migrate",
+    "doppler:db:push": "doppler run -- bun run db:push",
     "doppler:db:seed": "doppler run -- bun run db:seed",
     "doppler:dev": "doppler run -- bun run dev",
     "lint": "oxlint --type-aware src",
     "openapi:generate": "bun scripts/generate-openapi.ts",
     "start": "bun dist/main.js",
-    "test": "bun test src/ && bun test test/",
+    "test": "bun test src/",
+    "test:all": "bun test src/ && bun test test/",
     "test:e2e": "bun test test/"
   },
   "dependencies": {

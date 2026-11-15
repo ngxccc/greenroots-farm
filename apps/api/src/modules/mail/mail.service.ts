@@ -44,7 +44,7 @@ export class MailService {
     fullName: string,
     token: string,
   ): Promise<void> {
-    const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${token}`;
+    const verifyUrl = `${env.STOREFRONT_URL}/verify-email?token=${token}`;
     const subject = "Xác thực tài khoản - GreenRoots Farm";
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -76,7 +76,7 @@ export class MailService {
     fullName: string,
     token: string,
   ): Promise<void> {
-    const resetUrl = `${env.FRONTEND_URL}/reset-password?token=${token}`;
+    const resetUrl = `${env.STOREFRONT_URL}/reset-password?token=${token}`;
     const subject = "Yêu cầu đặt lại mật khẩu - GreenRoots Farm";
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">

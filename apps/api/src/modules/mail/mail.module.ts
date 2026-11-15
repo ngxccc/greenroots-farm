@@ -20,9 +20,13 @@ import { ResendMailDriver } from "./drivers/resend-mail.driver";
     {
       provide: MAIL_DRIVER_TOKEN,
       useFactory: (mock: MockMailDriver, resend: ResendMailDriver) => {
-        // Use Resend in production or whenever an API key is explicitly supplied;
-        // fallback to MockMailDriver for local offline development and tests.
-        if (env.RESEND_API_KEY && env.NODE_ENV === "production") {
+        // Explicit driver toggle: only activate Resend when MAIL_DRIVER=resend and an API key is supplied;
+        // fallback to MockMailDriver for offline development and always during tests.
+        if (
+          env.NODE_ENV !== "test" &&
+          env.MAIL_DRIVER === "resend" &&
+          env.RESEND_API_KEY
+        ) {
           return resend;
         }
         return mock;
