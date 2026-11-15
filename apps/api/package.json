@@ -16,6 +16,7 @@
     "doppler:db:seed": "doppler run -- bun run db:seed",
     "doppler:dev": "doppler run -- bun run dev",
     "lint": "oxlint --type-aware src",
+    "openapi:generate": "bun scripts/generate-openapi.ts",
     "start": "bun dist/main.js",
     "test": "bun test src/"
   },
@@ -48,6 +49,7 @@
     "@types/node": "catalog:",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^1.0.0-rc.5-ab785fc",
+    "openapi-typescript": "^7.13.0",
     "typescript": "catalog:"
   }
 }

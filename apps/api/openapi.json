@@ -1,0 +1,99 @@
+{
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "operationId": "AppController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "System health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "example": "ok"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Hệ thống đang hoạt động bình thường"
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-11-14T00:00:00.000Z"
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "message",
+                        "timestamp"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "System health check",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "GreenRoots Farm API",
+    "description": "GreenRoots Farm - Single-farm D2C commerce and operations API: authentication, users, farm traceability, catalog and FEFO inventory.",
+    "version": "0.0.1",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Authentication, sessions and password recovery"
+    },
+    {
+      "name": "users",
+      "description": "Profiles, staff accounts and delivery addresses"
+    },
+    {
+      "name": "farms",
+      "description": "Farm settings, plots, seasons and traceability"
+    },
+    {
+      "name": "catalog",
+      "description": "Categories, products and subscription plans"
+    },
+    {
+      "name": "inventory",
+      "description": "Batches, FEFO allocations and waste write-offs"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Format: Bearer <access_token>"
+      }
+    },
+    "schemas": {}
+  }
+}

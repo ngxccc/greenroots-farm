@@ -50,6 +50,7 @@
         "@types/node": "catalog:",
         "@types/pg": "^8.23.1",
         "drizzle-kit": "^1.0.0-rc.5-ab785fc",
+        "openapi-typescript": "^7.13.0",
         "typescript": "catalog:",
       },
     },
