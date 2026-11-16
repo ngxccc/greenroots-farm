@@ -1,8 +1,9 @@
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { apiReference } from "@scalar/nestjs-api-reference";
 import type { INestApplication } from "@nestjs/common";
-import type { Request, Response } from "express";
+import { type Request, type Response } from "express";
 import { API_VERSION } from "./version.config";
+import { cleanupOpenApiDoc } from "nestjs-zod";
 
 /**
  * Builds the OpenAPI 3.1 document for the GreenRoots Farm API.
@@ -31,7 +32,8 @@ export function createOpenApiDocument(app: INestApplication) {
     )
     .build();
 
-  return SwaggerModule.createDocument(app, config);
+  const rawDocument = SwaggerModule.createDocument(app, config);
+  return cleanupOpenApiDoc(rawDocument);
 }
 
 /**

@@ -13,6 +13,7 @@ import {
 } from "./database.helper";
 import { parseRedisOptions } from "@/common/config/redis.config";
 import { env } from "@/common/config/env.config";
+import { setupGlobalPrefix } from "@/common/config/api-prefix.config";
 import { ZodValidationPipe } from "@/common/pipes/zod-validation.pipe";
 import { GlobalExceptionFilter } from "@/common/filters/global-exception.filter";
 import { probeInfrastructure } from "./infra-probe.helper";
@@ -107,7 +108,7 @@ export async function createTestApp(
     .compile();
 
   const app = moduleFixture.createNestApplication();
-  app.setGlobalPrefix("api/v1");
+  setupGlobalPrefix(app);
   app.useGlobalPipes(new ZodValidationPipe());
   app.useGlobalFilters(new GlobalExceptionFilter());
 

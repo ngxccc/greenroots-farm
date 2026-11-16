@@ -4,6 +4,7 @@ import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { env } from "./common/config/env.config";
+import { setupGlobalPrefix } from "./common/config/api-prefix.config";
 import { setupOpenApiAndScalar } from "./common/config/openapi.config";
 import { resolveLogLevels } from "./common/constants/environment.constant";
 
@@ -34,8 +35,8 @@ async function bootstrap(): Promise<void> {
     credentials: true,
   });
 
-  // All controllers live under /api/v1; docs are mounted outside the prefix.
-  app.setGlobalPrefix("api/v1");
+  // Enforces /api prefix and native URI versioning (v1) across all controllers
+  setupGlobalPrefix(app);
 
   setupOpenApiAndScalar(app);
 

@@ -33,6 +33,11 @@ export const MESSAGES = {
     INVALID_VALUE: "Giá trị không hợp lệ",
     INVALID_UUID: "Định dạng UUID không hợp lệ",
   },
+  MEDIA: {
+    FOLDER_ACCESS_DENIED: "Bạn không có quyền tải lên thư mục này",
+    FILE_TOO_LARGE: "Kích thước tập tin vượt quá giới hạn cho phép",
+    INVALID_UPLOAD_REQUEST: "Dữ liệu yêu cầu chữ ký tải lên không hợp lệ",
+  },
   DATABASE: {
     IMMUTABLE_RECORD:
       "Bản ghi nhật ký canh tác là bất biến, không được phép sửa hoặc xóa",

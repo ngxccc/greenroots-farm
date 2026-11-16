@@ -1,11 +1,15 @@
 import {
+  ForbiddenException,
   Injectable,
   Logger,
   UnprocessableEntityException,
 } from "@nestjs/common";
+import type { UserRole } from "@greenroots/shared";
+import { MESSAGES } from "@/common/constants/messages.constant";
 import { sha256 } from "@/common/utils/crypto.util";
 import { env } from "@/common/config/env.config";
 import {
+  FOLDER_PERMISSIONS,
   MEDIA_CONSTRAINTS,
   type CloudinarySignatureResult,
   type SignedUploadInput,
@@ -17,10 +21,20 @@ export class CloudinaryService {
 
   /**
    * Generates a signed upload signature for direct client-to-Cloudinary uploads.
-   * Enforces INV-MEDIA-1 (<=5MB for images, <=15MB for videos).
+   * Enforces INV-MEDIA-1 (<=5MB for images, <=15MB for videos) and role-to-folder permissions.
    */
-  createUploadSignature(input: SignedUploadInput): CloudinarySignatureResult {
+  createUploadSignature(
+    input: SignedUploadInput,
+    userRole?: UserRole,
+  ): CloudinarySignatureResult {
     const { resourceType, fileSizeBytes, folder } = input;
+
+    if (userRole) {
+      const allowedRoles = FOLDER_PERMISSIONS[folder];
+      if (!allowedRoles.includes(userRole)) {
+        throw new ForbiddenException(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED);
+      }
+    }
 
     const maxAllowedBytes =
       resourceType === "video"

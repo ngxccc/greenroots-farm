@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { NestFactory } from "@nestjs/core";
 import openapiTS, { astToString } from "openapi-typescript";
 import { AppModule } from "../src/app.module";
+import { setupGlobalPrefix } from "../src/common/config/api-prefix.config";
 import { createOpenApiDocument } from "../src/common/config/openapi.config";
 
 /**
@@ -16,8 +17,8 @@ async function generate(): Promise<void> {
   const app = await NestFactory.create(AppModule, { logger: false });
 
   try {
-    // Set global prefix to match runtime main.ts
-    app.setGlobalPrefix("api/v1");
+    // Enforce global prefix and URI versioning to match runtime main.ts
+    setupGlobalPrefix(app);
     const document = createOpenApiDocument(app);
     const jsonContent = JSON.stringify(document, null, 2);
 

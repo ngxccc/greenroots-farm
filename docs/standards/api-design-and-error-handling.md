@@ -112,3 +112,82 @@ All error responses MUST follow **RFC 9457**:
   - Invalid folder or MIME type rejected with `400 Bad Request`.
 - **Direct Client Upload**: Backend generates timestamp and HMAC SHA-256 signature using `CLOUDINARY_API_SECRET`. Client uploads directly to Cloudinary CDN via multipart form-data.
 - **Local Mock Fallback**: If `CLOUDINARY_API_SECRET` is unset, returns mock credentials for local development and offline testing.
+
+## 9. Controller Route Constants & OpenAPI Decorator Standards
+
+To guarantee strict SSOT, eliminate typos, and keep OpenAPI documentation in sync across the monorepo, all NestJS controllers MUST adhere to the following standards:
+
+### 9.1 Centralized Route Constants (`<module>.routes.ts`)
+
+- **PROHIBITION**: Never hardcode route paths or Swagger tags as raw string literals in controllers (e.g. `@Controller("media")` or `@Post("upload-signature")`).
+- **MANDATORY**: Every domain module MUST declare a `<module>.routes.ts` file exporting frozen route constants:
+  ```typescript
+  export const MEDIA_ROUTES = {
+    TAG: "media",
+    BASE: "media",
+    UPLOAD_SIGNATURE: "upload-signature",
+  } as const;
+  ```
+- Use `ROUTES.TAG` in `@ApiTags(...)`, `ROUTES.BASE` in `@Controller(...)`, and action constants in `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`.
+
+### 9.2 Request & Response DTOs (`createZodDto`)
+
+- **PROHIBITION**: Never type `@Body()` or `@Query()` using raw TypeScript `interface` or `type`. TypeScript interfaces vanish at compile time, causing `@nestjs/swagger` to produce empty request bodies and breaking downstream type sync in `@greenroots/storefront` and `@greenroots/backoffice`.
+- **MANDATORY**:
+  - Define input validation schemas with Zod and export concrete DTO classes using `createZodDto(schema)`.
+  - Define response payload schemas with Zod and export concrete response DTO classes using `createZodDto(responseSchema)`.
+  - Store module-specific DTOs in `src/modules/<module>/dto/`.
+
+### 9.3 Mandatory Decorator Suite
+
+Every controller endpoint MUST declare its OpenAPI contracts and error specifications using the standard decorator library (`@/common/decorators`):
+
+1. **Authentication & Authorization**:
+   - Public endpoints: `@Public()`
+   - Authenticated/Role-guarded endpoints: `@ApiAuth(...roles: UserRole[])` (automatically attaches `@ApiBearerAuth()`, `@ApiUnauthorizedResponseRfc9457()`, and `@ApiForbiddenResponseRfc9457()`).
+2. **Endpoint Description**:
+   - `@ApiOperation({ summary: "Short imperative summary", description: "Detailed behavioral description" })`
+3. **Successful Response Envelope**:
+   - Single resource (200 OK): `@ApiOkResponseGeneric(ResponseDto)`
+   - Created resource (201 Created): `@ApiCreatedResponseGeneric(ResponseDto)`
+   - Paginated resource (200 OK): `@ApiOkResponsePaginated(ItemDto)`
+   - Empty/Command response: `@ApiOkResponseGeneric()` or `@ApiCreatedResponseGeneric()`
+4. **RFC 9457 Error Responses & OpenAPI Language Rule**:
+   - **OpenAPI / Swagger Documentation (100% English)**: All `@ApiOperation`, `@Api*Response`, descriptions, and schema examples must be written in English for API consumers and tooling.
+   - **Runtime User Responses (Vietnamese)**: Runtime error messages returned in RFC 9457 `detail` or success payloads use Vietnamese from `MESSAGES` / shared error dictionary.
+   - Declare expected error statuses explicitly: `@ApiBadRequestResponseRfc9457()`, `@ApiNotFoundResponseRfc9457()`, `@ApiConflictResponseRfc9457()`, `@ApiUnprocessableEntityResponseRfc9457()`, `@ApiInternalServerErrorResponseRfc9457()`.
+
+### 9.4 Controller Implementation Pattern
+
+```typescript
+@ApiTags(MEDIA_ROUTES.TAG)
+@Controller({ path: MEDIA_ROUTES.BASE, version: "1" })
+export class MediaController {
+  constructor(private readonly cloudinaryService: CloudinaryService) {}
+
+  @ApiAuth()
+  @Post(MEDIA_ROUTES.UPLOAD_SIGNATURE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Generate Cloudinary signed upload signature (<=5MB image, <=15MB video)",
+    description:
+      "Generates an HMAC SHA-256 signature and upload parameters for client-side direct uploads without streaming files through API memory.",
+  })
+  @ApiOkResponseGeneric(SignedUploadResponseDto)
+  @ApiBadRequestResponseRfc9457()
+  @ApiForbiddenResponseRfc9457()
+  @ApiUnprocessableEntityResponseRfc9457()
+  @ApiInternalServerErrorResponseRfc9457()
+  getUploadSignature(
+    @Body() dto: SignedUploadDto,
+    @CurrentUser() user: JwtPayload,
+  ): ApiResponse<CloudinarySignatureResult> {
+    const signatureData = this.cloudinaryService.createUploadSignature(
+      dto,
+      user.role,
+    );
+    return apiSuccess(signatureData);
+  }
+}
+```

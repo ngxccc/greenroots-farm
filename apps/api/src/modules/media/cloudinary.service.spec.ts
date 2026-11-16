@@ -7,9 +7,15 @@ import {
   spyOn,
   setSystemTime,
 } from "bun:test";
-import { Logger, UnprocessableEntityException } from "@nestjs/common";
+import {
+  ForbiddenException,
+  Logger,
+  UnprocessableEntityException,
+} from "@nestjs/common";
+import { UserRole } from "@greenroots/shared";
 import { CloudinaryService } from "./cloudinary.service";
 import { MEDIA_CONSTRAINTS } from "./media.interface";
+import { MESSAGES } from "@/common/constants/messages.constant";
 import { env } from "@/common/config/env.config";
 
 describe("CloudinaryService", () => {
@@ -148,6 +154,126 @@ describe("CloudinaryService", () => {
         folder: "products",
         resourceType: "image",
         maxBytes: 5 * 1024 * 1024,
+      });
+    });
+
+    describe("folder-to-role permissions", () => {
+      it("should permit CUSTOMER to request signature for complaints folder", () => {
+        const result = service.createUploadSignature(
+          {
+            resourceType: "image",
+            fileSizeBytes: 1024,
+            folder: "complaints",
+          },
+          UserRole.CUSTOMER,
+        );
+
+        expect(result.folder).toBe("complaints");
+      });
+
+      it("should forbid CUSTOMER from requesting signature for products folder", () => {
+        expect(() =>
+          service.createUploadSignature(
+            {
+              resourceType: "image",
+              fileSizeBytes: 1024,
+              folder: "products",
+            },
+            UserRole.CUSTOMER,
+          ),
+        ).toThrow(new ForbiddenException(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED));
+      });
+
+      it("should forbid CUSTOMER from requesting signature for farming_logs folder", () => {
+        expect(() =>
+          service.createUploadSignature(
+            {
+              resourceType: "image",
+              fileSizeBytes: 1024,
+              folder: "farming_logs",
+            },
+            UserRole.CUSTOMER,
+          ),
+        ).toThrow(new ForbiddenException(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED));
+      });
+
+      it("should permit FARM_STAFF for farming_logs and waste_logs, but forbid products", () => {
+        const farmResult = service.createUploadSignature(
+          {
+            resourceType: "image",
+            fileSizeBytes: 1024,
+            folder: "farming_logs",
+          },
+          UserRole.FARM_STAFF,
+        );
+        expect(farmResult.folder).toBe("farming_logs");
+
+        const wasteResult = service.createUploadSignature(
+          {
+            resourceType: "image",
+            fileSizeBytes: 1024,
+            folder: "waste_logs",
+          },
+          UserRole.FARM_STAFF,
+        );
+        expect(wasteResult.folder).toBe("waste_logs");
+
+        expect(() =>
+          service.createUploadSignature(
+            {
+              resourceType: "image",
+              fileSizeBytes: 1024,
+              folder: "products",
+            },
+            UserRole.FARM_STAFF,
+          ),
+        ).toThrow(new ForbiddenException(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED));
+      });
+
+      it("should permit SALES for products, but forbid farming_logs", () => {
+        const result = service.createUploadSignature(
+          {
+            resourceType: "image",
+            fileSizeBytes: 1024,
+            folder: "products",
+          },
+          UserRole.SALES,
+        );
+        expect(result.folder).toBe("products");
+
+        expect(() =>
+          service.createUploadSignature(
+            {
+              resourceType: "image",
+              fileSizeBytes: 1024,
+              folder: "farming_logs",
+            },
+            UserRole.SALES,
+          ),
+        ).toThrow(new ForbiddenException(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED));
+      });
+
+      it("should permit ADMIN and SUPER_ADMIN for all folders", () => {
+        const folders = [
+          "farming_logs",
+          "complaints",
+          "products",
+          "waste_logs",
+        ] as const;
+
+        for (const folder of folders) {
+          const adminResult = service.createUploadSignature(
+            { resourceType: "image", fileSizeBytes: 1024, folder },
+            UserRole.ADMIN,
+          );
+          expect(adminResult.folder).toBe(folder);
+
+          const superAdminResult = service.createUploadSignature(
+            { resourceType: "image", fileSizeBytes: 1024, folder },
+            UserRole.SUPER_ADMIN,
+          );
+          expect(superAdminResult.folder).toBe(folder);
+        }
       });
     });
   });

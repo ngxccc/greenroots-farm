@@ -3,7 +3,7 @@
   "paths": {
     "/api/v1/health": {
       "get": {
-        "operationId": "AppController_health",
+        "operationId": "AppController_health_v1",
         "parameters": [],
         "responses": {
           "200": {
@@ -26,7 +26,7 @@
                         },
                         "message": {
                           "type": "string",
-                          "example": "Hệ thống đang hoạt động bình thường"
+                          "example": "System is healthy and operational"
                         },
                         "timestamp": {
                           "type": "string",
@@ -57,13 +57,147 @@
     },
     "/api/v1/media/upload-signature": {
       "post": {
-        "operationId": "MediaController_getUploadSignature",
+        "description": "Generates an HMAC SHA-256 signature and upload parameters for client-side direct asset uploads to Cloudinary without streaming files through API memory.",
+        "operationId": "MediaController_getUploadSignature_v1",
         "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignedUploadDto"
+              }
+            }
           }
         },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SignedUploadResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid token (Unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unauthorized",
+                  "title": "Unauthorized",
+                  "status": 401,
+                  "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden resource access (Forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/forbidden",
+                  "title": "Forbidden",
+                  "status": 403,
+                  "detail": "You do not have permission to perform this action",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Semantic validation failure (Unprocessable Entity)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unprocessable-entity",
+                  "title": "Unprocessable Entity",
+                  "status": 422,
+                  "detail": "The request was well-formed but could not be processed due to semantic errors",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Generate Cloudinary signed upload signature (<=5MB image, <=15MB video)",
         "tags": [
           "media"
@@ -109,6 +243,178 @@
         "description": "Format: Bearer <access_token>"
       }
     },
-    "schemas": {}
+    "schemas": {
+      "InvalidParamDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Invalid field name or payload property path",
+            "example": "email"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Detailed reason for the validation failure",
+            "example": "Invalid email format"
+          }
+        },
+        "required": [
+          "name",
+          "reason"
+        ]
+      },
+      "Rfc9457ErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Standard HTTP error type URI relative to error dictionary",
+            "example": "/errors/bad-request"
+          },
+          "title": {
+            "type": "string",
+            "description": "Standard HTTP error title",
+            "example": "Bad Request"
+          },
+          "status": {
+            "type": "number",
+            "description": "HTTP status code",
+            "example": 400
+          },
+          "detail": {
+            "type": "string",
+            "description": "Human-readable explanation specific to this occurrence of the problem",
+            "example": "Submitted data format is invalid"
+          },
+          "instance": {
+            "type": "string",
+            "description": "API request URI that triggered the error",
+            "example": "/api/v1/auth/register"
+          },
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code",
+            "example": "INVALID_INPUT"
+          },
+          "invalidParams": {
+            "description": "List of invalid parameters that failed validation",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvalidParamDto"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Timestamp when error occurred in ISO 8601 format",
+            "example": "2026-11-16T00:00:00.000Z"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "instance",
+          "timestamp"
+        ]
+      },
+      "ApiResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Operation success status flag",
+            "example": true
+          }
+        },
+        "required": [
+          "success"
+        ]
+      },
+      "SignedUploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string",
+            "description": "Cloudinary SHA-256 HMAC signature"
+          },
+          "timestamp": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Unix timestamp in seconds used for signature computation"
+          },
+          "apiKey": {
+            "type": "string",
+            "description": "Cloudinary public API key"
+          },
+          "cloudName": {
+            "type": "string",
+            "description": "Cloudinary cloud name"
+          },
+          "folder": {
+            "type": "string",
+            "description": "Target Cloudinary folder"
+          },
+          "resourceType": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ],
+            "description": "Resource type: image or video"
+          },
+          "maxBytes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Maximum allowed file size in bytes"
+          }
+        },
+        "required": [
+          "signature",
+          "timestamp",
+          "apiKey",
+          "cloudName",
+          "folder",
+          "resourceType",
+          "maxBytes"
+        ]
+      },
+      "SignedUploadDto": {
+        "type": "object",
+        "properties": {
+          "resourceType": {
+            "default": "image",
+            "description": "Asset media type: image or video",
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ]
+          },
+          "fileSizeBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "description": "File size in bytes (image <= 5MB, video <= 15MB)"
+          },
+          "folder": {
+            "type": "string",
+            "enum": [
+              "farming_logs",
+              "complaints",
+              "products",
+              "waste_logs"
+            ],
+            "description": "Target asset storage folder with role authorization"
+          }
+        },
+        "required": [
+          "fileSizeBytes",
+          "folder"
+        ]
+      }
+    }
   }
 }

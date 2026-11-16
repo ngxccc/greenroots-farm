@@ -4,7 +4,7 @@ import { Public } from "@/common/decorators/public.decorator";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { apiSuccess } from "@/common/utils/api-response.util";
 @ApiTags("health")
-@Controller()
+@Controller({ version: "1" })
 export class AppController {
   @Public()
   @Get("health")
@@ -19,7 +19,10 @@ export class AppController {
           type: "object",
           properties: {
             status: { type: "string", example: "ok" },
-            message: { type: "string", example: MESSAGES.COMMON.HEALTHY },
+            message: {
+              type: "string",
+              example: "System is healthy and operational",
+            },
             timestamp: { type: "string", example: "2026-11-14T00:00:00.000Z" },
           },
           required: ["status", "message", "timestamp"],

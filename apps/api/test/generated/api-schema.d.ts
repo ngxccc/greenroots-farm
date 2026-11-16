@@ -12,7 +12,7 @@ export interface paths {
             cookie?: never;
         };
         /** System health check */
-        get: operations["AppController_health"];
+        get: operations["AppController_health_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -30,8 +30,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Generate Cloudinary signed upload signature (<=5MB image, <=15MB video) */
-        post: operations["MediaController_getUploadSignature"];
+        /**
+         * Generate Cloudinary signed upload signature (<=5MB image, <=15MB video)
+         * @description Generates an HMAC SHA-256 signature and upload parameters for client-side direct asset uploads to Cloudinary without streaming files through API memory.
+         */
+        post: operations["MediaController_getUploadSignature_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41,7 +44,100 @@ export interface paths {
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        InvalidParamDto: {
+            /**
+             * @description Invalid field name or payload property path
+             * @example email
+             */
+            name: string;
+            /**
+             * @description Detailed reason for the validation failure
+             * @example Invalid email format
+             */
+            reason: string;
+        };
+        Rfc9457ErrorResponseDto: {
+            /**
+             * @description Standard HTTP error type URI relative to error dictionary
+             * @example /errors/bad-request
+             */
+            type: string;
+            /**
+             * @description Standard HTTP error title
+             * @example Bad Request
+             */
+            title: string;
+            /**
+             * @description HTTP status code
+             * @example 400
+             */
+            status: number;
+            /**
+             * @description Human-readable explanation specific to this occurrence of the problem
+             * @example Submitted data format is invalid
+             */
+            detail: string;
+            /**
+             * @description API request URI that triggered the error
+             * @example /api/v1/auth/register
+             */
+            instance: string;
+            /**
+             * @description Machine-readable error code
+             * @example INVALID_INPUT
+             */
+            code?: string;
+            /** @description List of invalid parameters that failed validation */
+            invalidParams?: components["schemas"]["InvalidParamDto"][];
+            /**
+             * @description Timestamp when error occurred in ISO 8601 format
+             * @example 2026-11-16T00:00:00.000Z
+             */
+            timestamp: string;
+        };
+        ApiResponseDto: {
+            /**
+             * @description Operation success status flag
+             * @example true
+             */
+            success: boolean;
+        };
+        SignedUploadResponseDto: {
+            /** @description Cloudinary SHA-256 HMAC signature */
+            signature: string;
+            /** @description Unix timestamp in seconds used for signature computation */
+            timestamp: number;
+            /** @description Cloudinary public API key */
+            apiKey: string;
+            /** @description Cloudinary cloud name */
+            cloudName: string;
+            /** @description Target Cloudinary folder */
+            folder: string;
+            /**
+             * @description Resource type: image or video
+             * @enum {string}
+             */
+            resourceType: "image" | "video";
+            /** @description Maximum allowed file size in bytes */
+            maxBytes: number;
+        };
+        SignedUploadDto: {
+            /**
+             * @description Asset media type: image or video
+             * @default image
+             * @enum {string}
+             */
+            resourceType: "image" | "video";
+            /** @description File size in bytes (image <= 5MB, video <= 15MB) */
+            fileSizeBytes: number;
+            /**
+             * @description Target asset storage folder with role authorization
+             * @enum {string}
+             */
+            folder: "farming_logs" | "complaints" | "products" | "waste_logs";
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
@@ -50,7 +146,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    AppController_health: {
+    AppController_health_v1: {
         parameters: {
             query?: never;
             header?: never;
@@ -71,7 +167,7 @@ export interface operations {
                         data: {
                             /** @example ok */
                             status: string;
-                            /** @example Hệ thống đang hoạt động bình thường */
+                            /** @example System is healthy and operational */
                             message: string;
                             /** @example 2026-11-14T00:00:00.000Z */
                             timestamp: string;
@@ -81,20 +177,133 @@ export interface operations {
             };
         };
     };
-    MediaController_getUploadSignature: {
+    MediaController_getUploadSignature_v1: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignedUploadDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data?: components["schemas"]["SignedUploadResponseDto"];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Semantic validation failure (Unprocessable Entity) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unprocessable-entity",
+                     *       "title": "Unprocessable Entity",
+                     *       "status": 422,
+                     *       "detail": "The request was well-formed but could not be processed due to semantic errors",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
             };
         };
     };
