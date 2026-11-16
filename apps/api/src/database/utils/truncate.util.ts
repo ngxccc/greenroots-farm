@@ -23,7 +23,9 @@ export async function truncateAllTables(
     sql`SELECT tablename FROM pg_tables WHERE schemaname = ${schemaName};`,
   );
 
-  const tables = (result.rows as { tablename: string }[])
+  const queryResult = Array.isArray(result) ? result[0] : result;
+
+  const tables = ((queryResult?.rows ?? []) as { tablename: string }[])
     .map((row) => row.tablename)
     .filter((table) => table !== "__drizzle_migrations");
 
