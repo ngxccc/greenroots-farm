@@ -1,7 +1,7 @@
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { apiReference } from "@scalar/nestjs-api-reference";
 import type { INestApplication } from "@nestjs/common";
-import { type Request, type Response } from "express";
+import type { Request, Response } from "express";
 import { API_VERSION } from "./version.config";
 import { cleanupOpenApiDoc } from "nestjs-zod";
 

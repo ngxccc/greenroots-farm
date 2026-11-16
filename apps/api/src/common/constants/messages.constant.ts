@@ -31,7 +31,12 @@ export const MESSAGES = {
   VALIDATION: {
     INVALID_INPUT: "Dữ liệu gửi lên không đúng định dạng",
     INVALID_VALUE: "Giá trị không hợp lệ",
+    REQUIRED: "Trường này là bắt buộc",
+    INVALID_TYPE: "Kiểu dữ liệu không hợp lệ",
+    INVALID_EMAIL: "Định dạng email không hợp lệ",
     INVALID_UUID: "Định dạng UUID không hợp lệ",
+    INVALID_URL: "Định dạng URL không hợp lệ",
+    UNRECOGNIZED_KEY: "Trường không được hỗ trợ",
   },
   MEDIA: {
     FOLDER_ACCESS_DENIED: "Bạn không có quyền tải lên thư mục này",
