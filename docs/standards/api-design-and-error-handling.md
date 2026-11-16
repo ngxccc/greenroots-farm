@@ -191,3 +191,28 @@ export class MediaController {
   }
 }
 ```
+
+---
+
+## 10. Rate Limiting & Throttler Architecture
+
+All API endpoints are protected by `CustomThrottlerGuard` backed by `@nest-lab/throttler-storage-redis`.
+
+### 10.1 Named Throttler Tiers
+
+- **`default`**: 100 requests / 60 seconds (applied repo-wide to standard CRUD operations).
+- **`public`**: 300 requests / 60 seconds (catalog browsing, health checks).
+- **`auth`**: 5 requests / 60 seconds in production (100 in dev/test) for sensitive auth and signature routes (`/login`, `/register`, `/upload-signature`).
+
+### 10.2 Guard Pipeline Execution Order
+
+`CustomThrottlerGuard` is mounted as the first `APP_GUARD` in `AppModule`:
+
+1. `CustomThrottlerGuard`: Drops volumetric traffic at the gateway before CPU-intensive JWT verification or DB queries.
+2. `JwtAuthGuard`: Authenticates JWT token and checks Redis revocation blacklist.
+3. `RolesGuard`: Enforces role-based access control.
+
+### 10.3 Fail-Open Resilience & 429 Problem Details
+
+- **Fail-Open Invariant**: In accordance with `concurrency-and-locking.md`, rate limiting must never take down the platform. If Redis stalls or check exceeds a 2-second timeout, `CustomThrottlerGuard` logs a warning and allows the request through.
+- **Problem Details Response**: When limits are exceeded, throws HTTP 429 formatted by `GlobalExceptionFilter` as `type: "/errors/too-many-requests"` with `detail: MESSAGES.COMMON.TOO_MANY_REQUESTS`.
