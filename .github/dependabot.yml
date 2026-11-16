@@ -22,7 +22,6 @@ updates:
     groups:
       workspace-dependencies:
         patterns: ["*"]
-        update-types: ["minor", "patch"]
 
   # ── GitHub Actions Workflows & Composite Actions ──
   - package-ecosystem: "github-actions"
