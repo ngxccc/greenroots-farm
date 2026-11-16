@@ -11,6 +11,7 @@ import {
   createAuthenticatedAdmin,
   createAuthenticatedUser,
 } from "../helpers/auth.helper";
+import { MESSAGES } from "@/common/constants/messages.constant";
 import type {
   InvalidParam,
   Rfc9457ProblemDetails,
@@ -80,7 +81,7 @@ describe("Media Module Integration", () => {
       expect(body.title).toBe("Forbidden");
       expect(body.type).toBe("/errors/forbidden");
       expect(body.instance).toBe("/api/v1/media/upload-signature");
-      expect(body.detail).toBe("Bạn không có quyền tải lên thư mục này");
+      expect(body.detail).toBe(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED);
     });
 
     it("should reject with 403 Forbidden when CUSTOMER requests signature for products", async () => {
@@ -101,7 +102,7 @@ describe("Media Module Integration", () => {
       expect(body.title).toBe("Forbidden");
       expect(body.type).toBe("/errors/forbidden");
       expect(body.instance).toBe("/api/v1/media/upload-signature");
-      expect(body.detail).toBe("Bạn không có quyền tải lên thư mục này");
+      expect(body.detail).toBe(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED);
     });
 
     it("should generate valid signed upload parameters when admin requests farming_logs under 5MB limit", async () => {
