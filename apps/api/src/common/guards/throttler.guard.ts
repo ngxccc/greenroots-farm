@@ -6,6 +6,7 @@ import {
   type ExecutionContext,
 } from "@nestjs/common";
 import { ThrottlerGuard, type ThrottlerLimitDetail } from "@nestjs/throttler";
+import { API_ERROR_CODES } from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import { MESSAGES } from "@/common/constants/messages.constant";
 
@@ -59,6 +60,7 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
   ): Promise<void> {
     throw new HttpException(
       {
+        code: API_ERROR_CODES.TOO_MANY_REQUESTS,
         detail: MESSAGES.COMMON.TOO_MANY_REQUESTS,
       },
       HttpStatus.TOO_MANY_REQUESTS,

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import type { ArgumentsHost } from "@nestjs/common";
+import { API_ERROR_CODES } from "@greenroots/shared";
 import type { Request, Response } from "express";
 import { GlobalExceptionFilter } from "./global-exception.filter";
 import { MESSAGES } from "@/common/constants/messages.constant";
@@ -58,6 +59,7 @@ describe("GlobalExceptionFilter RFC 9457", () => {
     expect(response.statusCode).toBe(403);
     expect(response.headers["Content-Type"]).toBe("application/problem+json");
     expect(response.body?.["type"]).toBe("/errors/forbidden");
+    expect(response.body?.["code"]).toBe(API_ERROR_CODES.FARMING_LOG_IMMUTABLE);
     expect(response.body?.["detail"]).toBe(MESSAGES.DATABASE.IMMUTABLE_RECORD);
   });
 
@@ -72,6 +74,7 @@ describe("GlobalExceptionFilter RFC 9457", () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.body?.["type"]).toBe("/errors/conflict");
+    expect(response.body?.["code"]).toBe(API_ERROR_CODES.FOREIGN_KEY_VIOLATION);
     expect(response.body?.["detail"]).toBe(
       MESSAGES.DATABASE.FOREIGN_KEY_VIOLATION,
     );
@@ -88,22 +91,36 @@ describe("GlobalExceptionFilter RFC 9457", () => {
 
     expect(response.statusCode).toBe(422);
     expect(response.body?.["type"]).toBe("/errors/unprocessable-entity");
+    expect(response.body?.["code"]).toBe(API_ERROR_CODES.CHECK_VIOLATION);
     expect(response.body?.["detail"]).toBe(MESSAGES.DATABASE.CHECK_VIOLATION);
   });
 
   test("preserves invalidParams and problem shape for HTTP exceptions", () => {
     const { response, host } = createMockHost("/api/v1/auth/login");
     const exception = new BadRequestException({
+      code: API_ERROR_CODES.VALIDATION_FAILED,
       detail: MESSAGES.VALIDATION.INVALID_INPUT,
-      invalidParams: [{ name: "email", reason: "Email không hợp lệ" }],
+      invalidParams: [
+        {
+          name: "email",
+          code: API_ERROR_CODES.INVALID_EMAIL,
+          reason: "Invalid email format",
+        },
+      ],
     });
 
     filter.catch(exception, host);
 
     expect(response.statusCode).toBe(400);
+    expect(response.body?.["code"]).toBe(API_ERROR_CODES.VALIDATION_FAILED);
     expect(response.body?.["instance"]).toBe("/api/v1/auth/login");
     expect(response.body?.["invalidParams"]).toEqual([
-      { name: "email", reason: "Email không hợp lệ" },
+      {
+        name: "email",
+        code: API_ERROR_CODES.INVALID_EMAIL,
+        reason: "Invalid email format",
+        params: undefined,
+      },
     ]);
     expect(typeof response.body?.["timestamp"]).toBe("string");
   });
@@ -115,6 +132,7 @@ describe("GlobalExceptionFilter RFC 9457", () => {
 
     expect(response.statusCode).toBe(404);
     expect(response.body?.["type"]).toBe("/errors/not-found");
+    expect(response.body?.["code"]).toBe(API_ERROR_CODES.NOT_FOUND);
     expect(response.body?.["detail"]).toBe(MESSAGES.COMMON.NOT_FOUND);
     expect(response.body?.["invalidParams"]).toEqual([]);
   });

@@ -1,64 +1,64 @@
 /**
- * Centralized Vietnamese API messages.
- *
- * Every user-facing API message lives here. Application code MUST NOT inline
- * Vietnamese notification strings (nestjs-i18n is intentionally not used).
+ * Developer-facing RFC 9457 English messages and status descriptions.
+ * User-facing localized copy is mapped on the client via @greenroots/shared API_ERROR_DICTIONARY.
  */
 export const MESSAGES = {
   COMMON: {
-    SUCCESS: "Thao tác thành công",
-    BAD_REQUEST: "Yêu cầu không hợp lệ",
-    UNAUTHORIZED: "Bạn cần đăng nhập để tiếp tục",
-    FORBIDDEN: "Bạn không có quyền thực hiện thao tác này",
-    NOT_FOUND: "Không tìm thấy tài nguyên yêu cầu",
-    CONFLICT: "Dữ liệu bị xung đột, vui lòng thử lại",
-    UNPROCESSABLE_ENTITY: "Dữ liệu không thể xử lý",
-    TOO_MANY_REQUESTS: "Bạn đã gửi quá nhiều yêu cầu, vui lòng thử lại sau",
-    INTERNAL_SERVER_ERROR: "Đã xảy ra lỗi hệ thống, vui lòng thử lại sau",
-    SERVICE_UNAVAILABLE: "Dịch vụ tạm thời không khả dụng",
-    GATEWAY_TIMEOUT: "Hệ thống xử lý quá thời gian, vui lòng thử lại",
-    HEALTHY: "Hệ thống đang hoạt động bình thường",
+    SUCCESS: "Operation completed successfully.",
+    BAD_REQUEST: "The request payload failed validation or was malformed.",
+    UNAUTHORIZED: "Authentication credentials are required or invalid.",
+    FORBIDDEN: "You do not have permission to access this resource.",
+    NOT_FOUND: "The requested resource was not found.",
+    CONFLICT: "The request conflicts with current server state.",
+    UNPROCESSABLE_ENTITY:
+      "The request is syntactically valid but cannot be processed.",
+    TOO_MANY_REQUESTS:
+      "Too many requests. Please slow down and try again later.",
+    INTERNAL_SERVER_ERROR: "An unexpected internal server error occurred.",
+    SERVICE_UNAVAILABLE: "The service is temporarily unavailable.",
+    GATEWAY_TIMEOUT: "The gateway timed out waiting for upstream services.",
+    HEALTHY: "System is healthy.",
   },
   AUTH: {
-    TOKEN_MISSING: "Không tìm thấy access token trong yêu cầu",
-    TOKEN_INVALID_OR_EXPIRED: "Access token không hợp lệ hoặc đã hết hạn",
-    TOKEN_REVOKED: "Phiên đăng nhập đã bị thu hồi, vui lòng đăng nhập lại",
+    TOKEN_MISSING: "Access token is missing from authorization header.",
+    TOKEN_INVALID_OR_EXPIRED: "Access token is invalid or expired.",
+    TOKEN_REVOKED: "Session has been revoked. Please sign in again.",
     REDIS_REVOCATION_UNAVAILABLE:
-      "Không thể kiểm tra danh sách thu hồi token trên Redis, tạm thời cho phép yêu cầu",
-    REDIS_REVOCATION_RECOVERED:
-      "Đã kết nối lại Redis, tiếp tục kiểm tra danh sách thu hồi token",
+      "Unable to verify token revocation with Redis. Failing open temporarily.",
+    REDIS_REVOCATION_RECOVERED: "Redis token revocation connection restored.",
   },
   VALIDATION: {
-    INVALID_INPUT: "Dữ liệu gửi lên không đúng định dạng",
-    INVALID_VALUE: "Giá trị không hợp lệ",
-    REQUIRED: "Trường này là bắt buộc",
-    INVALID_TYPE: "Kiểu dữ liệu không hợp lệ",
-    INVALID_EMAIL: "Định dạng email không hợp lệ",
-    INVALID_UUID: "Định dạng UUID không hợp lệ",
-    INVALID_URL: "Định dạng URL không hợp lệ",
-    INVALID_PHONE:
-      "Số điện thoại không hợp lệ (yêu cầu 10 số di động Việt Nam)",
-    INVALID_TAX_ID: "Mã số thuế không hợp lệ",
-    PASSWORD_UPPERCASE: "Mật khẩu phải chứa ít nhất 1 chữ cái in hoa",
-    PASSWORD_NUMBER: "Mật khẩu phải chứa ít nhất 1 chữ số",
-    PASSWORD_SPECIAL: "Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt",
-    UNRECOGNIZED_KEY: "Trường không được hỗ trợ",
+    INVALID_INPUT: "The request payload failed schema validation.",
+    INVALID_VALUE: "The provided value is invalid.",
+    REQUIRED: "Field is required.",
+    INVALID_TYPE: "Invalid data type provided.",
+    INVALID_EMAIL: "Invalid email address format.",
+    INVALID_UUID: "Invalid UUID format.",
+    INVALID_URL: "Invalid URL format.",
+    INVALID_PHONE: "Invalid phone number format.",
+    INVALID_TAX_ID: "Invalid tax identification number.",
+    PASSWORD_UPPERCASE: "Password must contain at least 1 uppercase letter.",
+    PASSWORD_NUMBER: "Password must contain at least 1 number.",
+    PASSWORD_SPECIAL: "Password must contain at least 1 special character.",
+    UNRECOGNIZED_KEY: "Unrecognized field in request payload.",
   },
   MEDIA: {
-    FOLDER_ACCESS_DENIED: "Bạn không có quyền tải lên thư mục này",
-    FILE_TOO_LARGE: "Kích thước tập tin vượt quá giới hạn cho phép",
-    INVALID_UPLOAD_REQUEST: "Dữ liệu yêu cầu chữ ký tải lên không hợp lệ",
+    FOLDER_ACCESS_DENIED:
+      "You do not have permission to upload to this folder.",
+    FILE_TOO_LARGE: "File size exceeds the allowed limit.",
+    INVALID_UPLOAD_REQUEST: "Upload signature request parameters are invalid.",
   },
   DATABASE: {
     IMMUTABLE_RECORD:
-      "Bản ghi nhật ký canh tác là bất biến, không được phép sửa hoặc xóa",
+      "Farming log records are immutable and cannot be modified or deleted.",
     FOREIGN_KEY_VIOLATION:
-      "Dữ liệu tham chiếu không tồn tại hoặc đang được sử dụng ở nơi khác",
-    UNIQUE_VIOLATION: "Dữ liệu đã tồn tại, vui lòng kiểm tra lại",
-    CHECK_VIOLATION: "Dữ liệu vi phạm ràng buộc toàn vẹn của hệ thống",
+      "Referenced entity does not exist or is constrained by an existing relationship.",
+    UNIQUE_VIOLATION:
+      "A record with this identifier or unique attribute already exists.",
+    CHECK_VIOLATION: "A database constraint violation occurred.",
     CONCURRENCY_CONFLICT:
-      "Dữ liệu vừa bị thay đổi bởi giao dịch khác, vui lòng thử lại",
-    INVALID_TEXT_REPRESENTATION: "Định dạng dữ liệu gửi lên không hợp lệ",
+      "A concurrency conflict occurred. Please retry the transaction.",
+    INVALID_TEXT_REPRESENTATION: "Invalid data representation encountered.",
   },
 } as const;
 

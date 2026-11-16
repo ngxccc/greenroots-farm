@@ -8,6 +8,7 @@ import {
   Injectable,
   Logger,
 } from "@nestjs/common";
+import { API_ERROR_CODES } from "@greenroots/shared";
 import type { Request, Response } from "express";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import {
@@ -15,17 +16,21 @@ import {
   MESSAGES,
   type ErrorSlug,
 } from "@/common/constants/messages.constant";
+import { formatZodIssue } from "@/common/pipes/zod-validation.pipe";
 import { extractDatabaseErrorDetails } from "@/common/utils/error.util";
 
 export interface InvalidParam {
   name: string;
   reason: string;
+  code?: string;
+  params?: Record<string, unknown>;
 }
 
 export interface Rfc9457ProblemDetails {
   type: `/errors/${ErrorSlug}`;
   title: string;
   status: number;
+  code?: string;
   detail: string;
   instance: string;
   invalidParams: InvalidParam[];
@@ -62,6 +67,19 @@ const STATUS_SLUGS: Record<number, ErrorSlug> = {
   [HttpStatus.GATEWAY_TIMEOUT]: ERROR_SLUGS.GATEWAY_TIMEOUT,
 };
 
+const STATUS_DEFAULT_CODES: Record<number, string> = {
+  [HttpStatus.BAD_REQUEST]: API_ERROR_CODES.BAD_REQUEST,
+  [HttpStatus.UNAUTHORIZED]: API_ERROR_CODES.UNAUTHORIZED,
+  [HttpStatus.FORBIDDEN]: API_ERROR_CODES.FORBIDDEN,
+  [HttpStatus.NOT_FOUND]: API_ERROR_CODES.NOT_FOUND,
+  [HttpStatus.CONFLICT]: API_ERROR_CODES.CONFLICT,
+  [HttpStatus.UNPROCESSABLE_ENTITY]: API_ERROR_CODES.UNPROCESSABLE_ENTITY,
+  [HttpStatus.TOO_MANY_REQUESTS]: API_ERROR_CODES.TOO_MANY_REQUESTS,
+  [HttpStatus.INTERNAL_SERVER_ERROR]: API_ERROR_CODES.INTERNAL_SERVER_ERROR,
+  [HttpStatus.SERVICE_UNAVAILABLE]: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+  [HttpStatus.GATEWAY_TIMEOUT]: API_ERROR_CODES.GATEWAY_TIMEOUT,
+};
+
 const DEFAULT_DETAILS: Record<number, string> = {
   [HttpStatus.BAD_REQUEST]: MESSAGES.COMMON.BAD_REQUEST,
   [HttpStatus.UNAUTHORIZED]: MESSAGES.COMMON.UNAUTHORIZED,
@@ -89,7 +107,7 @@ function readString(
 /**
  * Global RFC 9457 (`application/problem+json`) exception filter.
  *
- * - Always returns a static `/errors/<slug>` problem type.
+ * - Always returns a static `/errors/<slug>` problem type and machine error code.
  * - Maps PostgreSQL P0001 (trigger rejection) to HTTP 403.
  * - Maps PostgreSQL 23503 (foreign key violation) to HTTP 409.
  * - Maps PostgreSQL 23514 (check violation) to HTTP 422.
@@ -106,6 +124,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     let status: number = HttpStatus.INTERNAL_SERVER_ERROR;
     let detail: string = MESSAGES.COMMON.INTERNAL_SERVER_ERROR;
+    let code: string | undefined;
     let title: string | undefined;
     let invalidParams: InvalidParam[] = [];
 
@@ -113,16 +132,23 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       status = exception.getStatus();
       const parsed = this.parseHttpException(exception);
       detail = this.normalizeDetail(parsed.detail, status);
+      code = parsed.code ?? STATUS_DEFAULT_CODES[status];
       invalidParams = parsed.invalidParams;
       title = this.readExceptionError(exception);
     } else if (exception instanceof ZodError) {
       status = HttpStatus.BAD_REQUEST;
       detail = MESSAGES.VALIDATION.INVALID_INPUT;
+      code = API_ERROR_CODES.VALIDATION_FAILED;
       title = HTTP_TITLES[HttpStatus.BAD_REQUEST];
-      invalidParams = exception.issues.map((issue) => ({
-        name: issue.path.join("."),
-        reason: issue.message,
-      }));
+      invalidParams = exception.issues.map((issue) => {
+        const formatted = formatZodIssue(issue);
+        return {
+          name: issue.path.join(".") || "payload",
+          code: formatted.code,
+          reason: formatted.reason,
+          params: formatted.params,
+        };
+      });
     } else {
       const databaseError = extractDatabaseErrorDetails(exception);
 
@@ -134,37 +160,47 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         switch (databaseError.code) {
           case PG_ERROR_CODE.RAISE_EXCEPTION:
             status = HttpStatus.FORBIDDEN;
+            code = databaseError.message?.includes("FARMING_LOG_IMMUTABLE")
+              ? API_ERROR_CODES.FARMING_LOG_IMMUTABLE
+              : API_ERROR_CODES.FORBIDDEN;
             detail = databaseError.message?.includes("FARMING_LOG_IMMUTABLE")
               ? MESSAGES.DATABASE.IMMUTABLE_RECORD
               : MESSAGES.COMMON.FORBIDDEN;
             break;
           case PG_ERROR_CODE.FOREIGN_KEY_VIOLATION:
             status = HttpStatus.CONFLICT;
+            code = API_ERROR_CODES.FOREIGN_KEY_VIOLATION;
             detail = MESSAGES.DATABASE.FOREIGN_KEY_VIOLATION;
             break;
           case PG_ERROR_CODE.UNIQUE_VIOLATION:
             status = HttpStatus.CONFLICT;
+            code = API_ERROR_CODES.UNIQUE_VIOLATION;
             detail = MESSAGES.DATABASE.UNIQUE_VIOLATION;
             break;
           case PG_ERROR_CODE.CHECK_VIOLATION:
             status = HttpStatus.UNPROCESSABLE_ENTITY;
+            code = API_ERROR_CODES.CHECK_VIOLATION;
             detail = MESSAGES.DATABASE.CHECK_VIOLATION;
             break;
           case PG_ERROR_CODE.SERIALIZATION_FAILURE:
           case PG_ERROR_CODE.DEADLOCK_DETECTED:
             status = HttpStatus.CONFLICT;
+            code = API_ERROR_CODES.CONCURRENCY_CONFLICT;
             detail = MESSAGES.DATABASE.CONCURRENCY_CONFLICT;
             break;
           case PG_ERROR_CODE.INVALID_TEXT_REPRESENTATION:
             status = HttpStatus.BAD_REQUEST;
+            code = API_ERROR_CODES.BAD_REQUEST;
             detail = MESSAGES.DATABASE.INVALID_TEXT_REPRESENTATION;
             break;
           case PG_ERROR_CODE.QUERY_CANCELED:
             status = HttpStatus.GATEWAY_TIMEOUT;
+            code = API_ERROR_CODES.GATEWAY_TIMEOUT;
             detail = MESSAGES.COMMON.GATEWAY_TIMEOUT;
             break;
           default:
             status = HttpStatus.INTERNAL_SERVER_ERROR;
+            code = API_ERROR_CODES.INTERNAL_SERVER_ERROR;
             detail = MESSAGES.COMMON.INTERNAL_SERVER_ERROR;
         }
       } else {
@@ -178,6 +214,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       type: `/errors/${STATUS_SLUGS[status] ?? ERROR_SLUGS.INTERNAL_SERVER_ERROR}`,
       title: title ?? HTTP_TITLES[status] ?? "Error",
       status,
+      code:
+        code ??
+        STATUS_DEFAULT_CODES[status] ??
+        API_ERROR_CODES.INTERNAL_SERVER_ERROR,
       detail,
       instance: request.originalUrl,
       invalidParams,
@@ -191,8 +231,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   /**
-   * Replaces NestJS/Express framework-default English messages with the
-   * centralized Vietnamese detail for the status code.
+   * Replaces NestJS/Express framework-default messages with the
+   * centralized English detail for the status code.
    */
   private normalizeDetail(detail: string, status: number): string {
     const isFrameworkDefault =
@@ -208,6 +248,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   private parseHttpException(exception: HttpException): {
+    code?: string;
     detail: string;
     invalidParams: InvalidParam[];
   } {
@@ -225,13 +266,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     const invalidParams = this.extractInvalidParams(payload);
+    const code = readString(payload, "code");
     const detail =
       readString(payload, "detail") ??
       readString(payload, "message") ??
       this.extractMessageArray(payload) ??
       MESSAGES.COMMON.BAD_REQUEST;
 
-    return { detail, invalidParams };
+    return { code, detail, invalidParams };
   }
 
   private readExceptionError(exception: HttpException): string | undefined {
@@ -268,6 +310,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             typeof item["reason"] === "string"
               ? item["reason"]
               : MESSAGES.VALIDATION.INVALID_VALUE,
+          code:
+            typeof item["code"] === "string"
+              ? item["code"]
+              : API_ERROR_CODES.INVALID_VALUE,
+          params: isRecordObject(item["params"]) ? item["params"] : undefined,
         }));
     }
 
@@ -291,6 +338,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       params.push({
         name: item["property"],
         reason: reason ?? MESSAGES.VALIDATION.INVALID_VALUE,
+        code: API_ERROR_CODES.INVALID_VALUE,
       });
     }
 

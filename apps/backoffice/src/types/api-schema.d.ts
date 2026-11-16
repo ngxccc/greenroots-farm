@@ -52,10 +52,22 @@ export interface components {
              */
             name: string;
             /**
-             * @description Detailed reason for the validation failure
-             * @example Invalid email format
+             * @description Detailed human-readable reason in English for the validation failure
+             * @example Invalid email address format
              */
             reason: string;
+            /**
+             * @description Machine-readable validation error code
+             * @example INVALID_EMAIL
+             */
+            code?: string;
+            /**
+             * @description Dynamic validation constraint metadata for client-side interpolation
+             * @example {
+             *       "min": 8
+             *     }
+             */
+            params?: Record<string, never>;
         };
         Rfc9457ErrorResponseDto: {
             /**

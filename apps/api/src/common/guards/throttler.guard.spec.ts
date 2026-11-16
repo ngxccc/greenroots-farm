@@ -8,6 +8,7 @@ import type {
 } from "@nestjs/throttler";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import { Reflector } from "@nestjs/core";
+import { API_ERROR_CODES } from "@greenroots/shared";
 import { CustomThrottlerGuard } from "./throttler.guard";
 import { env } from "@/common/config/env.config";
 import { MESSAGES } from "@/common/constants/messages.constant";
@@ -154,6 +155,7 @@ describe("CustomThrottlerGuard", () => {
         const httpErr = err as HttpException;
         expect(httpErr.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
         expect(httpErr.getResponse()).toEqual({
+          code: API_ERROR_CODES.TOO_MANY_REQUESTS,
           detail: MESSAGES.COMMON.TOO_MANY_REQUESTS,
         });
       }

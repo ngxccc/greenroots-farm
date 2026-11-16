@@ -16,6 +16,7 @@ Multi-context domain documentation. Read the glossary for every context you touc
 - `docs/adr/0001-backend-database-infrastructure.md` — Backend and database infrastructure baseline.
 - `docs/adr/0002-api-infra-idempotency-media-mail.md` — Offline OpenAPI generation, Idempotency interceptor, Mail/Cloudinary infra, and E2E test harness.
 - `docs/adr/0003-dto-validation-and-openapi-response-architecture.md` — DTO schema co-location, pure domain interfaces, and generic OpenAPI response envelopes.
+- `docs/adr/0004-rfc9457-machine-readable-error-codes-and-client-i18n.md` — RFC 9457 machine-readable error codes, English developer fallbacks, and client-side localization architecture.
 
 ## Ownership Rules
 

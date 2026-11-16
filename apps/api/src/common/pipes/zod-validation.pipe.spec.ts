@@ -1,8 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { BadRequestException } from "@nestjs/common";
+import { API_ERROR_CODES } from "@greenroots/shared";
 import { z } from "zod";
 import { MESSAGES } from "@/common/constants/messages.constant";
-import { formatZodIssuePath, ZodValidationPipe } from "./zod-validation.pipe";
+import {
+  formatZodIssuePath,
+  type InvalidParam,
+  ZodValidationPipe,
+} from "./zod-validation.pipe";
 
 describe("ZodValidationPipe", () => {
   const testSchema = z.object({
@@ -10,7 +15,7 @@ describe("ZodValidationPipe", () => {
     age: z.number().int().positive(),
     email: z.email(),
     role: z.enum(["admin", "user"]),
-    customField: z.string().min(5, { message: "Tùy biến: Tối thiểu 5 ký tự" }),
+    customField: z.string().min(5, { message: "Custom length requirement" }),
   });
 
   const pipe = new ZodValidationPipe(testSchema);
@@ -28,23 +33,28 @@ describe("ZodValidationPipe", () => {
     expect(result).toEqual(validData);
   });
 
-  it("should format missing required fields as localized required message", () => {
+  it("should format missing required fields with code REQUIRED and English reason", () => {
     try {
       pipe.transform({});
       expect().fail("Should have thrown BadRequestException");
     } catch (error) {
       expect(error).toBeInstanceOf(BadRequestException);
       const res = (error as BadRequestException).getResponse() as {
+        code: string;
         detail: string;
-        invalidParams: { name: string; reason: string }[];
+        invalidParams: InvalidParam[];
       };
+      expect(res.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
       expect(res.detail).toBe(MESSAGES.VALIDATION.INVALID_INPUT);
+
       const nameParam = res.invalidParams.find((p) => p.name === "name");
+      expect(nameParam).toBeDefined();
+      expect(nameParam?.code).toBe(API_ERROR_CODES.REQUIRED);
       expect(nameParam?.reason).toBe(MESSAGES.VALIDATION.REQUIRED);
     }
   });
 
-  it("should format invalid enum values in Vietnamese", () => {
+  it("should format invalid enum values with code INVALID_VALUE and dynamic params", () => {
     try {
       pipe.transform({
         name: "Ngoc",
@@ -56,16 +66,19 @@ describe("ZodValidationPipe", () => {
       expect().fail("Should have thrown BadRequestException");
     } catch (error) {
       const res = (error as BadRequestException).getResponse() as {
-        invalidParams: { name: string; reason: string }[];
+        invalidParams: InvalidParam[];
       };
       const roleParam = res.invalidParams.find((p) => p.name === "role");
+      expect(roleParam).toBeDefined();
+      expect(roleParam?.code).toBe(API_ERROR_CODES.INVALID_VALUE);
       expect(roleParam?.reason).toContain(
-        "Giá trị không hợp lệ. Phải là một trong: admin, user",
+        "Invalid value. Expected one of: admin, user",
       );
+      expect(roleParam?.params?.["values"]).toEqual(["admin", "user"]);
     }
   });
 
-  it("should format invalid email format in Vietnamese", () => {
+  it("should format invalid email format with code INVALID_EMAIL", () => {
     try {
       pipe.transform({
         name: "Ngoc",
@@ -77,14 +90,16 @@ describe("ZodValidationPipe", () => {
       expect().fail("Should have thrown BadRequestException");
     } catch (error) {
       const res = (error as BadRequestException).getResponse() as {
-        invalidParams: { name: string; reason: string }[];
+        invalidParams: InvalidParam[];
       };
       const emailParam = res.invalidParams.find((p) => p.name === "email");
+      expect(emailParam).toBeDefined();
+      expect(emailParam?.code).toBe(API_ERROR_CODES.INVALID_EMAIL);
       expect(emailParam?.reason).toBe(MESSAGES.VALIDATION.INVALID_EMAIL);
     }
   });
 
-  it("should format number boundaries in Vietnamese", () => {
+  it("should format number boundaries with code TOO_SMALL and bounds metadata", () => {
     try {
       pipe.transform({
         name: "Ngoc",
@@ -96,10 +111,17 @@ describe("ZodValidationPipe", () => {
       expect().fail("Should have thrown BadRequestException");
     } catch (error) {
       const res = (error as BadRequestException).getResponse() as {
-        invalidParams: { name: string; reason: string }[];
+        invalidParams: InvalidParam[];
       };
       const ageParam = res.invalidParams.find((p) => p.name === "age");
-      expect(ageParam?.reason).toContain("Giá trị phải lớn hơn 0");
+      expect(ageParam).toBeDefined();
+      expect(ageParam?.code).toBe(API_ERROR_CODES.TOO_SMALL);
+      expect(ageParam?.reason).toContain("Number must be greater than 0");
+      expect(ageParam?.params).toEqual({
+        origin: "number",
+        minimum: 0,
+        inclusive: false,
+      });
     }
   });
 
@@ -115,12 +137,14 @@ describe("ZodValidationPipe", () => {
       expect().fail("Should have thrown BadRequestException");
     } catch (error) {
       const res = (error as BadRequestException).getResponse() as {
-        invalidParams: { name: string; reason: string }[];
+        invalidParams: InvalidParam[];
       };
       const customParam = res.invalidParams.find(
         (p) => p.name === "customField",
       );
-      expect(customParam?.reason).toBe("Tùy biến: Tối thiểu 5 ký tự");
+      expect(customParam).toBeDefined();
+      expect(customParam?.code).toBe(API_ERROR_CODES.CUSTOM_VALIDATION_ERROR);
+      expect(customParam?.reason).toBe("Custom length requirement");
     }
   });
 

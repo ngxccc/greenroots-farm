@@ -42,27 +42,36 @@ All successful JSON responses MUST use the generic `ApiResponseDto` envelope:
 
 ## 4. RFC 9457 Problem Details for Error Responses
 
-All error responses MUST follow **RFC 9457**:
+All error responses MUST follow **RFC 9457** with machine-readable error codes:
 
 - **Content-Type**: `application/problem+json`
-- **Structure**: `{ type, title, status, detail, instance, invalidParams? }`
+- **Structure**: `{ type, title, status, code, detail, instance, invalidParams?, timestamp }`
 
 ```json
 {
   "type": "/errors/insufficient-stock",
-  "title": "Insufficient stock",
+  "title": "Insufficient Stock",
   "status": 409,
+  "code": "INSUFFICIENT_STOCK",
   "detail": "Batch 019fa8bc only has 3 units left, but 5 were requested.",
   "instance": "/api/v1/orders/checkout",
   "invalidParams": [
-    { "name": "items[0].quantity", "reason": "Requested 5, available 3" }
-  ]
+    {
+      "name": "items[0].quantity",
+      "code": "TOO_BIG",
+      "reason": "Requested quantity exceeds available stock.",
+      "params": { "requested": 5, "available": 3 }
+    }
+  ],
+  "timestamp": "2026-11-16T15:10:00.000Z"
 }
 ```
 
 - `type` is a stable URN of the form `/errors/<slug>`; slugs are centralized in `apps/api/src/common/constants/messages.constant.ts`.
-- `detail` MUST be safe to show to the client: no SQL, stack traces, secrets, or internal IDs.
-- Log the full internal error privately and return the sanitized problem document.
+- `code` is a standardized machine-readable identifier from `API_ERROR_CODES` in `@greenroots/shared`.
+- `detail` and `reason` are English technical explanations for developers, cURL/Postman debugging, and APM telemetry. They MUST be safe: no raw SQL traces or secrets.
+- `invalidParams[].params` carries dynamic constraint metadata for client-side localization.
+- User-facing localization belongs to client runtimes (Next.js Storefront and React Backoffice) using `@greenroots/shared` `API_ERROR_DICTIONARY`.
 
 ## 5. HTTP Status Code Decision Matrix
 
@@ -154,9 +163,10 @@ Every controller endpoint MUST declare its OpenAPI contracts and error specifica
    - Created resource (201 Created): `@ApiCreatedResponseGeneric(ResponseDto)`
    - Paginated resource (200 OK): `@ApiOkResponsePaginated(ItemDto)`
    - Empty/Command response: `@ApiOkResponseGeneric()` or `@ApiCreatedResponseGeneric()`
-4. **RFC 9457 Error Responses & OpenAPI Language Rule**:
-   - **OpenAPI / Swagger Documentation (100% English)**: All `@ApiOperation`, `@Api*Response`, descriptions, and schema examples must be written in English for API consumers and tooling.
-   - **Runtime User Responses (Vietnamese)**: Runtime error messages returned in RFC 9457 `detail` or success payloads use Vietnamese from `MESSAGES` / shared error dictionary.
+4. **RFC 9457 Error Responses & Language Boundaries**:
+   - **OpenAPI Documentation & Runtime Diagnostics (100% English)**: All `@ApiOperation`, `@Api*Response`, schema descriptions, and runtime RFC 9457 `detail` / `reason` fallbacks are written in technical English for developers, tooling, and telemetry.
+   - **Machine Error Codes (`code`)**: Every error MUST provide a stable machine-readable identifier from `API_ERROR_CODES` (`@greenroots/shared`).
+   - **Client-Side Localization (Vietnamese)**: User-facing presentation is handled at the UI layer (`@greenroots/storefront` and `@greenroots/backoffice`) using `@greenroots/shared` `API_ERROR_DICTIONARY` and `resolveSharedApiErrorMessage(code, params)`.
    - Declare expected error statuses explicitly: `@ApiBadRequestResponseRfc9457()`, `@ApiNotFoundResponseRfc9457()`, `@ApiConflictResponseRfc9457()`, `@ApiUnprocessableEntityResponseRfc9457()`, `@ApiInternalServerErrorResponseRfc9457()`.
 
 ### 9.4 Controller Implementation Pattern

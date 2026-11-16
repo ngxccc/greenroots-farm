@@ -5,12 +5,15 @@ import {
   type ArgumentMetadata,
   type PipeTransform,
 } from "@nestjs/common";
+import { API_ERROR_CODES } from "@greenroots/shared";
 import type { ZodError, ZodType } from "zod";
 import { MESSAGES } from "@/common/constants/messages.constant";
 
 export interface InvalidParam {
   name: string;
   reason: string;
+  code: string;
+  params?: Record<string, unknown>;
 }
 
 export type ZodIssue = ZodError["issues"][number];
@@ -67,16 +70,31 @@ export function isCustomZodMessage(issue: ZodIssue): boolean {
   return !DEFAULT_ZOD_PATTERNS.some((pattern) => pattern.test(msg));
 }
 
-/**
- * Translates a Zod issue into a standardized Vietnamese RFC 9457 reason string.
- * Preserves custom developer-supplied messages when present.
- */
-export function formatZodIssueReason(issue: ZodIssue): string {
-  if (isCustomZodMessage(issue)) {
-    return issue.message;
-  }
+export interface FormattedZodIssue {
+  code: string;
+  reason: string;
+  params?: Record<string, unknown>;
+}
 
+/**
+ * Maps a Zod issue into a standardized machine error code, English developer reason,
+ * and dynamic constraint metadata for client-side interpolation.
+ */
+export function formatZodIssue(issue: ZodIssue): FormattedZodIssue {
   const issueRecord = issue as unknown as Record<string, unknown>;
+
+  if (isCustomZodMessage(issue)) {
+    const isExplicitCode = Object.values(API_ERROR_CODES).includes(
+      issue.message as unknown as (typeof API_ERROR_CODES)[keyof typeof API_ERROR_CODES],
+    );
+
+    return {
+      code: isExplicitCode
+        ? issue.message
+        : API_ERROR_CODES.CUSTOM_VALIDATION_ERROR,
+      reason: issue.message,
+    };
+  }
 
   switch (issue.code) {
     case "invalid_type": {
@@ -84,87 +102,176 @@ export function formatZodIssueReason(issue: ZodIssue): string {
         issueRecord["received"] === "undefined" ||
         issue.message.includes("received undefined")
       ) {
-        return MESSAGES.VALIDATION.REQUIRED;
+        return {
+          code: API_ERROR_CODES.REQUIRED,
+          reason: MESSAGES.VALIDATION.REQUIRED,
+        };
       }
-      return MESSAGES.VALIDATION.INVALID_TYPE;
+      return {
+        code: API_ERROR_CODES.INVALID_TYPE,
+        reason: `Expected ${String(issueRecord["expected"])}, received ${String(issueRecord["received"])}.`,
+        params: {
+          expected: issueRecord["expected"],
+          received: issueRecord["received"],
+        },
+      };
     }
 
     case "too_small": {
       const origin = issueRecord["origin"] ?? issueRecord["type"];
       const minimum = formatBoundValue(issueRecord["minimum"]);
       const inclusive = issueRecord["inclusive"] !== false;
+      const numMin =
+        typeof issueRecord["minimum"] === "number"
+          ? issueRecord["minimum"]
+          : Number(minimum);
 
       if (origin === "number") {
-        return inclusive
-          ? `Giá trị phải lớn hơn hoặc bằng ${minimum}`
-          : `Giá trị phải lớn hơn ${minimum}`;
+        return {
+          code: API_ERROR_CODES.TOO_SMALL,
+          reason: inclusive
+            ? `Number must be greater than or equal to ${minimum}.`
+            : `Number must be greater than ${minimum}.`,
+          params: { origin: "number", minimum: numMin, inclusive },
+        };
       }
 
       if (origin === "string") {
         if (minimum === "1" && inclusive) {
-          return MESSAGES.VALIDATION.REQUIRED;
+          return {
+            code: API_ERROR_CODES.REQUIRED,
+            reason: MESSAGES.VALIDATION.REQUIRED,
+          };
         }
-        return inclusive
-          ? `Độ dài tối thiểu là ${minimum} ký tự`
-          : `Độ dài phải lớn hơn ${minimum} ký tự`;
+        return {
+          code: API_ERROR_CODES.TOO_SMALL,
+          reason: inclusive
+            ? `String must contain at least ${minimum} character(s).`
+            : `String must contain more than ${minimum} character(s).`,
+          params: { origin: "string", minimum: numMin, inclusive },
+        };
       }
 
       if (origin === "array") {
-        return `Danh sách phải có tối thiểu ${minimum} phần tử`;
+        return {
+          code: API_ERROR_CODES.TOO_SMALL,
+          reason: `Array must contain at least ${minimum} element(s).`,
+          params: { origin: "array", minimum: numMin, inclusive },
+        };
       }
 
-      return MESSAGES.VALIDATION.INVALID_VALUE;
+      return {
+        code: API_ERROR_CODES.TOO_SMALL,
+        reason: "Value is too small.",
+        params: { minimum: numMin },
+      };
     }
 
     case "too_big": {
       const origin = issueRecord["origin"] ?? issueRecord["type"];
       const maximum = formatBoundValue(issueRecord["maximum"]);
       const inclusive = issueRecord["inclusive"] !== false;
+      const numMax =
+        typeof issueRecord["maximum"] === "number"
+          ? issueRecord["maximum"]
+          : Number(maximum);
 
       if (origin === "number") {
-        return inclusive
-          ? `Giá trị phải nhỏ hơn hoặc bằng ${maximum}`
-          : `Giá trị phải nhỏ hơn ${maximum}`;
+        return {
+          code: API_ERROR_CODES.TOO_BIG,
+          reason: inclusive
+            ? `Number must be less than or equal to ${maximum}.`
+            : `Number must be less than ${maximum}.`,
+          params: { origin: "number", maximum: numMax, inclusive },
+        };
       }
 
       if (origin === "string") {
-        return inclusive
-          ? `Độ dài tối đa là ${maximum} ký tự`
-          : `Độ dài phải nhỏ hơn ${maximum} ký tự`;
+        return {
+          code: API_ERROR_CODES.TOO_BIG,
+          reason: inclusive
+            ? `String must contain at most ${maximum} character(s).`
+            : `String must contain fewer than ${maximum} character(s).`,
+          params: { origin: "string", maximum: numMax, inclusive },
+        };
       }
 
       if (origin === "array") {
-        return `Danh sách tối đa ${maximum} phần tử`;
+        return {
+          code: API_ERROR_CODES.TOO_BIG,
+          reason: `Array must contain at most ${maximum} element(s).`,
+          params: { origin: "array", maximum: numMax, inclusive },
+        };
       }
 
-      return MESSAGES.VALIDATION.INVALID_VALUE;
+      return {
+        code: API_ERROR_CODES.TOO_BIG,
+        reason: "Value is too large.",
+        params: { maximum: numMax },
+      };
     }
 
-    // Zod enum / literal mismatch
     case "invalid_value": {
       const formattedList = formatValueList(issueRecord["values"]);
-      if (formattedList.length > 0) {
-        return `Giá trị không hợp lệ. Phải là một trong: ${formattedList}`;
-      }
-      return MESSAGES.VALIDATION.INVALID_VALUE;
+      return {
+        code: API_ERROR_CODES.INVALID_VALUE,
+        reason:
+          formattedList.length > 0
+            ? `Invalid value. Expected one of: ${formattedList}.`
+            : MESSAGES.VALIDATION.INVALID_VALUE,
+        params: issueRecord["values"]
+          ? { values: issueRecord["values"] }
+          : undefined,
+      };
     }
 
-    // Zod string formats (email, uuid, url)
     case "invalid_format": {
       const format = issueRecord["format"];
-      if (format === "email") return MESSAGES.VALIDATION.INVALID_EMAIL;
-      if (format === "uuid") return MESSAGES.VALIDATION.INVALID_UUID;
-      if (format === "url") return MESSAGES.VALIDATION.INVALID_URL;
-      return MESSAGES.VALIDATION.INVALID_VALUE;
+      if (format === "email") {
+        return {
+          code: API_ERROR_CODES.INVALID_EMAIL,
+          reason: MESSAGES.VALIDATION.INVALID_EMAIL,
+        };
+      }
+      if (format === "uuid") {
+        return {
+          code: API_ERROR_CODES.INVALID_UUID,
+          reason: MESSAGES.VALIDATION.INVALID_UUID,
+        };
+      }
+      if (format === "url") {
+        return {
+          code: API_ERROR_CODES.INVALID_URL,
+          reason: MESSAGES.VALIDATION.INVALID_URL,
+        };
+      }
+      return {
+        code: API_ERROR_CODES.INVALID_FORMAT,
+        reason: `Invalid format: ${String(format)}.`,
+        params: { format },
+      };
     }
 
     case "unrecognized_keys": {
-      return MESSAGES.VALIDATION.UNRECOGNIZED_KEY;
+      return {
+        code: API_ERROR_CODES.UNRECOGNIZED_KEYS,
+        reason: MESSAGES.VALIDATION.UNRECOGNIZED_KEY,
+      };
     }
 
     default:
-      return issue.message || MESSAGES.VALIDATION.INVALID_VALUE;
+      return {
+        code: API_ERROR_CODES.INVALID_VALUE,
+        reason: issue.message || MESSAGES.VALIDATION.INVALID_VALUE,
+      };
   }
+}
+
+/**
+ * Returns the human-readable English reason for a Zod issue.
+ */
+export function formatZodIssueReason(issue: ZodIssue): string {
+  return formatZodIssue(issue).reason;
 }
 
 /**
@@ -184,7 +291,7 @@ export function formatZodIssuePath(path?: readonly PropertyKey[]): string {
 
 /**
  * Validates request payloads with Zod and converts issues into RFC 9457
- * `invalidParams` entries with Vietnamese localized messages consumed by GlobalExceptionFilter.
+ * `invalidParams` entries with standardized error codes, English reasons, and interpolation metadata.
  */
 @Injectable()
 export class ZodValidationPipe implements PipeTransform {
@@ -204,6 +311,7 @@ export class ZodValidationPipe implements PipeTransform {
     }
 
     throw new BadRequestException({
+      code: API_ERROR_CODES.VALIDATION_FAILED,
       detail: MESSAGES.VALIDATION.INVALID_INPUT,
       invalidParams: this.formatZodErrors(result.error),
     });
@@ -225,14 +333,16 @@ export class ZodValidationPipe implements PipeTransform {
     const params: InvalidParam[] = [];
 
     for (const issue of error.issues) {
-      const reason = formatZodIssueReason(issue);
+      const formatted = formatZodIssue(issue);
 
       if (issue.code === "unrecognized_keys" && issue.keys.length > 0) {
         const prefix = formatZodIssuePath(issue.path);
         for (const key of issue.keys) {
           params.push({
             name: prefix ? `${prefix}.${String(key)}` : String(key),
-            reason,
+            code: formatted.code,
+            reason: formatted.reason,
+            params: formatted.params,
           });
         }
         continue;
@@ -241,7 +351,9 @@ export class ZodValidationPipe implements PipeTransform {
       const fieldPath = formatZodIssuePath(issue.path);
       params.push({
         name: fieldPath || "payload",
-        reason,
+        code: formatted.code,
+        reason: formatted.reason,
+        params: formatted.params,
       });
     }
 
