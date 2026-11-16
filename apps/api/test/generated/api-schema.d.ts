@@ -104,22 +104,41 @@ export interface components {
             success: boolean;
         };
         SignedUploadResponseDto: {
-            /** @description Cloudinary SHA-256 HMAC signature */
+            /**
+             * @description Cloudinary SHA-256 HMAC signature
+             * @example a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+             */
             signature: string;
-            /** @description Unix timestamp in seconds used for signature computation */
+            /**
+             * @description Unix timestamp in seconds used for signature computation
+             * @example 1731744000
+             */
             timestamp: number;
-            /** @description Cloudinary public API key */
+            /**
+             * @description Cloudinary public API key
+             * @example 123456789012345
+             */
             apiKey: string;
-            /** @description Cloudinary cloud name */
+            /**
+             * @description Cloudinary cloud name
+             * @example greenroots-farm
+             */
             cloudName: string;
-            /** @description Target Cloudinary folder */
+            /**
+             * @description Target Cloudinary folder
+             * @example farming_logs
+             */
             folder: string;
             /**
              * @description Resource type: image or video
+             * @example image
              * @enum {string}
              */
             resourceType: "image" | "video";
-            /** @description Maximum allowed file size in bytes */
+            /**
+             * @description Maximum allowed file size in bytes
+             * @example 5242880
+             */
             maxBytes: number;
         };
         SignedUploadDto: {

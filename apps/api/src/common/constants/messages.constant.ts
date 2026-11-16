@@ -36,6 +36,12 @@ export const MESSAGES = {
     INVALID_EMAIL: "Định dạng email không hợp lệ",
     INVALID_UUID: "Định dạng UUID không hợp lệ",
     INVALID_URL: "Định dạng URL không hợp lệ",
+    INVALID_PHONE:
+      "Số điện thoại không hợp lệ (yêu cầu 10 số di động Việt Nam)",
+    INVALID_TAX_ID: "Mã số thuế không hợp lệ",
+    PASSWORD_UPPERCASE: "Mật khẩu phải chứa ít nhất 1 chữ cái in hoa",
+    PASSWORD_NUMBER: "Mật khẩu phải chứa ít nhất 1 chữ số",
+    PASSWORD_SPECIAL: "Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt",
     UNRECOGNIZED_KEY: "Trường không được hỗ trợ",
   },
   MEDIA: {
