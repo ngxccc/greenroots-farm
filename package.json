@@ -76,7 +76,7 @@
     "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
     "oxlint-config-presets": "0.1.21",
-    "oxlint-tsgolint": "7.0.2006",
+    "oxlint-tsgolint": "7.0.2007",
     "syncpack": "^15.3.3",
     "typescript": "catalog:"
   },
