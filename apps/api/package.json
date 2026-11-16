@@ -36,7 +36,7 @@
     "@nestjs/throttler": "^6.4.0",
     "@scalar/nestjs-api-reference": "^1.2.37",
     "bullmq": "^6.3.8",
-    "drizzle-orm": "^1.0.0-rc.5-169397b",
+    "drizzle-orm": "^1.0.0-rc.5",
     "ioredis": "^6.0.0",
     "nestjs-zod": "^5.5.0",
     "pg": "^8.23.0",
