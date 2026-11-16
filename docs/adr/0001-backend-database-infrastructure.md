@@ -20,7 +20,7 @@ Several standards were written before the schema and runbook were finalized. Thi
 
 ### 1. Drizzle ORM v1 with declarative relations
 
-- Pin `drizzle-orm@^1.0.0-rc.5-169397b` and `drizzle-kit@^1.0.0-rc.5-ab785fc`.
+- Track latest releases of `drizzle-orm` and `drizzle-kit` continuously without hard version pinning.
 - Use `defineRelations` for relation graphs and `snakeCase.table` for database naming.
 - Model all 18 tables from `Database_Schema.dbml`; no speculative tables.
 
