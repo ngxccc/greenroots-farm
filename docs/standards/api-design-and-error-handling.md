@@ -130,13 +130,15 @@ To guarantee strict SSOT, eliminate typos, and keep OpenAPI documentation in syn
   ```
 - Use `ROUTES.TAG` in `@ApiTags(...)`, `ROUTES.BASE` in `@Controller(...)`, and action constants in `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`.
 
-### 9.2 Request & Response DTOs (`createZodDto`)
+### 9.2 Request & Response DTOs (`createZodDto`) & Schema Architecture
 
 - **PROHIBITION**: Never type `@Body()` or `@Query()` using raw TypeScript `interface` or `type`. TypeScript interfaces vanish at compile time, causing `@nestjs/swagger` to produce empty request bodies and breaking downstream type sync in `@greenroots/storefront` and `@greenroots/backoffice`.
+- **PROHIBITION**: Never place executable runtime Zod schemas (`z.object({...})`) inside `<module>.interface.ts`. File `<module>.interface.ts` is strictly reserved for pure domain types, interfaces, and business constants (0-runtime-overhead compile-time types).
+- **PROHIBITION**: Never use higher-order dynamic Zod factory envelopes for generic response wrappers. Dynamic classes generated at runtime collide and produce mangled schema names (`ApiResponseDto_1`, `ApiResponseDto_2`) in `components/schemas`.
 - **MANDATORY**:
-  - Define input validation schemas with Zod and export concrete DTO classes using `createZodDto(schema)`.
-  - Define response payload schemas with Zod and export concrete response DTO classes using `createZodDto(responseSchema)`.
-  - Store module-specific DTOs in `src/modules/<module>/dto/`.
+  - **Schema Co-location**: Define input/output validation schemas with Zod and export concrete DTO classes using `createZodDto(schema)` in the same DTO file (`src/modules/<module>/dto/<action>.dto.ts`).
+  - **Inferred Types**: Export inferred TypeScript types (`export type FooInput = z.infer<typeof fooSchema>`) directly from the DTO file so domain services can consume typed inputs without importing NestJS transport classes.
+  - **Generic Response Envelopes**: `ApiResponseDto<T>` and `PaginatedApiResponseDto<T>` in `common/dto/api-response.dto.ts` MUST use plain TypeScript classes with `@ApiProperty()` and OpenAPI `allOf` polymorphism, avoiding runtime serialization overhead while ensuring static `$ref` reusability.
 
 ### 9.3 Mandatory Decorator Suite
 

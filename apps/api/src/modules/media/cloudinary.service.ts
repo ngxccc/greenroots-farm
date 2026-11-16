@@ -8,11 +8,11 @@ import type { UserRole } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { sha256 } from "@/common/utils/crypto.util";
 import { env } from "@/common/config/env.config";
+import type { SignedUploadInput } from "./dto";
 import {
   FOLDER_PERMISSIONS,
   MEDIA_CONSTRAINTS,
   type CloudinarySignatureResult,
-  type SignedUploadInput,
 } from "./media.interface";
 
 @Injectable()

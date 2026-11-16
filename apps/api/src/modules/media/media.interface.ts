@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { UserRole } from "@greenroots/shared";
 
 export const MEDIA_CONSTRAINTS = {
@@ -38,23 +37,6 @@ export const FOLDER_PERMISSIONS: Record<MediaFolder, readonly UserRole[]> = {
 
 export const MEDIA_RESOURCE_TYPES = ["image", "video"] as const;
 export type MediaResourceType = (typeof MEDIA_RESOURCE_TYPES)[number];
-
-export const signedUploadSchema = z.object({
-  resourceType: z
-    .enum(MEDIA_RESOURCE_TYPES)
-    .default("image")
-    .describe("Asset media type: image or video"),
-  fileSizeBytes: z
-    .number()
-    .int()
-    .positive()
-    .describe("File size in bytes (image <= 5MB, video <= 15MB)"),
-  folder: z
-    .enum(ALLOWED_MEDIA_FOLDERS)
-    .describe("Target asset storage folder with role authorization"),
-});
-
-export type SignedUploadInput = z.infer<typeof signedUploadSchema>;
 
 export interface CloudinarySignatureResult {
   signature: string;
