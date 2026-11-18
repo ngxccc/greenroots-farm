@@ -69,7 +69,7 @@ export async function createAuthenticatedAdmin(
 
 export interface CapturedMailTokens {
   verificationTokens: { to: string; fullName: string; token: string }[];
-  passwordResetTokens: { to: string; fullName: string; token: string }[];
+  recoveryTokens: { to: string; fullName: string; token: string }[];
   getLatestVerificationToken: (email?: string) => string | undefined;
   getLatestResetToken: (email?: string) => string | undefined;
   clear: () => void;
@@ -84,7 +84,7 @@ export function captureMailTokens(app: INestApplication): CapturedMailTokens {
     fullName: string;
     token: string;
   }[] = [];
-  const passwordResetTokens: {
+  const recoveryTokens: {
     to: string;
     fullName: string;
     token: string;
@@ -102,13 +102,13 @@ export function captureMailTokens(app: INestApplication): CapturedMailTokens {
     mailService,
     "sendPasswordResetEmail",
   ).mockImplementation((to: string, fullName: string, token: string) => {
-    passwordResetTokens.push({ to, fullName, token });
+    recoveryTokens.push({ to, fullName, token });
     return Promise.resolve();
   });
 
   return {
     verificationTokens,
-    passwordResetTokens,
+    recoveryTokens,
     getLatestVerificationToken(email?: string) {
       if (email) {
         const matching = verificationTokens.filter(
@@ -120,16 +120,16 @@ export function captureMailTokens(app: INestApplication): CapturedMailTokens {
     },
     getLatestResetToken(email?: string) {
       if (email) {
-        const matching = passwordResetTokens.filter(
+        const matching = recoveryTokens.filter(
           (item) => item.to.toLowerCase() === email.toLowerCase(),
         );
         return matching[matching.length - 1]?.token;
       }
-      return passwordResetTokens[passwordResetTokens.length - 1]?.token;
+      return recoveryTokens[recoveryTokens.length - 1]?.token;
     },
     clear() {
       verificationTokens.length = 0;
-      passwordResetTokens.length = 0;
+      recoveryTokens.length = 0;
       verificationSpy.mockClear();
       resetSpy.mockClear();
     },

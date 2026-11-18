@@ -1949,7 +1949,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(res.status).toBe(200);
         const body = res.body as ApiResponse<null>;
         expect(body.success).toBe(true);
-        expect(mailTokens.passwordResetTokens.length).toBe(0);
+        expect(mailTokens.recoveryTokens.length).toBe(0);
       });
 
       it("T2-FGP-02: should return silent 200 OK without dispatching email for suspended account", async () => {
@@ -1964,7 +1964,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
           .send({ email });
 
         expect(res.status).toBe(200);
-        expect(mailTokens.passwordResetTokens.length).toBe(0);
+        expect(mailTokens.recoveryTokens.length).toBe(0);
       });
 
       it("T2-FGP-03: should normalize mixed-case and untrimmed email before lookup", async () => {
@@ -1977,7 +1977,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
           .send({ email: "   NORMALIZE.FORGOT@GreenRoots.Farm   " });
 
         expect(res.status).toBe(200);
-        expect(mailTokens.passwordResetTokens.length).toBe(1);
+        expect(mailTokens.recoveryTokens.length).toBe(1);
       });
 
       it("T2-FGP-04: should reject malformed email format with 400 Bad Request", async () => {
