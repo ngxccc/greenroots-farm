@@ -68,7 +68,7 @@ interface Rfc9457Error {
   invalidParams?: { name: string; reason: string; code?: string }[];
 }
 
-describe("Authentication & Session Lifecycle Integration Test Suite", () => {
+describe("Authentication Integration", () => {
   let setup: TestAppSetup;
   let app: INestApplication;
   let db: DrizzleDB;
@@ -168,10 +168,10 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
   // =========================================================================
   // TIER 1: Feature Coverage (Category-Partition) — 45 Test Cases
   // =========================================================================
-  describe("Tier 1: Feature Coverage (Category-Partition)", () => {
+  describe("Core Endpoint Lifecycle", () => {
     // 1. POST /api/v1/auth/register (5 tests)
     describe("POST /api/v1/auth/register", () => {
-      it("T1-REG-01: should register a customer successfully with all valid fields (201 Created)", async () => {
+      it("registers customer with valid fields", async () => {
         const payload = {
           email: "farmer.bob@greenroots.farm",
           fullName: "Farmer Bob",
@@ -191,7 +191,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(body.data).toBeNull();
       });
 
-      it("T1-REG-02: should persist user record with active status, customer role and unverified flag", async () => {
+      it("persists user record with active status, customer role and unverified flag", async () => {
         const email = "active.unverified@greenroots.farm";
         const res = await request(getHttpServer())
           .post("/api/v1/auth/register")
@@ -221,7 +221,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         );
       });
 
-      it("T1-REG-03: should store SHA-256 verification token digest with ~24h expiration in database", async () => {
+      it("stores SHA-256 verification token digest with ~24h expiration in database", async () => {
         const email = "token.check@greenroots.farm";
         const before = Date.now();
         await request(getHttpServer()).post("/api/v1/auth/register").send({
@@ -246,7 +246,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(expiresAt).toBeLessThanOrEqual(before + 25 * 3600 * 1000);
       });
 
-      it("T1-REG-04: should enqueue verification email job with raw token via MailService", async () => {
+      it("enqueues verification email job with raw token via MailService", async () => {
         const email = "email.queue@greenroots.farm";
         const fullName = "Queue Receiver";
         await request(getHttpServer()).post("/api/v1/auth/register").send({
@@ -272,7 +272,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(createdUser?.verificationToken).toBe(sha256(capturedToken!));
       });
 
-      it("T1-REG-05: should register successfully when optional phone number is omitted", async () => {
+      it("registers successfully when optional phone number is omitted", async () => {
         const email = "nophone@greenroots.farm";
         const res = await request(getHttpServer())
           .post("/api/v1/auth/register")
@@ -298,7 +298,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 2. POST /api/v1/auth/verify-email (5 tests)
     describe("POST /api/v1/auth/verify-email", () => {
-      it("T1-VER-01: should verify email with valid 32-byte hex token and return 200 OK", async () => {
+      it("verifies email with valid 32-byte hex token", async () => {
         const { rawToken } = await seedUnverifiedUser(
           "verify.happy@greenroots.farm",
         );
@@ -313,7 +313,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(body.data).toBeNull();
       });
 
-      it("T1-VER-02: should update target user record to emailVerified = true in database", async () => {
+      it("updates user record to emailVerified in database", async () => {
         const { user, rawToken } = await seedUnverifiedUser(
           "verify.db@greenroots.farm",
         );
@@ -331,7 +331,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(updatedUser?.emailVerified).toBe(true);
       });
 
-      it("T1-VER-03: should clear verificationToken and verificationExpiresAt to null upon verification", async () => {
+      it("clears verification token and expiration upon verification", async () => {
         const { user, rawToken } = await seedUnverifiedUser(
           "verify.clear@greenroots.farm",
         );
@@ -350,7 +350,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(updatedUser?.verificationExpiresAt).toBeNull();
       });
 
-      it("T1-VER-04: should allow user to log in successfully after email verification", async () => {
+      it("allows user to log in after email verification", async () => {
         const email = "verify.then.login@greenroots.farm";
         const password = "Password123!";
         const { rawToken } = await seedUnverifiedUser(email, password);
@@ -372,7 +372,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(body.data.accessToken).toBeTypeOf("string");
       });
 
-      it("T1-VER-05: should return 400 Bad Request when re-submitting already consumed verification token", async () => {
+      it("rejects re-submitting already consumed verification token", async () => {
         const { rawToken } = await seedUnverifiedUser(
           "verify.reused@greenroots.farm",
         );
@@ -398,7 +398,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 3. POST /api/v1/auth/resend-verification (5 tests)
     describe("POST /api/v1/auth/resend-verification", () => {
-      it("T1-RES-01: should return 200 OK for unverified user requesting verification resend", async () => {
+      it("resends verification for unverified user", async () => {
         const email = "resend.happy@greenroots.farm";
         await seedUnverifiedUser(email);
 
@@ -412,7 +412,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(body.data).toBeNull();
       });
 
-      it("T1-RES-02: should update database with fresh verification token hash", async () => {
+      it("updates database with fresh verification token hash", async () => {
         const email = "resend.fresh@greenroots.farm";
         const { user } = await seedUnverifiedUser(email);
         const initialTokenHash = user.verificationToken;
@@ -439,7 +439,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(updatedUser?.verificationToken).toMatch(/^[0-9a-f]{64}$/);
       });
 
-      it("T1-RES-03: should enqueue new activation email via MailService", async () => {
+      it("enqueues activation email via MailService", async () => {
         const email = "resend.mail@greenroots.farm";
         const { user } = await seedUnverifiedUser(email);
         mailTokens.clear();
@@ -460,7 +460,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(capturedToken).toMatch(/^[0-9a-f]{64}$/);
       });
 
-      it("T1-RES-04: should verify user successfully using newly issued verification token", async () => {
+      it("verifies user using newly issued verification token", async () => {
         const email = "resend.activate@greenroots.farm";
         const { user } = await seedUnverifiedUser(email);
         mailTokens.clear();
@@ -492,7 +492,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(verifiedUser?.emailVerified).toBe(true);
       });
 
-      it("T1-RES-05: should invalidate previous verification token once new token is issued", async () => {
+      it("invalidates previous verification token when new token is issued", async () => {
         const email = "resend.invalidate.old@greenroots.farm";
         const { user, rawToken: oldToken } = await seedUnverifiedUser(email);
         mailTokens.clear();
@@ -523,7 +523,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 4. POST /api/v1/auth/login (5 tests)
     describe("POST /api/v1/auth/login", () => {
-      it("T1-LOG-01: should log in successfully with valid verified credentials (200 OK)", async () => {
+      it("logs in with valid verified credentials", async () => {
         const email = "login.success@greenroots.farm";
         const password = "Password123!";
         await seedVerifiedUser(email, password);
@@ -542,7 +542,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(body.data.user.status).toBe(UserStatus.ACTIVE);
       });
 
-      it("T1-LOG-02: should issue JWT access token with correct claims (sub, email, role, jti, exp)", async () => {
+      it("issues JWT access token with correct claims", async () => {
         const email = "login.claims@greenroots.farm";
         const password = "Password123!";
         const user = await seedVerifiedUser(email, password);
@@ -570,7 +570,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(decoded.exp - decoded.iat).toBe(900); // 15 minutes TTL
       });
 
-      it("T1-LOG-03: should persist refresh token in database as SHA-256 digest with ~7-day expiration", async () => {
+      it("persists refresh token in database with ~7-day expiration", async () => {
         const email = "login.dbtoken@greenroots.farm";
         const password = "Password123!";
         const user = await seedVerifiedUser(email, password);
@@ -596,7 +596,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(expiresAt).toBeLessThanOrEqual(before + 8 * 86400 * 1000);
       });
 
-      it("T1-LOG-04: should capture client metadata (deviceName and ipAddress) in refresh token record", async () => {
+      it("captures client deviceName and ipAddress in refresh token record", async () => {
         const email = "login.metadata@greenroots.farm";
         const password = "Password123!";
         await seedVerifiedUser(email, password);
@@ -618,7 +618,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(storedToken?.ipAddress).toBe("203.0.113.195");
       });
 
-      it("T1-LOG-05: should allow access to protected endpoints using issued access token", async () => {
+      it("allows access to protected endpoints using issued access token", async () => {
         const email = "login.authguard@greenroots.farm";
         const password = "Password123!";
         await seedVerifiedUser(email, password);
@@ -640,7 +640,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 5. POST /api/v1/auth/refresh (5 tests)
     describe("POST /api/v1/auth/refresh", () => {
-      it("T1-REF-01: should rotate refresh token and issue new token pair with 200 OK", async () => {
+      it("rotates refresh token and issues new token pair", async () => {
         const user = await seedVerifiedUser("refresh.happy@greenroots.farm");
         const initialRawRefreshToken = randomBytes(32).toString("hex");
         await seedRefreshTokenRecord(user.id, initialRawRefreshToken);
@@ -657,7 +657,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(body.data.refreshToken).not.toBe(initialRawRefreshToken);
       });
 
-      it("T1-REF-02: should atomically delete consumed refresh token from database", async () => {
+      it("atomically deletes consumed refresh token from database", async () => {
         const user = await seedVerifiedUser("refresh.atomic@greenroots.farm");
         const initialRawRefreshToken = randomBytes(32).toString("hex");
         await seedRefreshTokenRecord(user.id, initialRawRefreshToken);
@@ -675,7 +675,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(consumedToken).toBeUndefined();
       });
 
-      it("T1-REF-03: should persist new refresh token in database with ~7-day TTL", async () => {
+      it("persists new refresh token in database with ~7-day TTL", async () => {
         const user = await seedVerifiedUser("refresh.ttl@greenroots.farm");
         const initialRawRefreshToken = randomBytes(32).toString("hex");
         await seedRefreshTokenRecord(user.id, initialRawRefreshToken);
@@ -700,7 +700,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(expiresAt).toBeGreaterThan(before + 6 * 86400 * 1000);
       });
 
-      it("T1-REF-04: should issue new access token with distinct jti claim", async () => {
+      it("issues new access token with distinct jti claim", async () => {
         const user = await seedVerifiedUser("refresh.jti@greenroots.farm");
         const initialRawRefreshToken = randomBytes(32).toString("hex");
         await seedRefreshTokenRecord(user.id, initialRawRefreshToken);
@@ -730,7 +730,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(newDecoded.jti).not.toBe(initialDecoded.jti);
       });
 
-      it("T1-REF-05: should support chained rotation using newly issued refresh token", async () => {
+      it("supports chained rotation using newly issued refresh token", async () => {
         const user = await seedVerifiedUser("refresh.chain@greenroots.farm");
         const r1 = randomBytes(32).toString("hex");
         await seedRefreshTokenRecord(user.id, r1);
@@ -756,7 +756,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 6. POST /api/v1/auth/logout (5 tests)
     describe("POST /api/v1/auth/logout", () => {
-      it("T1-OUT-01: should perform single logout with valid refreshToken and Bearer token (200 OK)", async () => {
+      it("performs single logout with valid refresh and access token", async () => {
         const user = await seedVerifiedUser("logout.happy@greenroots.farm");
         const rawRefreshToken = randomBytes(32).toString("hex");
         await seedRefreshTokenRecord(user.id, rawRefreshToken);
@@ -778,7 +778,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(body.data).toBeNull();
       });
 
-      it("T1-OUT-02: should delete specific refresh token from database", async () => {
+      it("deletes specific refresh token from database", async () => {
         const user = await seedVerifiedUser("logout.deletedb@greenroots.farm");
         const rawRefreshToken = randomBytes(32).toString("hex");
         await seedRefreshTokenRecord(user.id, rawRefreshToken);
@@ -796,7 +796,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(deleted).toBeUndefined();
       });
 
-      it("T1-OUT-03: should blacklist access token jti in Redis with remaining TTL", async () => {
+      it("blacklists access token in Redis with remaining TTL", async () => {
         const user = await seedVerifiedUser("logout.redis@greenroots.farm");
         const rawRefreshToken = randomBytes(32).toString("hex");
         await seedRefreshTokenRecord(user.id, rawRefreshToken);
@@ -818,7 +818,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(isRevoked).toBe("1");
       });
 
-      it("T1-OUT-04: should reject blacklisted access token on subsequent requests (401 Unauthorized)", async () => {
+      it("rejects blacklisted access token on subsequent requests", async () => {
         const user = await seedVerifiedUser("logout.blacklist@greenroots.farm");
         const rawRefreshToken = randomBytes(32).toString("hex");
         await seedRefreshTokenRecord(user.id, rawRefreshToken);
@@ -845,7 +845,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.detail).toContain(MESSAGES.AUTH.TOKEN_REVOKED);
       });
 
-      it("T1-OUT-05: should succeed and delete refresh token when Authorization header is omitted", async () => {
+      it("deletes refresh token even when Authorization header is omitted", async () => {
         const user = await seedVerifiedUser("logout.noauth@greenroots.farm");
         const rawRefreshToken = randomBytes(32).toString("hex");
         await seedRefreshTokenRecord(user.id, rawRefreshToken);
@@ -868,7 +868,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 7. POST /api/v1/auth/logout-all (5 tests)
     describe("POST /api/v1/auth/logout-all", () => {
-      it("T1-LOA-01: should perform global logout with valid Bearer token (200 OK)", async () => {
+      it("performs global logout with valid Bearer token", async () => {
         const user = await seedVerifiedUser("logoutall.happy@greenroots.farm");
         const accessToken = await generateTestToken(jwtService, {
           sub: user.id,
@@ -886,7 +886,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(body.data).toBeNull();
       });
 
-      it("T1-LOA-02: should delete all refresh tokens for user from database", async () => {
+      it("deletes all refresh tokens for user from database", async () => {
         const user = await seedVerifiedUser("logoutall.purge@greenroots.farm");
         await seedRefreshTokenRecord(user.id, randomBytes(32).toString("hex"));
         await seedRefreshTokenRecord(user.id, randomBytes(32).toString("hex"));
@@ -910,7 +910,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(remaining.length).toBe(0);
       });
 
-      it("T1-LOA-03: should set user revocation key in Redis with ~15-minute TTL", async () => {
+      it("sets user revocation key in Redis with ~15-minute TTL", async () => {
         const user = await seedVerifiedUser("logoutall.redis@greenroots.farm");
         const accessToken = await generateTestToken(jwtService, {
           sub: user.id,
@@ -930,7 +930,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(ttl).toBeLessThanOrEqual(900);
       });
 
-      it("T1-LOA-04: should reject caller access token immediately on subsequent requests (401 Unauthorized)", async () => {
+      it("rejects caller access token on subsequent requests", async () => {
         const user = await seedVerifiedUser("logoutall.caller@greenroots.farm");
         const accessToken = await generateTestToken(jwtService, {
           sub: user.id,
@@ -952,7 +952,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.detail).toContain(MESSAGES.AUTH.TOKEN_REVOKED);
       });
 
-      it("T1-LOA-05: should reject concurrent device access tokens for same user immediately", async () => {
+      it("rejects concurrent device access tokens for same user immediately", async () => {
         const user = await seedVerifiedUser(
           "logoutall.concurrent@greenroots.farm",
         );
@@ -986,7 +986,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 8. POST /api/v1/auth/forgot-password (5 tests)
     describe("POST /api/v1/auth/forgot-password", () => {
-      it("T1-FGP-01: should return 200 OK for valid registered email", async () => {
+      it("returns success for valid registered email", async () => {
         const email = "forgot.happy@greenroots.farm";
         await seedVerifiedUser(email);
 
@@ -1000,7 +1000,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(body.data).toBeNull();
       });
 
-      it("T1-FGP-02: should generate reset password token hash in users table", async () => {
+      it("generates reset password token hash in users table", async () => {
         const email = "forgot.tokenhash@greenroots.farm";
         const user = await seedVerifiedUser(email);
 
@@ -1017,7 +1017,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(updatedUser?.resetPasswordToken).toMatch(/^[0-9a-f]{64}$/);
       });
 
-      it("T1-FGP-03: should set resetPasswordExpiresAt to ~15 minutes in future", async () => {
+      it("sets reset password expiration to ~15 minutes in future", async () => {
         const email = "forgot.expires@greenroots.farm";
         const user = await seedVerifiedUser(email);
         const before = Date.now();
@@ -1038,7 +1038,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(expiresAt).toBeLessThanOrEqual(before + 16 * 60 * 1000);
       });
 
-      it("T1-FGP-04: should dispatch reset password email job via MailService", async () => {
+      it("dispatches reset password email job via MailService", async () => {
         const email = "forgot.mail@greenroots.farm";
         await seedVerifiedUser(email);
         mailTokens.clear();
@@ -1060,7 +1060,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(dbUser?.resetPasswordToken).toBe(sha256(capturedToken!));
       });
 
-      it("T1-FGP-05: should replace existing reset token when forgot password is requested again", async () => {
+      it("replaces existing reset token when requested again", async () => {
         const email = "forgot.replace@greenroots.farm";
         const user = await seedVerifiedUser(email);
 
@@ -1091,7 +1091,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 9. POST /api/v1/auth/reset-password (5 tests)
     describe("POST /api/v1/auth/reset-password", () => {
-      it("T1-RST-01: should reset password successfully with valid token and strong password (200 OK)", async () => {
+      it("resets password with valid token and strong password", async () => {
         const email = "reset.happy@greenroots.farm";
         const user = await seedVerifiedUser(email);
         const rawResetToken = randomBytes(32).toString("hex");
@@ -1118,7 +1118,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(body.data).toBeNull();
       });
 
-      it("T1-RST-02: should update database password to new Scrypt hash", async () => {
+      it("updates database password to new Scrypt hash", async () => {
         const email = "reset.hash@greenroots.farm";
         const user = await seedVerifiedUser(email);
         const rawResetToken = randomBytes(32).toString("hex");
@@ -1153,7 +1153,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(isMatch).toBe(true);
       });
 
-      it("T1-RST-03: should clear reset password token and expiry in database", async () => {
+      it("clears reset password token and expiry in database", async () => {
         const email = "reset.clear@greenroots.farm";
         const user = await seedVerifiedUser(email);
         const rawResetToken = randomBytes(32).toString("hex");
@@ -1184,7 +1184,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(updatedUser?.resetPasswordExpiresAt).toBeNull();
       });
 
-      it("T1-RST-04: should allow user to log in immediately with new password", async () => {
+      it("allows user to log in immediately with new password", async () => {
         const email = "reset.loginnew@greenroots.farm";
         const user = await seedVerifiedUser(email, "OldPassword123!");
         const rawResetToken = randomBytes(32).toString("hex");
@@ -1215,7 +1215,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(body.success).toBe(true);
       });
 
-      it("T1-RST-05: should reject login attempt with old password (401 Unauthorized)", async () => {
+      it("rejects login attempt with old password", async () => {
         const email = "reset.loginold@greenroots.farm";
         const oldPassword = "OldPassword123!";
         const user = await seedVerifiedUser(email, oldPassword);
@@ -1252,10 +1252,10 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
   // =========================================================================
   // TIER 2: Boundary & Corner Cases (Boundary Value Analysis) — 45 Test Cases
   // =========================================================================
-  describe("Tier 2: Boundary & Corner Cases (Boundary Value Analysis)", () => {
+  describe("Boundary Validation & Sanitization", () => {
     // 1. Registration Boundaries & Sanitization (5 tests)
     describe("Registration Boundaries & Sanitization", () => {
-      it("T2-REG-01: should strip HTML/XSS tags and collapse whitespace in fullName", async () => {
+      it("strips HTML/XSS tags and collapses whitespace in fullName", async () => {
         const email = "xss.clean@greenroots.farm";
         const res = await request(getHttpServer())
           .post("/api/v1/auth/register")
@@ -1279,7 +1279,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(user?.fullName).toBe("Farmer Bob");
       });
 
-      it("T2-REG-02: should reject registration with 400 Bad Request when fullName is empty after tag stripping", async () => {
+      it("rejects registration when fullName is empty after tag stripping", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/register")
           .send({
@@ -1315,7 +1315,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         );
       });
 
-      it("T2-REG-03: should safely handle SQL injection payloads in name and email via parameterized queries", async () => {
+      it("safely handles SQL injection payloads in name and email", async () => {
         const email = "sqli.safe@greenroots.farm";
         const sqliName = "Admin' OR '1'='1 --";
         const res = await request(getHttpServer())
@@ -1339,7 +1339,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(user?.fullName).toBe(sqliName);
       });
 
-      it("T2-REG-04: should enforce password length boundaries (reject <8 and >128 chars)", async () => {
+      it("enforces password length boundaries between 8 and 128 characters", async () => {
         // 7 chars: too short
         const shortRes = await request(getHttpServer())
           .post("/api/v1/auth/register")
@@ -1392,7 +1392,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(maxRes.status).toBe(201);
       });
 
-      it("T2-REG-05: should reject registration when required fields are missing, agreeTerms is false, passwords mismatch, or email is duplicate", async () => {
+      it("rejects registration on missing fields, terms declined, password mismatch, or duplicate email", async () => {
         // empty payload
         const emptyRes = await request(getHttpServer())
           .post("/api/v1/auth/register")
@@ -1470,7 +1470,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 2. Email Verification Boundaries (5 tests)
     describe("Email Verification Boundaries", () => {
-      it("T2-VER-01: should reject expired verification token with 400 Bad Request (AUTH_VERIFICATION_TOKEN_INVALID)", async () => {
+      it("rejects expired verification token", async () => {
         const rawToken = randomBytes(32).toString("hex");
         await seedUnverifiedUser(
           "expired.ver@greenroots.farm",
@@ -1495,7 +1495,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         );
       });
 
-      it("T2-VER-02: should reject non-existent 64-character hex token with 400 Bad Request", async () => {
+      it("rejects non-existent verification token", async () => {
         const fakeToken = "a".repeat(64);
         const res = await request(getHttpServer())
           .post("/api/v1/auth/verify-email")
@@ -1508,7 +1508,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         );
       });
 
-      it("T2-VER-03: should reject malformed or empty token with 400 Bad Request", async () => {
+      it("rejects malformed or empty token", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/verify-email")
           .send({ token: "" });
@@ -1516,7 +1516,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(res.status).toBe(400);
       });
 
-      it("T2-VER-04: should reject SQL injection token payload with 400 Bad Request without leaking SQL error", async () => {
+      it("rejects SQL injection token without leaking database error", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/verify-email")
           .send({ token: "' OR 1=1 --" });
@@ -1526,7 +1526,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.detail).not.toContain("syntax error");
       });
 
-      it("T2-VER-05: should reject request with missing body or extra unrecognized properties", async () => {
+      it("rejects request with missing body or unrecognized properties", async () => {
         const resMissing = await request(getHttpServer())
           .post("/api/v1/auth/verify-email")
           .send({});
@@ -1550,7 +1550,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 3. Resend Verification Boundaries (5 tests)
     describe("Resend Verification Boundaries", () => {
-      it("T2-RES-01: should return silent 200 OK without dispatching email for non-existent email (anti-enumeration)", async () => {
+      it("silently succeeds without dispatching email for non-existent email", async () => {
         mailTokens.clear();
         const res = await request(getHttpServer())
           .post("/api/v1/auth/resend-verification")
@@ -1562,7 +1562,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(mailTokens.verificationTokens.length).toBe(0);
       });
 
-      it("T2-RES-02: should return silent 200 OK without dispatching email for already-verified account", async () => {
+      it("silently succeeds without dispatching email for already verified account", async () => {
         const email = "already.verified.resend@greenroots.farm";
         await seedVerifiedUser(email);
         mailTokens.clear();
@@ -1575,7 +1575,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(mailTokens.verificationTokens.length).toBe(0);
       });
 
-      it("T2-RES-03: should reject malformed email syntax with 400 Bad Request", async () => {
+      it("rejects malformed email syntax", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/resend-verification")
           .send({ email: "not-an-email" });
@@ -1583,7 +1583,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(res.status).toBe(400);
       });
 
-      it("T2-RES-04: should normalize mixed-case and untrimmed email addresses before lookup", async () => {
+      it("normalizes mixed-case and untrimmed email addresses before lookup", async () => {
         const email = "normalize.resend@greenroots.farm";
         const { user } = await seedUnverifiedUser(email);
         mailTokens.clear();
@@ -1603,7 +1603,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(mailTokens.verificationTokens.length).toBe(1);
       });
 
-      it("T2-RES-05: should reject request with missing body or null email", async () => {
+      it("rejects request with missing body or null email", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/resend-verification")
           .send({});
@@ -1620,7 +1620,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 4. Login Boundaries (5 tests)
     describe("Login Boundaries", () => {
-      it("T2-LOG-01: should return generic 401 Unauthorized for non-existent email (anti-enumeration)", async () => {
+      it("rejects non-existent email with generic unauthorized error", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/login")
           .send({
@@ -1633,7 +1633,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.code).toBe(API_ERROR_CODES.AUTH_INVALID_CREDENTIALS);
       });
 
-      it("T2-LOG-02: should return generic 401 Unauthorized for valid email with incorrect password", async () => {
+      it("rejects valid email with incorrect password", async () => {
         const email = "wrongpass@greenroots.farm";
         await seedVerifiedUser(email, "CorrectPassword123!");
 
@@ -1649,7 +1649,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.code).toBe(API_ERROR_CODES.AUTH_INVALID_CREDENTIALS);
       });
 
-      it("T2-LOG-03: should reject suspended account credentials with 403 Forbidden (AUTH_ACCOUNT_SUSPENDED)", async () => {
+      it("rejects credentials for suspended account", async () => {
         const email = "suspended@greenroots.farm";
         const password = "Password123!";
         await seedVerifiedUser(email, password, {
@@ -1665,7 +1665,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.code).toBe(API_ERROR_CODES.AUTH_ACCOUNT_SUSPENDED);
       });
 
-      it("T2-LOG-04: should reject unverified account credentials with 403 Forbidden (AUTH_EMAIL_NOT_VERIFIED)", async () => {
+      it("rejects credentials for unverified account", async () => {
         const email = "unverified.login@greenroots.farm";
         const password = "Password123!";
         await seedUnverifiedUser(email, password);
@@ -1679,7 +1679,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.code).toBe(API_ERROR_CODES.AUTH_EMAIL_NOT_VERIFIED);
       });
 
-      it("T2-LOG-05: should reject oversized password payloads and empty body with 400 Bad Request", async () => {
+      it("rejects oversized password payload and empty body", async () => {
         const emptyRes = await request(getHttpServer())
           .post("/api/v1/auth/login")
           .send({});
@@ -1694,7 +1694,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(oversizedRes.status).toBe(400);
       });
 
-      it("T2-LOG-06: should safely reject SQL injection email payload without DB syntax error leakage", async () => {
+      it("safely rejects SQL injection email payload without database error leakage", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/login")
           .send({
@@ -1710,7 +1710,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 5. Refresh Boundaries (5 tests)
     describe("Refresh Boundaries", () => {
-      it("T2-REF-01: should reject expired refresh token with 401 Unauthorized (AUTH_TOKEN_INVALID_OR_EXPIRED)", async () => {
+      it("rejects expired refresh token", async () => {
         const user = await seedVerifiedUser("refresh.expired@greenroots.farm");
         const rawToken = randomBytes(32).toString("hex");
         // Seed expired refresh token
@@ -1725,7 +1725,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.code).toBe(API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED);
       });
 
-      it("T2-REF-02: should reject non-existent or fabricated 64-char hex refresh token with 401 Unauthorized", async () => {
+      it("rejects non-existent or fabricated refresh token", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/refresh")
           .send({ refreshToken: "f".repeat(64) });
@@ -1735,7 +1735,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.code).toBe(API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED);
       });
 
-      it("T2-REF-03: should reject refresh token when associated user is soft-deleted or suspended", async () => {
+      it("rejects refresh token when user is soft-deleted or suspended", async () => {
         const user = await seedVerifiedUser(
           "refresh.suspended@greenroots.farm",
           "Password123!",
@@ -1758,7 +1758,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         ]).toContain(error.code!);
       });
 
-      it("T2-REF-04: should reject malformed or empty refresh token with 400 Bad Request", async () => {
+      it("rejects malformed or empty refresh token", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/refresh")
           .send({ refreshToken: "" });
@@ -1766,7 +1766,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(res.status).toBe(400);
       });
 
-      it("T2-REF-05: should reject request with missing body or empty JSON payload", async () => {
+      it("rejects request with missing body or empty JSON payload", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/refresh")
           .send({});
@@ -1777,7 +1777,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 6. Logout Boundaries (5 tests)
     describe("Logout Boundaries", () => {
-      it("T2-OUT-01: should return 200 OK when attempting logout with already deleted or unknown refresh token (idempotent)", async () => {
+      it("returns success idempotently when refresh token is unknown or already deleted", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/logout")
           .send({ refreshToken: "e".repeat(64) });
@@ -1786,7 +1786,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(res.status).toBe(200);
       });
 
-      it("T2-OUT-02: should gracefully delete DB refresh token even if provided Bearer token is expired", async () => {
+      it("deletes refresh token even when Bearer token is expired", async () => {
         const user = await seedVerifiedUser(
           "logout.expiredbearer@greenroots.farm",
         );
@@ -1819,7 +1819,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(deleted).toBeUndefined();
       });
 
-      it("T2-OUT-03: should gracefully delete DB refresh token even if provided Bearer token is malformed", async () => {
+      it("deletes refresh token even when Bearer token is malformed", async () => {
         const user = await seedVerifiedUser("logout.badbearer@greenroots.farm");
         const rawToken = randomBytes(32).toString("hex");
         await seedRefreshTokenRecord(user.id, rawToken);
@@ -1840,7 +1840,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(deleted).toBeUndefined();
       });
 
-      it("T2-OUT-04: should return 400 Bad Request when refreshToken field is missing from request body", async () => {
+      it("rejects request when refreshToken field is missing", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/logout")
           .send({});
@@ -1848,7 +1848,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(res.status).toBe(400);
       });
 
-      it("T2-OUT-05: should reject request body containing extra unrecognized properties", async () => {
+      it("rejects request body containing unrecognized properties", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/logout")
           .send({
@@ -1862,7 +1862,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 7. Logout-All Boundaries (5 tests)
     describe("Logout-All Boundaries", () => {
-      it("T2-LOA-01: should return 401 Unauthorized when Authorization header is missing", async () => {
+      it("rejects request when Authorization header is missing", async () => {
         const res = await request(getHttpServer()).post(
           "/api/v1/auth/logout-all",
         );
@@ -1872,7 +1872,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.detail).toContain(MESSAGES.AUTH.TOKEN_MISSING);
       });
 
-      it("T2-LOA-02: should return 401 Unauthorized when Authorization scheme is not Bearer", async () => {
+      it("rejects request when Authorization scheme is not Bearer", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/logout-all")
           .set("Authorization", "Basic dXNlcjpwYXNz");
@@ -1883,7 +1883,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.detail).toContain(MESSAGES.AUTH.TOKEN_MISSING);
       });
 
-      it("T2-LOA-03: should return 401 Unauthorized when Bearer token is expired", async () => {
+      it("rejects request when Bearer token is expired", async () => {
         const user = await seedVerifiedUser("loa.expired@greenroots.farm");
         const expiredToken = await jwtService.signAsync(
           {
@@ -1905,7 +1905,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.detail).toContain(MESSAGES.AUTH.TOKEN_INVALID_OR_EXPIRED);
       });
 
-      it("T2-LOA-04: should return 401 Unauthorized when Bearer token has invalid/tampered signature", async () => {
+      it("rejects request when Bearer token has invalid signature", async () => {
         const user = await seedVerifiedUser("loa.tampered@greenroots.farm");
         const validToken = await generateTestToken(jwtService, {
           sub: user.id,
@@ -1926,7 +1926,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.detail).toContain(MESSAGES.AUTH.TOKEN_INVALID_OR_EXPIRED);
       });
 
-      it("T2-LOA-05: should return 401 Unauthorized when Bearer token has malformed JWT structure", async () => {
+      it("rejects request when Bearer token has malformed JWT structure", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/logout-all")
           .set("Authorization", "Bearer invalid-token-string");
@@ -1940,7 +1940,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 8. Forgot Password Boundaries (5 tests)
     describe("Forgot Password Boundaries", () => {
-      it("T2-FGP-01: should return silent 200 OK without dispatching email for non-existent email (anti-enumeration)", async () => {
+      it("silently succeeds without dispatching email for non-existent email", async () => {
         mailTokens.clear();
         const res = await request(getHttpServer())
           .post("/api/v1/auth/forgot-password")
@@ -1952,7 +1952,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(mailTokens.recoveryTokens.length).toBe(0);
       });
 
-      it("T2-FGP-02: should return silent 200 OK without dispatching email for suspended account", async () => {
+      it("silently succeeds without dispatching email for suspended account", async () => {
         const email = "suspended.forgot@greenroots.farm";
         await seedVerifiedUser(email, "Password123!", {
           status: UserStatus.SUSPENDED,
@@ -1967,7 +1967,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(mailTokens.recoveryTokens.length).toBe(0);
       });
 
-      it("T2-FGP-03: should normalize mixed-case and untrimmed email before lookup", async () => {
+      it("normalizes mixed-case and untrimmed email before lookup", async () => {
         const email = "normalize.forgot@greenroots.farm";
         await seedVerifiedUser(email);
         mailTokens.clear();
@@ -1980,7 +1980,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(mailTokens.recoveryTokens.length).toBe(1);
       });
 
-      it("T2-FGP-04: should reject malformed email format with 400 Bad Request", async () => {
+      it("rejects malformed email format", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/forgot-password")
           .send({ email: "invalid-email" });
@@ -1988,7 +1988,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(res.status).toBe(400);
       });
 
-      it("T2-FGP-05: should reject request with missing body or unrecognized extra fields", async () => {
+      it("rejects request with missing body or unrecognized extra fields", async () => {
         const resMissing = await request(getHttpServer())
           .post("/api/v1/auth/forgot-password")
           .send({});
@@ -2006,7 +2006,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
 
     // 9. Reset Password Boundaries (5 tests)
     describe("Reset Password Boundaries", () => {
-      it("T2-RST-01: should reject expired reset password token with 400 Bad Request (AUTH_RESET_TOKEN_INVALID)", async () => {
+      it("rejects expired reset password token", async () => {
         const email = "rst.expired@greenroots.farm";
         const user = await seedVerifiedUser(email);
         const rawToken = randomBytes(32).toString("hex");
@@ -2032,7 +2032,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.code).toBe(API_ERROR_CODES.AUTH_RESET_TOKEN_INVALID);
       });
 
-      it("T2-RST-02: should reject non-existent reset token with 400 Bad Request (AUTH_RESET_TOKEN_INVALID)", async () => {
+      it("rejects non-existent reset password token", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/reset-password")
           .send({
@@ -2046,7 +2046,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(error.code).toBe(API_ERROR_CODES.AUTH_RESET_TOKEN_INVALID);
       });
 
-      it("T2-RST-03: should reject request when password and confirmPassword do not match", async () => {
+      it("rejects request when password and confirmPassword do not match", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/reset-password")
           .send({
@@ -2058,7 +2058,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(res.status).toBe(400);
       });
 
-      it("T2-RST-04: should reject weak password lacking uppercase, number, or special character", async () => {
+      it("rejects weak password lacking uppercase, number, or special character", async () => {
         const res = await request(getHttpServer())
           .post("/api/v1/auth/reset-password")
           .send({
@@ -2070,7 +2070,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
         expect(res.status).toBe(400);
       });
 
-      it("T2-RST-05: should prevent token replay by rejecting already used reset token with 400 Bad Request", async () => {
+      it("prevents token replay by rejecting already used reset token", async () => {
         const email = "rst.replay@greenroots.farm";
         const user = await seedVerifiedUser(email);
         const rawToken = randomBytes(32).toString("hex");
@@ -2112,8 +2112,9 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
   // =========================================================================
   // TIER 3: Cross-Feature Combinations & Invariants — 10 Test Cases
   // =========================================================================
-  describe("Tier 3: Cross-Feature Combinations & Invariants", () => {
-    it("T3-INV-01 (INV-AUTH-1: Unique Active Email Constraint): duplicate registration returns 409, but succeeds after soft-delete", async () => {
+  describe("Concurrency & Domain Invariants", () => {
+    // Invariant: INV-AUTH-1 (Unique Active Email)
+    it("enforces unique active email constraint while allowing re-registration after soft delete", async () => {
       const email = "inv.unique@greenroots.farm";
       const payload = {
         email,
@@ -2154,7 +2155,8 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect(reRegRes.status).toBe(201);
     });
 
-    it("T3-INV-02 (INV-AUTH-2: Unverified Login Barrier): login rejected with 403 before email verification, succeeds after", async () => {
+    // Invariant: INV-AUTH-2 (Unverified Login Barrier)
+    it("enforces unverified login barrier before email verification", async () => {
       const email = "inv.barrier@greenroots.farm";
       const password = "Password123!";
       const { rawToken } = await seedUnverifiedUser(email, password);
@@ -2183,7 +2185,8 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect((loginRes.body as ApiResponse<LoginData>).success).toBe(true);
     });
 
-    it("T3-INV-03 (INV-AUTH-3: Single-Use Atomic Refresh Rotation Concurrency Race): exactly one succeeds, one fails on simultaneous refresh", async () => {
+    // Invariant: INV-AUTH-3 (Single-Use Atomic Refresh Rotation Concurrency Race)
+    it("handles concurrent refresh race condition where exactly one succeeds", async () => {
       const user = await seedVerifiedUser("inv.race@greenroots.farm");
       const r1 = randomBytes(32).toString("hex");
       await seedRefreshTokenRecord(user.id, r1);
@@ -2211,7 +2214,8 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect(tokensInDb.length).toBe(1);
     });
 
-    it("T3-INV-04 (INV-AUTH-3: Single-Use Refresh Rotation Serial Replay): rotated token rejected on subsequent replay", async () => {
+    // Invariant: INV-AUTH-3 (Single-Use Refresh Rotation Serial Replay)
+    it("rejects serial replay of already rotated refresh token", async () => {
       const user = await seedVerifiedUser("inv.replay@greenroots.farm");
       const r1 = randomBytes(32).toString("hex");
       await seedRefreshTokenRecord(user.id, r1);
@@ -2232,7 +2236,8 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect(error.code).toBe(API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED);
     });
 
-    it("T3-INV-05 (INV-AUTH-4: Single-Device Session Isolation): logging out Device A does not invalidate Device B", async () => {
+    // Invariant: INV-AUTH-4 (Single-Device Session Isolation)
+    it("preserves concurrent device session when logging out a single device", async () => {
       const user = await seedVerifiedUser("inv.isolation@greenroots.farm");
       const rA = randomBytes(32).toString("hex");
       const rB = randomBytes(32).toString("hex");
@@ -2276,7 +2281,8 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect(testBAccessRes.status).toBe(200);
     });
 
-    it("T3-INV-06 (INV-AUTH-5: Global Account Revocation on Logout-All): revokes all sessions across all devices", async () => {
+    // Invariant: INV-AUTH-5 (Global Account Revocation on Logout-All)
+    it("revokes all active sessions across all devices on global logout", async () => {
       const user = await seedVerifiedUser("inv.logoutall@greenroots.farm");
       const rA = randomBytes(32).toString("hex");
       const rB = randomBytes(32).toString("hex");
@@ -2319,7 +2325,8 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect(dbTokens.length).toBe(0);
     });
 
-    it("T3-INV-07 (INV-AUTH-5: Global Account Revocation on Reset Password): invalidates all device sessions", async () => {
+    // Invariant: INV-AUTH-5 (Global Account Revocation on Reset Password)
+    it("invalidates all device sessions upon password reset", async () => {
       const user = await seedVerifiedUser("inv.resetall@greenroots.farm");
       const rA = randomBytes(32).toString("hex");
       await seedRefreshTokenRecord(user.id, rA);
@@ -2363,7 +2370,8 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect(dbTokens.length).toBe(0);
     });
 
-    it("T3-INV-08 (INV-AUTH-6: Anti-Enumeration Silence): returns identical 200 OK for existing vs non-existing emails", async () => {
+    // Invariant: INV-AUTH-6 (Anti-Enumeration Silence)
+    it("returns identical success response for existing and non-existing emails", async () => {
       const existingEmail = "inv.exist@greenroots.farm";
       await seedVerifiedUser(existingEmail);
       const ghostEmail = "inv.ghost@greenroots.farm";
@@ -2393,7 +2401,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect(resendExisting.body).toEqual(resendGhost.body);
     });
 
-    it("T3-INV-09: Two-Tier Redis Guard Revocation Pipelining: checks user and token keys seamlessly", async () => {
+    it("pipelines token and user blacklist checks through Redis", async () => {
       const user = await seedVerifiedUser("inv.pipelined@greenroots.farm");
       const jti = randomUUID();
       const token = await generateTestToken(jwtService, {
@@ -2432,7 +2440,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect(restoredRes.status).toBe(200);
     });
 
-    it("T3-INV-10: Resend Verification Cooldown: subsequent calls within 60s do not re-enqueue email", async () => {
+    it("throttles verification resend within cooldown window", async () => {
       const email = "inv.cooldown@greenroots.farm";
       await seedUnverifiedUser(email);
       mailTokens.clear();
@@ -2458,8 +2466,8 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
   // =========================================================================
   // TIER 4: Real-World Workload Scenarios — 4 Comprehensive Scenarios
   // =========================================================================
-  describe("Tier 4: Real-World Workloads & Scenarios", () => {
-    it("Scenario 1: Complete Customer Onboarding Journey", async () => {
+  describe("End-to-End Scenarios", () => {
+    it("completes customer onboarding journey from registration to verified login", async () => {
       const email = "scenario1.customer@greenroots.farm";
       const password = "SecurePassword123!";
       mailTokens.clear();
@@ -2521,7 +2529,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect(authRouteRes.status).toBe(200);
     });
 
-    it("Scenario 2: Active User Multi-Device Lifecycle & Session Isolation", async () => {
+    it("maintains multi-device session isolation through lifecycle events", async () => {
       const email = "scenario2.devices@greenroots.farm";
       const password = "Password123!";
       await seedVerifiedUser(email, password);
@@ -2585,7 +2593,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect(finalCheck.status).toBe(401);
     });
 
-    it("Scenario 3: Forgotten Password & Account Recovery Lifecycle", async () => {
+    it("completes account recovery lifecycle with session invalidation", async () => {
       const email = "scenario3.recovery@greenroots.farm";
       const oldPassword = "OldPassword123!";
       const newPassword = "BrandNewPassword456!";
@@ -2659,7 +2667,7 @@ describe("Authentication & Session Lifecycle Integration Test Suite", () => {
       expect(replayResetRes.status).toBe(400);
     });
 
-    it("Scenario 4: Refresh Token Theft & Replay Attack Defense", async () => {
+    it("defends against refresh token theft and replay attacks", async () => {
       const email = "scenario4.replay@greenroots.farm";
       const password = "Password123!";
       await seedVerifiedUser(email, password);

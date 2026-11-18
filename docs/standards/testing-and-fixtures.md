@@ -1,26 +1,31 @@
 # Testing & Fixture Standards
 
-## 1. 3-Tier Integration Test Hierarchy
+## 1. Integration Test Hierarchy & Clean Naming Standards
 
-- **Level 1**: `describe("<Domain> Module Integration")`
-- **Level 2**: `describe("<HTTP_METHOD> <route> [(<Scope>)]")` or `describe("Database Invariants: <Topic>")`
-- **Level 3**: `it("should <expected outcome> when <condition>")`; Bun's `test()` alias is accepted and used by unit suites.
+- **Level 1**: `describe("<Domain> Integration")`
+- **Level 2**: `describe("<HTTP_METHOD> <route> [(<Scope>)]")` or `describe("<Feature Group>")`
+- **Level 3**: `it("<active-verb> <behavior> [when <condition>]")`; Bun's `test()` alias is accepted and used by unit suites.
 
 ```ts
-describe("Orders Module Integration", () => {
-  describe("POST /api/v1/orders/checkout (customer)", () => {
-    it("should reserve batch stock when all line items are available", async () => {
+describe("Orders Integration", () => {
+  describe("POST /api/v1/orders/checkout", () => {
+    it("reserves batch stock when all line items are available", async () => {
       // ...
     });
 
-    it("should reject with 409 when requested quantity exceeds available stock", async () => {
+    it("rejects request when requested quantity exceeds available stock", async () => {
       // ...
     });
   });
 });
 ```
 
-- Tag invariant assertions with `(INV-N)` when the test verifies a documented domain invariant.
+### Test Naming Rules
+
+- **No test IDs**: never use artificial prefixes (`T1-OUT-03:`, `TC-101:`).
+- **No status codes**: omit HTTP/error codes (`200 OK`, `400`, `AUTH_*`) from titles; assert them in test body.
+- **Active verbs**: start `it()` with 3rd-person verbs (`registers`, `rejects`, `rotates`); drop `"should"`.
+- **Invariants**: reference ADR invariants via comments (`// Invariant: INV-AUTH-1`), not in titles.
 
 ## 2. Test Data Factory & Object Mother Patterns
 
