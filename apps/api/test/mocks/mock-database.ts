@@ -132,5 +132,5 @@ export function createMockDb(): DrizzleDB {
     },
   };
 
-  return mockDb as DrizzleDB;
+  return mockDb;
 }
