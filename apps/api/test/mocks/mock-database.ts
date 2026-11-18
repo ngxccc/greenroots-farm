@@ -132,5 +132,6 @@ export function createMockDb(): DrizzleDB {
     },
   };
 
-  return mockDb;
+  // oxlint-disable-next-line typescript/no-unnecessary-type-assertion
+  return mockDb as unknown as DrizzleDB;
 }
