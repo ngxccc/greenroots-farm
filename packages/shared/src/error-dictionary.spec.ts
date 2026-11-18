@@ -12,6 +12,18 @@ describe("error-dictionary", () => {
     expect(API_ERROR_CODES.INVALID_EMAIL).toBe("INVALID_EMAIL");
     expect(API_ERROR_CODES.TOO_MANY_REQUESTS).toBe("TOO_MANY_REQUESTS");
     expect(API_ERROR_CODES.INSUFFICIENT_STOCK).toBe("INSUFFICIENT_STOCK");
+    expect(API_ERROR_CODES.AUTH_EMAIL_NOT_VERIFIED).toBe(
+      "AUTH_EMAIL_NOT_VERIFIED",
+    );
+    expect(API_ERROR_CODES.AUTH_EMAIL_ALREADY_EXISTS).toBe(
+      "AUTH_EMAIL_ALREADY_EXISTS",
+    );
+    expect(API_ERROR_CODES.AUTH_VERIFICATION_TOKEN_INVALID).toBe(
+      "AUTH_VERIFICATION_TOKEN_INVALID",
+    );
+    expect(API_ERROR_CODES.AUTH_RESET_TOKEN_INVALID).toBe(
+      "AUTH_RESET_TOKEN_INVALID",
+    );
   });
 
   it("maps all error codes to a Vietnamese localized message", () => {

@@ -38,6 +38,10 @@ export const API_ERROR_CODES = {
   AUTH_INVALID_CREDENTIALS: "AUTH_INVALID_CREDENTIALS",
   AUTH_TOKEN_INVALID_OR_EXPIRED: "AUTH_TOKEN_INVALID_OR_EXPIRED",
   AUTH_ACCOUNT_SUSPENDED: "AUTH_ACCOUNT_SUSPENDED",
+  AUTH_EMAIL_NOT_VERIFIED: "AUTH_EMAIL_NOT_VERIFIED",
+  AUTH_EMAIL_ALREADY_EXISTS: "AUTH_EMAIL_ALREADY_EXISTS",
+  AUTH_VERIFICATION_TOKEN_INVALID: "AUTH_VERIFICATION_TOKEN_INVALID",
+  AUTH_RESET_TOKEN_INVALID: "AUTH_RESET_TOKEN_INVALID",
 
   // Business & Domain Errors
   INSUFFICIENT_STOCK: "INSUFFICIENT_STOCK",
@@ -109,6 +113,14 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.",
   [API_ERROR_CODES.AUTH_ACCOUNT_SUSPENDED]:
     "Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ hỗ trợ.",
+  [API_ERROR_CODES.AUTH_EMAIL_NOT_VERIFIED]:
+    "Địa chỉ email chưa được xác thực. Vui lòng kiểm tra hộp thư để kích hoạt tài khoản.",
+  [API_ERROR_CODES.AUTH_EMAIL_ALREADY_EXISTS]:
+    "Địa chỉ email này đã được đăng ký trong hệ thống.",
+  [API_ERROR_CODES.AUTH_VERIFICATION_TOKEN_INVALID]:
+    "Mã xác thực email không hợp lệ hoặc đã hết hạn.",
+  [API_ERROR_CODES.AUTH_RESET_TOKEN_INVALID]:
+    "Mã đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.",
 
   // Business & Domain
   [API_ERROR_CODES.INSUFFICIENT_STOCK]:
