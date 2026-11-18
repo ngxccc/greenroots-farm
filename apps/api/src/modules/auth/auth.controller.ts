@@ -39,6 +39,8 @@ import {
 
 @Controller({ path: AUTH_ROUTES.BASE, version: "1" })
 @ApiTags(AUTH_ROUTES.TAG)
+@ApiBadRequestResponseRfc9457()
+@ApiInternalServerErrorResponseRfc9457()
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -50,9 +52,7 @@ export class AuthController {
       "Creates an unverified account and enqueues an email verification link.",
   })
   @ApiCreatedResponseGeneric()
-  @ApiBadRequestResponseRfc9457()
   @ApiConflictResponseRfc9457()
-  @ApiInternalServerErrorResponseRfc9457()
   async register(@Body() dto: RegisterDto): Promise<ApiResponse<null>> {
     await this.authService.register(dto);
     return apiSuccess(null);
@@ -67,8 +67,6 @@ export class AuthController {
       "Validates a 64-character verification token and activates the customer account.",
   })
   @ApiOkResponseGeneric()
-  @ApiBadRequestResponseRfc9457()
-  @ApiInternalServerErrorResponseRfc9457()
   async verifyEmail(@Body() dto: VerifyEmailDto): Promise<ApiResponse<null>> {
     await this.authService.verifyEmail(dto.token);
     return apiSuccess(null);
@@ -86,8 +84,6 @@ export class AuthController {
       "Issues a fresh verification token and dispatches an activation email subject to cooldown.",
   })
   @ApiOkResponseGeneric()
-  @ApiBadRequestResponseRfc9457()
-  @ApiInternalServerErrorResponseRfc9457()
   async resendVerification(
     @Body() dto: ResendVerificationDto,
   ): Promise<ApiResponse<null>> {
@@ -107,10 +103,8 @@ export class AuthController {
       "Verifies credentials and returns a short-lived access token and refresh token.",
   })
   @ApiOkResponseGeneric(LoginResponseDto)
-  @ApiBadRequestResponseRfc9457()
   @ApiUnauthorizedResponseRfc9457()
   @ApiForbiddenResponseRfc9457()
-  @ApiInternalServerErrorResponseRfc9457()
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
@@ -132,9 +126,7 @@ export class AuthController {
       "Validates single-use refresh token, atomically deletes it, and issues a new pair.",
   })
   @ApiOkResponseGeneric(RefreshResponseDto)
-  @ApiBadRequestResponseRfc9457()
   @ApiUnauthorizedResponseRfc9457()
-  @ApiInternalServerErrorResponseRfc9457()
   async refresh(
     @Body() dto: RefreshTokenDto,
     @Req() req: Request,
@@ -153,9 +145,7 @@ export class AuthController {
       "Revokes the provided refresh token and blacklists the caller access token in Redis.",
   })
   @ApiOkResponseGeneric()
-  @ApiBadRequestResponseRfc9457()
   @ApiUnauthorizedResponseRfc9457()
-  @ApiInternalServerErrorResponseRfc9457()
   async logout(
     @Body() dto: RefreshTokenDto,
     @Req() req: Request,
@@ -181,8 +171,6 @@ export class AuthController {
       "Purges all active refresh tokens and blacklists the user across all devices in Redis.",
   })
   @ApiOkResponseGeneric()
-  @ApiUnauthorizedResponseRfc9457()
-  @ApiInternalServerErrorResponseRfc9457()
   async logoutAll(
     @CurrentUser("sub") userId: string,
   ): Promise<ApiResponse<null>> {
@@ -202,8 +190,6 @@ export class AuthController {
       "Generates a 15-minute recovery token and enqueues password reset instructions.",
   })
   @ApiOkResponseGeneric()
-  @ApiBadRequestResponseRfc9457()
-  @ApiInternalServerErrorResponseRfc9457()
   async forgotPassword(
     @Body() dto: ForgotPasswordDto,
   ): Promise<ApiResponse<null>> {
@@ -223,8 +209,6 @@ export class AuthController {
       "Updates password with valid token and invalidates all existing sessions.",
   })
   @ApiOkResponseGeneric()
-  @ApiBadRequestResponseRfc9457()
-  @ApiInternalServerErrorResponseRfc9457()
   async resetPassword(
     @Body() dto: ResetPasswordDto,
   ): Promise<ApiResponse<null>> {

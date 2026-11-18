@@ -987,11 +987,32 @@ export interface operations {
                     };
                 };
             };
-            /**
-             * @description Authentication required or invalid token (Unauthorized)
-             *
-             *     Authentication required or invalid token (Unauthorized)
-             */
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
             401: {
                 headers: {
                     [name: string]: unknown;

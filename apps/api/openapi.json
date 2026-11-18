@@ -719,8 +719,32 @@
               }
             }
           },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
           "401": {
-            "description": "Authentication required or invalid token (Unauthorized)\n\nAuthentication required or invalid token (Unauthorized)",
+            "description": "Authentication required or invalid token (Unauthorized)",
             "content": {
               "application/problem+json": {
                 "schema": {
