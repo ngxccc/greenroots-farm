@@ -22,11 +22,13 @@ GreenRoots Farm sells farm-grown produce through a storefront and operates produ
 | Waste Log            | A recorded loss of stock that requires approval.                                                                                                                                  | `WasteLogStatus`                    |
 | Complaint            | A customer-reported issue resolved within the 24-hour complaint window.                                                                                                           | `ComplaintStatus`                   |
 | Payment Transaction  | A payment or refund recorded against an order.                                                                                                                                    | `PaymentTransactionType`            |
-| Idempotency Key      | A UUID header (`Idempotency-Key`) caching mutation responses for 24 hours to prevent double-execution.                                                                            | `ADR-0002`, API standards           |
-| Signed Media Upload  | A backend HMAC SHA-256 signature granting direct client uploads to Cloudinary with strict size constraints.                                                                       | `ADR-0002`, `MEDIA_CONSTRAINTS`     |
-| Mail Queue           | An asynchronous BullMQ queue dispatching customer emails via Resend or an in-memory test driver.                                                                                  | `ADR-0002`, `MAIL_QUEUE_NAME`       |
-| Token Rotation       | A single-use authentication session renewal protocol where each use atomics-deletes the active token via `DELETE ... RETURNING` and mints an opaque 256-bit token.                | `ADR-0005`, `refreshTokens`         |
-| Two-Level Revocation | An access-token invalidation strategy in Redis distinguishing single-device logout (`auth:revoked:token:<jti>`) from account-wide security events (`auth:revoked:user:<userId>`). | `ADR-0005`, Redis standards         |
+| Idempotency Key      | A UUID header (`Idempotency-Key`) caching mutation responses for 24 hours to prevent double-execution.                                                                            | `ADR-0008`, API standards           |
+| Signed Media Upload  | A backend HMAC SHA-256 signature granting direct client uploads to Cloudinary with strict size constraints.                                                                       | `ADR-0009`, `MEDIA_CONSTRAINTS`     |
+| Mail Queue           | An asynchronous BullMQ queue dispatching customer emails via Resend or an in-memory test driver.                                                                                  | `ADR-0010`, `MAIL_QUEUE_NAME`       |
+| Token Rotation       | A single-use authentication session renewal protocol where each use atomics-deletes the active token via `DELETE ... RETURNING` and mints an opaque 256-bit token.                | `ADR-0015`, `refreshTokens`         |
+| Two-Level Revocation | An access-token invalidation strategy in Redis distinguishing single-device logout (`auth:revoked:token:<jti>`) from account-wide security events (`auth:revoked:user:<userId>`). | `ADR-0016`, Redis standards         |
+| District Code        | The canonical Ho Chi Minh City district identifier from `HCMC_DISTRICTS`; the only geographic input accepted for an address.                                                      | `ADR-0018`, `HCMC_DISTRICTS`        |
+| Staff Audit Log      | An append-only record of every staff create, role change, status change, profile edit, and credential reset.                                                                      | `ADR-0019`, `staff_audit_logs`      |
 
 ## Invariants
 

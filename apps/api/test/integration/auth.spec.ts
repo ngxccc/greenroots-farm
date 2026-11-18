@@ -1782,7 +1782,7 @@ describe("Authentication Integration", () => {
           .post("/api/v1/auth/logout")
           .send({ refreshToken: "e".repeat(64) });
 
-        // Idempotent logout returns 200 OK per ADR-0005
+        // Idempotent logout returns 200 OK per ADR-0016
         expect(res.status).toBe(200);
       });
 

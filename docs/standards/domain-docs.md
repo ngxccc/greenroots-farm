@@ -43,7 +43,7 @@ If the concept you need is not in the glossary yet, treat it as a signal: either
 
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
-> _Contradicts ADR-0007 (integer VND storage) — but worth reopening because…_
+> _Contradicts ADR-0004 (integer VND storage) — but worth reopening because…_
 
 ## Domain Invariant Taxonomy & Traceability (`INV-N`)
 

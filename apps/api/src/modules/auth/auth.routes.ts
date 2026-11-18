@@ -1,6 +1,6 @@
 /**
  * Centralized route and Swagger tag constants for the Auth Module.
- * Conforms to docs/standards/api-design-and-error-handling.md §9.1 and ADR-0005.
+ * Conforms to docs/standards/api-design-and-error-handling.md §9.1, ADR-0015, and ADR-0016.
  */
 export const AUTH_ROUTES = {
   TAG: "auth",

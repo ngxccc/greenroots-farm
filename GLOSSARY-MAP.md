@@ -4,20 +4,40 @@ Multi-context domain documentation. Read the glossary for every context you touc
 
 ## Context Glossaries
 
-| Context          | Glossary                      | ADRs                        | Status  |
-| ---------------- | ----------------------------- | --------------------------- | ------- |
-| Shared contracts | `packages/shared/GLOSSARY.md` | `packages/shared/docs/adr/` | Active  |
-| API              | `apps/api/GLOSSARY.md`        | `apps/api/docs/adr/`        | Planned |
-| Storefront       | `apps/storefront/GLOSSARY.md` | `apps/storefront/docs/adr/` | Planned |
-| Backoffice       | `apps/backoffice/GLOSSARY.md` | `apps/backoffice/docs/adr/` | Planned |
+| Context          | Glossary                      | ADRs                        | Status               |
+| ---------------- | ----------------------------- | --------------------------- | -------------------- |
+| Shared contracts | `packages/shared/GLOSSARY.md` | `packages/shared/docs/adr/` | Active               |
+| API              | `apps/api/GLOSSARY.md`        | `apps/api/docs/adr/`        | Planned (ADR active) |
+| Storefront       | `apps/storefront/GLOSSARY.md` | `apps/storefront/docs/adr/` | Planned              |
+| Backoffice       | `apps/backoffice/GLOSSARY.md` | `apps/backoffice/docs/adr/` | Planned              |
 
 ## Repo-wide Decisions
 
-- `docs/adr/0001-backend-database-infrastructure.md` — Backend and database infrastructure baseline.
-- `docs/adr/0002-api-infra-idempotency-media-mail.md` — Offline OpenAPI generation, Idempotency interceptor, Mail/Cloudinary infra, and E2E test harness.
-- `docs/adr/0003-dto-validation-and-openapi-response-architecture.md` — DTO schema co-location, pure domain interfaces, and generic OpenAPI response envelopes.
-- `docs/adr/0004-rfc9457-machine-readable-error-codes-and-client-i18n.md` — RFC 9457 machine-readable error codes, English developer fallbacks, and client-side localization architecture.
-- `docs/adr/0005-authentication-session-lifecycle-and-token-revocation.md` — Authentication session lifecycle, refresh token rotation, and two-level Redis revocation.
+One decision per file. Read the ones that touch the area you are changing before proposing an alternative.
+
+- `docs/adr/0001-drizzle-orm-v1-with-declarative-relations.md` — Drizzle ORM v1, `defineRelations`, and `snakeCase.table`.
+- `docs/adr/0002-postgresql-native-enums-from-shared-contracts.md` — PostgreSQL native enums generated from `@greenroots/shared`.
+- `docs/adr/0003-soft-delete-scope-and-partial-unique-indexes.md` — The five soft-deletable tables and their partial unique indexes.
+- `docs/adr/0004-integer-vnd-money-convention.md` — Integer VND storage and the `Vnd` boundary suffix.
+- `docs/adr/0005-database-enforced-business-invariants.md` — Drizzle `check()` invariants and payment ownership.
+- `docs/adr/0006-database-url-normalization-and-ssl.md` — Single `DB_URL` with normalized SSL for runtime and migrations.
+- `docs/adr/0007-offline-openapi-generation-and-type-sync.md` — Offline OpenAPI generation, type distribution, and Scalar docs.
+- `docs/adr/0008-redis-idempotency-interceptor.md` — Redis idempotency interceptor and its five invariants.
+- `docs/adr/0009-cloudinary-signed-uploads.md` — Signed direct uploads with media boundary constraints.
+- `docs/adr/0010-bullmq-mail-queue.md` — Asynchronous mail queue with driver abstraction.
+- `docs/adr/0011-dto-schema-co-location-and-pure-domain-interfaces.md` — Schema co-location and pure domain interfaces.
+- `docs/adr/0012-generic-response-envelopes-with-allof.md` — Plain-class response envelopes composed with OpenAPI `allOf`.
+- `docs/adr/0013-rfc9457-error-codes-and-client-localization.md` — RFC 9457 codes, English developer fallbacks, and client localization.
+- `docs/adr/0014-account-lifecycle-and-email-verification-gate.md` — Account lifecycle and the email verification gate.
+- `docs/adr/0015-single-use-refresh-token-rotation.md` — Single-use refresh token rotation.
+- `docs/adr/0016-two-level-session-revocation.md` — Token-level and user-level Redis revocation.
+- `docs/adr/0017-password-and-token-cryptography.md` — Scrypt password hashing and digest-only token storage.
+- `docs/adr/0018-address-coordinate-trust-and-delivery-fee-integrity.md` — District-code geographic SSOT and delivery fee integrity.
+- `docs/adr/0019-staff-rbac-and-admin-audit.md` — Staff RBAC, last-super-admin invariant, and admin audit log.
+
+### Context-Scoped Decisions
+
+- `apps/api/docs/adr/0001-append-only-farming-logs.md` — `farming_logs` immutability trigger and correction-entry workflow.
 
 ## Ownership Rules
 
