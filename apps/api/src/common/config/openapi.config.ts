@@ -33,7 +33,28 @@ export function createOpenApiDocument(app: INestApplication) {
     .build();
 
   const rawDocument = SwaggerModule.createDocument(app, config);
-  return cleanupOpenApiDoc(rawDocument);
+  const document = cleanupOpenApiDoc(rawDocument);
+
+  // Clean redundant allOf pattern wrappers emitted by zod-to-json-schema on password fields
+  const schemas = (
+    document as { components?: { schemas?: Record<string, unknown> } }
+  ).components?.schemas;
+  if (schemas) {
+    for (const schema of Object.values(schemas)) {
+      const properties = (schema as { properties?: Record<string, unknown> })
+        .properties;
+      if (properties) {
+        for (const prop of Object.values(properties)) {
+          const p = prop as Record<string, unknown>;
+          if (p["format"] === "password" && "allOf" in p) {
+            delete p["allOf"];
+          }
+        }
+      }
+    }
+  }
+
+  return document;
 }
 
 /**
