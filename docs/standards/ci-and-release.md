@@ -4,12 +4,13 @@
 
 Each workflow owns exactly one responsibility. A check runs in one workflow and nowhere else; other workflows consume its result instead of repeating the commands.
 
-| File                             | Owns                                                         | Trigger                                           |
-| :------------------------------- | :----------------------------------------------------------- | :------------------------------------------------ |
-| `.github/workflows/ci.yml`       | Version consistency, shared/tooling, API, database gates.    | `pull_request` to `main`, `workflow_dispatch`.    |
-| `.github/workflows/security.yml` | Trivy, `bun audit`, and CodeQL scans.                        | `pull_request`, `push` to `main`, weekly cron.    |
-| `.github/workflows/release.yml`  | Version check, tag detection, and GitHub Release publishing. | `push` to `main`, `v*` tags, `workflow_dispatch`. |
-| `.github/workflows/labels.yml`   | `area:*` and `type:*` labels on pull requests.               | `pull_request_target`.                            |
+| File                                   | Owns                                                                   | Trigger                                           |
+| :------------------------------------- | :--------------------------------------------------------------------- | :------------------------------------------------ |
+| `.github/workflows/ci.yml`             | Version consistency, shared/tooling, API, database, and backlog gates. | `pull_request` to `main`, `workflow_dispatch`.    |
+| `.github/workflows/backlog-digest.yml` | Refreshes the split register comment on the tracking issue.            | Weekly cron, `workflow_dispatch`.                 |
+| `.github/workflows/security.yml`       | Trivy, `bun audit`, and CodeQL scans.                                  | `pull_request`, `push` to `main`, weekly cron.    |
+| `.github/workflows/release.yml`        | Version check, tag detection, and GitHub Release publishing.           | `push` to `main`, `v*` tags, `workflow_dispatch`. |
+| `.github/workflows/labels.yml`         | `area:*` and `type:*` labels on pull requests.                         | `pull_request_target`.                            |
 
 - Do not add a workflow that re-runs commands already owned by `ci.yml`. Call the existing job or rely on the branch protection check instead.
 - A reusable `workflow_call` file is only justified with two or more callers. With a single caller, inline the jobs.
@@ -24,8 +25,14 @@ Each workflow owns exactly one responsibility. A check runs in one workflow and 
 | `version-consistency` | `bun run version:check`                                                                                                            |
 | `shared-package`      | `bun run format:check`, `bunx syncpack lint`, `bun run check-types:shared`, `bun run check-types:scripts`, shared and script tests |
 | `api`                 | `bun run check-types:api`, `bun run lint:api`, `bun run test:api`, `bun run build` in `apps/api`                                   |
+| `storefront`          | `bun run check-types:storefront`, `lint:storefront`, `test:storefront`, `bun run build` in `apps/storefront`                       |
+| `backoffice`          | `bun run check-types:backoffice`, `lint:backoffice`, `test:backoffice`, `bun run build` in `apps/backoffice`                       |
 | `database`            | `bun run db:migrate`, `db:generate` drift check, `db:seed --clean` against PostgreSQL 18 + Redis 8 services                        |
-| `quality-gate`        | Aggregates the four jobs above; fails unless every dependency succeeded                                                            |
+| `backlog-split`       | Rejects a pull request that closes an issue labelled `needs-split`; requires `issues: read` and no checkout.                       |
+| `quality-gate`        | Aggregates the seven jobs above; fails unless every dependency succeeded                                                           |
+
+- `backlog-split` is part of `Quality Gate`, so the split rule is enforced by the existing required check with no branch-protection change.
+- `backlog-digest.yml` refreshes one sticky comment on the split tracking issue every Monday at 01:00 UTC. It lists every open `needs-split` issue and creates no new issues.
 
 - CI does not run on `push` to `main`. `main` only moves through pull requests that already passed the required checks.
 - Do not add `paths-ignore` or `paths` filters to required workflows. A skipped workflow never reports a status, so the required check stays pending and blocks the pull request forever.
