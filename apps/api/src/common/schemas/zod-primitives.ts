@@ -35,14 +35,14 @@ export function zSanitizedString(options?: { min?: number; max?: number }) {
       message:
         minVal === 1
           ? MESSAGES.VALIDATION.REQUIRED
-          : `Độ dài tối thiểu là ${String(minVal)} ký tự`,
+          : MESSAGES.VALIDATION.MIN_LENGTH,
     });
   }
 
   if (options?.max !== undefined) {
     const maxVal = options.max;
     schema = schema.refine((val) => val.length <= maxVal, {
-      message: `Độ dài tối đa là ${String(maxVal)} ký tự`,
+      message: MESSAGES.VALIDATION.MAX_LENGTH,
     });
   }
 
@@ -76,8 +76,8 @@ export function zOptionalEmail() {
 export function zPassword() {
   return z
     .string()
-    .min(8, { message: "Độ dài tối thiểu là 8 ký tự" })
-    .max(128, { message: "Độ dài tối đa là 128 ký tự" })
+    .min(8, { message: MESSAGES.VALIDATION.PASSWORD_MIN_LENGTH })
+    .max(128, { message: MESSAGES.VALIDATION.PASSWORD_MAX_LENGTH })
     .regex(/[A-Z]/, { message: MESSAGES.VALIDATION.PASSWORD_UPPERCASE })
     .regex(/[0-9]/, { message: MESSAGES.VALIDATION.PASSWORD_NUMBER })
     .regex(/[^a-zA-Z0-9]/, { message: MESSAGES.VALIDATION.PASSWORD_SPECIAL })
@@ -158,21 +158,21 @@ export function zNumericString(options?: {
 
   if (options?.integer) {
     schema = schema.refine((val) => Number.isInteger(val), {
-      message: "Giá trị phải là số nguyên",
+      message: MESSAGES.VALIDATION.INTEGER,
     });
   }
 
   if (options?.min !== undefined) {
     const minVal = options.min;
     schema = schema.refine((val) => val >= minVal, {
-      message: `Giá trị phải lớn hơn hoặc bằng ${String(minVal)}`,
+      message: MESSAGES.VALIDATION.MIN_VALUE,
     });
   }
 
   if (options?.max !== undefined) {
     const maxVal = options.max;
     schema = schema.refine((val) => val <= maxVal, {
-      message: `Giá trị phải nhỏ hơn hoặc bằng ${String(maxVal)}`,
+      message: MESSAGES.VALIDATION.MAX_VALUE,
     });
   }
 

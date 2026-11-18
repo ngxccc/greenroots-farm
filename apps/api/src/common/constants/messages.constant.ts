@@ -26,6 +26,27 @@ export const MESSAGES = {
     REDIS_REVOCATION_UNAVAILABLE:
       "Unable to verify token revocation with Redis. Failing open temporarily.",
     REDIS_REVOCATION_RECOVERED: "Redis token revocation connection restored.",
+    INVALID_CREDENTIALS: "Email or password is incorrect.",
+    ACCOUNT_SUSPENDED:
+      "Your account has been suspended. Please contact customer support.",
+    EMAIL_NOT_VERIFIED:
+      "Email address is not verified. Please verify your email before logging in.",
+    EMAIL_ALREADY_EXISTS: "An account with this email address already exists.",
+    VERIFICATION_TOKEN_INVALID: "Verification token is invalid or has expired.",
+    RESET_TOKEN_INVALID: "Password reset token is invalid or has expired.",
+    RESEND_COOLDOWN_ACTIVE:
+      "Please wait before requesting another verification email.",
+    REGISTER_SUCCESS:
+      "Account registered successfully. Please check your email for the verification link.",
+    EMAIL_VERIFIED_SUCCESS: "Email verified successfully. You may now log in.",
+    VERIFICATION_EMAIL_SENT:
+      "If the email address is associated with an unverified account, a verification link has been sent.",
+    PASSWORD_RESET_SENT:
+      "If the email address exists in our system, password reset instructions have been sent.",
+    PASSWORD_RESET_SUCCESS:
+      "Password has been reset successfully. Please log in with your new password.",
+    LOGOUT_SUCCESS: "Successfully logged out.",
+    LOGOUT_ALL_SUCCESS: "Successfully logged out from all devices.",
   },
   VALIDATION: {
     INVALID_INPUT: "The request payload failed schema validation.",
@@ -37,9 +58,18 @@ export const MESSAGES = {
     INVALID_URL: "Invalid URL format.",
     INVALID_PHONE: "Invalid phone number format.",
     INVALID_TAX_ID: "Invalid tax identification number.",
+    PASSWORD_MIN_LENGTH: "Password must be at least 8 characters long.",
+    PASSWORD_MAX_LENGTH: "Password cannot exceed 128 characters.",
     PASSWORD_UPPERCASE: "Password must contain at least 1 uppercase letter.",
     PASSWORD_NUMBER: "Password must contain at least 1 number.",
     PASSWORD_SPECIAL: "Password must contain at least 1 special character.",
+    PASSWORDS_MUST_MATCH: "Passwords do not match.",
+    MUST_ACCEPT_TERMS: "You must accept the terms of service.",
+    MIN_LENGTH: "Field length is below minimum required characters.",
+    MAX_LENGTH: "Field length exceeds maximum allowed characters.",
+    INTEGER: "Value must be an integer.",
+    MIN_VALUE: "Value is below minimum allowed value.",
+    MAX_VALUE: "Value exceeds maximum allowed value.",
     UNRECOGNIZED_KEY: "Unrecognized field in request payload.",
   },
   MEDIA: {

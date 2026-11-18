@@ -1,12 +1,14 @@
 import { Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
 import Redis from "ioredis";
-import { AUTH_REVOCATION_KEY_PREFIX } from "@/common/constants/auth.constant";
+import {
+  AUTH_REVOCATION_TOKEN_PREFIX,
+  AUTH_REVOCATION_USER_PREFIX,
+  AUTH_REVOCATION_TTL_SECONDS,
+  REDIS_DEGRADED_COOLDOWN_MS,
+} from "@/common/constants/auth.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { env } from "@/common/config/env.config";
 import { parseRedisOptions } from "@/common/config/redis.config";
-
-/** How long the fail-open circuit stays open after a Redis failure. */
-const REDIS_DEGRADED_COOLDOWN_MS = 30_000;
 
 /**
  * Redis-backed session revocation store.
@@ -37,6 +39,7 @@ export class RedisService implements OnModuleDestroy {
       // EventEmitter's default unhandled-error behaviour.
     });
   }
+
   /**
    * Returns the underlying Redis client for fail-closed critical sections.
    */
@@ -45,20 +48,24 @@ export class RedisService implements OnModuleDestroy {
   }
 
   /**
-   * Returns whether the user's access tokens are revoked.
-   * Returns `false` (fail-open) when Redis is unavailable.
+   * Returns whether a user or specific token is revoked in Redis.
+   * Performs a single round-trip pipelined mget for user and token keys.
+   * Returns `false` (fail-open) when Redis is degraded or unreachable.
    */
-  async isAccessTokenRevoked(userId: string): Promise<boolean> {
+  async isRevoked(userId: string, jti?: string): Promise<boolean> {
     if (Date.now() < this.degradedUntil) {
       return false;
     }
 
     try {
-      const value = await this.client.get(
-        `${AUTH_REVOCATION_KEY_PREFIX}${userId}`,
-      );
+      const keys: string[] = [`${AUTH_REVOCATION_USER_PREFIX}${userId}`];
+      if (jti) {
+        keys.push(`${AUTH_REVOCATION_TOKEN_PREFIX}${jti}`);
+      }
+
+      const values = await this.client.mget(keys);
       this.exitDegradedMode();
-      return value !== null;
+      return Array.isArray(values) && values.some((val) => val !== null);
     } catch {
       this.enterDegradedMode();
       return false;
@@ -66,13 +73,42 @@ export class RedisService implements OnModuleDestroy {
   }
 
   /**
-   * Revokes every access token for a user for the 15-minute access-token window.
-   * Called by authentication flows later; infrastructure is ready here.
+   * Blacklists a single access token by its jti in Redis until expiration (max 15 minutes).
+   * If ttlSeconds <= 0, no-op since the token is already expired.
    */
-  async revokeAccessToken(userId: string, ttlSeconds: number): Promise<void> {
+  async revokeToken(jti: string, ttlSeconds: number): Promise<void> {
+    if (ttlSeconds <= 0) {
+      return;
+    }
+
+    const effectiveTtl = Math.min(
+      Math.floor(ttlSeconds),
+      AUTH_REVOCATION_TTL_SECONDS,
+    );
+
     try {
       await this.client.set(
-        `${AUTH_REVOCATION_KEY_PREFIX}${userId}`,
+        `${AUTH_REVOCATION_TOKEN_PREFIX}${jti}`,
+        "1",
+        "EX",
+        effectiveTtl,
+      );
+      this.exitDegradedMode();
+    } catch {
+      this.enterDegradedMode();
+    }
+  }
+
+  /**
+   * Revokes all access tokens for a user for the 15-minute access-token window.
+   */
+  async revokeUser(
+    userId: string,
+    ttlSeconds = AUTH_REVOCATION_TTL_SECONDS,
+  ): Promise<void> {
+    try {
+      await this.client.set(
+        `${AUTH_REVOCATION_USER_PREFIX}${userId}`,
         "1",
         "EX",
         ttlSeconds,
@@ -81,6 +117,25 @@ export class RedisService implements OnModuleDestroy {
     } catch {
       this.enterDegradedMode();
     }
+  }
+
+  /**
+   * Backward-compatible alias for user-level token revocation check.
+   * @deprecated Use `isRevoked(userId, jti)` instead.
+   */
+  async isAccessTokenRevoked(userId: string): Promise<boolean> {
+    return this.isRevoked(userId);
+  }
+
+  /**
+   * Backward-compatible alias for user-level token revocation.
+   * @deprecated Use `revokeUser(userId, ttlSeconds)` instead.
+   */
+  async revokeAccessToken(
+    userId: string,
+    ttlSeconds = AUTH_REVOCATION_TTL_SECONDS,
+  ): Promise<void> {
+    return this.revokeUser(userId, ttlSeconds);
   }
 
   async onModuleDestroy(): Promise<void> {

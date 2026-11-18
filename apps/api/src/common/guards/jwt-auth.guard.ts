@@ -21,7 +21,8 @@ interface AuthenticatedRequest extends Request {
  * Global authentication guard.
  *
  * Besides JWT signature/expiry verification, it enforces instant revocation by
- * checking Redis key `auth:revoked:<userId>`. Redis failures are fail-open.
+ * checking Redis keys `auth:revoked:user:<userId>` and `auth:revoked:token:<jti>`
+ * via a single round-trip pipelined mget. Redis failures are fail-open.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -68,7 +69,7 @@ export class JwtAuthGuard implements CanActivate {
       });
     }
 
-    if (await this.redisService.isAccessTokenRevoked(payload.sub)) {
+    if (await this.redisService.isRevoked(payload.sub, payload.jti)) {
       throw new UnauthorizedException({
         detail: MESSAGES.AUTH.TOKEN_REVOKED,
       });
