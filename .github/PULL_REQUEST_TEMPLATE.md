@@ -27,3 +27,4 @@
 - [ ] New behavior has tests; bug fixes include a regression test.
 - [ ] Documentation, glossary, or ADR updated when introducing new domain terms or decisions.
 - [ ] No unrelated formatting or refactoring changes.
+- [ ] If this PR closes an issue labelled `needs-split`, I split it first, linked the children to the epic, and closed the parent as `not planned` instead of implementing the bundle.

@@ -77,3 +77,18 @@ Release C: drop price.
 - Order status transitions are validated in the domain service and covered by integration tests.
 - All timestamps use `timestamptz`; never store local-time timestamps.
 - The checks above, plus `payments.order_id IS NOT NULL OR payments.subscription_id IS NOT NULL`, are declared with Drizzle `check()` in the schemas and applied by generated migrations. The Drizzle snapshot stays authoritative.
+
+## 7. Seeding & Demo Data
+
+- A three-tier seeder populates reference, catalog, and operational data in dependency order: reference types, catalog, then operational rows.
+- `--clean` truncates every application table and reseeds. Truncation MUST refuse to run when `NODE_ENV=production`.
+- Seed dates are relative to the run date, so demo batches and subscriptions never expire on a hardcoded calendar day.
+- Demo credentials are local development fixtures, never production secrets.
+- Seeding must be idempotent: every insert uses a stable seed id and `onConflictDoNothing()`.
+
+## 8. Expired Session Cleanup
+
+- `TokenCleanupService` runs on bootstrap and then every 24 hours.
+- It executes `DELETE FROM refresh_tokens WHERE expires_at < NOW()` to purge abandoned sessions and keep the lookup index small.
+- Cleanup runs outside the request path and never blocks authentication.
+- Cleanup is a maintenance concern, not part of the token rotation invariant in ADR-0015.

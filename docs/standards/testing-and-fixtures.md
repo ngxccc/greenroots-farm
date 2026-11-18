@@ -52,7 +52,7 @@ describe("Orders Integration", () => {
 
 - **PROHIBITION**: Never declare local inline response interfaces in tests.
 - **MANDATORY**: Import types from the generated schema (`test/generated/api-schema.d.ts`, `components["schemas"]`).
-- Regenerate types with `bun run types:sync` after API contract changes. The command depends on the API's OpenAPI generation script, which is tracked as follow-up work in ADR-0001.
+- Regenerate types with `bun run types:sync` after API contract changes. The pipeline is defined in ADR-0007.
 
 ```ts
 import type { components } from "../generated/api-schema";
@@ -69,14 +69,33 @@ type OrderResponse = components["schemas"]["OrderResponseDto"];
 - **Background workers**: suppress cron schedulers and asynchronous consumers during standard integration tests to prevent queries against terminating connections.
 - **Deterministic teardown**: run `DROP SCHEMA IF EXISTS <worker_schema> CASCADE;` and close broker/database connections when the suite finishes.
 
-## 6. Performance Benchmarks & Stress Testing
+## 6. Test Harness Modules
+
+The integration harness lives in `apps/api/test/` and is part of the standard, not an implementation detail:
+
+- `helpers/database.helper.ts` provisions the schema-per-worker database, clones from `test_template`, and owns isolated connection pools. When PostgreSQL is unreachable it falls back to `createMockDb()` for unit-level suites.
+- `helpers/app.helper.ts` exposes `createTestApp()` and `teardownTestApp()`, prefixes every Redis key with the worker schema, and registers `ZodValidationPipe` plus `GlobalExceptionFilter`.
+- `helpers/auth.helper.ts` exposes `createAuthenticatedUser()` and `createAuthenticatedAdmin()`. The admin helper MUST accept an explicit role so the RBAC matrix can be exercised; it must not hardcode `super_admin`.
+- `factories/` holds the entity factories and object mothers listed in §2.
+
+Suites that use the harness:
+
+- `global-exception.e2e-spec.ts` verifies the RFC 9457 problem contract.
+- `openapi.spec.ts` verifies the OpenAPI 3.1.0 document, `/openapi.json`, and `/api/docs`.
+- `integration/idempotency.spec.ts` verifies the five idempotency invariants.
+- `integration/media.spec.ts` verifies upload constraints and signature generation.
+- `integration/mail.spec.ts` verifies queue enqueueing and processor dispatch.
+
+- **PROHIBITION**: Do not replace the harness with ad-hoc chaos scripts or manual endpoint probing.
+
+## 7. Performance Benchmarks & Stress Testing
 
 - **Location**: `benchmarks/` or `test/benchmarks/`.
 - **Execution**: a standard command with optional domain filtering.
 - **Metrics**: deterministic output with `task`, `iterations`, `minMs`, `avgMs`, `p50Ms`, `p95Ms`, `p99Ms`, `opsPerSec`.
 - **Output**: structured console tables or machine-readable JSON only. No emoji, no decorative banners.
 
-## 7. Test Commands & Placement
+## 8. Test Commands & Placement
 
 | Command                                       | Scope                                     |
 | :-------------------------------------------- | :---------------------------------------- |
