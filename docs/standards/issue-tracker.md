@@ -124,12 +124,6 @@ Rules that keep the register honest:
 - When a milestone opens, drain its `needs-split` issues before starting neighbouring implementation work.
 - The tracking issue closes only when the register is empty.
 
-The register maintains itself:
-
-- The `backlog-split` job in `.github/workflows/ci.yml` fails any pull request that closes a `needs-split` issue, so an unsplit bundle cannot merge through the required `Quality Gate`.
-- `.github/workflows/backlog-digest.yml` rewrites one sticky comment on the tracking issue every Monday with the current list, so the plan never depends on anyone remembering to look.
-- Closing a split parent removes it from the digest automatically; no manual bookkeeping is required beyond removing the label.
-
 ### Choosing the next split
 
 Apply these rules in order; the first match wins, so the decision never depends on memory.
@@ -174,11 +168,10 @@ All templates require an `area:*` selection. The bug template applies `type:fix`
 | File                                           | Purpose                                                                                 |
 | :--------------------------------------------- | :-------------------------------------------------------------------------------------- |
 | `.github/PULL_REQUEST_TEMPLATE.md`             | 5-section PR body, verification evidence, standards checklist.                          |
-| `.github/workflows/backlog-digest.yml`         | Weekly sticky comment that lists every open `needs-split` issue on the tracking issue.  |
 | `.github/dependabot.yml`                       | Weekly grouped updates for the Bun workspace, GitHub Actions, and Docker images.        |
 | `.github/actions/setup-environment/action.yml` | Bun + cache + deps, with the Doppler CLI behind the `doppler` input.                    |
 | `.github/labeler.yml`                          | Declares `area:*` labels from changed file paths.                                       |
-| `.github/workflows/ci.yml`                     | Pull request quality gate; includes the `backlog-split` guard and `CI / Quality Gate`.  |
+| `.github/workflows/ci.yml`                     | Pull request quality gate; `CI / Quality Gate` is the required check.                   |
 | `.github/workflows/labels.yml`                 | Applies `area:*` labels and keeps exactly one `type:*` label in sync with the PR title. |
 | `.github/workflows/release.yml`                | Creates a GitHub Release on `v*` tags, using `.github/release.yml` categories.          |
 | `.github/workflows/security.yml`               | Weekly/manual Trivy + CodeQL (SARIF) and `bun audit` dependency checks.                 |

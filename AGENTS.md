@@ -58,7 +58,7 @@ GreenRoots Farm — farm-to-customer commerce monorepo (Bun workspaces, TypeScri
 
 Issues and specifications live in **GitHub Issues** (`ngxccc/greenroots-farm`). Use the `gh` CLI. See `docs/standards/issue-tracker.md`.
 
-Every issue is atomic: one outcome, one trust boundary, one transaction or contract. Deferred bundles carry `needs-split` and are listed only in the split tracking issue. CI fails any pull request that closes a `needs-split` issue, and a weekly digest refreshes the register. Query it before planning or starting work on a bundle:
+Every issue is atomic: one outcome, one trust boundary, one transaction or contract. Deferred bundles carry `needs-split` and are listed only in the split tracking issue. Query the register before planning or starting work on a bundle:
 
 ```bash
 gh issue list --state open --label needs-split --limit 100 \
