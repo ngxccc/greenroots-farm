@@ -68,7 +68,7 @@ gh issue list --state open --label needs-split --limit 100 \
 Pull requests use `.github/PULL_REQUEST_TEMPLATE.md`. GitHub automation lives in `.github/workflows/`:
 
 - `.github/workflows/ci.yml` — the pull request quality gate: version consistency, shared/tooling, API, database, and an aggregate `Quality Gate` check.
-- `.github/workflows/labels.yml` + `.github/labeler.yml` — `area:*` labels from changed paths and one `type:*` label from the PR title.
+- `.github/workflows/labels.yml` + `.github/labeler.yml` — `area:*` labels from changed paths (generated client contracts excluded) and one `type:*` label from the PR title.
 - `.github/release.yml` + `.github/workflows/release.yml` — GitHub Releases on `v*` tags and `chore(release):` merges.
 - `.github/workflows/security.yml` — Trivy, `bun audit`, and CodeQL scans on pull requests, `main`, and a weekly schedule.
 - `.github/dependabot.yml` — grouped weekly dependency updates (Bun ecosystem; security-update PRs are not supported for Bun, so `bun audit` covers that gap).
@@ -77,18 +77,30 @@ Pull requests use `.github/PULL_REQUEST_TEMPLATE.md`. GitHub automation lives in
 
 ## Engineering Standards
 
-MUST read the corresponding standard file under `docs/standards/` before modifying related code or tests:
+`docs/standards/` is the single source of truth, and reading the matching file is a gate before the first edit — not a suggestion. Do not reconstruct a rule from memory or from another repository.
 
-- **Issue tracking & tickets** → `docs/standards/issue-tracker.md`
-- **Domain glossary & ADRs** → `docs/standards/domain-docs.md`
-- **Comments & docstrings** → `docs/standards/code-comment-taxonomy.md`
-- **Routes, DTOs, and error responses** → `docs/standards/api-design-and-error-handling.md`
-- **Schemas, queries, and migrations** → `docs/standards/database-and-migrations.md`
-- **Locks, race conditions, and transactions** → `docs/standards/concurrency-and-locking.md`
-- **Tests, factories, and fixtures** → `docs/standards/testing-and-fixtures.md`
-- **Auth, hashing, and sanitization** → `docs/standards/security-and-cryptography.md`
-- **Branches, commits, and PRs** → `docs/standards/git-flow-and-pr-matrix.md`
-- **CI, release, and automation** → `docs/standards/ci-and-release.md`
+| Change you are about to make               | Read first                                        |
+| :----------------------------------------- | :------------------------------------------------ |
+| A route, DTO, status code, or error shape  | `docs/standards/api-design-and-error-handling.md` |
+| A schema, query, index, or migration       | `docs/standards/database-and-migrations.md`       |
+| A lock, transaction, or retry              | `docs/standards/concurrency-and-locking.md`       |
+| Auth, tokens, hashing, or sanitization     | `docs/standards/security-and-cryptography.md`     |
+| A test, factory, or fixture                | `docs/standards/testing-and-fixtures.md`          |
+| A comment or docstring                     | `docs/standards/code-comment-taxonomy.md`         |
+| A branch, commit, or pull request          | `docs/standards/git-flow-and-pr-matrix.md`        |
+| An issue, spec, or scope decision          | `docs/standards/issue-tracker.md`                 |
+| A glossary term, domain model, or ADR      | `docs/standards/domain-docs.md`                   |
+| A workflow, action, release, or label rule | `docs/standards/ci-and-release.md`                |
+
+Protocol for every implementation task:
+
+1. Map the planned edits to the table and read every matching file before writing code, tests, docs, or commit messages.
+2. Open the response that accompanies the first edit with one line naming the read set, for example `Standards read: api-design-and-error-handling.md, testing-and-fixtures.md`.
+3. When the diff grows into another area, read that area's standard before continuing instead of at the end.
+4. When the mapping is unclear, read every file in `docs/standards/` plus `GLOSSARY-MAP.md` rather than guessing.
+5. When code and a standard disagree, surface the conflict before changing either one.
+
+This file is loaded automatically at the start of every OpenCode session, and the `implement` skill runs this protocol as a workflow. Add durable reminders here instead of re-pasting them into each prompt.
 
 ## Conventions
 

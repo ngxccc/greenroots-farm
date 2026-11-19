@@ -1,76 +1,36 @@
 # Git Flow & Pull Request Standards
 
-## 1. Branch Naming Conventions
+## 1. Branches
 
-- `feature/<kebab-case-name>` — New feature.
-- `fix/<kebab-case-name>` — Bug fix.
-- `hotfix/<kebab-case-name>` — Production patch.
-- `core/<kebab-case-name>` — Major architecture or database schema refactor (Tier 3).
-- `chore/<kebab-case-name>` — Tooling, dependencies, or maintenance.
-- `docs/<kebab-case-name>` — Documentation only.
+Branch from `main` and keep the branch short-lived and focused on one logical change. Rebase on `main` before opening a pull request when the branch has fallen behind.
 
-- Branch from `main`. Keep branches short-lived and focused on one logical change.
-- Rebase on `main` before opening a PR when the branch has fallen behind.
+`feature/<name>`, `fix/<name>`, `hotfix/<name>` (production patch), `core/<name>` (architecture or schema refactor, Tier 3), `chore/<name>`, `docs/<name>`. Names are kebab-case.
 
-## 2. Conventional Commits Standard
+## 2. Commits
 
-**Format**: `<type>(<scope>): <summary>` — header length ≤ 72 characters.
+`<type>(<scope>): <summary>`, header ≤ 72 characters, imperative mood (`add`, `fix`, `remove`).
 
-**Types**: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`, `style`.
-**Scope**: lowercase module name.
+- Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`, `style`.
+- Scopes: `api`, `storefront`, `backoffice`, `shared`, `infra` (Docker, CI, repo tooling), `docs`.
+- Bodies use short bullet points, not paragraphs.
+- Close an issue with `Fixes #<id>`.
 
-| Scope        | Area                        |
-| :----------- | :-------------------------- |
-| `api`        | `apps/api`                  |
-| `storefront` | `apps/storefront`           |
-| `backoffice` | `apps/backoffice`           |
-| `shared`     | `packages/shared`           |
-| `infra`      | Docker, CI, repo tooling    |
-| `docs`       | Documentation and standards |
+The pre-commit hook (`bun run check-types` plus `oxfmt` and `oxlint --type-aware --fix` on staged files) must pass. Fix the reported file and re-stage instead of committing a partially formatted tree.
 
-- Use the imperative mood: `add`, `fix`, `remove`, not `added` or `fixes`.
-- Commit bodies use concise bullet points (`- ...`), not long paragraphs.
-- Reference tickets with `Fixes #<id>` when the commit closes an issue.
+## 3. PR Tiers
 
-### Pre-Commit Hook
+| Tier   | Scope                                                | Requirements                                        |
+| :----- | :--------------------------------------------------- | :-------------------------------------------------- |
+| Tier 1 | Typos, minor docs, dependency bumps.                 | Single-sentence summary.                            |
+| Tier 2 | Feature, bug fix, refactor.                          | Conventional commits, full PR body, passing tests.  |
+| Tier 3 | Core architecture, database schema, breaking change. | Atomic commits, ADR/RFC link, human audit evidence. |
 
-`.husky/pre-commit` runs on every commit and MUST NOT be bypassed with `--no-verify`:
+The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. Whatever the tier, it states what changed and why, links the issue (`Fixes #<id>` or `Part of #<id>`), lists the commands run with their results, and names the blast radius and rollback path.
 
-1. `bun run check-types` — only when `apps/api` exists, because the API workspace is still being scaffolded.
-2. `bunx lint-staged` — formats staged files with `oxfmt` and lints them with `oxlint --type-aware --fix`.
+## 4. Human Audit
 
-If the hook fails, fix the reported file and re-stage it; do not commit a partially formatted tree.
-
-## 3. Adaptive 3-Tier PR Matrix
-
-| Tier                    | Scope & Risk                                   | Requirements                                            |
-| :---------------------- | :--------------------------------------------- | :------------------------------------------------------ |
-| **Tier 1 (Patch)**      | Typos, minor docs, dependency bumps.           | Single-sentence PR summary.                             |
-| **Tier 2 (Standard)**   | Feature, bug fix, refactor.                    | Conventional Commits, 5-section PR body, passing tests. |
-| **Tier 3 (Enterprise)** | Core architecture, DB schema, breaking change. | Atomic commits, ADR/RFC link, human audit evidence.     |
-
-**5-section PR body**:
-
-1. **Summary** — what changed and why.
-2. **Changes** — bullet list of the important edits.
-3. **Testing** — commands run and results.
-4. **Risk / Rollback** — blast radius and rollback path.
-5. **Linked issues** — `Fixes #<id>` or `Part of #<id>`.
-
-## 4. Human Audit & Verification Protocol
-
-1. **Inspection & proposal only**: before committing, inspect `git status` and `git diff`, propose an atomic commit slicing plan, and display the formatted Conventional Commit messages. Commit bodies MUST use concise bullet points.
-2. **Explicit confirmation required**: NEVER execute `git commit` until the human confirms with explicit approval.
-3. **No hook bypass**: do not use `--no-verify` unless the human explicitly approves it and the reason is recorded.
-4. **Atomic commits**: one logical change per commit. Do not mix refactoring, formatting, and behavior changes.
-5. **Tier 3 changes**: attach ADR/RFC links and human audit evidence to the PR before merge.
-
-## 5. PR Checklist
-
-- [ ] Branch name follows the convention.
-- [ ] Commit messages follow Conventional Commits and are ≤ 72 characters.
-- [ ] Tests pass locally (`bun run test`, `bun run check`).
-- [ ] New behavior has tests; bug fixes have regression tests.
-- [ ] Standards under `docs/standards/` were read and followed.
-- [ ] No secrets, generated artifacts, or unrelated formatting changes.
-- [ ] PR body includes Summary, Changes, Testing, Risk/Rollback, and Linked issues.
+1. Inspect `git status` and `git diff`, propose an atomic commit slicing plan, and show the formatted messages before committing.
+2. Do not run `git commit` until the human approves explicitly.
+3. Do not use `--no-verify` unless the human approves and the reason is recorded.
+4. One logical change per commit: never mix refactoring, formatting, and behavior changes.
+5. Tier 3 changes carry their ADR/RFC link and audit evidence before merge.

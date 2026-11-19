@@ -1,51 +1,36 @@
 # API Design & Error Handling Standards
 
-## 1. RESTful URL & Route Naming Conventions
+## 1. Routes
 
-- **Resource-oriented, plural nouns, lowercase kebab-case**: `/api/v1/products`, `/api/v1/products/:productId/batches`, `/api/v1/orders`, `/api/v1/subscriptions`, `/api/v1/deliveries`.
-- **API version in the path**: `/api/v1`.
-- **IDs are UUID strings**: never expose sequential integer IDs.
-- **Command vs query distinction**:
-  - State retrieval (safe, idempotent): `GET /api/v1/orders/:id`
-  - Resource creation: `POST /api/v1/orders`
-  - High-intent business actions (commands): use sub-action nouns.
-    - `POST /api/v1/orders/checkout`
-    - `POST /api/v1/subscriptions/:id/pause`
-    - `POST /api/v1/payments/payos/webhook`
+- Plural, lowercase kebab-case resources: `/api/v1/products`, `/api/v1/orders/:orderId`, `/api/v1/products/:productId/batches`.
+- Version in the path (`/api/v1`). IDs are UUID strings; never expose sequential integers.
+- Retrieval is `GET`, creation is `POST`, and high-intent actions use sub-action nouns: `POST /api/v1/orders/checkout`, `POST /api/v1/subscriptions/:id/pause`, `POST /api/v1/payments/payos/webhook`.
 
-## 2. Standard Response Envelope
+## 2. Response Envelope
 
-All successful JSON responses MUST use the generic `ApiResponseDto` envelope:
+Every successful JSON response returns `ApiResponseDto`:
 
 ```json
 {
   "success": true,
-  "data": {
-    "id": "019fa8bc-8f4d-7000-b366-e691f45cfb91",
-    "name": "Xà lách thủy canh",
-    "basePriceVnd": 35000,
-    "status": "active"
-  },
+  "data": { "id": "019fa8bc-8f4d-7000-b366-e691f45cfb91", "status": "active" },
   "meta": { "page": 1, "limit": 20, "total": 150 }
 }
 ```
 
-- `meta` is required for paginated lists and omitted otherwise.
-- Never return a bare array or a bare scalar at the top level.
-- Money fields use integer VND and a `Vnd` suffix (`basePriceVnd`, `shippingFeeVnd`, `totalVnd`).
+- The top level is always an object: no bare arrays, no bare scalars.
+- `meta` appears on paginated lists only.
+- Money is integer VND with a `Vnd` suffix: `basePriceVnd`, `shippingFeeVnd`, `totalVnd`.
 
-## 3. Pagination, Filtering, and Sorting
+## 3. Lists
 
-- List endpoints accept `page` (1-based), `limit` (default 20, max 100), and `sort`.
-- Filter names mirror resource fields: `status`, `categoryId`, `deliveryDay`, `from`, `to`.
-- Unknown query parameters are rejected with `400 Bad Request`.
+- `page` (1-based), `limit` (default 20, max 100), `sort`.
+- Filters mirror resource fields: `status`, `categoryId`, `deliveryDay`, `from`, `to`.
+- Unknown query parameters return `400`.
 
-## 4. RFC 9457 Problem Details for Error Responses
+## 4. RFC 9457 Errors
 
-All error responses MUST follow **RFC 9457** with machine-readable error codes:
-
-- **Content-Type**: `application/problem+json`
-- **Structure**: `{ type, title, status, code, detail, instance, invalidParams?, timestamp }`
+Errors return `application/problem+json` with `{ type, title, status, code, detail, instance, invalidParams?, timestamp }`.
 
 ```json
 {
@@ -53,7 +38,7 @@ All error responses MUST follow **RFC 9457** with machine-readable error codes:
   "title": "Insufficient Stock",
   "status": 409,
   "code": "INSUFFICIENT_STOCK",
-  "detail": "Batch 019fa8bc only has 3 units left, but 5 were requested.",
+  "detail": "Batch 019fa8bc has 3 units left, but 5 were requested.",
   "instance": "/api/v1/orders/checkout",
   "invalidParams": [
     {
@@ -67,167 +52,79 @@ All error responses MUST follow **RFC 9457** with machine-readable error codes:
 }
 ```
 
-- `type` is a stable URN of the form `/errors/<slug>`; slugs are centralized in `apps/api/src/common/constants/messages.constant.ts`.
-- `code` is a standardized machine-readable identifier from `API_ERROR_CODES` in `@greenroots/shared`.
-- `detail` and `reason` are English technical explanations for developers, cURL/Postman debugging, and APM telemetry. They MUST be safe: no raw SQL traces or secrets.
-- `invalidParams[].params` carries dynamic constraint metadata for client-side localization.
-- User-facing localization belongs to client runtimes (Next.js Storefront and React Backoffice) using `@greenroots/shared` `API_ERROR_DICTIONARY`.
+- `type` is the stable slug `/errors/<slug>` from `ERROR_SLUGS` in `apps/api/src/common/constants/messages.constant.ts`.
+- `code` comes from `API_ERROR_CODES` in `@greenroots/shared`.
+- `detail` and `reason` are English, developer-facing, and safe: no SQL fragments, secrets, or PII.
+- `invalidParams[].params` carries the values a client needs to localize the message.
+- Vietnamese copy lives in the clients through `API_ERROR_DICTIONARY` and `resolveSharedApiErrorMessage`.
 
-## 5. HTTP Status Code Decision Matrix
+## 5. Status Codes
 
-| Status Code             | Meaning                  | When to Use                                                         |
-| :---------------------- | :----------------------- | :------------------------------------------------------------------ |
-| `200 OK`                | Success with payload     | Successful `GET`, `PUT`, `PATCH`, or idempotent state update.       |
-| `201 Created`           | Resource created         | Successful `POST` creating an entity.                               |
-| `204 No Content`        | Success without payload  | Successful `DELETE` or command with no body.                        |
-| `400 Bad Request`       | Client syntax error      | DTO validation failure, malformed JSON, unknown query parameter.    |
-| `401 Unauthorized`      | Missing / invalid auth   | Bearer token missing, expired, revoked, or signature invalid.       |
-| `403 Forbidden`         | Insufficient permissions | Role check failed, account suspended, resource not owned.           |
-| `404 Not Found`         | Entity missing           | Non-existent UUID or route.                                         |
-| `409 Conflict`          | State conflict           | Insufficient stock, duplicate active subscription, flash-sale race. |
-| `422 Unprocessable`     | Business rule violation  | Valid syntax but impossible domain action.                          |
-| `429 Too Many Requests` | Rate limit exceeded      | Throttler triggered limit.                                          |
-| `500 Internal Error`    | Server crash             | Sanitized error response; details logged privately.                 |
+| Code | Meaning                 | When                                                         |
+| :--- | :---------------------- | :----------------------------------------------------------- |
+| 200  | Success with payload    | `GET`, `PUT`, `PATCH`, idempotent update.                    |
+| 201  | Resource created        | `POST` that creates an entity.                               |
+| 204  | Success without payload | `DELETE` or command with no body.                            |
+| 400  | Client syntax error     | DTO validation, malformed JSON, unknown query parameter.     |
+| 401  | Missing / invalid auth  | Bearer token missing, expired, revoked, or badly signed.     |
+| 403  | Insufficient permission | Role check failed, account suspended, resource not owned.    |
+| 404  | Entity missing          | Unknown UUID or route.                                       |
+| 409  | State conflict          | Insufficient stock, duplicate subscription, flash-sale race. |
+| 422  | Business rule violation | Valid syntax, impossible domain action.                      |
+| 429  | Rate limit exceeded     | Throttler triggered.                                         |
+| 500  | Server crash            | Sanitized response; details logged privately.                |
 
-## 6. Idempotency Key Handling
+## 6. Idempotency
 
-- **Header**: `Idempotency-Key: <UUID>` (or UUIDv7). Missing or non-UUID headers on required routes return `400 Bad Request`.
-- **Required** for: `POST /api/v1/orders/checkout`, payment initiation, refunds, and mutating commands.
-- **Lifecycle & Cache**:
-  - Stores key in Redis under `idempotency:<UUID>` with `PROCESSING` status during execution (60s lock TTL).
-  - Caches completed response in Redis for 24 hours (`86400s`) under `COMPLETED` status.
-  - Replay with identical payload within 24h returns original cached status and body without re-executing business logic (`INV-IDEMP-1`).
-  - Replaying a key with a different payload returns `422 Unprocessable Entity` (`INV-IDEMP-2`).
-  - Concurrent requests while key is `PROCESSING` return `409 Conflict` (`INV-IDEMP-3`).
-  - When Redis connection fails during acquisition, the interceptor strictly **fails closed** returning `503 Service Unavailable` (`INV-IDEMP-4`).
-  - Downstream exception or database transaction rollback releases the key (`DEL idempotency:<key>`), allowing immediate client retry (`INV-IDEMP-5`).
-- Payment webhooks are idempotent by provider transaction ID, independent of the request header.
+- Header `Idempotency-Key: <UUID>`. Missing or non-UUID on a required route returns `400`.
+- Required on `POST /api/v1/orders/checkout`, payment initiation, refunds, and every mutating command.
+- Redis key `idempotency:<UUID>` holds `PROCESSING` with a 60s lock, then `COMPLETED` for 24h.
+- Identical replay inside 24h returns the cached status and body without re-running the handler (`INV-IDEMP-1`).
+- Same key with a different payload returns `422` (`INV-IDEMP-2`).
+- A concurrent request while the key is `PROCESSING` returns `409` (`INV-IDEMP-3`).
+- A Redis failure during acquisition returns `503`; the store fails closed (`INV-IDEMP-4`).
+- An exception or rollback deletes the key so the client can retry immediately (`INV-IDEMP-5`).
+- Payment webhooks deduplicate by provider transaction ID instead of the header.
 
-## 7. DTO Validation & Boundary Rules
+## 7. DTOs
 
-- Validate at the HTTP boundary with a DTO; never pass raw request bodies into domain services.
-- Use shared enums from `@greenroots/shared`; never redeclare statuses or roles in DTOs.
-- Reject unknown fields (`whitelist: true`, `forbidNonWhitelisted: true`).
-- DTOs never expose persistence entities, ORM relations, password hashes, or internal flags.
+- Validate at the HTTP boundary; services receive typed inputs, never raw request bodies.
+- Take roles and statuses from `@greenroots/shared`; never redeclare them in a DTO.
+- `whitelist: true` plus `forbidNonWhitelisted: true` reject unknown fields.
+- A DTO exposes no persistence entity, relation, password hash, or internal flag.
 
-## 8. Signed Media Upload API
+## 8. Schemas, Routes, and Controllers
 
-- **Endpoint**: `POST /api/v1/media/upload-signature`
-- **Payload**: `{ folder: "farming_logs" | "complaints" | "products", resourceType: "image" | "video", fileSizeBytes: number }`
-- **Strict Constraints**:
-  - Images $\le 5\text{MB}$ (`image/jpeg`, `image/png`, `image/webp`).
-  - Videos $\le 15\text{MB}$ (`video/mp4`, `video/quicktime`, `video/webm`).
-  - Oversized payloads rejected at HTTP boundary with `422 Unprocessable Entity` (`INV-MEDIA-1`).
-  - Invalid folder or MIME type rejected with `400 Bad Request`.
-- **Direct Client Upload**: Backend generates timestamp and HMAC SHA-256 signature using `CLOUDINARY_API_SECRET`. Client uploads directly to Cloudinary CDN via multipart form-data.
-- **Local Mock Fallback**: If `CLOUDINARY_API_SECRET` is unset, returns mock credentials for local development and offline testing.
+- Every module declares `<module>.routes.ts` with frozen `TAG`, `BASE`, and action constants. Controllers reference them (`@ApiTags(ROUTES.TAG)`, `@Controller({ path: ROUTES.BASE, version: "1" })`, `@Post(ROUTES.UPLOAD_SIGNATURE)`) instead of string literals. Use `@HttpCode(HttpStatus.OK)` on `POST` commands that return `200`.
+- Zod schemas and their `createZodDto()` classes live together in `dto/<action>.dto.ts`; export `z.infer` types from the same file so services never import transport classes.
+- `<module>.interface.ts` holds compile-time types, interfaces, and business constants only. Runtime Zod schemas belong in `dto/`.
+- `@Body()` and `@Query()` are typed with DTO classes, because interfaces vanish at compile time and leave OpenAPI bodies empty.
+- Response envelopes are plain classes in `common/dto/api-response.dto.ts` with `@ApiProperty()` and `allOf`. Runtime-generated generic envelopes collide and mangle `components/schemas` names.
+- Every endpoint declares its contract from `@/common/decorators`:
+  - `@Public()` for open routes, `@ApiAuth(...roles)` otherwise. `ApiAuth` adds `@ApiBearerAuth()` and the 401 response; passing roles also adds `@Roles()` and the 403 response.
+  - `@ApiForbiddenResponseRfc9457()` on any handler with an authorization branch the role guard cannot see (ownership, folder scope, account status, feature gate).
+  - `@ApiOperation({ summary, description })` and schema descriptions in technical English.
+  - `@ApiOkResponseGeneric(Dto)`, `@ApiCreatedResponseGeneric(Dto)`, or `@ApiOkResponsePaginated(ItemDto)` for success.
+  - `@ApiBadRequestResponseRfc9457()`, `@ApiNotFoundResponseRfc9457()`, `@ApiConflictResponseRfc9457()`, `@ApiUnprocessableEntityResponseRfc9457()`, `@ApiInternalServerErrorResponseRfc9457()` for the statuses the handler can actually return.
+- `400` and `500` are declared once on the controller class: every handler inherits the validation pipe rejection and the global filter. Route decorators cover only what that handler adds.
 
-## 9. Controller Route Constants & OpenAPI Decorator Standards
+## 9. Signed Media Upload
 
-To guarantee strict SSOT, eliminate typos, and keep OpenAPI documentation in sync across the monorepo, all NestJS controllers MUST adhere to the following standards:
+- `POST /api/v1/media/upload-signature` with `{ folder: "farming_logs" | "complaints" | "products", resourceType: "image" | "video", fileSizeBytes }`.
+- Images ≤ 5MB (`image/jpeg`, `image/png`, `image/webp`); videos ≤ 15MB (`video/mp4`, `video/quicktime`, `video/webm`).
+- Oversized payloads return `422` (`INV-MEDIA-1`); an unknown folder or MIME type returns `400`.
+- The backend signs with HMAC SHA-256 over a timestamp using `CLOUDINARY_API_SECRET`; the client uploads directly to Cloudinary, so bytes never pass through API memory.
+- With `CLOUDINARY_API_SECRET` unset, return mock credentials for local and offline runs.
 
-### 9.1 Centralized Route Constants (`<module>.routes.ts`)
+## 10. Rate Limiting
 
-- **PROHIBITION**: Never hardcode route paths or Swagger tags as raw string literals in controllers (e.g. `@Controller("media")` or `@Post("upload-signature")`).
-- **MANDATORY**: Every domain module MUST declare a `<module>.routes.ts` file exporting frozen route constants:
-  ```typescript
-  export const MEDIA_ROUTES = {
-    TAG: "media",
-    BASE: "media",
-    UPLOAD_SIGNATURE: "upload-signature",
-  } as const;
-  ```
-- Use `ROUTES.TAG` in `@ApiTags(...)`, `ROUTES.BASE` in `@Controller(...)`, and action constants in `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`.
+`CustomThrottlerGuard` runs first in the `APP_GUARD` pipeline, before `JwtAuthGuard` and `RolesGuard`, so volumetric traffic is dropped before JWT verification and database work. It is backed by `@nest-lab/throttler-storage-redis`.
 
-### 9.2 Request & Response DTOs (`createZodDto`) & Schema Architecture
+| Tier      | Limit                              | Scope                                       |
+| :-------- | :--------------------------------- | :------------------------------------------ |
+| `default` | 100 requests / 60s                 | Standard CRUD.                              |
+| `public`  | 300 requests / 60s                 | Catalog browsing, health checks.            |
+| `auth`    | 5 requests / 60s (100 in dev/test) | `/login`, `/register`, `/upload-signature`. |
 
-- **PROHIBITION**: Never type `@Body()` or `@Query()` using raw TypeScript `interface` or `type`. TypeScript interfaces vanish at compile time, causing `@nestjs/swagger` to produce empty request bodies and breaking downstream type sync in `@greenroots/storefront` and `@greenroots/backoffice`.
-- **PROHIBITION**: Never place executable runtime Zod schemas (`z.object({...})`) inside `<module>.interface.ts`. File `<module>.interface.ts` is strictly reserved for pure domain types, interfaces, and business constants (0-runtime-overhead compile-time types).
-- **PROHIBITION**: Never use higher-order dynamic Zod factory envelopes for generic response wrappers. Dynamic classes generated at runtime collide and produce mangled schema names (`ApiResponseDto_1`, `ApiResponseDto_2`) in `components/schemas`.
-- **MANDATORY**:
-  - **Schema Co-location**: Define input/output validation schemas with Zod and export concrete DTO classes using `createZodDto(schema)` in the same DTO file (`src/modules/<module>/dto/<action>.dto.ts`).
-  - **Inferred Types**: Export inferred TypeScript types (`export type FooInput = z.infer<typeof fooSchema>`) directly from the DTO file so domain services can consume typed inputs without importing NestJS transport classes.
-  - **Generic Response Envelopes**: `ApiResponseDto<T>` and `PaginatedApiResponseDto<T>` in `common/dto/api-response.dto.ts` MUST use plain TypeScript classes with `@ApiProperty()` and OpenAPI `allOf` polymorphism, avoiding runtime serialization overhead while ensuring static `$ref` reusability.
-
-### 9.3 Mandatory Decorator Suite
-
-Every controller endpoint MUST declare its OpenAPI contracts and error specifications using the standard decorator library (`@/common/decorators`):
-
-1. **Authentication & Authorization**:
-   - Public endpoints: `@Public()`
-   - Authenticated endpoints: `@ApiAuth(...roles: UserRole[])` attaches `@ApiBearerAuth()` and `@ApiUnauthorizedResponseRfc9457()`. Passing `roles` additionally attaches `@Roles(...)` and `@ApiForbiddenResponseRfc9457()`, because only then can `RolesGuard` reject the request.
-   - Business-level authorization: when a handler enforces a permission the role guard cannot see (resource ownership, folder scope, account status, feature gating), declare `@ApiForbiddenResponseRfc9457()` on that handler. It is never attached by default, so the handlers carrying it stay exactly the endpoints with an authorization branch.
-2. **Endpoint Description**:
-   - `@ApiOperation({ summary: "Short imperative summary", description: "Detailed behavioral description" })`
-3. **Successful Response Envelope**:
-   - Single resource (200 OK): `@ApiOkResponseGeneric(ResponseDto)`
-   - Created resource (201 Created): `@ApiCreatedResponseGeneric(ResponseDto)`
-   - Paginated resource (200 OK): `@ApiOkResponsePaginated(ItemDto)`
-   - Empty/Command response: `@ApiOkResponseGeneric()` or `@ApiCreatedResponseGeneric()`
-4. **RFC 9457 Error Responses & Language Boundaries**:
-   - **OpenAPI Documentation & Runtime Diagnostics (100% English)**: All `@ApiOperation`, `@Api*Response`, schema descriptions, and runtime RFC 9457 `detail` / `reason` fallbacks are written in technical English for developers, tooling, and telemetry.
-   - **Machine Error Codes (`code`)**: Every error MUST provide a stable machine-readable identifier from `API_ERROR_CODES` (`@greenroots/shared`).
-   - **Client-Side Localization (Vietnamese)**: User-facing presentation is handled at the UI layer (`@greenroots/storefront` and `@greenroots/backoffice`) using `@greenroots/shared` `API_ERROR_DICTIONARY` and `resolveSharedApiErrorMessage(code, params)`.
-   - Declare expected error statuses explicitly: `@ApiBadRequestResponseRfc9457()`, `@ApiNotFoundResponseRfc9457()`, `@ApiConflictResponseRfc9457()`, `@ApiUnprocessableEntityResponseRfc9457()`, `@ApiInternalServerErrorResponseRfc9457()`.
-
-### 9.4 Controller Implementation Pattern
-
-```typescript
-@ApiTags(MEDIA_ROUTES.TAG)
-@Controller({ path: MEDIA_ROUTES.BASE, version: "1" })
-@ApiBadRequestResponseRfc9457()
-@ApiInternalServerErrorResponseRfc9457()
-export class MediaController {
-  constructor(private readonly cloudinaryService: CloudinaryService) {}
-
-  @ApiAuth()
-  @Post(MEDIA_ROUTES.UPLOAD_SIGNATURE)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary:
-      "Generate Cloudinary signed upload signature (<=5MB image, <=15MB video)",
-    description:
-      "Generates an HMAC SHA-256 signature and upload parameters for client-side direct uploads without streaming files through API memory.",
-  })
-  @ApiOkResponseGeneric(SignedUploadResponseDto)
-  @ApiForbiddenResponseRfc9457()
-  @ApiUnprocessableEntityResponseRfc9457()
-  getUploadSignature(
-    @Body() dto: SignedUploadDto,
-    @CurrentUser() user: JwtPayload,
-  ): ApiResponse<CloudinarySignatureResult> {
-    const signatureData = this.cloudinaryService.createUploadSignature(
-      dto,
-      user.role,
-    );
-    return apiSuccess(signatureData);
-  }
-}
-```
-
-- `400` and `500` are hoisted to the class because every handler in the module inherits an unhandled `ValidationPipe` rejection and the global exception filter. Route-level decorators cover only what that handler adds: `403` for the folder-role rule and `422` for the upload constraint.
-
----
-
-## 10. Rate Limiting & Throttler Architecture
-
-All API endpoints are protected by `CustomThrottlerGuard` backed by `@nest-lab/throttler-storage-redis`.
-
-### 10.1 Named Throttler Tiers
-
-- **`default`**: 100 requests / 60 seconds (applied repo-wide to standard CRUD operations).
-- **`public`**: 300 requests / 60 seconds (catalog browsing, health checks).
-- **`auth`**: 5 requests / 60 seconds in production (100 in dev/test) for sensitive auth and signature routes (`/login`, `/register`, `/upload-signature`).
-
-### 10.2 Guard Pipeline Execution Order
-
-`CustomThrottlerGuard` is mounted as the first `APP_GUARD` in `AppModule`:
-
-1. `CustomThrottlerGuard`: Drops volumetric traffic at the gateway before CPU-intensive JWT verification or DB queries.
-2. `JwtAuthGuard`: Authenticates JWT token and checks Redis revocation blacklist.
-3. `RolesGuard`: Enforces role-based access control.
-
-### 10.3 Fail-Open Resilience & 429 Problem Details
-
-- **Fail-Open Invariant**: In accordance with `concurrency-and-locking.md`, rate limiting must never take down the platform. If Redis stalls or check exceeds a 2-second timeout, `CustomThrottlerGuard` logs a warning and allows the request through.
-- **Problem Details Response**: When limits are exceeded, throws HTTP 429 formatted by `GlobalExceptionFilter` as `type: "/errors/too-many-requests"` with `detail: MESSAGES.COMMON.TOO_MANY_REQUESTS`.
+- The guard fails open: a Redis stall or a check exceeding 2 seconds logs a warning and allows the request.
+- Exceeding a tier throws 429, which `GlobalExceptionFilter` renders as `type: "/errors/too-many-requests"` with `MESSAGES.COMMON.TOO_MANY_REQUESTS`.
