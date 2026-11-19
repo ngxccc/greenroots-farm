@@ -403,7 +403,9 @@ export interface components {
              *       "min": 8
              *     }
              */
-            params?: Record<string, never>;
+            params?: {
+                [key: string]: unknown;
+            };
         };
         Rfc9457ErrorResponseDto: {
             /**
@@ -451,13 +453,31 @@ export interface components {
              */
             success: boolean;
         };
+        HealthResponseDto: {
+            /**
+             * @description Current service health status
+             * @example ok
+             * @constant
+             */
+            status: "ok";
+            /**
+             * @description Human-readable operational summary
+             * @example System is healthy and operational
+             */
+            message: string;
+            /**
+             * @description UTC ISO-8601 health check timestamp
+             * @example 2026-04-02T10:00:00.000Z
+             */
+            timestamp: string;
+        };
         RegisterDto: {
             email: string;
             fullName: string;
             /** @example 0912345678 */
             phone?: string;
             /** Format: password */
-            password: unknown;
+            password: string;
             confirmPassword: string;
             /** @constant */
             agreeTerms: true;
@@ -503,7 +523,7 @@ export interface components {
         ResetPasswordDto: {
             token: string;
             /** Format: password */
-            password: unknown;
+            password: string;
             confirmPassword: string;
         };
         UserProfileDto: {
@@ -605,7 +625,7 @@ export interface components {
             fullName: string;
             phone: string | null;
             /** @enum {string} */
-            role: "guest" | "customer" | "farm_staff" | "sales" | "admin" | "super_admin";
+            role: "farm_staff" | "sales" | "admin" | "super_admin";
             /** @enum {string} */
             status: "active" | "inactive" | "suspended";
             emailVerified: boolean;
@@ -700,24 +720,34 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description System health status */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @example true */
-                        success: boolean;
-                        data: {
-                            /** @example ok */
-                            status: string;
-                            /** @example System is healthy and operational */
-                            message: string;
-                            /** @example 2026-11-14T00:00:00.000Z */
-                            timestamp: string;
-                        };
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data: components["schemas"]["HealthResponseDto"];
                     };
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
                 };
             };
         };
@@ -742,7 +772,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
                         /** @default null */
-                        data: Record<string, never> | null;
+                        data: null;
                     };
                 };
             };
@@ -833,7 +863,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
                         /** @default null */
-                        data: Record<string, never> | null;
+                        data: null;
                     };
                 };
             };
@@ -904,7 +934,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
                         /** @default null */
-                        data: Record<string, never> | null;
+                        data: null;
                     };
                 };
             };
@@ -927,6 +957,26 @@ export interface operations {
                      *           "reason": "Invalid property value"
                      *         }
                      *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
                      *     }
                      */
@@ -974,7 +1024,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["LoginResponseDto"];
+                        data: components["schemas"]["LoginResponseDto"];
                     };
                 };
             };
@@ -1043,6 +1093,26 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
                 };
             };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -1084,7 +1154,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["RefreshResponseDto"];
+                        data: components["schemas"]["RefreshResponseDto"];
                     };
                 };
             };
@@ -1125,6 +1195,26 @@ export interface operations {
                      *       "title": "Unauthorized",
                      *       "status": 401,
                      *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
                      *       "instance": "/api/v1/resource",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
@@ -1175,7 +1265,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
                         /** @default null */
-                        data: Record<string, never> | null;
+                        data: null;
                     };
                 };
             };
@@ -1198,26 +1288,6 @@ export interface operations {
                      *           "reason": "Invalid property value"
                      *         }
                      *       ],
-                     *       "timestamp": "2026-11-16T00:00:00.000Z"
-                     *     }
-                     */
-                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
-                };
-            };
-            /** @description Authentication required or invalid token (Unauthorized) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "type": "/errors/unauthorized",
-                     *       "title": "Unauthorized",
-                     *       "status": 401,
-                     *       "detail": "Authentication credentials are required or have expired",
-                     *       "instance": "/api/v1/resource",
-                     *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
                      *     }
                      */
@@ -1262,7 +1332,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
                         /** @default null */
-                        data: Record<string, never> | null;
+                        data: null;
                     };
                 };
             };
@@ -1303,6 +1373,26 @@ export interface operations {
                      *       "title": "Unauthorized",
                      *       "status": 401,
                      *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
                      *       "instance": "/api/v1/resource",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
@@ -1353,7 +1443,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
                         /** @default null */
-                        data: Record<string, never> | null;
+                        data: null;
                     };
                 };
             };
@@ -1376,6 +1466,26 @@ export interface operations {
                      *           "reason": "Invalid property value"
                      *         }
                      *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
                      *     }
                      */
@@ -1424,7 +1534,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
                         /** @default null */
-                        data: Record<string, never> | null;
+                        data: null;
                     };
                 };
             };
@@ -1473,6 +1583,26 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
                 };
             };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -1510,8 +1640,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["UserProfileDto"];
+                        data: components["schemas"]["UserProfileDto"];
                     };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
                 };
             };
             /** @description Authentication required or invalid token (Unauthorized) */
@@ -1575,7 +1730,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["UserProfileDto"];
+                        data: components["schemas"]["UserProfileDto"];
                     };
                 };
             };
@@ -1661,7 +1816,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["AddressDto"][];
+                        data: components["schemas"]["AddressDto"][];
                     };
                 };
             };
@@ -1771,7 +1926,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["AddressDto"];
+                        data: components["schemas"]["AddressDto"];
                     };
                 };
             };
@@ -2030,7 +2185,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["AddressDto"];
+                        data: components["schemas"]["AddressDto"];
                     };
                 };
             };
@@ -2179,7 +2334,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["AddressDto"];
+                        data: components["schemas"]["AddressDto"];
                     };
                 };
             };
@@ -2312,8 +2467,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedApiResponseDto"] & {
-                        data?: components["schemas"]["StaffMemberDto"][];
-                        meta?: components["schemas"]["PaginationMetaDto"];
+                        data: components["schemas"]["StaffMemberDto"][];
+                        meta: components["schemas"]["PaginationMetaDto"];
                     };
                 };
             };
@@ -2443,7 +2598,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["StaffMemberDto"];
+                        data: components["schemas"]["StaffMemberDto"];
                     };
                 };
             };
@@ -2596,7 +2751,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["StaffMemberDto"];
+                        data: components["schemas"]["StaffMemberDto"];
                     };
                 };
             };
@@ -2745,7 +2900,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["StaffMemberDto"];
+                        /** @default null */
+                        data: null;
                     };
                 };
             };
@@ -2895,7 +3051,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data?: components["schemas"]["SignedUploadResponseDto"];
+                        data: components["schemas"]["SignedUploadResponseDto"];
                     };
                 };
             };

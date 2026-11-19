@@ -7,43 +7,44 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "System health status",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponseDto"
                     },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "example": "ok"
-                        },
-                        "message": {
-                          "type": "string",
-                          "example": "System is healthy and operational"
-                        },
-                        "timestamp": {
-                          "type": "string",
-                          "example": "2026-11-14T00:00:00.000Z"
-                        }
-                      },
+                    {
                       "required": [
-                        "status",
-                        "message",
-                        "timestamp"
-                      ]
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/HealthResponseDto"
+                        }
+                      }
                     }
-                  },
-                  "required": [
-                    "success",
-                    "data"
                   ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
                 }
               }
             }
@@ -81,12 +82,12 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
-                          "type": [
-                            "object",
-                            "null"
-                          ],
+                          "type": "null",
                           "default": null
                         }
                       }
@@ -191,12 +192,12 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
-                          "type": [
-                            "object",
-                            "null"
-                          ],
+                          "type": "null",
                           "default": null
                         }
                       }
@@ -282,12 +283,12 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
-                          "type": [
-                            "object",
-                            "null"
-                          ],
+                          "type": "null",
                           "default": null
                         }
                       }
@@ -316,6 +317,25 @@
                       "reason": "Invalid property value"
                     }
                   ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
                   "timestamp": "2026-11-16T00:00:00.000Z"
                 }
               }
@@ -373,6 +393,9 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/LoginResponseDto"
@@ -446,6 +469,25 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -498,6 +540,9 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/RefreshResponseDto"
@@ -545,6 +590,25 @@
                   "title": "Unauthorized",
                   "status": 401,
                   "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
                   "instance": "/api/v1/resource",
                   "invalidParams": [],
                   "timestamp": "2026-11-16T00:00:00.000Z"
@@ -604,12 +668,12 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
-                          "type": [
-                            "object",
-                            "null"
-                          ],
+                          "type": "null",
                           "default": null
                         }
                       }
@@ -638,25 +702,6 @@
                       "reason": "Invalid property value"
                     }
                   ],
-                  "timestamp": "2026-11-16T00:00:00.000Z"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required or invalid token (Unauthorized)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
-                },
-                "example": {
-                  "type": "/errors/unauthorized",
-                  "title": "Unauthorized",
-                  "status": 401,
-                  "detail": "Authentication credentials are required or have expired",
-                  "instance": "/api/v1/resource",
-                  "invalidParams": [],
                   "timestamp": "2026-11-16T00:00:00.000Z"
                 }
               }
@@ -704,12 +749,12 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
-                          "type": [
-                            "object",
-                            "null"
-                          ],
+                          "type": "null",
                           "default": null
                         }
                       }
@@ -755,6 +800,25 @@
                   "title": "Unauthorized",
                   "status": 401,
                   "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
                   "instance": "/api/v1/resource",
                   "invalidParams": [],
                   "timestamp": "2026-11-16T00:00:00.000Z"
@@ -819,12 +883,12 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
-                          "type": [
-                            "object",
-                            "null"
-                          ],
+                          "type": "null",
                           "default": null
                         }
                       }
@@ -853,6 +917,25 @@
                       "reason": "Invalid property value"
                     }
                   ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
                   "timestamp": "2026-11-16T00:00:00.000Z"
                 }
               }
@@ -910,12 +993,12 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
-                          "type": [
-                            "object",
-                            "null"
-                          ],
+                          "type": "null",
                           "default": null
                         }
                       }
@@ -968,6 +1051,25 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -1010,6 +1112,9 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/UserProfileDto"
@@ -1017,6 +1122,30 @@
                       }
                     }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
                 }
               }
             }
@@ -1095,6 +1224,9 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/UserProfileDto"
@@ -1196,6 +1328,9 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
                           "type": "array",
@@ -1327,6 +1462,9 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/AddressDto"
@@ -1487,6 +1625,9 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/AddressDto"
@@ -1786,6 +1927,9 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/AddressDto"
@@ -2002,6 +2146,10 @@
                       "$ref": "#/components/schemas/PaginatedApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data",
+                        "meta"
+                      ],
                       "properties": {
                         "data": {
                           "type": "array",
@@ -2155,6 +2303,9 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/StaffMemberDto"
@@ -2334,6 +2485,9 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/StaffMemberDto"
@@ -2503,9 +2657,13 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/StaffMemberDto"
+                          "type": "null",
+                          "default": null
                         }
                       }
                     }
@@ -2671,6 +2829,9 @@
                       "$ref": "#/components/schemas/ApiResponseDto"
                     },
                     {
+                      "required": [
+                        "data"
+                      ],
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/SignedUploadResponseDto"
@@ -2811,6 +2972,10 @@
       "description": "Profiles, staff accounts and delivery addresses"
     },
     {
+      "name": "admin-users",
+      "description": "Admin staff account lifecycle and access governance"
+    },
+    {
       "name": "farms",
       "description": "Farm settings, plots, seasons and traceability"
     },
@@ -2821,6 +2986,14 @@
     {
       "name": "inventory",
       "description": "Batches, FEFO allocations and waste write-offs"
+    },
+    {
+      "name": "media",
+      "description": "Signed media uploads and storage rules"
+    },
+    {
+      "name": "health",
+      "description": "Service health and readiness probes"
     }
   ],
   "servers": [],
@@ -2857,7 +3030,8 @@
             "description": "Dynamic validation constraint metadata for client-side interpolation",
             "example": {
               "min": 8
-            }
+            },
+            "additionalProperties": true
           }
         },
         "required": [
@@ -2933,6 +3107,32 @@
           "success"
         ]
       },
+      "HealthResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "description": "Current service health status",
+            "example": "ok"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable operational summary",
+            "example": "System is healthy and operational"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "UTC ISO-8601 health check timestamp",
+            "example": "2026-04-02T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "timestamp"
+        ]
+      },
       "RegisterDto": {
         "type": "object",
         "properties": {
@@ -2950,7 +3150,8 @@
           "password": {
             "minLength": 8,
             "maxLength": 128,
-            "format": "password"
+            "format": "password",
+            "type": "string"
           },
           "confirmPassword": {
             "type": "string",
@@ -3128,7 +3329,8 @@
           "password": {
             "minLength": 8,
             "maxLength": 128,
-            "format": "password"
+            "format": "password",
+            "type": "string"
           },
           "confirmPassword": {
             "type": "string",
@@ -3442,8 +3644,6 @@
           "role": {
             "type": "string",
             "enum": [
-              "guest",
-              "customer",
               "farm_staff",
               "sales",
               "admin",
@@ -3653,7 +3853,8 @@
         "required": [
           "fileSizeBytes",
           "folder"
-        ]
+        ],
+        "additionalProperties": false
       }
     }
   }
