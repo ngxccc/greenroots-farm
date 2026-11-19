@@ -54,6 +54,11 @@ export const API_ERROR_CODES = {
   LAST_SUPER_ADMIN: "LAST_SUPER_ADMIN",
   SELF_MODIFICATION_FORBIDDEN: "SELF_MODIFICATION_FORBIDDEN",
   STAFF_ROLE_INVALID: "STAFF_ROLE_INVALID",
+  FARM_NOT_FOUND: "FARM_NOT_FOUND",
+  FARM_PAYMENT_METHOD_REQUIRED: "FARM_PAYMENT_METHOD_REQUIRED",
+  PLOT_NOT_FOUND: "PLOT_NOT_FOUND",
+  PLOT_CODE_ALREADY_EXISTS: "PLOT_CODE_ALREADY_EXISTS",
+  PLOT_HAS_ACTIVE_SEASONS: "PLOT_HAS_ACTIVE_SEASONS",
 
   // Persistence, Concurrency & Database Violations
   CONFLICT_RECORD: "CONFLICT_RECORD",
@@ -148,6 +153,15 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Bạn không thể tự thay đổi vai trò, trạng thái hoặc đặt lại thông tin đăng nhập của chính mình.",
   [API_ERROR_CODES.STAFF_ROLE_INVALID]:
     "Vai trò được chọn không hợp lệ cho tài khoản nhân viên.",
+  [API_ERROR_CODES.FARM_NOT_FOUND]:
+    "Không tìm thấy cấu hình nông trại trong hệ thống.",
+  [API_ERROR_CODES.FARM_PAYMENT_METHOD_REQUIRED]:
+    "Phải bật ít nhất một phương thức thanh toán (PayOS hoặc COD).",
+  [API_ERROR_CODES.PLOT_NOT_FOUND]: "Không tìm thấy lô đất yêu cầu.",
+  [API_ERROR_CODES.PLOT_CODE_ALREADY_EXISTS]:
+    "Mã lô đất này đã tồn tại trên một lô đất đang hoạt động.",
+  [API_ERROR_CODES.PLOT_HAS_ACTIVE_SEASONS]:
+    "Không thể xóa lô đất khi vẫn còn mùa vụ đang lập kế hoạch hoặc đang canh tác.",
 
   // Persistence & Database
   [API_ERROR_CODES.CONFLICT_RECORD]: "Dữ liệu này đã tồn tại trong hệ thống.",
