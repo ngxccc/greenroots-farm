@@ -201,6 +201,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current user profile
+         * @description Returns the authenticated subject's self-service profile projection.
+         */
+        get: operations["ProfileController_getMe_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update current user profile
+         * @description Updates the authenticated subject's fullName and/or phone and returns the updated profile.
+         */
+        patch: operations["ProfileController_updateMe_v1"];
+        trace?: never;
+    };
     "/api/v1/media/upload-signature": {
         parameters: {
             query?: never;
@@ -299,7 +323,7 @@ export interface components {
             email: string;
             fullName: string;
             /** @example 0912345678 */
-            phoneNumber?: string;
+            phone?: string;
             /** Format: password */
             password: unknown;
             confirmPassword: string;
@@ -349,6 +373,27 @@ export interface components {
             /** Format: password */
             password: unknown;
             confirmPassword: string;
+        };
+        UserProfileDto: {
+            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+            id: string;
+            email: string;
+            fullName: string;
+            phone: string | null;
+            /** @enum {string} */
+            role: "guest" | "customer" | "farm_staff" | "sales" | "admin" | "super_admin";
+            /** @enum {string} */
+            status: "active" | "inactive" | "suspended";
+            rewardPoints: number;
+            emailVerified: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        UpdateProfileDto: {
+            fullName?: string;
+            phone?: string | null;
         };
         SignedUploadResponseDto: {
             /**
@@ -1168,6 +1213,157 @@ export interface operations {
                      *           "reason": "Invalid property value"
                      *         }
                      *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ProfileController_getMe_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data?: components["schemas"]["UserProfileDto"];
+                    };
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ProfileController_updateMe_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data?: components["schemas"]["UserProfileDto"];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
                      *     }
                      */
