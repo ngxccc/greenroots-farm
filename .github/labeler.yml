@@ -8,15 +8,25 @@
       - any-glob-to-any-file:
           - "apps/api/**/*"
 
+# `apps/*/src/types/api-schema.d.ts` is a generated contract refreshed by
+# `bun run types:sync`. An API-only change that regenerates the client types is
+# not a consumer change, so each frontend label requires at least one changed
+# file outside that generated path. `all-globs-to-any-file` means "some changed
+# file matches every glob", which keeps the exclusion per-file instead of
+# dropping the label whenever the generated file appears in the pull request.
 "area:storefront":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "apps/storefront/**/*"
+  - all:
+      - changed-files:
+          - all-globs-to-any-file:
+              - "apps/storefront/**/*"
+              - "!apps/storefront/src/types/api-schema.d.ts"
 
 "area:backoffice":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "apps/backoffice/**/*"
+  - all:
+      - changed-files:
+          - all-globs-to-any-file:
+              - "apps/backoffice/**/*"
+              - "!apps/backoffice/src/types/api-schema.d.ts"
 
 "area:shared":
   - changed-files:
