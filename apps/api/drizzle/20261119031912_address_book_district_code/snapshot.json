@@ -1,0 +1,112 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "43768ec9-ef1c-467b-b54e-f51a73694981",
+  "prevIds": ["786eb09e-5886-4379-9888-de3b4d48b602"],
+  "footprints": [
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "user_addresses",
+        "user_addresses_default_idx"
+      ],
+      "writes": [
+        "s|idx|public.user_addresses_default_idx",
+        "n|idx|public.user_addresses_default_idx",
+        "e|idx|public.user_addresses_default_idx",
+        "n|rel|public.user_addresses_default_idx"
+      ],
+      "reads": [
+        "e|tbl|public.user_addresses",
+        "n|sch|public",
+        "e|col|public.user_addresses.user_id",
+        "e|col|public.user_addresses.is_default"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "user_addresses",
+        "district_code"
+      ],
+      "writes": [
+        "s|col|public.user_addresses.district_code",
+        "n|col|public.user_addresses.district_code",
+        "e|col|public.user_addresses.district_code"
+      ],
+      "reads": ["n|tbl|public.user_addresses", "n|sch|public"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "user_addresses",
+        "user_addresses_default_uidx"
+      ],
+      "writes": [
+        "s|idx|public.user_addresses_default_uidx",
+        "n|idx|public.user_addresses_default_uidx",
+        "e|idx|public.user_addresses_default_uidx",
+        "n|rel|public.user_addresses_default_uidx"
+      ],
+      "reads": [
+        "n|tbl|public.user_addresses",
+        "n|sch|public",
+        "n|col|public.user_addresses.user_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_addresses",
+        "name": "district_code",
+        "type": "varchar(50)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_addresses",
+        "name": "user_addresses_default_uidx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": "\"is_default\" = true",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"user_addresses_default_idx\"]"
+    }
+  ]
+}

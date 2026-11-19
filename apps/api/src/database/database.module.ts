@@ -16,6 +16,11 @@ export type DrizzleDB = NodePgDatabase<
   >
 >;
 
+/**
+ * Transaction-scoped Drizzle database executor passed into `db.transaction(...)` callbacks.
+ */
+export type DrizzleTx = Parameters<Parameters<DrizzleDB["transaction"]>[0]>[0];
+
 @Global()
 @Module({
   providers: [

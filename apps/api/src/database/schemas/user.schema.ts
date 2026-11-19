@@ -11,7 +11,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { UserRole, UserStatus } from "@greenroots/shared";
+import { BUSINESS_RULES, UserRole, UserStatus } from "@greenroots/shared";
 import { userRoleEnum, userStatusEnum } from "./enums.schema";
 import { baseEntity, softDeleteEntity } from "./helpers.schema";
 
@@ -73,15 +73,20 @@ export const userAddresses = snakeCase.table(
     receiverName: varchar({ length: 255 }).notNull(),
     phoneNumber: varchar({ length: 20 }).notNull(),
     streetAddress: text().notNull(),
+    districtCode: varchar({ length: 50 }).notNull(),
     district: varchar({ length: 100 }).notNull(),
-    city: varchar({ length: 100 }).default("TP. Hồ Chí Minh").notNull(),
+    city: varchar({ length: 100 })
+      .default(BUSINESS_RULES.DEFAULT_DELIVERY_CITY)
+      .notNull(),
     latitude: numeric({ precision: 10, scale: 8 }),
     longitude: numeric({ precision: 11, scale: 8 }),
     isDefault: boolean().default(false).notNull(),
   },
   (table) => [
     index("user_addresses_user_id_idx").on(table.userId),
-    index("user_addresses_default_idx").on(table.userId, table.isDefault),
+    uniqueIndex("user_addresses_default_uidx")
+      .on(table.userId)
+      .where(sql`${table.isDefault} = true`),
   ],
 );
 

@@ -1,4 +1,5 @@
 import {
+  BUSINESS_RULES,
   ComplaintStatus,
   DeliveryDay,
   OrderStatus,
@@ -48,9 +49,10 @@ export async function seedTier3Operational(
       receiverName: "Trần Thị Khách",
       phoneNumber: "0912345678",
       streetAddress: "12 Nguyễn Văn Linh, Phường Tân Phú",
+      districtCode: "quan-7",
       district: "Quận 7",
-      city: "TP. Hồ Chí Minh",
-      latitude: "10.72960000",
+      city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
+      latitude: "10.73400000",
       longitude: "106.72180000",
       isDefault: true,
     })
