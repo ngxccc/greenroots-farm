@@ -1,3 +1,5 @@
+import type { StaffAuditAction, StaffAuditSnapshot } from "@greenroots/shared";
+
 /**
  * Authoritative district centroid and formatted shipping snapshot resolved for checkout or subscriptions.
  */
@@ -9,4 +11,15 @@ export interface ResolvedQuoteAddress {
   readonly city: string;
   readonly latitude: number;
   readonly longitude: number;
+}
+
+/**
+ * Input payload for persisting a single `staff_audit_logs` record.
+ */
+export interface StaffAuditRecordInput {
+  readonly actorId: string;
+  readonly targetUserId: string;
+  readonly action: StaffAuditAction;
+  readonly before: StaffAuditSnapshot | null;
+  readonly after: StaffAuditSnapshot | null;
 }

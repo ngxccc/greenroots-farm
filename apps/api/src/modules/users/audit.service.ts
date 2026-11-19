@@ -1,18 +1,8 @@
 import { Injectable } from "@nestjs/common";
-import type { StaffAuditAction, StaffAuditSnapshot } from "@greenroots/shared";
+import type { StaffAuditSnapshot } from "@greenroots/shared";
 import type { DrizzleTx } from "@/database/database.module";
 import { staffAuditLogs } from "@/database/schemas";
-
-/**
- * Input payload for persisting a single `staff_audit_logs` record.
- */
-export interface StaffAuditRecordInput {
-  readonly actorId: string;
-  readonly targetUserId: string;
-  readonly action: StaffAuditAction;
-  readonly before: StaffAuditSnapshot | null;
-  readonly after: StaffAuditSnapshot | null;
-}
+import type { StaffAuditRecordInput } from "./users.interface";
 
 /**
  * Writes append-only `staff_audit_logs` records inside the caller's database transaction.
