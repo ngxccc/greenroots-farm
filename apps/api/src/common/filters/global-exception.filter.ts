@@ -92,6 +92,23 @@ const DEFAULT_DETAILS: Record<number, string> = {
   [HttpStatus.GATEWAY_TIMEOUT]: MESSAGES.COMMON.GATEWAY_TIMEOUT,
 };
 
+const IMMUTABLE_TRIGGER_MAPPINGS: readonly {
+  readonly marker: string;
+  readonly code: string;
+  readonly detail: string;
+}[] = [
+  {
+    marker: "FARMING_LOG_IMMUTABLE",
+    code: API_ERROR_CODES.FARMING_LOG_IMMUTABLE,
+    detail: MESSAGES.DATABASE.IMMUTABLE_RECORD,
+  },
+  {
+    marker: "STAFF_AUDIT_LOG_IMMUTABLE",
+    code: API_ERROR_CODES.FORBIDDEN,
+    detail: MESSAGES.DATABASE.STAFF_AUDIT_IMMUTABLE,
+  },
+];
+
 function isRecordObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -158,15 +175,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         );
 
         switch (databaseError.code) {
-          case PG_ERROR_CODE.RAISE_EXCEPTION:
+          case PG_ERROR_CODE.RAISE_EXCEPTION: {
             status = HttpStatus.FORBIDDEN;
-            code = databaseError.message?.includes("FARMING_LOG_IMMUTABLE")
-              ? API_ERROR_CODES.FARMING_LOG_IMMUTABLE
-              : API_ERROR_CODES.FORBIDDEN;
-            detail = databaseError.message?.includes("FARMING_LOG_IMMUTABLE")
-              ? MESSAGES.DATABASE.IMMUTABLE_RECORD
-              : MESSAGES.COMMON.FORBIDDEN;
+            const matchedTrigger = IMMUTABLE_TRIGGER_MAPPINGS.find((entry) =>
+              databaseError.message?.includes(entry.marker),
+            );
+            code = matchedTrigger?.code ?? API_ERROR_CODES.FORBIDDEN;
+            detail = matchedTrigger?.detail ?? MESSAGES.COMMON.FORBIDDEN;
             break;
+          }
           case PG_ERROR_CODE.FOREIGN_KEY_VIOLATION:
             status = HttpStatus.CONFLICT;
             code = API_ERROR_CODES.FOREIGN_KEY_VIOLATION;

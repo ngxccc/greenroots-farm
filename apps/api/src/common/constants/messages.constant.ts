@@ -73,12 +73,24 @@ export const MESSAGES = {
     UNRECOGNIZED_KEY: "Unrecognized field in request payload.",
     AT_LEAST_ONE_FIELD: "At least one profile field must be provided.",
     AT_LEAST_ONE_ADDRESS_FIELD: "At least one address field must be provided.",
+    AT_LEAST_ONE_STAFF_FIELD: "At least one staff field must be provided.",
   },
   ADDRESS: {
     NOT_FOUND: "Address not found.",
     LIMIT_REACHED: "You can save at most 10 delivery addresses.",
     DISTRICT_CODE_INVALID:
       "District code is not a valid Ho Chi Minh City delivery district.",
+  },
+  STAFF: {
+    NOT_FOUND: "Staff member not found.",
+    LAST_SUPER_ADMIN:
+      "Cannot demote, deactivate, or suspend the last active super admin.",
+    SELF_MODIFICATION_FORBIDDEN:
+      "Actors cannot change their own role or status, or reset their own credentials.",
+    ROLE_INVALID:
+      "Role must be one of farm_staff, sales, admin, or super_admin.",
+    CANNOT_RESET_INACTIVE_ACCOUNT:
+      "Cannot reset credentials for a suspended or inactive staff account.",
   },
   MEDIA: {
     FOLDER_ACCESS_DENIED:
@@ -89,6 +101,8 @@ export const MESSAGES = {
   DATABASE: {
     IMMUTABLE_RECORD:
       "Farming log records are immutable and cannot be modified or deleted.",
+    STAFF_AUDIT_IMMUTABLE:
+      "Staff audit log records are immutable and cannot be modified or deleted.",
     FOREIGN_KEY_VIOLATION:
       "Referenced entity does not exist or is constrained by an existing relationship.",
     UNIQUE_VIOLATION:

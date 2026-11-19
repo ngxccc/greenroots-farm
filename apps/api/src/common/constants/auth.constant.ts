@@ -47,6 +47,10 @@ export const RESET_TOKEN_TTL_SECONDS = RESET_PASSWORD_TOKEN_TTL_SECONDS;
 export const RESET_TOKEN_TTL_MS = RESET_PASSWORD_TOKEN_TTL_MS;
 export const AUTH_RESET_TOKEN_TTL_SECONDS = RESET_PASSWORD_TOKEN_TTL_SECONDS;
 
+/** Staff invitation and admin credential reset token validity window: 24 hours (86,400 seconds). */
+export const STAFF_INVITE_TOKEN_TTL_SECONDS = daysToSeconds(1);
+export const STAFF_INVITE_TOKEN_TTL_MS = daysToMs(1);
+
 /** Anti-enumeration resend verification cooldown: 60 seconds (60,000 ms). */
 export const RESEND_VERIFICATION_COOLDOWN_SECONDS = 60;
 export const RESEND_VERIFICATION_COOLDOWN_MS = secondsToMs(60);

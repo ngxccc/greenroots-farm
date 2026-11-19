@@ -209,6 +209,7 @@ export class AuthController {
       "Updates password with valid token and invalidates all existing sessions.",
   })
   @ApiOkResponseGeneric()
+  @ApiForbiddenResponseRfc9457()
   async resetPassword(
     @Body() dto: ResetPasswordDto,
   ): Promise<ApiResponse<null>> {

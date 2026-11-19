@@ -1,0 +1,50 @@
+import { createZodDto } from "nestjs-zod";
+import { z } from "zod";
+import { UserRole, UserStatus } from "@greenroots/shared";
+import {
+  zNumericString,
+  zSanitizedString,
+} from "@/common/schemas/zod-primitives";
+
+/**
+ * Whitelisted sort expressions for `GET /api/v1/admin/users`.
+ */
+export const STAFF_SORT_OPTIONS = [
+  "createdAt:desc",
+  "createdAt:asc",
+  "fullName:asc",
+  "fullName:desc",
+  "email:asc",
+  "email:desc",
+] as const;
+
+/**
+ * Union of supported sort query strings for the staff directory.
+ */
+export type StaffSortOption = (typeof STAFF_SORT_OPTIONS)[number];
+
+/**
+ * Zod schema for paginated staff directory filters and sorting.
+ */
+export const listStaffQuerySchema = z
+  .object({
+    role: z.enum(UserRole).optional(),
+    status: z.enum(UserStatus).optional(),
+    q: zSanitizedString({ min: 1, max: 100 }).optional(),
+    page: zNumericString({ integer: true, min: 1 }).default(1),
+    limit: zNumericString({ integer: true, min: 1, max: 100 }).default(20),
+    sort: z.enum(STAFF_SORT_OPTIONS).default("createdAt:desc"),
+  })
+  .strict();
+
+/**
+ * Validated staff directory query input.
+ */
+export type ListStaffQuery = z.infer<typeof listStaffQuerySchema>;
+
+/**
+ * Query parameters DTO for paginated staff directory listing (`GET /api/v1/admin/users`).
+ */
+export class ListStaffQueryDto extends createZodDto(listStaffQuerySchema) {
+  public static readonly zodSchema = listStaffQuerySchema;
+}

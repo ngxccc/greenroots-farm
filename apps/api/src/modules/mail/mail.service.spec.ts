@@ -87,6 +87,40 @@ describe("Mail Module Integration", () => {
       expect(job?.data.subject).toContain("đặt lại mật khẩu");
       expect(job?.data.html).toContain("reset-token-456");
     });
+
+    it("enqueues staff invitation email pointing to backoffice with 24h copy", async () => {
+      await mailService.sendStaffInvitationEmail(
+        "newstaff@greenroots.farm",
+        "New Staff",
+        "invite-token-789",
+      );
+
+      expect(addedJobs).toHaveLength(1);
+      const job = addedJobs[0];
+      expect(job?.data.to).toBe("newstaff@greenroots.farm");
+      expect(job?.data.subject).toContain("kích hoạt tài khoản nhân viên");
+      expect(job?.data.html).toContain(
+        "http://localhost:3002/reset-password?token=invite-token-789",
+      );
+      expect(job?.data.html).toContain("24 giờ");
+    });
+
+    it("enqueues staff credential reset email pointing to backoffice with 24h copy", async () => {
+      await mailService.sendStaffCredentialResetEmail(
+        "staff@greenroots.farm",
+        "Staff Member",
+        "staff-reset-999",
+      );
+
+      expect(addedJobs).toHaveLength(1);
+      const job = addedJobs[0];
+      expect(job?.data.to).toBe("staff@greenroots.farm");
+      expect(job?.data.subject).toContain("Đặt lại thông tin đăng nhập");
+      expect(job?.data.html).toContain(
+        "http://localhost:3002/reset-password?token=staff-reset-999",
+      );
+      expect(job?.data.html).toContain("24 giờ");
+    });
   });
 
   describe("MailProcessor and MockMailDriver Consumer", () => {

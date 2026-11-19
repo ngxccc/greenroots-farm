@@ -63,6 +63,25 @@ describe("GlobalExceptionFilter RFC 9457", () => {
     expect(response.body?.["detail"]).toBe(MESSAGES.DATABASE.IMMUTABLE_RECORD);
   });
 
+  test("maps staff audit trigger rejection to forbidden response", () => {
+    const { response, host } = createMockHost();
+    const dbError = Object.assign(new Error("STAFF_AUDIT_LOG_IMMUTABLE"), {
+      code: "P0001",
+      message:
+        "STAFF_AUDIT_LOG_IMMUTABLE: UPDATE and DELETE on staff_audit_logs are forbidden.",
+    });
+
+    filter.catch(new Error("Failed query", { cause: dbError }), host);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.headers["Content-Type"]).toBe("application/problem+json");
+    expect(response.body?.["type"]).toBe("/errors/forbidden");
+    expect(response.body?.["code"]).toBe(API_ERROR_CODES.FORBIDDEN);
+    expect(response.body?.["detail"]).toBe(
+      MESSAGES.DATABASE.STAFF_AUDIT_IMMUTABLE,
+    );
+  });
+
   test("maps PostgreSQL 23503 foreign key violation to HTTP 409", () => {
     const { response, host } = createMockHost();
     const dbError = Object.assign(new Error("foreign key"), {

@@ -589,16 +589,18 @@ describe("AuthService", () => {
       expect(mockDb.update).not.toHaveBeenCalled();
     });
 
-    it("should return silently when account is suspended", async () => {
-      mockDb.setSelectResult([
-        {
-          id: "user-id",
-          fullName: "Suspended User",
-          status: UserStatus.SUSPENDED,
-        },
-      ]);
+    it("returns silently when account is suspended or inactive", async () => {
+      for (const status of [UserStatus.SUSPENDED, UserStatus.INACTIVE]) {
+        mockDb.setSelectResult([
+          {
+            id: "user-id",
+            fullName: "Blocked User",
+            status,
+          },
+        ]);
 
-      await service.forgotPassword(dto);
+        await service.forgotPassword(dto);
+      }
 
       expect(mockMailService.sendPasswordResetEmail).not.toHaveBeenCalled();
       expect(mockDb.update).not.toHaveBeenCalled();
@@ -640,10 +642,11 @@ describe("AuthService", () => {
       confirmPassword: "NewSecurePassword123!",
     };
 
-    it("should successfully reset password, clear reset tokens, and revoke all active sessions", async () => {
+    it("resets password, verifies email, clears reset tokens, and revokes all active sessions", async () => {
       mockDb.setSelectResult([
         {
           id: "user-id",
+          status: UserStatus.ACTIVE,
           resetPasswordExpiresAt: new Date(Date.now() + 900000),
         },
       ]);
@@ -654,12 +657,37 @@ describe("AuthService", () => {
       expect(mockDb.mockUpdateSet).toHaveBeenCalledWith(
         expect.objectContaining({
           password: expect.stringMatching(/^s1\$[0-9a-f]{32}\$[0-9a-f]{128}$/),
+          emailVerified: true,
           resetPasswordToken: null,
           resetPasswordExpiresAt: null,
         }),
       );
       expect(mockDb.delete).toHaveBeenCalled();
       expect(mockRedisService.revokeUser).toHaveBeenCalledWith("user-id", 900);
+    });
+
+    it("rejects password reset when account is suspended or inactive", async () => {
+      for (const status of [UserStatus.SUSPENDED, UserStatus.INACTIVE]) {
+        mockDb.setSelectResult([
+          {
+            id: "user-id",
+            status,
+            resetPasswordExpiresAt: new Date(Date.now() + 900000),
+          },
+        ]);
+
+        try {
+          await service.resetPassword(resetDto);
+          expect.unreachable("Expected ForbiddenException");
+        } catch (error) {
+          expect(error).toBeInstanceOf(ForbiddenException);
+          expect((error as ForbiddenException).getResponse()).toEqual({
+            code: API_ERROR_CODES.AUTH_ACCOUNT_SUSPENDED,
+            detail: MESSAGES.AUTH.ACCOUNT_SUSPENDED,
+          });
+        }
+      }
+      expect(mockDb.update).not.toHaveBeenCalled();
     });
 
     it("should throw BadRequestException (AUTH_RESET_TOKEN_INVALID) when reset token not found", () => {
@@ -674,6 +702,7 @@ describe("AuthService", () => {
       mockDb.setSelectResult([
         {
           id: "user-id",
+          status: UserStatus.ACTIVE,
           resetPasswordExpiresAt: new Date(Date.now() - 1000),
         },
       ]);

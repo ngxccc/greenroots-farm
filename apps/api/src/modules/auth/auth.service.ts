@@ -15,6 +15,8 @@ import {
   ACCESS_TOKEN_TTL_SECONDS,
   AUTH_REVOCATION_TTL_SECONDS,
   RESEND_VERIFICATION_COOLDOWN_SECONDS,
+  RESET_PASSWORD_TOKEN_BYTES,
+  STAFF_INVITE_TOKEN_TTL_SECONDS,
 } from "@/common/constants/auth.constant";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
@@ -31,6 +33,7 @@ import { getExpiryDate } from "@/common/utils/time.util";
 import {
   DATABASE_CONNECTION,
   type DrizzleDB,
+  type DrizzleTx,
 } from "@/database/database.module";
 import { refreshTokens, users } from "@/database/schemas";
 import { MailService } from "@/modules/mail/mail.service";
@@ -44,6 +47,18 @@ import type {
   ResendVerificationDto,
   ResetPasswordDto,
 } from "./dto";
+
+const STAFF_IDENTITY_COLUMNS = {
+  id: users.id,
+  email: users.email,
+  fullName: users.fullName,
+  phone: users.phone,
+  role: users.role,
+  status: users.status,
+  emailVerified: users.emailVerified,
+  createdAt: users.createdAt,
+  updatedAt: users.updatedAt,
+} as const;
 
 @Injectable()
 export class AuthService {
@@ -451,7 +466,11 @@ export class AuthService {
       .where(and(eq(users.email, normalizedEmail), isNull(users.deletedAt)))
       .limit(1);
 
-    if (!user || user.status === UserStatus.SUSPENDED) {
+    if (
+      !user ||
+      user.status === UserStatus.SUSPENDED ||
+      user.status === UserStatus.INACTIVE
+    ) {
       return;
     }
 
@@ -474,7 +493,7 @@ export class AuthService {
   }
 
   /**
-   * Resets password with valid token and invalidates all existing sessions globally.
+   * Resets password with valid token, marks email verified, and invalidates all existing sessions globally.
    */
   async resetPassword(dto: ResetPasswordDto): Promise<void> {
     const hashedToken = sha256(dto.token);
@@ -482,6 +501,7 @@ export class AuthService {
     const [user] = await this.db
       .select({
         id: users.id,
+        status: users.status,
         resetPasswordExpiresAt: users.resetPasswordExpiresAt,
       })
       .from(users)
@@ -500,12 +520,23 @@ export class AuthService {
       });
     }
 
+    if (
+      user.status === UserStatus.SUSPENDED ||
+      user.status === UserStatus.INACTIVE
+    ) {
+      throw new ForbiddenException({
+        code: API_ERROR_CODES.AUTH_ACCOUNT_SUSPENDED,
+        detail: MESSAGES.AUTH.ACCOUNT_SUSPENDED,
+      });
+    }
+
     const passwordHash = await hashPassword(dto.password);
 
     await this.db
       .update(users)
       .set({
         password: passwordHash,
+        emailVerified: true,
         resetPasswordToken: null,
         resetPasswordExpiresAt: null,
       })
@@ -516,5 +547,117 @@ export class AuthService {
       .delete(refreshTokens)
       .where(eq(refreshTokens.userId, user.id));
     await this.redisService.revokeUser(user.id, AUTH_REVOCATION_TTL_SECONDS);
+  }
+
+  /**
+   * Generates cryptographic credentials outside a database transaction for staff onboarding or resets.
+   *
+   * @returns Unusable scrypt password hash plus 24-hour raw/hashed reset token pair.
+   */
+  async prepareStaffCredentials(): Promise<{
+    unusablePasswordHash: string;
+    rawToken: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }> {
+    const unusableSecret = randomBytes(RESET_PASSWORD_TOKEN_BYTES).toString(
+      "hex",
+    );
+    const unusablePasswordHash = await hashPassword(unusableSecret);
+    const tokenPair = this.generateStaffResetToken();
+    return {
+      unusablePasswordHash,
+      ...tokenPair,
+    };
+  }
+
+  /**
+   * Generates a fresh 24-hour staff reset token pair outside a database transaction.
+   *
+   * @returns Raw hex token, SHA-256 digest, and 24-hour expiration date.
+   */
+  generateStaffResetToken(): {
+    rawToken: string;
+    tokenHash: string;
+    expiresAt: Date;
+  } {
+    const rawToken = randomBytes(RESET_PASSWORD_TOKEN_BYTES).toString("hex");
+    return {
+      rawToken,
+      tokenHash: sha256(rawToken),
+      expiresAt: getExpiryDate(STAFF_INVITE_TOKEN_TTL_SECONDS),
+    };
+  }
+
+  /**
+   * Creates an invited staff user row inside the caller's transaction per ADR-0020.
+   *
+   * @param tx Active database transaction.
+   * @param input Normalized staff identity and hashed reset credentials.
+   * @returns Created staff projection excluding secret columns.
+   */
+  async createStaffIdentity(
+    tx: DrizzleTx,
+    input: {
+      email: string;
+      fullName: string;
+      phone: string | null;
+      role: UserRole;
+      passwordHash: string;
+      tokenHash: string;
+      expiresAt: Date;
+    },
+  ) {
+    const [created] = await tx
+      .insert(users)
+      .values({
+        email: input.email,
+        fullName: input.fullName,
+        phone: input.phone,
+        password: input.passwordHash,
+        role: input.role,
+        status: UserStatus.ACTIVE,
+        emailVerified: false,
+        resetPasswordToken: input.tokenHash,
+        resetPasswordExpiresAt: input.expiresAt,
+      })
+      .returning(STAFF_IDENTITY_COLUMNS);
+
+    if (!created) {
+      throw new Error("Failed to insert staff identity row.");
+    }
+
+    return created;
+  }
+
+  /**
+   * Persists a SHA-256 credential-reset token inside the caller's transaction per ADR-0020.
+   *
+   * @param tx Active database transaction.
+   * @param userId Target staff user ID.
+   * @param tokenHash SHA-256 digest of the new reset token.
+   * @param expiresAt Expiration timestamp for the reset token.
+   * @returns Updated staff projection with bumped `updatedAt`.
+   */
+  async issueStaffResetToken(
+    tx: DrizzleTx,
+    userId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ) {
+    const [updated] = await tx
+      .update(users)
+      .set({
+        resetPasswordToken: tokenHash,
+        resetPasswordExpiresAt: expiresAt,
+      })
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .returning(STAFF_IDENTITY_COLUMNS);
+
+    if (!updated) {
+      throw new Error("Failed to persist staff credential reset token.");
+    }
+
+    return updated;
   }
 }

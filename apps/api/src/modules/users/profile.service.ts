@@ -5,6 +5,7 @@ import { MESSAGES } from "@/common/constants/messages.constant";
 import {
   DATABASE_CONNECTION,
   type DrizzleDB,
+  type DrizzleTx,
 } from "@/database/database.module";
 import { users, type User } from "@/database/schemas";
 import type { UpdateProfileInput, UserProfile } from "./dto";
@@ -26,7 +27,11 @@ export const PROFILE_COLUMNS = {
   updatedAt: users.updatedAt,
 } as const;
 
+const { rewardPoints: _rewardPoints, ...STAFF_PROFILE_COLUMNS } =
+  PROFILE_COLUMNS;
+
 type ProfileRow = Pick<User, keyof typeof PROFILE_COLUMNS>;
+type StaffProfileRow = Pick<User, keyof typeof STAFF_PROFILE_COLUMNS>;
 
 @Injectable()
 export class ProfileService {
@@ -70,13 +75,9 @@ export class ProfileService {
     return this.toUserProfile(row);
   }
 
-  /**
-   * Atomically updates self-editable profile fields (`fullName`, `phone`) in a single statement.
-   */
-  async updateProfile(
-    sub: string,
-    patch: UpdateProfileInput,
-  ): Promise<UserProfile> {
+  private buildPatchValues(
+    patch: Partial<UpdateProfileInput>,
+  ): Partial<UpdateProfileInput> {
     const values: Partial<UpdateProfileInput> = {};
     if (patch.fullName !== undefined) {
       values.fullName = patch.fullName;
@@ -84,12 +85,17 @@ export class ProfileService {
     if (patch.phone !== undefined) {
       values.phone = patch.phone;
     }
+    return values;
+  }
 
-    const [updated] = await this.db
-      .update(users)
-      .set(values)
-      .where(and(eq(users.id, sub), isNull(users.deletedAt)))
-      .returning(PROFILE_COLUMNS);
+  /**
+   * Atomically updates self-editable profile fields (`fullName`, `phone`) in a single statement.
+   */
+  async updateProfile(
+    sub: string,
+    patch: UpdateProfileInput,
+  ): Promise<UserProfile> {
+    const [updated] = await this.updateProfileWithinTx(this.db, sub, patch);
 
     if (!updated) {
       throw new UnauthorizedException({
@@ -99,5 +105,67 @@ export class ProfileService {
     }
 
     return this.toUserProfile(updated);
+  }
+
+  private async applyProfileUpdate<
+    TCols extends typeof PROFILE_COLUMNS | typeof STAFF_PROFILE_COLUMNS,
+  >(
+    executor: DrizzleDB | DrizzleTx,
+    userId: string,
+    patch: Partial<UpdateProfileInput>,
+    columns: TCols,
+  ) {
+    const values = this.buildPatchValues(patch);
+    if (Object.keys(values).length === 0) {
+      return [];
+    }
+
+    return executor
+      .update(users)
+      .set(values)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .returning(columns);
+  }
+
+  /**
+   * Transaction-scoped helper for updating `fullName`/`phone` without `rewardPoints` per ADR-0020.
+   *
+   * @param executor Active database client or transaction.
+   * @param userId Target user UUID.
+   * @param patch Partial profile fields (`fullName`, `phone`).
+   * @returns Updated rows projected without `rewardPoints`.
+   */
+  async updateStaffProfileWithinTx(
+    executor: DrizzleDB | DrizzleTx,
+    userId: string,
+    patch: Partial<UpdateProfileInput>,
+  ): Promise<StaffProfileRow[]> {
+    return this.applyProfileUpdate(
+      executor,
+      userId,
+      patch,
+      STAFF_PROFILE_COLUMNS,
+    ) as Promise<StaffProfileRow[]>;
+  }
+
+  /**
+   * Transaction-scoped helper for updating `fullName`/`phone` with full `PROFILE_COLUMNS`.
+   *
+   * @param executor Active database client or transaction.
+   * @param userId Target user UUID.
+   * @param patch Partial profile fields (`fullName`, `phone`).
+   * @returns Updated rows projected with `PROFILE_COLUMNS`.
+   */
+  async updateProfileWithinTx(
+    executor: DrizzleDB | DrizzleTx,
+    userId: string,
+    patch: Partial<UpdateProfileInput>,
+  ): Promise<ProfileRow[]> {
+    return this.applyProfileUpdate(
+      executor,
+      userId,
+      patch,
+      PROFILE_COLUMNS,
+    ) as Promise<ProfileRow[]>;
   }
 }
