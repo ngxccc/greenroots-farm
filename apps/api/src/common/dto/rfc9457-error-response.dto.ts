@@ -27,6 +27,8 @@ export class InvalidParamDto {
     description:
       "Dynamic validation constraint metadata for client-side interpolation",
     example: { min: 8 },
+    type: "object",
+    additionalProperties: true,
   })
   params?: Record<string, unknown>;
 }

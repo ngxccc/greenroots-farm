@@ -33,10 +33,10 @@ const createApiResponseGeneric = (
           allOf: [
             { $ref: getSchemaPath(ApiResponseDto) },
             {
+              required: ["data"],
               properties: {
                 data: {
-                  type: "object",
-                  nullable: true,
+                  type: "null",
                   default: null,
                 },
               },
@@ -64,6 +64,7 @@ const createApiResponseGeneric = (
         allOf: [
           { $ref: getSchemaPath(ApiResponseDto) },
           {
+            required: ["data"],
             properties: {
               data: dataSchema,
             },
@@ -104,6 +105,7 @@ const createApiPaginatedResponse = (
         allOf: [
           { $ref: getSchemaPath(PaginatedApiResponseDto) },
           {
+            required: ["data", "meta"],
             properties: {
               data: {
                 type: "array",

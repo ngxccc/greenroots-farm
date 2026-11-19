@@ -18,9 +18,15 @@ export function createOpenApiDocument(app: INestApplication) {
     .setOpenAPIVersion("3.1.0")
     .addTag("auth", "Authentication, sessions and password recovery")
     .addTag("users", "Profiles, staff accounts and delivery addresses")
+    .addTag(
+      "admin-users",
+      "Admin staff account lifecycle and access governance",
+    )
     .addTag("farms", "Farm settings, plots, seasons and traceability")
     .addTag("catalog", "Categories, products and subscription plans")
     .addTag("inventory", "Batches, FEFO allocations and waste write-offs")
+    .addTag("media", "Signed media uploads and storage rules")
+    .addTag("health", "Service health and readiness probes")
     .addBearerAuth(
       {
         type: "http",
@@ -48,6 +54,9 @@ export function createOpenApiDocument(app: INestApplication) {
           const p = prop as Record<string, unknown>;
           if (p["format"] === "password" && "allOf" in p) {
             delete p["allOf"];
+            if (!("type" in p)) {
+              p["type"] = "string";
+            }
           }
         }
       }
