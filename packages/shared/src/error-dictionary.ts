@@ -59,6 +59,11 @@ export const API_ERROR_CODES = {
   PLOT_NOT_FOUND: "PLOT_NOT_FOUND",
   PLOT_CODE_ALREADY_EXISTS: "PLOT_CODE_ALREADY_EXISTS",
   PLOT_HAS_ACTIVE_SEASONS: "PLOT_HAS_ACTIVE_SEASONS",
+  SEASON_NOT_FOUND: "SEASON_NOT_FOUND",
+  SEASON_INVALID_STATUS_TRANSITION: "SEASON_INVALID_STATUS_TRANSITION",
+  SEASON_INVALID_DATE_RANGE: "SEASON_INVALID_DATE_RANGE",
+  SEASON_PLOT_ACTIVE_CONFLICT: "SEASON_PLOT_ACTIVE_CONFLICT",
+  SEASON_NOT_DELETABLE: "SEASON_NOT_DELETABLE",
 
   // Persistence, Concurrency & Database Violations
   CONFLICT_RECORD: "CONFLICT_RECORD",
@@ -162,6 +167,15 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Mã lô đất này đã tồn tại trên một lô đất đang hoạt động.",
   [API_ERROR_CODES.PLOT_HAS_ACTIVE_SEASONS]:
     "Không thể xóa lô đất khi vẫn còn mùa vụ đang lập kế hoạch hoặc đang canh tác.",
+  [API_ERROR_CODES.SEASON_NOT_FOUND]: "Không tìm thấy mùa vụ yêu cầu.",
+  [API_ERROR_CODES.SEASON_INVALID_STATUS_TRANSITION]:
+    "Không thể chuyển trạng thái hoặc chỉnh sửa mùa vụ ở giai đoạn hiện tại.",
+  [API_ERROR_CODES.SEASON_INVALID_DATE_RANGE]:
+    "Ngày bắt đầu mùa vụ phải nhỏ hơn hoặc bằng ngày thu hoạch dự kiến.",
+  [API_ERROR_CODES.SEASON_PLOT_ACTIVE_CONFLICT]:
+    "Lô đất này đã có một mùa vụ đang canh tác.",
+  [API_ERROR_CODES.SEASON_NOT_DELETABLE]:
+    "Chỉ có thể xóa mùa vụ đang lập kế hoạch và chưa phát sinh lô hàng hoặc nhật ký canh tác.",
 
   // Persistence & Database
   [API_ERROR_CODES.CONFLICT_RECORD]: "Dữ liệu này đã tồn tại trong hệ thống.",
