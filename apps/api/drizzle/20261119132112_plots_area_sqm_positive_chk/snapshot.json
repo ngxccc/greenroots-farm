@@ -1,0 +1,36 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "bc25f7a4-ac23-45cc-9565-6fb84bf552f1",
+  "prevIds": ["2ef706f7-fb44-43aa-b50f-206f329342d0"],
+  "footprints": [
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "plots"],
+      "writes": [
+        "s|ck|public.plots.plots_area_sqm_positive_chk",
+        "n|ck|public.plots.plots_area_sqm_positive_chk",
+        "e|ck|public.plots.plots_area_sqm_positive_chk",
+        "n|con|public.plots.plots_area_sqm_positive_chk"
+      ],
+      "reads": [
+        "n|tbl|public.plots",
+        "n|sch|public",
+        "n|col|public.plots.area_sqm"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "plots",
+        "name": "plots_area_sqm_positive_chk",
+        "value": "\"area_sqm\" > 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

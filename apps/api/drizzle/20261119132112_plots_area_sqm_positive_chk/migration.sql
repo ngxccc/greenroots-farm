@@ -1,0 +1,1 @@
+ALTER TABLE "plots" ADD CONSTRAINT "plots_area_sqm_positive_chk" CHECK ("area_sqm" > 0);

@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   date,
   index,
   jsonb,
@@ -68,6 +69,7 @@ export const plots = snakeCase.table(
     uniqueIndex("plots_plot_code_uidx")
       .on(table.plotCode)
       .where(sql`${table.deletedAt} IS NULL`),
+    check("plots_area_sqm_positive_chk", sql`${table.areaSqm} > 0`),
   ],
 );
 

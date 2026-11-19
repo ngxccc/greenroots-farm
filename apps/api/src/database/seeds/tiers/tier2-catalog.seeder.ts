@@ -4,6 +4,7 @@ import {
   SeasonStatus,
   WasteLogStatus,
 } from "@greenroots/shared";
+import { env } from "@/common/config/env.config";
 import type { DrizzleDB } from "@/database/database.module";
 import {
   batches,
@@ -34,6 +35,8 @@ interface Tier2Result {
  * FEFO batches, immutable farming logs, write-offs and subscription plans.
  */
 export async function seedTier2Catalog(db: DrizzleDB): Promise<Tier2Result> {
+  const cloudName = env.CLOUDINARY_CLOUD_NAME;
+
   await db
     .insert(plots)
     .values([
@@ -50,7 +53,7 @@ export async function seedTier2Catalog(db: DrizzleDB): Promise<Tier2Result> {
           potassium_ppm: 35,
           heavy_metals: { lead_ppm: 0.02, cadmium_ppm: 0.01, pass: true },
           tested_at: "2026-08-20T02:00:00.000Z",
-          certificate_url: "https://greenroots.farm/xet-nghiem/dat-a1.pdf",
+          certificate_url: `https://res.cloudinary.com/${cloudName}/image/upload/v1/plots/soil-a1.png`,
         },
         waterTestResult: {
           ph: 7.1,

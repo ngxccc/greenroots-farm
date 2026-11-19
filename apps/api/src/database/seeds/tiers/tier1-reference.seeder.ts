@@ -1,4 +1,5 @@
 import { BUSINESS_RULES, UserRole, UserStatus } from "@greenroots/shared";
+import { env } from "@/common/config/env.config";
 import type { DrizzleDB } from "@/database/database.module";
 import { farms, users } from "@/database/schemas";
 import { hashPassword } from "@/common/utils/crypto.util";
@@ -15,6 +16,7 @@ interface Tier1Result {
  */
 export async function seedTier1Reference(db: DrizzleDB): Promise<Tier1Result> {
   const passwordHash = await hashPassword(SEED_ACCOUNT_PASSWORD);
+  const cloudName = env.CLOUDINARY_CLOUD_NAME;
 
   await db
     .insert(farms)
@@ -27,7 +29,7 @@ export async function seedTier1Reference(db: DrizzleDB): Promise<Tier1Result> {
       address: BUSINESS_RULES.FARM_COORDINATES.ADDRESS,
       latitude: String(BUSINESS_RULES.FARM_COORDINATES.LATITUDE),
       longitude: String(BUSINESS_RULES.FARM_COORDINATES.LONGITUDE),
-      certificationUrl: "https://greenroots.farm/chung-nhan-vietgap",
+      certificationUrl: `https://res.cloudinary.com/${cloudName}/image/upload/v1/farms/vietgap-certificate.png`,
       hotlines: {
         primary: "0909 123 456",
         support: "028 3899 1234",
