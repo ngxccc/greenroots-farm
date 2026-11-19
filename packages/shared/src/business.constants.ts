@@ -1,6 +1,33 @@
+import { UserRole } from "./domain.enums";
+
 /**
  * GreenRoots Farm - Business and Operational Constants
  */
+
+/**
+ * Canonical list of internal staff roles managed via `/api/v1/admin/users`.
+ */
+export const STAFF_ROLES = [
+  UserRole.FARM_STAFF,
+  UserRole.SALES,
+  UserRole.ADMIN,
+  UserRole.SUPER_ADMIN,
+] as const;
+
+/**
+ * Union of internal staff roles excluding `customer` and `guest`.
+ */
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
+/**
+ * Returns true when the given role belongs to the internal staff directory boundary.
+ *
+ * @param role User role to check.
+ * @returns True if `role` is in `STAFF_ROLES`.
+ */
+export function isStaffRole(role: UserRole): role is StaffRole {
+  return (STAFF_ROLES as readonly UserRole[]).includes(role);
+}
 
 export const BUSINESS_RULES = {
   CURRENCY: "VND",

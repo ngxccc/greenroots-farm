@@ -50,6 +50,10 @@ export const API_ERROR_CODES = {
   ADDRESS_NOT_FOUND: "ADDRESS_NOT_FOUND",
   ADDRESS_LIMIT_REACHED: "ADDRESS_LIMIT_REACHED",
   DISTRICT_CODE_INVALID: "DISTRICT_CODE_INVALID",
+  STAFF_NOT_FOUND: "STAFF_NOT_FOUND",
+  LAST_SUPER_ADMIN: "LAST_SUPER_ADMIN",
+  SELF_MODIFICATION_FORBIDDEN: "SELF_MODIFICATION_FORBIDDEN",
+  STAFF_ROLE_INVALID: "STAFF_ROLE_INVALID",
 
   // Persistence, Concurrency & Database Violations
   CONFLICT_RECORD: "CONFLICT_RECORD",
@@ -136,6 +140,14 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
   [API_ERROR_CODES.ADDRESS_LIMIT_REACHED]: `Bạn chỉ được lưu tối đa ${BUSINESS_RULES.MAX_USER_ADDRESSES} địa chỉ giao hàng.`,
   [API_ERROR_CODES.DISTRICT_CODE_INVALID]:
     "Mã quận/huyện không hợp lệ hoặc nằm ngoài khu vực giao hàng TP. Hồ Chí Minh.",
+  [API_ERROR_CODES.STAFF_NOT_FOUND]:
+    "Không tìm thấy tài khoản nhân viên yêu cầu.",
+  [API_ERROR_CODES.LAST_SUPER_ADMIN]:
+    "Không thể hạ quyền hoặc tạm khóa quản trị viên tối cao đang hoạt động cuối cùng.",
+  [API_ERROR_CODES.SELF_MODIFICATION_FORBIDDEN]:
+    "Bạn không thể tự thay đổi vai trò, trạng thái hoặc đặt lại thông tin đăng nhập của chính mình.",
+  [API_ERROR_CODES.STAFF_ROLE_INVALID]:
+    "Vai trò được chọn không hợp lệ cho tài khoản nhân viên.",
 
   // Persistence & Database
   [API_ERROR_CODES.CONFLICT_RECORD]: "Dữ liệu này đã tồn tại trong hệ thống.",

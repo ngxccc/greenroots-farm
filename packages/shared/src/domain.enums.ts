@@ -19,6 +19,20 @@ export const UserStatus = {
 } as const;
 export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus];
 
+/**
+ * Enumeration of auditable administrative actions persisted in `staff_audit_logs`.
+ */
+export const StaffAuditAction = {
+  CREATE: "staff.create",
+  UPDATE_PROFILE: "staff.update_profile",
+  CHANGE_ROLE: "staff.change_role",
+  CHANGE_STATUS: "staff.change_status",
+  UPDATE: "staff.update",
+  RESET_CREDENTIALS: "staff.reset_credentials",
+} as const;
+export type StaffAuditAction =
+  (typeof StaffAuditAction)[keyof typeof StaffAuditAction];
+
 export const SeasonStatus = {
   PLANNING: "planning",
   ACTIVE: "active",

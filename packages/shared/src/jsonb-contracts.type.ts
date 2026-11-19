@@ -1,3 +1,5 @@
+import type { UserRole, UserStatus } from "./domain.enums";
+
 /**
  * GreenRoots Farm - 100% SSOT TypeScript Types for JSONB Columns
  * Matching Database_Schema.dbml and Database_ERD_and_Data_Dictionary.md
@@ -88,3 +90,19 @@ export type ComplaintProofImageUrls = string[];
 
 /** Raw webhook payload snapshot from PayOS payment gateway */
 export type PaymentRawPayload = Record<string, unknown>;
+
+// ==========================================
+// 4. STAFF AUDIT SNAPSHOTS (staff_audit_logs JSONB)
+// ==========================================
+
+/**
+ * Redacted before/after projection recorded in `staff_audit_logs`.
+ * Never includes credentials, password hashes, or reset/verification tokens.
+ */
+export interface StaffAuditSnapshot {
+  readonly email: string;
+  readonly fullName: string;
+  readonly phone: string | null;
+  readonly role: UserRole;
+  readonly status: UserStatus;
+}
