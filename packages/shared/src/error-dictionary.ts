@@ -47,6 +47,9 @@ export const API_ERROR_CODES = {
   INSUFFICIENT_STOCK: "INSUFFICIENT_STOCK",
   OUT_OF_DELIVERY_RADIUS: "OUT_OF_DELIVERY_RADIUS",
   FARMING_LOG_IMMUTABLE: "FARMING_LOG_IMMUTABLE",
+  ADDRESS_NOT_FOUND: "ADDRESS_NOT_FOUND",
+  ADDRESS_LIMIT_REACHED: "ADDRESS_LIMIT_REACHED",
+  DISTRICT_CODE_INVALID: "DISTRICT_CODE_INVALID",
 
   // Persistence, Concurrency & Database Violations
   CONFLICT_RECORD: "CONFLICT_RECORD",
@@ -128,6 +131,11 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
   [API_ERROR_CODES.OUT_OF_DELIVERY_RADIUS]: `Địa chỉ nhận hàng vượt quá bán kính giao hỏa tốc ${BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM} km từ nông trại.`,
   [API_ERROR_CODES.FARMING_LOG_IMMUTABLE]:
     "Nhật ký canh tác đã khóa bất biến, không thể chỉnh sửa hoặc xóa.",
+  [API_ERROR_CODES.ADDRESS_NOT_FOUND]:
+    "Không tìm thấy địa chỉ giao hàng yêu cầu.",
+  [API_ERROR_CODES.ADDRESS_LIMIT_REACHED]: `Bạn chỉ được lưu tối đa ${BUSINESS_RULES.MAX_USER_ADDRESSES} địa chỉ giao hàng.`,
+  [API_ERROR_CODES.DISTRICT_CODE_INVALID]:
+    "Mã quận/huyện không hợp lệ hoặc nằm ngoài khu vực giao hàng TP. Hồ Chí Minh.",
 
   // Persistence & Database
   [API_ERROR_CODES.CONFLICT_RECORD]: "Dữ liệu này đã tồn tại trong hệ thống.",

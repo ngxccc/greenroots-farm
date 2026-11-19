@@ -118,6 +118,18 @@ export interface DeliveryQuote {
   readonly isDeliverable: boolean;
 }
 
+/**
+ * Resolves a Ho Chi Minh City district entry by its canonical code.
+ *
+ * @param code Canonical district code from `HCMC_DISTRICTS`.
+ * @returns Matching district coordinate entry, or `undefined` when unknown.
+ */
+export function findHcmcDistrictByCode(
+  code: string,
+): HcmcDistrictCoordinate | undefined {
+  return HCMC_DISTRICTS.find((district) => district.code === code);
+}
+
 const EARTH_RADIUS_KM = 6371;
 const DEG_TO_RAD = Math.PI / 180;
 

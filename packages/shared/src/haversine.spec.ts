@@ -4,6 +4,7 @@ import {
   calculateHaversineDistanceKm,
   calculateRoadDistanceKm,
   estimateDeliveryQuote,
+  findHcmcDistrictByCode,
   HCMC_DISTRICTS,
 } from "./haversine";
 
@@ -48,5 +49,17 @@ describe("HCMC districts and Haversine shipping quote", () => {
 
     expect(quote.feeVnd).toBe(0);
     expect(quote.isDeliverable).toBe(true);
+  });
+
+  test("resolves known HCMC district codes and returns undefined for unknown codes", () => {
+    const quan7 = findHcmcDistrictByCode("quan-7");
+    expect(quan7).toEqual({
+      code: "quan-7",
+      name: "Quận 7",
+      latitude: 10.734,
+      longitude: 106.7218,
+    });
+    expect(findHcmcDistrictByCode("quan-99")).toBeUndefined();
+    expect(findHcmcDistrictByCode("QUAN-7")).toBeUndefined();
   });
 });

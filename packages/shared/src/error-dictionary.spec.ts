@@ -24,6 +24,9 @@ describe("error-dictionary", () => {
     expect(API_ERROR_CODES.AUTH_RESET_TOKEN_INVALID).toBe(
       "AUTH_RESET_TOKEN_INVALID",
     );
+    expect(API_ERROR_CODES.ADDRESS_NOT_FOUND).toBe("ADDRESS_NOT_FOUND");
+    expect(API_ERROR_CODES.ADDRESS_LIMIT_REACHED).toBe("ADDRESS_LIMIT_REACHED");
+    expect(API_ERROR_CODES.DISTRICT_CODE_INVALID).toBe("DISTRICT_CODE_INVALID");
   });
 
   it("maps all error codes to a Vietnamese localized message", () => {
