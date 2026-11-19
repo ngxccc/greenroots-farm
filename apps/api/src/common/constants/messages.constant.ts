@@ -72,6 +72,13 @@ export const MESSAGES = {
     MAX_VALUE: "Value exceeds maximum allowed value.",
     UNRECOGNIZED_KEY: "Unrecognized field in request payload.",
     AT_LEAST_ONE_FIELD: "At least one profile field must be provided.",
+    AT_LEAST_ONE_ADDRESS_FIELD: "At least one address field must be provided.",
+  },
+  ADDRESS: {
+    NOT_FOUND: "Address not found.",
+    LIMIT_REACHED: "You can save at most 10 delivery addresses.",
+    DISTRICT_CODE_INVALID:
+      "District code is not a valid Ho Chi Minh City delivery district.",
   },
   MEDIA: {
     FOLDER_ACCESS_DENIED:
