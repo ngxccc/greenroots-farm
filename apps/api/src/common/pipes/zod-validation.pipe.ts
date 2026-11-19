@@ -30,6 +30,7 @@ const DEFAULT_ZOD_PATTERNS = [
   /^Invalid option: expected/i,
   /^Invalid enum value/i,
   /^Invalid email address/i,
+  /^Invalid (?:ISO )?date$/i,
   /^Invalid UUID/i,
   /^Invalid URL/i,
   /^Required$/i,

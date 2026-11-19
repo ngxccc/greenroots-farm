@@ -8,6 +8,7 @@ import {
   zCloudinaryImageUrl,
   zCoerceDate,
   zEmail,
+  zIsoDate,
   zNumericString,
   zOptionalEmail,
   zOptionalTaxId,
@@ -163,6 +164,38 @@ describe("Zod Primitives", () => {
       const result = schema.parse(iso);
       expect(result).toBeInstanceOf(Date);
       expect(result.toISOString()).toBe(iso);
+    });
+  });
+
+  describe("zIsoDate", () => {
+    const schema = zIsoDate();
+
+    it("accepts valid Gregorian calendar dates in YYYY-MM-DD format", () => {
+      expect(schema.parse(" 2026-09-01 ")).toBe("2026-09-01");
+      expect(schema.parse("2024-02-29")).toBe("2024-02-29");
+    });
+
+    it("rejects impossible calendar dates and ISO datetime timestamps", () => {
+      const invalidDates = [
+        "2026-02-30",
+        "2025-02-29",
+        "2026-13-01",
+        "2026-00-10",
+        "2026-9-1",
+        "2026-09-01T00:00:00.000Z",
+      ];
+
+      for (const candidate of invalidDates) {
+        const parsed = schema.safeParse(candidate);
+        expect(parsed.success).toBe(false);
+        if (!parsed.success && parsed.error.issues[0]) {
+          expect(formatZodIssue(parsed.error.issues[0])).toEqual({
+            code: API_ERROR_CODES.INVALID_FORMAT,
+            reason: "Invalid format: date.",
+            params: { format: "date" },
+          });
+        }
+      }
     });
   });
 

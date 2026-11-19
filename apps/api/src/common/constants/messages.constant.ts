@@ -77,6 +77,9 @@ export const MESSAGES = {
     AT_LEAST_ONE_FARM_SETTING_FIELD:
       "At least one farm setting field must be provided.",
     AT_LEAST_ONE_PLOT_FIELD: "At least one plot field must be provided.",
+    AT_LEAST_ONE_SEASON_FIELD: "At least one season field must be provided.",
+    SEASON_DATE_RANGE_INVALID:
+      "Start date must be on or before expected harvest date.",
   },
   FARMS: {
     NOT_FOUND: "Farm settings record not found.",
@@ -88,6 +91,20 @@ export const MESSAGES = {
     CODE_ALREADY_EXISTS: "An active plot with this plot code already exists.",
     HAS_ACTIVE_SEASONS:
       "Cannot delete a plot that still has planning or active seasons.",
+  },
+  SEASONS: {
+    NOT_FOUND: "Season not found.",
+    INVALID_STATUS_TRANSITION: "Invalid season status transition.",
+    COMPLETED_IMMUTABLE:
+      "Completed seasons are terminal and cannot be modified.",
+    FIELD_LOCKED:
+      "Cannot modify plotId or startDate once the season has left planning status.",
+    INVALID_DATE_RANGE:
+      "Start date must be on or before expected harvest date.",
+    PLOT_ACTIVE_CONFLICT: "The target plot already has an active season.",
+    NOT_DELETABLE_STATUS: "Only planning seasons can be deleted.",
+    NOT_DELETABLE_BATCHES: "Cannot delete a season that already has batches.",
+    NOT_DELETABLE_LOGS: "Cannot delete a season that already has farming logs.",
   },
   ADDRESS: {
     NOT_FOUND: "Address not found.",

@@ -188,6 +188,17 @@ export function zNumericString(options?: {
 }
 
 /**
+ * Builds a strict ISO calendar date (`YYYY-MM-DD`) validation schema.
+ */
+export function zIsoDate() {
+  return z
+    .string()
+    .trim()
+    .pipe(z.iso.date())
+    .meta({ format: "date", example: "2026-09-01" });
+}
+
+/**
  * Builds a coerced Date schema for query parameters and request bodies,
  * representing an ISO 8601 date-time string in OpenAPI/JSON Schema.
  */
