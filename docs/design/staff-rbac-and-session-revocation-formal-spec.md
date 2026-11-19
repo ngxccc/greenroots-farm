@@ -211,7 +211,7 @@ sequenceDiagram
             Svc->>DB: COMMIT
             Svc->>Redis: revokeUser(targetId, 900)
             Svc->>Mail: sendStaffCredentialResetEmail(email, fullName, rawToken) -> BACKOFFICE_URL
-            Svc-->>SuperAdmin: 200 OK (StaffMemberDto)
+            Svc-->>SuperAdmin: 200 OK { success: true, data: null }
         end
     end
 ```
@@ -244,7 +244,7 @@ All `/api/v1/admin/users*` endpoints live on `StaffController` (`version: "1"`),
 | `GET /api/v1/admin/users`                          | `admin`, `super_admin` | `200` `PaginatedApiResponseDto<StaffMemberDto>` | `401`, `403`, `422` (`STAFF_ROLE_INVALID` if `role` is `customer`/`guest`)                                               | Strict staff filter (`farm_staff`, `sales`, `admin`, `super_admin`)         |
 | `POST /api/v1/admin/users`                         | `super_admin`          | `201` `ApiResponseDto<StaffMemberDto>`          | `401`, `403`, `409` (`AUTH_EMAIL_ALREADY_EXISTS`), `422` (`STAFF_ROLE_INVALID`)                                          | Unusable password hash + 24h reset token + `staff.create` audit             |
 | `PATCH /api/v1/admin/users/:id`                    | `admin`, `super_admin` | `200` `ApiResponseDto<StaffMemberDto>`          | `401`, `403`, `404` (`STAFF_NOT_FOUND`), `422` (`STAFF_ROLE_INVALID`, `SELF_MODIFICATION_FORBIDDEN`, `LAST_SUPER_ADMIN`) | `admin` may only send `fullName`/`phone`; `role`/`status` by `admin` -> 403 |
-| `POST /api/v1/admin/users/:id/reset-credentials`   | `super_admin`          | `200` `ApiResponseDto<StaffMemberDto>`          | `401`, `403`, `404` (`STAFF_NOT_FOUND`), `422` (`SELF_MODIFICATION_FORBIDDEN`, `UNPROCESSABLE_ENTITY`)                   | Revokes sessions, issues 24h reset token, writes `staff.reset_credentials`  |
+| `POST /api/v1/admin/users/:id/reset-credentials`   | `super_admin`          | `200` `ApiResponseDto<null>`                    | `401`, `403`, `404` (`STAFF_NOT_FOUND`), `422` (`SELF_MODIFICATION_FORBIDDEN`, `UNPROCESSABLE_ENTITY`)                   | Revokes sessions, issues 24h reset token, writes `staff.reset_credentials`  |
 | `POST /api/v1/auth/reset-password` (existing auth) | `@Public()`            | `200` `ApiResponseDto<null>`                    | `400` (`AUTH_RESET_TOKEN_INVALID`), `403` (`AUTH_ACCOUNT_SUSPENDED`)                                                     | Now sets `emailVerified = true` and rejects `suspended`/`inactive` users    |
 
 ### DTOs & Projections
