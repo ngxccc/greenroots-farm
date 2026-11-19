@@ -72,14 +72,28 @@ export async function createWorkerTestDatabase(
       await ensureTemplateSchemaMigrated(adminPool).catch(() => undefined);
     }
 
-    // Attempt instant table cloning from template
+    // Attempt instant table + trigger cloning from template
     const cloneQuery = `
       DO $$
       DECLARE
         r RECORD;
+        trig RECORD;
       BEGIN
         FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'test_template' AND tablename != '__drizzle_migrations') LOOP
           EXECUTE format('CREATE TABLE "%I"."%I" (LIKE "test_template"."%I" INCLUDING ALL);', '${schemaName}', r.tablename, r.tablename);
+        END LOOP;
+        FOR trig IN (
+          SELECT c.relname AS table_name, pg_get_triggerdef(t.oid, true) AS trig_def
+          FROM pg_trigger t
+          JOIN pg_class c ON c.oid = t.tgrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'test_template' AND NOT t.tgisinternal
+        ) LOOP
+          EXECUTE regexp_replace(
+            trig.trig_def,
+            ' ON (?:"?test_template"?\\.)?"?' || trig.table_name || '"?(?= )',
+            format(' ON "%I"."%I"', '${schemaName}', trig.table_name)
+          );
         END LOOP;
       END $$;
     `;
