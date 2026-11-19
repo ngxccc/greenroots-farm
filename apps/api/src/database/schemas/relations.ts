@@ -1,5 +1,10 @@
 import { defineRelations } from "drizzle-orm";
-import { refreshTokens, userAddresses, users } from "./user.schema";
+import {
+  refreshTokens,
+  staffAuditLogs,
+  userAddresses,
+  users,
+} from "./user.schema";
 import { farmingLogs, farms, plots, seasons } from "./farm.schema";
 import { batches, categories, products, wasteLogs } from "./catalog.schema";
 import { batchAllocations, orderItems, orders } from "./order.schema";
@@ -8,7 +13,7 @@ import { payments } from "./payment.schema";
 import { complaints } from "./complaint.schema";
 
 /**
- * Drizzle v1 relational metadata for all 18 tables.
+ * Drizzle v1 relational metadata for all 19 tables.
  * Explicit aliases disambiguate multiple FKs that point at `users`.
  */
 export const schemaRelations = defineRelations(
@@ -16,6 +21,7 @@ export const schemaRelations = defineRelations(
     users,
     refreshTokens,
     userAddresses,
+    staffAuditLogs,
     farms,
     plots,
     seasons,
@@ -44,6 +50,8 @@ export const schemaRelations = defineRelations(
       complaints: r.many.complaints(),
       complaintsResolved: r.many.complaints({ alias: "resolver" }),
       paymentsVerified: r.many.payments({ alias: "verifier" }),
+      staffAuditsPerformed: r.many.staffAuditLogs({ alias: "staffAuditActor" }),
+      staffAuditsTargeted: r.many.staffAuditLogs({ alias: "staffAuditTarget" }),
     },
 
     refreshTokens: {
@@ -61,6 +69,21 @@ export const schemaRelations = defineRelations(
         optional: false,
       }),
       subscriptions: r.many.subscriptions(),
+    },
+
+    staffAuditLogs: {
+      actor: r.one.users({
+        from: r.staffAuditLogs.actorId,
+        to: r.users.id,
+        optional: false,
+        alias: "staffAuditActor",
+      }),
+      target: r.one.users({
+        from: r.staffAuditLogs.targetUserId,
+        to: r.users.id,
+        optional: false,
+        alias: "staffAuditTarget",
+      }),
     },
 
     farms: {

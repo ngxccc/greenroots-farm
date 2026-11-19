@@ -10,6 +10,7 @@ import {
   PaymentStatus,
   PaymentTransactionType,
   SeasonStatus,
+  StaffAuditAction,
   SubscriptionStatus,
   UserRole,
   UserStatus,
@@ -28,6 +29,10 @@ function enumValues<T extends Record<string, string>>(
 
 export const userRoleEnum = pgEnum("user_role", enumValues(UserRole));
 export const userStatusEnum = pgEnum("user_status", enumValues(UserStatus));
+export const staffAuditActionEnum = pgEnum(
+  "staff_audit_action",
+  enumValues(StaffAuditAction),
+);
 export const seasonStatusEnum = pgEnum(
   "season_status",
   enumValues(SeasonStatus),

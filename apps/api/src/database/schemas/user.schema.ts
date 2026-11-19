@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   numeric,
   snakeCase,
   text,
@@ -11,9 +12,18 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { BUSINESS_RULES, UserRole, UserStatus } from "@greenroots/shared";
-import { userRoleEnum, userStatusEnum } from "./enums.schema";
-import { baseEntity, softDeleteEntity } from "./helpers.schema";
+import {
+  BUSINESS_RULES,
+  type StaffAuditSnapshot,
+  UserRole,
+  UserStatus,
+} from "@greenroots/shared";
+import {
+  staffAuditActionEnum,
+  userRoleEnum,
+  userStatusEnum,
+} from "./enums.schema";
+import { baseEntity, primaryKeyUuid, softDeleteEntity } from "./helpers.schema";
 
 export const users = snakeCase.table(
   "users",
@@ -96,3 +106,35 @@ export type RefreshToken = typeof refreshTokens.$inferSelect;
 export type NewRefreshToken = typeof refreshTokens.$inferInsert;
 export type UserAddress = typeof userAddresses.$inferSelect;
 export type NewUserAddress = typeof userAddresses.$inferInsert;
+
+export const staffAuditLogs = snakeCase.table(
+  "staff_audit_logs",
+  {
+    ...primaryKeyUuid,
+    actorId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    targetUserId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    action: staffAuditActionEnum().notNull(),
+    before: jsonb().$type<StaffAuditSnapshot | null>(),
+    after: jsonb().$type<StaffAuditSnapshot | null>(),
+    createdAt: timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("staff_audit_logs_target_created_idx").on(
+      table.targetUserId,
+      table.createdAt,
+    ),
+    index("staff_audit_logs_actor_created_idx").on(
+      table.actorId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export type StaffAuditLog = typeof staffAuditLogs.$inferSelect;
+export type NewStaffAuditLog = typeof staffAuditLogs.$inferInsert;
