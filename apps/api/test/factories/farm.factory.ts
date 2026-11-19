@@ -1,18 +1,30 @@
 import { randomUUID } from "node:crypto";
-import { BUSINESS_RULES, SeasonStatus } from "@greenroots/shared";
+import {
+  BUSINESS_RULES,
+  FarmingActionType,
+  SeasonStatus,
+  UserRole,
+} from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import type { DrizzleDB } from "@/database/database.module";
 import {
+  batches,
+  categories,
+  farmingLogs,
   farms,
   plots,
+  products,
   seasons,
+  type Batch,
   type Farm,
+  type FarmingLog,
   type NewFarm,
   type NewPlot,
   type NewSeason,
   type Plot,
   type Season,
 } from "@/database/schemas";
+import { createUser } from "./user.factory";
 
 /**
  * Inserts a farm row with sensible defaults for isolated integration tests.
@@ -182,4 +194,130 @@ export async function createSeason(
   }
 
   return season;
+}
+
+/**
+ * Named domain presets for season test fixtures.
+ */
+export const SeasonMother = {
+  /** Season still in initial planning status. */
+  planning: (overrides: Partial<NewSeason> = {}): Partial<NewSeason> => ({
+    status: SeasonStatus.PLANNING,
+    ...overrides,
+  }),
+
+  /** Currently active cultivation season. */
+  active: (overrides: Partial<NewSeason> = {}): Partial<NewSeason> => ({
+    status: SeasonStatus.ACTIVE,
+    ...overrides,
+  }),
+
+  /** Harvested season awaiting completion. */
+  harvested: (overrides: Partial<NewSeason> = {}): Partial<NewSeason> => ({
+    status: SeasonStatus.HARVESTED,
+    ...overrides,
+  }),
+
+  /** Completed terminal historical season. */
+  completed: (overrides: Partial<NewSeason> = {}): Partial<NewSeason> => ({
+    status: SeasonStatus.COMPLETED,
+    ...overrides,
+  }),
+};
+
+/**
+ * Inserts a minimal harvested batch row linked to a season for testing delete guards.
+ *
+ * @param db Drizzle database client.
+ * @param seasonId Target season UUIDv7.
+ * @returns Inserted `batches` row.
+ */
+export async function createMinimalBatchForSeason(
+  db: DrizzleDB,
+  seasonId: string,
+): Promise<Batch> {
+  const uid = randomUUID().slice(0, 8);
+
+  const [category] = await db
+    .insert(categories)
+    .values({
+      name: `Danh mục ${uid}`,
+      slug: `danh-muc-${uid}`,
+    })
+    .returning();
+
+  if (!category) {
+    throw new Error("Failed to create Category entity in test factory");
+  }
+
+  const [product] = await db
+    .insert(products)
+    .values({
+      categoryId: category.id,
+      name: `Sản phẩm ${uid}`,
+      slug: `san-pham-${uid}`,
+      basePrice: 30000,
+    })
+    .returning();
+
+  if (!product) {
+    throw new Error("Failed to create Product entity in test factory");
+  }
+
+  const [batch] = await db
+    .insert(batches)
+    .values({
+      batchCode: `BATCH-${uid.toUpperCase()}`,
+      seasonId,
+      productId: product.id,
+      harvestDate: "2026-11-15",
+      expirationDate: "2026-11-22",
+      initialQuantity: "10.00",
+      availableQuantity: "10.00",
+    })
+    .returning();
+
+  if (!batch) {
+    throw new Error("Failed to create Batch entity in test factory");
+  }
+
+  return batch;
+}
+
+/**
+ * Inserts a minimal append-only farming log row linked to a season for testing delete guards.
+ *
+ * @param db Drizzle database client.
+ * @param seasonId Target season UUIDv7.
+ * @param staffId Optional staff user UUIDv7 (provisioned automatically when omitted).
+ * @returns Inserted `farming_logs` row.
+ */
+export async function createMinimalFarmingLogForSeason(
+  db: DrizzleDB,
+  seasonId: string,
+  staffId?: string,
+): Promise<FarmingLog> {
+  const resolvedStaffId =
+    staffId ??
+    (
+      await createUser(db, {
+        role: UserRole.FARM_STAFF,
+      })
+    ).id;
+
+  const [log] = await db
+    .insert(farmingLogs)
+    .values({
+      seasonId,
+      staffId: resolvedStaffId,
+      actionType: FarmingActionType.SOIL_TESTING,
+      description: "Kiểm tra đất đầu vụ",
+    })
+    .returning();
+
+  if (!log) {
+    throw new Error("Failed to create FarmingLog entity in test factory");
+  }
+
+  return log;
 }
