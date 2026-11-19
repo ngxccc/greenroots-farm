@@ -71,14 +71,14 @@ export const STAFF_COLUMNS = {
 
 type StaffRow = Pick<User, keyof typeof STAFF_COLUMNS>;
 
-const SORT_ORDER_BUILDERS: Record<StaffSortOption, () => SQL[]> = {
-  "createdAt:desc": () => [desc(users.createdAt), desc(users.id)],
-  "createdAt:asc": () => [asc(users.createdAt), desc(users.id)],
-  "fullName:asc": () => [asc(users.fullName), desc(users.id)],
-  "fullName:desc": () => [desc(users.fullName), desc(users.id)],
-  "email:asc": () => [asc(users.email), desc(users.id)],
-  "email:desc": () => [desc(users.email), desc(users.id)],
-};
+const STAFF_SORT_EXPRESSIONS = new Map<StaffSortOption, SQL[]>([
+  ["createdAt:desc", [desc(users.createdAt), desc(users.id)]],
+  ["createdAt:asc", [asc(users.createdAt), desc(users.id)]],
+  ["fullName:asc", [asc(users.fullName), desc(users.id)]],
+  ["fullName:desc", [desc(users.fullName), desc(users.id)]],
+  ["email:asc", [asc(users.email), desc(users.id)]],
+  ["email:desc", [desc(users.email), desc(users.id)]],
+]);
 
 function escapeLikePattern(value: string): string {
   return value
@@ -215,11 +215,16 @@ export class StaffService {
       .from(users)
       .where(whereClause);
 
+    const orderBy = STAFF_SORT_EXPRESSIONS.get(query.sort) ?? [
+      desc(users.createdAt),
+      desc(users.id),
+    ];
+
     const rows = await this.db
       .select(STAFF_COLUMNS)
       .from(users)
       .where(whereClause)
-      .orderBy(...SORT_ORDER_BUILDERS[query.sort]())
+      .orderBy(...orderBy)
       .limit(query.limit)
       .offset(offset);
 
