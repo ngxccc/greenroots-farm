@@ -50,6 +50,13 @@ export function zSanitizedString(options?: { min?: number; max?: number }) {
 }
 
 /**
+ * Builds a sanitized full name schema enforcing 1 to 100 characters after trimming and HTML stripping.
+ */
+export function zFullName() {
+  return zSanitizedString({ min: 1, max: 100 });
+}
+
+/**
  * Builds a normalized email schema that trims, lowercases, and validates email syntax.
  */
 export function zEmail() {

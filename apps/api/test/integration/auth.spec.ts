@@ -175,7 +175,7 @@ describe("Authentication Integration", () => {
         const payload = {
           email: "farmer.bob@greenroots.farm",
           fullName: "Farmer Bob",
-          phoneNumber: "0912345678",
+          phone: "0912345678",
           password: "SecurePassword123!",
           confirmPassword: "SecurePassword123!",
           agreeTerms: true,
@@ -198,7 +198,7 @@ describe("Authentication Integration", () => {
           .send({
             email,
             fullName: "Nguyen Van An",
-            phoneNumber: "0912345678",
+            phone: "0912345678",
             password: "SecurePassword123!",
             confirmPassword: "SecurePassword123!",
             agreeTerms: true,
@@ -227,7 +227,7 @@ describe("Authentication Integration", () => {
         await request(getHttpServer()).post("/api/v1/auth/register").send({
           email,
           fullName: "Token Checker",
-          phoneNumber: "0912345678",
+          phone: "0912345678",
           password: "SecurePassword123!",
           confirmPassword: "SecurePassword123!",
           agreeTerms: true,
@@ -252,7 +252,7 @@ describe("Authentication Integration", () => {
         await request(getHttpServer()).post("/api/v1/auth/register").send({
           email,
           fullName,
-          phoneNumber: "0912345678",
+          phone: "0912345678",
           password: "SecurePassword123!",
           confirmPassword: "SecurePassword123!",
           agreeTerms: true,
@@ -293,6 +293,30 @@ describe("Authentication Integration", () => {
 
         expect(createdUser).toBeDefined();
         expect(createdUser?.phone).toBeNull();
+      });
+
+      it("rejects phoneNumber as an unrecognized key on registration", async () => {
+        const res = await request(getHttpServer())
+          .post("/api/v1/auth/register")
+          .send({
+            email: "legacy.phone@greenroots.farm",
+            fullName: "Legacy Phone",
+            phoneNumber: "0912345678",
+            password: "SecurePassword123!",
+            confirmPassword: "SecurePassword123!",
+            agreeTerms: true,
+          });
+
+        expect(res.status).toBe(400);
+        const errorBody = res.body as Rfc9457Error;
+        expect(errorBody.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+        expect(
+          errorBody.invalidParams?.some(
+            (param) =>
+              param.name === "phoneNumber" &&
+              param.code === API_ERROR_CODES.UNRECOGNIZED_KEYS,
+          ),
+        ).toBe(true);
       });
     });
 
@@ -1263,7 +1287,7 @@ describe("Authentication Integration", () => {
             email,
             fullName:
               '<b>Farmer</b>   <script>alert(\'xss\')</script>   Bob   <img src="x" onerror="alert(1)">',
-            phoneNumber: "0912345678",
+            phone: "0912345678",
             password: "Password123!",
             confirmPassword: "Password123!",
             agreeTerms: true,
@@ -1285,7 +1309,7 @@ describe("Authentication Integration", () => {
           .send({
             email: "xss.pure@greenroots.farm",
             fullName: "<script>alert('xss')</script>",
-            phoneNumber: "0912345678",
+            phone: "0912345678",
             password: "Password123!",
             confirmPassword: "Password123!",
             agreeTerms: true,
@@ -1302,7 +1326,7 @@ describe("Authentication Integration", () => {
           .send({
             email: "xss.img@greenroots.farm",
             fullName: '<img src="x" onerror="alert(1)">',
-            phoneNumber: "0912345678",
+            phone: "0912345678",
             password: "Password123!",
             confirmPassword: "Password123!",
             agreeTerms: true,
@@ -1323,7 +1347,7 @@ describe("Authentication Integration", () => {
           .send({
             email,
             fullName: sqliName,
-            phoneNumber: "0912345678",
+            phone: "0912345678",
             password: "Password123!",
             confirmPassword: "Password123!",
             agreeTerms: true,
@@ -2120,7 +2144,7 @@ describe("Authentication Integration", () => {
       const payload = {
         email,
         fullName: "First User",
-        phoneNumber: "0912345678",
+        phone: "0912345678",
         password: "Password123!",
         confirmPassword: "Password123!",
         agreeTerms: true,
@@ -2479,7 +2503,7 @@ describe("Authentication Integration", () => {
         .send({
           email,
           fullName: "Customer Journey One",
-          phoneNumber: "0912345678",
+          phone: "0912345678",
           password,
           confirmPassword: password,
           agreeTerms: true,

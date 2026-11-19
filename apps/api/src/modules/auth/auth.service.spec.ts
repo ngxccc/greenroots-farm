@@ -112,7 +112,7 @@ describe("AuthService", () => {
     const registerDto: RegisterDto = {
       email: "Customer@GreenRoots.Farm",
       fullName: "Farmer Bob",
-      phoneNumber: "0912345678",
+      phone: "0912345678",
       password: "SecurePassword123!",
       confirmPassword: "SecurePassword123!",
       agreeTerms: true,

@@ -71,6 +71,7 @@ export const MESSAGES = {
     MIN_VALUE: "Value is below minimum allowed value.",
     MAX_VALUE: "Value exceeds maximum allowed value.",
     UNRECOGNIZED_KEY: "Unrecognized field in request payload.",
+    AT_LEAST_ONE_FIELD: "At least one profile field must be provided.",
   },
   MEDIA: {
     FOLDER_ACCESS_DENIED:

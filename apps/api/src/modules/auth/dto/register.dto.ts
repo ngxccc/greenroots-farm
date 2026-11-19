@@ -3,16 +3,16 @@ import { z } from "zod";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import {
   zEmail,
+  zFullName,
   zPassword,
   zPhoneNumber,
-  zSanitizedString,
 } from "@/common/schemas/zod-primitives";
 
 export const registerSchema = z
   .object({
     email: zEmail(),
-    fullName: zSanitizedString({ min: 1, max: 100 }),
-    phoneNumber: zPhoneNumber().optional(),
+    fullName: zFullName(),
+    phone: zPhoneNumber().optional(),
     password: zPassword(),
     confirmPassword: z
       .string()

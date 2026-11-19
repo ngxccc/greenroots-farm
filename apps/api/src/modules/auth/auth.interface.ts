@@ -1,4 +1,4 @@
-import type { UserRole, UserStatus } from "@greenroots/shared";
+import type { UserRole } from "@greenroots/shared";
 
 /**
  * Authentication tokens returned upon successful login and token refresh.
@@ -8,23 +8,6 @@ export interface AuthTokens {
   refreshToken: string;
   tokenType?: string;
   expiresIn?: number;
-}
-
-/**
- * Public, sanitized user profile for authentication responses and session context.
- * Excludes sensitive credentials (password, verificationToken, resetPasswordToken).
- */
-export interface AuthUser {
-  id: string;
-  email: string;
-  fullName: string;
-  role: UserRole;
-  status: UserStatus;
-  emailVerified: boolean;
-  phone?: string | null;
-  rewardPoints?: number;
-  createdAt?: Date | string;
-  updatedAt?: Date | string;
 }
 
 /**

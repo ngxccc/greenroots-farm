@@ -109,7 +109,7 @@ export class AuthService {
     const passwordHash = await hashPassword(dto.password);
     const rawVerificationToken = randomBytes(32).toString("hex");
     const verificationExpiresAt = getExpiryDate("24h");
-    const phone = dto.phoneNumber ?? null;
+    const phone = dto.phone ?? null;
 
     try {
       await this.db.insert(users).values({

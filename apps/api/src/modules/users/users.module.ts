@@ -1,7 +1,13 @@
 import { Module } from "@nestjs/common";
+import { ProfileController } from "./profile.controller";
+import { ProfileService } from "./profile.service";
 
 /**
- * Users module skeleton (profiles, staff management, address book).
+ * Users module (profiles, staff management, address book).
  */
-@Module({})
+@Module({
+  controllers: [ProfileController],
+  providers: [ProfileService],
+  exports: [ProfileService],
+})
 export class UsersModule {}
