@@ -121,14 +121,14 @@ export class StaffController {
     format: "uuid",
     description: "Staff member UUIDv7 identifier",
   })
-  @ApiOkResponseGeneric(StaffMemberDto)
+  @ApiOkResponseGeneric()
   @ApiNotFoundResponseRfc9457()
   @ApiUnprocessableEntityResponseRfc9457()
   async resetCredentials(
     @CurrentUser("sub") actorId: string,
     @Param("id", new ZodValidationPipe(zUuidV7())) id: string,
-  ): Promise<ApiResponse<StaffMember>> {
-    const staff = await this.staffService.resetCredentials(actorId, id);
-    return apiSuccess(staff);
+  ): Promise<ApiResponse<null>> {
+    await this.staffService.resetCredentials(actorId, id);
+    return apiSuccess(null);
   }
 }

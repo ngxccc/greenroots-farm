@@ -4,7 +4,7 @@ import { UnauthorizedException } from "@nestjs/common";
 import type { Reflector } from "@nestjs/core";
 import type { JwtService } from "@nestjs/jwt";
 import type { Request } from "express";
-import { UserRole } from "@greenroots/shared";
+import { API_ERROR_CODES, UserRole } from "@greenroots/shared";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import type { RedisService } from "@/common/services/redis.service";
 import type { JwtPayload } from "@/common/decorators/current-user.decorator";
@@ -74,6 +74,7 @@ describe("JwtAuthGuard", () => {
 
     expect(guard.canActivate(context)).rejects.toThrow(
       new UnauthorizedException({
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
         detail: MESSAGES.AUTH.TOKEN_MISSING,
       }),
     );
@@ -88,6 +89,7 @@ describe("JwtAuthGuard", () => {
 
     expect(guard.canActivate(context)).rejects.toThrow(
       new UnauthorizedException({
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
         detail: MESSAGES.AUTH.TOKEN_MISSING,
       }),
     );
@@ -106,6 +108,7 @@ describe("JwtAuthGuard", () => {
 
     expect(guard.canActivate(context)).rejects.toThrow(
       new UnauthorizedException({
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
         detail: MESSAGES.AUTH.TOKEN_INVALID_OR_EXPIRED,
       }),
     );
@@ -126,6 +129,7 @@ describe("JwtAuthGuard", () => {
 
     expect(guard.canActivate(context)).rejects.toThrow(
       new UnauthorizedException({
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
         detail: MESSAGES.AUTH.TOKEN_INVALID_OR_EXPIRED,
       }),
     );
@@ -154,6 +158,7 @@ describe("JwtAuthGuard", () => {
 
     expect(guard.canActivate(context)).rejects.toThrow(
       new UnauthorizedException({
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
         detail: MESSAGES.AUTH.TOKEN_REVOKED,
       }),
     );

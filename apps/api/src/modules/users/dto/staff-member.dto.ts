@@ -1,6 +1,6 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
-import { UserRole, UserStatus } from "@greenroots/shared";
+import { STAFF_ROLES, UserStatus } from "@greenroots/shared";
 import { zUuidV7 } from "@/common/schemas/zod-primitives";
 
 /**
@@ -11,7 +11,7 @@ export const staffMemberSchema = z.object({
   email: z.string(),
   fullName: z.string().min(1).max(100),
   phone: z.string().nullable(),
-  role: z.enum(UserRole),
+  role: z.enum(STAFF_ROLES),
   status: z.enum(UserStatus),
   emailVerified: z.boolean(),
   createdAt: z.iso.datetime(),

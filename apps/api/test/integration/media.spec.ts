@@ -11,6 +11,7 @@ import {
   createAuthenticatedAdmin,
   createAuthenticatedUser,
 } from "../helpers/auth.helper";
+import { API_ERROR_CODES } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import type {
   InvalidParam,
@@ -80,6 +81,7 @@ describe("Media Module Integration", () => {
       expect(body.status).toBe(403);
       expect(body.title).toBe("Forbidden");
       expect(body.type).toBe("/errors/forbidden");
+      expect(body.code).toBe(API_ERROR_CODES.FORBIDDEN);
       expect(body.instance).toBe("/api/v1/media/upload-signature");
       expect(body.detail).toBe(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED);
     });
@@ -101,6 +103,7 @@ describe("Media Module Integration", () => {
       expect(body.status).toBe(403);
       expect(body.title).toBe("Forbidden");
       expect(body.type).toBe("/errors/forbidden");
+      expect(body.code).toBe(API_ERROR_CODES.FORBIDDEN);
       expect(body.instance).toBe("/api/v1/media/upload-signature");
       expect(body.detail).toBe(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED);
     });
@@ -167,6 +170,7 @@ describe("Media Module Integration", () => {
       expect(body.status).toBe(422);
       expect(body.title).toBe("Unprocessable Entity");
       expect(body.type).toBe("/errors/unprocessable-entity");
+      expect(body.code).toBe(API_ERROR_CODES.UNPROCESSABLE_ENTITY);
       expect(body.instance).toBe("/api/v1/media/upload-signature");
       expect(body.detail).toContain("5MB");
     });
@@ -213,6 +217,7 @@ describe("Media Module Integration", () => {
       expect(body.status).toBe(422);
       expect(body.title).toBe("Unprocessable Entity");
       expect(body.type).toBe("/errors/unprocessable-entity");
+      expect(body.code).toBe(API_ERROR_CODES.UNPROCESSABLE_ENTITY);
       expect(body.instance).toBe("/api/v1/media/upload-signature");
       expect(body.detail).toContain("15MB");
     });
@@ -237,7 +242,7 @@ describe("Media Module Integration", () => {
       expect(body.instance).toBe("/api/v1/media/upload-signature");
       expect(Array.isArray(body.invalidParams)).toBe(true);
       expect(
-        body.invalidParams?.some((p: InvalidParam) => p.name === "folder"),
+        body.invalidParams.some((p: InvalidParam) => p.name === "folder"),
       ).toBe(true);
     });
 
@@ -261,9 +266,7 @@ describe("Media Module Integration", () => {
       expect(body.instance).toBe("/api/v1/media/upload-signature");
       expect(Array.isArray(body.invalidParams)).toBe(true);
       expect(
-        body.invalidParams?.some(
-          (p: InvalidParam) => p.name === "resourceType",
-        ),
+        body.invalidParams.some((p: InvalidParam) => p.name === "resourceType"),
       ).toBe(true);
     });
 
@@ -287,7 +290,7 @@ describe("Media Module Integration", () => {
       expect(body.instance).toBe("/api/v1/media/upload-signature");
       expect(Array.isArray(body.invalidParams)).toBe(true);
       expect(
-        body.invalidParams?.some(
+        body.invalidParams.some(
           (p: InvalidParam) => p.name === "fileSizeBytes",
         ),
       ).toBe(true);

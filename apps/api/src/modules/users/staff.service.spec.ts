@@ -39,7 +39,6 @@ describe("StaffService", () => {
 
   const targetId = "019fa8bc-8f4d-7000-b366-e691f45cfb02";
   const baseDate = new Date("2026-11-19T00:00:00.000Z");
-  const bumpedDate = new Date("2026-11-19T00:10:00.000Z");
 
   const sampleStaffRow = {
     id: targetId,
@@ -68,9 +67,7 @@ describe("StaffService", () => {
       expiresAt: new Date(Date.now() + 86_400_000),
     })),
     createStaffIdentity: mock(() => Promise.resolve(sampleStaffRow)),
-    issueStaffResetToken: mock(() =>
-      Promise.resolve({ ...sampleStaffRow, updatedAt: bumpedDate }),
-    ),
+    issueStaffResetToken: mock(() => Promise.resolve()),
     clearAll() {
       this.prepareStaffCredentials.mockClear();
       this.generateStaffResetToken.mockClear();
@@ -347,14 +344,16 @@ describe("StaffService", () => {
       }
     });
 
-    it("returns bumped updatedAt and propagates mail enqueue failure on explicit credential reset", async () => {
+    it("dispatches credential reset email and propagates mail enqueue failure", async () => {
       mockDb.setSelectResult([sampleStaffRow]);
       mockMailService.sendStaffCredentialResetEmail.mockImplementationOnce(() =>
         Promise.resolve(),
       );
 
-      const result = await service.resetCredentials(actor.sub, targetId);
-      expect(result.updatedAt).toBe(bumpedDate.toISOString());
+      await service.resetCredentials(actor.sub, targetId);
+      expect(
+        mockMailService.sendStaffCredentialResetEmail,
+      ).toHaveBeenCalledTimes(1);
 
       mockDb.setSelectResult([sampleStaffRow]);
       mockMailService.sendStaffCredentialResetEmail.mockImplementation(() =>

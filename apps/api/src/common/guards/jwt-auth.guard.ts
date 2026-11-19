@@ -7,6 +7,7 @@ import {
 import { Reflector } from "@nestjs/core";
 import { JwtService } from "@nestjs/jwt";
 import type { Request } from "express";
+import { API_ERROR_CODES } from "@greenroots/shared";
 import { IS_PUBLIC_KEY } from "@/common/decorators/public.decorator";
 import type { JwtPayload } from "@/common/decorators/current-user.decorator";
 import { MESSAGES } from "@/common/constants/messages.constant";
@@ -47,6 +48,7 @@ export class JwtAuthGuard implements CanActivate {
 
     if (!token) {
       throw new UnauthorizedException({
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
         detail: MESSAGES.AUTH.TOKEN_MISSING,
       });
     }
@@ -59,18 +61,21 @@ export class JwtAuthGuard implements CanActivate {
       });
     } catch {
       throw new UnauthorizedException({
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
         detail: MESSAGES.AUTH.TOKEN_INVALID_OR_EXPIRED,
       });
     }
 
     if (!payload.sub) {
       throw new UnauthorizedException({
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
         detail: MESSAGES.AUTH.TOKEN_INVALID_OR_EXPIRED,
       });
     }
 
     if (await this.redisService.isRevoked(payload.sub, payload.jti)) {
       throw new UnauthorizedException({
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
         detail: MESSAGES.AUTH.TOKEN_REVOKED,
       });
     }

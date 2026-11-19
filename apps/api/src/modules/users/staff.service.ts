@@ -40,7 +40,11 @@ import {
   type DrizzleDB,
   type DrizzleTx,
 } from "@/database/database.module";
-import { refreshTokens, users, type User } from "@/database/schemas";
+import { refreshTokens, users } from "@/database/schemas";
+import {
+  STAFF_USER_COLUMNS,
+  type StaffUserRow,
+} from "@/database/utils/user-projections";
 import { AuthService } from "@/modules/auth/auth.service";
 import { MailService } from "@/modules/mail/mail.service";
 import { AuditService } from "./audit.service";
@@ -52,24 +56,6 @@ import type {
   UpdateStaffInput,
 } from "./dto";
 import { ProfileService } from "./profile.service";
-
-/**
- * Closed Drizzle column projection for staff directory and management responses.
- * Excludes credentials, verification/reset tokens, soft-delete state, and loyalty points.
- */
-export const STAFF_COLUMNS = {
-  id: users.id,
-  email: users.email,
-  fullName: users.fullName,
-  phone: users.phone,
-  role: users.role,
-  status: users.status,
-  emailVerified: users.emailVerified,
-  createdAt: users.createdAt,
-  updatedAt: users.updatedAt,
-} as const;
-
-type StaffRow = Pick<User, keyof typeof STAFF_COLUMNS>;
 
 const STAFF_SORT_EXPRESSIONS = new Map<StaffSortOption, SQL[]>([
   ["createdAt:desc", [desc(users.createdAt), desc(users.id)]],
@@ -105,7 +91,14 @@ export class StaffService {
     private readonly mailService: MailService,
   ) {}
 
-  private toStaffMember(row: StaffRow): StaffMember {
+  private toStaffMember(row: StaffUserRow): StaffMember {
+    if (!isStaffRole(row.role)) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.STAFF_ROLE_INVALID,
+        detail: MESSAGES.STAFF.ROLE_INVALID,
+      });
+    }
+
     return {
       id: row.id,
       email: row.email,
@@ -138,9 +131,9 @@ export class StaffService {
   private async lockStaffTarget(
     tx: DrizzleTx,
     targetId: string,
-  ): Promise<StaffRow> {
+  ): Promise<StaffUserRow> {
     const [target] = await tx
-      .select(STAFF_COLUMNS)
+      .select(STAFF_USER_COLUMNS)
       .from(users)
       .where(and(eq(users.id, targetId), isNull(users.deletedAt)))
       .for("update");
@@ -221,7 +214,7 @@ export class StaffService {
     ];
 
     const rows = await this.db
-      .select(STAFF_COLUMNS)
+      .select(STAFF_USER_COLUMNS)
       .from(users)
       .where(whereClause)
       .orderBy(...orderBy)
@@ -255,7 +248,7 @@ export class StaffService {
     // Perform scrypt hashing outside the transaction so row locks stay minimal.
     const creds = await this.authService.prepareStaffCredentials();
 
-    let created: StaffRow;
+    let created: StaffUserRow;
     try {
       created = await this.db.transaction(async (tx) => {
         const [existing] = await tx
@@ -415,7 +408,7 @@ export class StaffService {
       }
 
       const before = this.auditService.toSnapshot(target);
-      let updatedRow: StaffRow = target;
+      let updatedRow: StaffUserRow = target;
 
       if (profileChanged) {
         const [profileUpdated] =
@@ -438,7 +431,7 @@ export class StaffService {
           .update(users)
           .set(governanceValues)
           .where(and(eq(users.id, targetId), isNull(users.deletedAt)))
-          .returning(STAFF_COLUMNS);
+          .returning(STAFF_USER_COLUMNS);
 
         if (governanceUpdated) {
           updatedRow = governanceUpdated;
@@ -490,12 +483,8 @@ export class StaffService {
    *
    * @param actorId Authenticated `super_admin` subject ID.
    * @param targetId Target active staff user UUIDv7.
-   * @returns Updated staff projection.
    */
-  async resetCredentials(
-    actorId: string,
-    targetId: string,
-  ): Promise<StaffMember> {
+  async resetCredentials(actorId: string, targetId: string): Promise<void> {
     if (actorId === targetId) {
       throw new UnprocessableEntityException({
         code: API_ERROR_CODES.SELF_MODIFICATION_FORBIDDEN,
@@ -515,7 +504,7 @@ export class StaffService {
         });
       }
 
-      const updated = await this.authService.issueStaffResetToken(
+      await this.authService.issueStaffResetToken(
         tx,
         targetId,
         tokenPair.tokenHash,
@@ -524,7 +513,7 @@ export class StaffService {
 
       await tx.delete(refreshTokens).where(eq(refreshTokens.userId, targetId));
 
-      const snapshot = this.auditService.toSnapshot(updated);
+      const snapshot = this.auditService.toSnapshot(row);
       await this.auditService.recordStaffAudit(tx, {
         actorId,
         targetUserId: targetId,
@@ -533,7 +522,7 @@ export class StaffService {
         after: snapshot,
       });
 
-      return updated;
+      return row;
     });
 
     await this.redisService.revokeUser(targetId, AUTH_REVOCATION_TTL_SECONDS);
@@ -542,7 +531,5 @@ export class StaffService {
       target.fullName,
       tokenPair.rawToken,
     );
-
-    return this.toStaffMember(target);
   }
 }

@@ -276,6 +276,22 @@ describe("AuthService", () => {
       expect(mockMailService.sendVerificationEmail).not.toHaveBeenCalled();
     });
 
+    it("should return cleanly without sending email if account is inactive", async () => {
+      mockDb.setSelectResult([
+        {
+          id: "user-id",
+          email: "customer@greenroots.farm",
+          fullName: "Farmer Bob",
+          status: UserStatus.INACTIVE,
+          emailVerified: false,
+        },
+      ]);
+
+      await service.resendVerificationEmail(dto);
+
+      expect(mockMailService.sendVerificationEmail).not.toHaveBeenCalled();
+    });
+
     it("should return cleanly without sending email if Redis cooldown key is active", async () => {
       mockDb.setSelectResult([
         {

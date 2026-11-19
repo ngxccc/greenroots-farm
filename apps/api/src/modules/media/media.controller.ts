@@ -12,8 +12,11 @@ import {
 } from "@/common/decorators";
 import { apiSuccess, type ApiResponse } from "@/common/utils/api-response.util";
 import { CloudinaryService } from "./cloudinary.service";
-import { SignedUploadDto, SignedUploadResponseDto } from "./dto";
-import type { CloudinarySignatureResult } from "./media.interface";
+import {
+  SignedUploadDto,
+  SignedUploadResponseDto,
+  type SignedUploadResponse,
+} from "./dto";
 import { MEDIA_ROUTES } from "./media.routes";
 
 @ApiTags(MEDIA_ROUTES.TAG)
@@ -38,7 +41,7 @@ export class MediaController {
   getUploadSignature(
     @Body() dto: SignedUploadDto,
     @CurrentUser() user: JwtPayload,
-  ): ApiResponse<CloudinarySignatureResult> {
+  ): ApiResponse<SignedUploadResponse> {
     const signatureData = this.cloudinaryService.createUploadSignature(
       dto,
       user.role,

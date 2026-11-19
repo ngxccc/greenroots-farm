@@ -36,6 +36,7 @@ import {
   type DrizzleTx,
 } from "@/database/database.module";
 import { refreshTokens, users } from "@/database/schemas";
+import { STAFF_USER_COLUMNS } from "@/database/utils/user-projections";
 import { MailService } from "@/modules/mail/mail.service";
 import type {
   ForgotPasswordDto,
@@ -47,18 +48,6 @@ import type {
   ResendVerificationDto,
   ResetPasswordDto,
 } from "./dto";
-
-const STAFF_IDENTITY_COLUMNS = {
-  id: users.id,
-  email: users.email,
-  fullName: users.fullName,
-  phone: users.phone,
-  role: users.role,
-  status: users.status,
-  emailVerified: users.emailVerified,
-  createdAt: users.createdAt,
-  updatedAt: users.updatedAt,
-} as const;
 
 @Injectable()
 export class AuthService {
@@ -216,8 +205,13 @@ export class AuthService {
       .where(and(eq(users.email, normalizedEmail), isNull(users.deletedAt)))
       .limit(1);
 
-    // Anti-enumeration silence: exit cleanly if user missing, already verified, or suspended
-    if (!user || user.emailVerified || user.status === UserStatus.SUSPENDED) {
+    // Anti-enumeration silence: exit cleanly if user missing, already verified, suspended, or inactive
+    if (
+      !user ||
+      user.emailVerified ||
+      user.status === UserStatus.SUSPENDED ||
+      user.status === UserStatus.INACTIVE
+    ) {
       return;
     }
 
@@ -621,7 +615,7 @@ export class AuthService {
         resetPasswordToken: input.tokenHash,
         resetPasswordExpiresAt: input.expiresAt,
       })
-      .returning(STAFF_IDENTITY_COLUMNS);
+      .returning(STAFF_USER_COLUMNS);
 
     if (!created) {
       throw new Error("Failed to insert staff identity row.");
@@ -637,27 +631,19 @@ export class AuthService {
    * @param userId Target staff user ID.
    * @param tokenHash SHA-256 digest of the new reset token.
    * @param expiresAt Expiration timestamp for the reset token.
-   * @returns Updated staff projection with bumped `updatedAt`.
    */
   async issueStaffResetToken(
     tx: DrizzleTx,
     userId: string,
     tokenHash: string,
     expiresAt: Date,
-  ) {
-    const [updated] = await tx
+  ): Promise<void> {
+    await tx
       .update(users)
       .set({
         resetPasswordToken: tokenHash,
         resetPasswordExpiresAt: expiresAt,
       })
-      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
-      .returning(STAFF_IDENTITY_COLUMNS);
-
-    if (!updated) {
-      throw new Error("Failed to persist staff credential reset token.");
-    }
-
-    return updated;
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)));
   }
 }

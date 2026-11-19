@@ -7,31 +7,16 @@ import {
   type DrizzleDB,
   type DrizzleTx,
 } from "@/database/database.module";
-import { users, type User } from "@/database/schemas";
+import { users } from "@/database/schemas";
+import {
+  PROFILE_COLUMNS,
+  STAFF_USER_COLUMNS,
+  type ProfileRow,
+  type StaffUserRow,
+} from "@/database/utils/user-projections";
 import type { UpdateProfileInput, UserProfile } from "./dto";
 
-/**
- * Closed Drizzle column projection for self-service user profiles.
- * Excludes credentials, verification/reset tokens, and soft-delete state per ADR-0020.
- */
-export const PROFILE_COLUMNS = {
-  id: users.id,
-  email: users.email,
-  fullName: users.fullName,
-  phone: users.phone,
-  role: users.role,
-  status: users.status,
-  rewardPoints: users.rewardPoints,
-  emailVerified: users.emailVerified,
-  createdAt: users.createdAt,
-  updatedAt: users.updatedAt,
-} as const;
-
-const { rewardPoints: _rewardPoints, ...STAFF_PROFILE_COLUMNS } =
-  PROFILE_COLUMNS;
-
-type ProfileRow = Pick<User, keyof typeof PROFILE_COLUMNS>;
-type StaffProfileRow = Pick<User, keyof typeof STAFF_PROFILE_COLUMNS>;
+export { PROFILE_COLUMNS };
 
 @Injectable()
 export class ProfileService {
@@ -108,7 +93,7 @@ export class ProfileService {
   }
 
   private async applyProfileUpdate<
-    TCols extends typeof PROFILE_COLUMNS | typeof STAFF_PROFILE_COLUMNS,
+    TCols extends typeof PROFILE_COLUMNS | typeof STAFF_USER_COLUMNS,
   >(
     executor: DrizzleDB | DrizzleTx,
     userId: string,
@@ -139,13 +124,13 @@ export class ProfileService {
     executor: DrizzleDB | DrizzleTx,
     userId: string,
     patch: Partial<UpdateProfileInput>,
-  ): Promise<StaffProfileRow[]> {
+  ): Promise<StaffUserRow[]> {
     return this.applyProfileUpdate(
       executor,
       userId,
       patch,
-      STAFF_PROFILE_COLUMNS,
-    ) as Promise<StaffProfileRow[]>;
+      STAFF_USER_COLUMNS,
+    ) as Promise<StaffUserRow[]>;
   }
 
   /**

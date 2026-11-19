@@ -12,7 +12,7 @@ import {
   Logger,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { UserRole } from "@greenroots/shared";
+import { API_ERROR_CODES, UserRole } from "@greenroots/shared";
 import { CloudinaryService } from "./cloudinary.service";
 import { MEDIA_CONSTRAINTS } from "./media.interface";
 import { MESSAGES } from "@/common/constants/messages.constant";
@@ -181,7 +181,12 @@ describe("CloudinaryService", () => {
             },
             UserRole.CUSTOMER,
           ),
-        ).toThrow(new ForbiddenException(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED));
+        ).toThrow(
+          new ForbiddenException({
+            code: API_ERROR_CODES.FORBIDDEN,
+            detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+          }),
+        );
       });
 
       it("should forbid CUSTOMER from requesting signature for farming_logs folder", () => {
@@ -194,7 +199,12 @@ describe("CloudinaryService", () => {
             },
             UserRole.CUSTOMER,
           ),
-        ).toThrow(new ForbiddenException(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED));
+        ).toThrow(
+          new ForbiddenException({
+            code: API_ERROR_CODES.FORBIDDEN,
+            detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+          }),
+        );
       });
 
       it("should permit FARM_STAFF for farming_logs and waste_logs, but forbid products", () => {
@@ -227,7 +237,12 @@ describe("CloudinaryService", () => {
             },
             UserRole.FARM_STAFF,
           ),
-        ).toThrow(new ForbiddenException(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED));
+        ).toThrow(
+          new ForbiddenException({
+            code: API_ERROR_CODES.FORBIDDEN,
+            detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+          }),
+        );
       });
 
       it("should permit SALES for products, but forbid farming_logs", () => {
@@ -250,7 +265,12 @@ describe("CloudinaryService", () => {
             },
             UserRole.SALES,
           ),
-        ).toThrow(new ForbiddenException(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED));
+        ).toThrow(
+          new ForbiddenException({
+            code: API_ERROR_CODES.FORBIDDEN,
+            detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+          }),
+        );
       });
 
       it("should permit ADMIN and SUPER_ADMIN for all folders", () => {

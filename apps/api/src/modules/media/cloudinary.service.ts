@@ -4,7 +4,7 @@ import {
   Logger,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import type { UserRole } from "@greenroots/shared";
+import { API_ERROR_CODES, type UserRole } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { sha256 } from "@/common/utils/crypto.util";
 import { env } from "@/common/config/env.config";
@@ -32,7 +32,10 @@ export class CloudinaryService {
     if (userRole) {
       const allowedRoles = FOLDER_PERMISSIONS[folder];
       if (!allowedRoles.includes(userRole)) {
-        throw new ForbiddenException(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED);
+        throw new ForbiddenException({
+          code: API_ERROR_CODES.FORBIDDEN,
+          detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+        });
       }
     }
 
@@ -43,9 +46,10 @@ export class CloudinaryService {
 
     if (fileSizeBytes > maxAllowedBytes) {
       const limitMb = maxAllowedBytes / (1024 * 1024);
-      throw new UnprocessableEntityException(
-        `Dung lượng tệp vượt quá giới hạn cho phép (${resourceType === "video" ? "Video" : "Ảnh"} <= ${limitMb}MB)`,
-      );
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.UNPROCESSABLE_ENTITY,
+        detail: `File size exceeds the allowed limit (${resourceType === "video" ? "Video" : "Image"} <= ${limitMb}MB).`,
+      });
     }
 
     const timestamp = Math.floor(Date.now() / 1000);

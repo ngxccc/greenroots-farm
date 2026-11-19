@@ -16,7 +16,10 @@ import {
   MESSAGES,
   type ErrorSlug,
 } from "@/common/constants/messages.constant";
-import { formatZodIssue } from "@/common/pipes/zod-validation.pipe";
+import {
+  formatZodIssue,
+  formatZodIssuePath,
+} from "@/common/pipes/zod-validation.pipe";
 import { extractDatabaseErrorDetails } from "@/common/utils/error.util";
 
 export interface InvalidParam {
@@ -159,8 +162,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       title = HTTP_TITLES[HttpStatus.BAD_REQUEST];
       invalidParams = exception.issues.map((issue) => {
         const formatted = formatZodIssue(issue);
+        const fieldPath = formatZodIssuePath(issue.path);
         return {
-          name: issue.path.join(".") || "payload",
+          name: fieldPath || "payload",
           code: formatted.code,
           reason: formatted.reason,
           params: formatted.params,

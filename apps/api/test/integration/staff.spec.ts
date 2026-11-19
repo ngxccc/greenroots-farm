@@ -972,12 +972,7 @@ describe("Staff Management Integration", () => {
         .post(`/api/v1/admin/users/${activeStaff.user.id}/reset-credentials`)
         .set(superAdmin.authHeader);
       expect(resetRes.status).toBe(200);
-      const resetBody = (
-        resetRes.body as ApiResponseEnvelope<StaffMemberResponse>
-      ).data;
-      expect(new Date(resetBody.updatedAt).getTime()).toBeGreaterThanOrEqual(
-        activeStaff.user.updatedAt.getTime(),
-      );
+      expect(resetRes.body).toEqual({ success: true, data: null });
 
       const accessAfterReset = await request(getHttpServer())
         .get("/api/v1/users/me")

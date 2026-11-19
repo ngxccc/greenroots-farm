@@ -20,6 +20,7 @@ import { USERS_ROUTES } from "./users.routes";
 @ApiTags(USERS_ROUTES.TAG)
 @Controller({ path: USERS_ROUTES.BASE, version: "1" })
 @ApiAuth()
+@ApiBadRequestResponseRfc9457()
 @ApiInternalServerErrorResponseRfc9457()
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
@@ -45,7 +46,6 @@ export class ProfileController {
       "Updates the authenticated subject's fullName and/or phone and returns the updated profile.",
   })
   @ApiOkResponseGeneric(UserProfileDto)
-  @ApiBadRequestResponseRfc9457()
   async updateMe(
     @CurrentUser("sub") userId: string,
     @Body() dto: UpdateProfileDto,

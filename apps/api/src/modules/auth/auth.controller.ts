@@ -17,6 +17,7 @@ import {
   ApiForbiddenResponseRfc9457,
   ApiInternalServerErrorResponseRfc9457,
   ApiOkResponseGeneric,
+  ApiTooManyRequestsResponseRfc9457,
   ApiUnauthorizedResponseRfc9457,
   CurrentUser,
   Public,
@@ -84,6 +85,7 @@ export class AuthController {
       "Issues a fresh verification token and dispatches an activation email subject to cooldown.",
   })
   @ApiOkResponseGeneric()
+  @ApiTooManyRequestsResponseRfc9457()
   async resendVerification(
     @Body() dto: ResendVerificationDto,
   ): Promise<ApiResponse<null>> {
@@ -105,6 +107,7 @@ export class AuthController {
   @ApiOkResponseGeneric(LoginResponseDto)
   @ApiUnauthorizedResponseRfc9457()
   @ApiForbiddenResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
@@ -127,6 +130,7 @@ export class AuthController {
   })
   @ApiOkResponseGeneric(RefreshResponseDto)
   @ApiUnauthorizedResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
   async refresh(
     @Body() dto: RefreshTokenDto,
     @Req() req: Request,
@@ -145,7 +149,6 @@ export class AuthController {
       "Revokes the provided refresh token and blacklists the caller access token in Redis.",
   })
   @ApiOkResponseGeneric()
-  @ApiUnauthorizedResponseRfc9457()
   async logout(
     @Body() dto: RefreshTokenDto,
     @Req() req: Request,
@@ -171,6 +174,7 @@ export class AuthController {
       "Purges all active refresh tokens and blacklists the user across all devices in Redis.",
   })
   @ApiOkResponseGeneric()
+  @ApiTooManyRequestsResponseRfc9457()
   async logoutAll(
     @CurrentUser("sub") userId: string,
   ): Promise<ApiResponse<null>> {
@@ -190,6 +194,7 @@ export class AuthController {
       "Generates a 15-minute recovery token and enqueues password reset instructions.",
   })
   @ApiOkResponseGeneric()
+  @ApiTooManyRequestsResponseRfc9457()
   async forgotPassword(
     @Body() dto: ForgotPasswordDto,
   ): Promise<ApiResponse<null>> {
@@ -210,6 +215,7 @@ export class AuthController {
   })
   @ApiOkResponseGeneric()
   @ApiForbiddenResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
   async resetPassword(
     @Body() dto: ResetPasswordDto,
   ): Promise<ApiResponse<null>> {

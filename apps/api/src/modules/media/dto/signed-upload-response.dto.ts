@@ -36,6 +36,8 @@ export const signedUploadResponseSchema = z.object({
     .meta({ example: 5242880 }),
 });
 
+export type SignedUploadResponse = z.infer<typeof signedUploadResponseSchema>;
+
 export class SignedUploadResponseDto extends createZodDto(
   signedUploadResponseSchema,
 ) {}
