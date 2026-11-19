@@ -151,6 +151,77 @@ describe("Media Module Integration", () => {
       expect(body.data.folder).toBe("products");
     });
 
+    it("generates signed upload parameters for plots as farm staff and rejects farms folder", async () => {
+      const jwtService = app.get(JwtService);
+      const farmStaffSession = await createAuthenticatedAdmin(
+        setup.db,
+        jwtService,
+        "farm_staff" as never,
+      );
+
+      const plotsRes = await request(app.getHttpServer())
+        .post("/api/v1/media/upload-signature")
+        .set(farmStaffSession.authHeader)
+        .send({
+          folder: "plots",
+          resourceType: "image",
+          fileSizeBytes: 2048,
+        })
+        .expect(200);
+
+      const plotsBody = plotsRes.body as ApiResponse<CloudinarySignatureResult>;
+      expect(plotsBody.data.folder).toBe("plots");
+
+      const farmsDeniedRes = await request(app.getHttpServer())
+        .post("/api/v1/media/upload-signature")
+        .set(farmStaffSession.authHeader)
+        .send({
+          folder: "farms",
+          resourceType: "image",
+          fileSizeBytes: 2048,
+        })
+        .expect(403);
+
+      const farmsDeniedBody = farmsDeniedRes.body as Rfc9457ProblemDetails;
+      expect(farmsDeniedBody.detail).toBe(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED);
+    });
+
+    it("generates signed upload parameters for farms folder as admin", async () => {
+      const res = await request(app.getHttpServer())
+        .post("/api/v1/media/upload-signature")
+        .set(adminHeader)
+        .send({
+          folder: "farms",
+          resourceType: "image",
+          fileSizeBytes: 2048,
+        })
+        .expect(200);
+
+      const body = res.body as ApiResponse<CloudinarySignatureResult>;
+      expect(body.success).toBe(true);
+      expect(body.data.folder).toBe("farms");
+
+      await request(app.getHttpServer())
+        .post("/api/v1/media/upload-signature")
+        .set(adminHeader)
+        .send({
+          folder: "farms",
+          resourceType: "video",
+          fileSizeBytes: 2048,
+        })
+        .expect(400);
+
+      await request(app.getHttpServer())
+        .post("/api/v1/media/upload-signature")
+        .set(adminHeader)
+        .send({
+          folder: "plots",
+          resourceType: "video",
+          fileSizeBytes: 2048,
+        })
+        .expect(400);
+    });
+
     it("should reject with 422 Unprocessable Entity when image exceeds 5MB", async () => {
       const oversizedImageBytes = MEDIA_CONSTRAINTS.IMAGE.MAX_BYTES + 1;
 
