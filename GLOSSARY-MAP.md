@@ -36,6 +36,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0019-staff-rbac-and-admin-audit.md` — Staff RBAC, last-super-admin invariant, and admin audit log.
 - `docs/adr/0020-column-scoped-write-ownership-of-users.md` — Disjoint write ownership of the `users` table by column group.
 - `docs/adr/0021-farm-settings-cache-and-plot-lifecycle.md` — Farm settings singleton cache consistency, Cloudinary image URL boundary, and plot soft-delete active-season guard.
+- `docs/adr/0022-season-lifecycle-and-plot-allocation.md` — Season schema contract, single active season per plot, phase-scoped mutability, and farming-log delete guard.
 
 ### Context-Scoped Decisions
 
