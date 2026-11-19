@@ -33,6 +33,7 @@ GreenRoots Farm sells farm-grown produce through a storefront and operates produ
 | Identity Summary     | The minimal account shape returned with authentication responses: id, email, full name, role, and status. It is not a profile.                                                    | `userInfoSchema`                    |
 | Account Phone        | The contact phone stored on the account itself and editable through the profile surface.                                                                                          | `users.phone`                       |
 | Receiver Phone       | The delivery-contact phone stored per saved address, independent of the Account Phone.                                                                                            | `user_addresses.phoneNumber`        |
+| Default Address      | The single primary delivery address for an account; automatically assigned to the first saved address and promoted to the most recently created remaining address upon deletion.  | `ADR-0018`, `user_addresses`        |
 
 ## Invariants
 

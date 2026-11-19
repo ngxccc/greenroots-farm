@@ -39,18 +39,7 @@ When output contradicts an ADR, say so instead of overriding silently:
 
 Invariants are module-scoped: `AuthDomainInvariants: INV-1..4`, `OrdersDomainInvariants: INV-1..4`. An identifier is unique inside its module and shared by every endpoint in that domain.
 
-Keep the three sites in sync:
+Keep the two sites in sync:
 
 1. **Spec** — `docs/design/<feature>-workflow.md` enumerates every `INV-N`.
-2. **Service TSDoc** — exported methods document enforcement with `@invariant INV-N (<Name>): <details>`.
-3. **Tests** — the matching `it()` carries a `// Invariant: INV-N` comment above it (not in the title; see `testing-and-fixtures.md`).
-
-```ts
-/**
- * Reserves stock for every line item in a checkout request.
- *
- * @invariant INV-1 (No Oversell): Locks batch rows and rejects if available stock is insufficient.
- * @invariant INV-2 (Money Precision): All totals are computed as integer VND.
- */
-async checkout(command: CheckoutCommand): Promise<Order> {}
-```
+2. **Tests** — the matching `it()` carries a `// Invariant: INV-N` comment above it (not in the title; see `testing-and-fixtures.md`).

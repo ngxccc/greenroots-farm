@@ -2,12 +2,12 @@
 
 Code tells you how; comments tell you why. Expressive names replace explanatory comments.
 
-| Tier | Form                                | Scope                                                                    | Rule                                             |
-| :--- | :---------------------------------- | :----------------------------------------------------------------------- | :----------------------------------------------- |
-| 1    | `/** ... */` TSDoc                  | Exported APIs, utilities, shared test helpers, domain services, adapters | Document intent, params, returns, and invariants |
-| 2    | `//` prose                          | Non-obvious rationale, security, concurrency, third-party workarounds    | Only when the reason is invisible in the code    |
-| 3    | `// TODO(<ticket-or-context>): ...` | Tracked technical debt                                                   | Name the issue, condition, or trigger            |
-| 4    | —                                   | Echoing code, dead code, changelog tags, non-English text, decoration    | Never                                            |
+| Tier | Form                                | Scope                                                                    | Rule                                          |
+| :--- | :---------------------------------- | :----------------------------------------------------------------------- | :-------------------------------------------- |
+| 1    | `/** ... */` TSDoc                  | Exported APIs, utilities, shared test helpers, domain services, adapters | Document intent, params, and returns          |
+| 2    | `//` prose                          | Non-obvious rationale, security, concurrency, third-party workarounds    | Only when the reason is invisible in the code |
+| 3    | `// TODO(<ticket-or-context>): ...` | Tracked technical debt                                                   | Name the issue, condition, or trigger         |
+| 4    | —                                   | Echoing code, dead code, changelog tags, non-English text, decoration    | Never                                         |
 
 ## Tier 1
 
