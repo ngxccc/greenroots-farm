@@ -1,0 +1,33 @@
+/**
+ * Compile-time constants and types for the Farms Module.
+ * Runtime Zod schemas live in `dto/` per ADR-0011.
+ */
+
+/** Redis cache key storing the serialized singleton farm settings payload. */
+export const FARM_SETTINGS_CACHE_KEY = "farm:settings:v1";
+
+/** Short-lived Redis marker recording the latest cache invalidation timestamp in ms. */
+export const FARM_SETTINGS_INVALIDATED_AT_KEY = "farm:settings:invalidated_at";
+
+/** 24-hour TTL for cached farm settings in seconds. */
+export const FARM_SETTINGS_CACHE_TTL_SECONDS = 86_400;
+
+/** 60-second TTL for the stale-backfill guard marker after an update. */
+export const FARM_SETTINGS_INVALIDATION_MARKER_TTL_SECONDS = 60;
+
+/**
+ * Whitelisted sort expressions for `GET /api/v1/plots`.
+ */
+export const PLOT_SORT_OPTIONS = [
+  "createdAt:desc",
+  "createdAt:asc",
+  "plotCode:asc",
+  "plotCode:desc",
+  "areaSqm:asc",
+  "areaSqm:desc",
+] as const;
+
+/**
+ * Union of supported sort query strings for the plots listing endpoint.
+ */
+export type PlotSortOption = (typeof PLOT_SORT_OPTIONS)[number];
