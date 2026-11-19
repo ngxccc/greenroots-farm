@@ -1,0 +1,81 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "656d2ddb-8e1c-4814-b5ea-5ce9616a0e45",
+  "prevIds": ["bc25f7a4-ac23-45cc-9565-6fb84bf552f1"],
+  "footprints": [
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "seasons",
+        "seasons_one_active_per_plot_uidx"
+      ],
+      "writes": [
+        "s|idx|public.seasons_one_active_per_plot_uidx",
+        "n|idx|public.seasons_one_active_per_plot_uidx",
+        "e|idx|public.seasons_one_active_per_plot_uidx",
+        "n|rel|public.seasons_one_active_per_plot_uidx"
+      ],
+      "reads": [
+        "n|tbl|public.seasons",
+        "n|sch|public",
+        "n|col|public.seasons.plot_id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "seasons"],
+      "writes": [
+        "s|ck|public.seasons.seasons_date_range_valid_chk",
+        "n|ck|public.seasons.seasons_date_range_valid_chk",
+        "e|ck|public.seasons.seasons_date_range_valid_chk",
+        "n|con|public.seasons.seasons_date_range_valid_chk"
+      ],
+      "reads": [
+        "n|tbl|public.seasons",
+        "n|sch|public",
+        "n|col|public.seasons.start_date",
+        "n|col|public.seasons.expected_harvest_date"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "seasons",
+        "name": "seasons_one_active_per_plot_uidx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "plot_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": "\"status\" = 'active'",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "seasons",
+        "name": "seasons_date_range_valid_chk",
+        "value": "\"start_date\" <= \"expected_harvest_date\"",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

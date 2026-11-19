@@ -88,6 +88,13 @@ export const seasons = snakeCase.table(
   (table) => [
     index("seasons_plot_id_idx").on(table.plotId),
     index("seasons_status_idx").on(table.status),
+    uniqueIndex("seasons_one_active_per_plot_uidx")
+      .on(table.plotId)
+      .where(sql`${table.status} = 'active'`),
+    check(
+      "seasons_date_range_valid_chk",
+      sql`${table.startDate} <= ${table.expectedHarvestDate}`,
+    ),
   ],
 );
 

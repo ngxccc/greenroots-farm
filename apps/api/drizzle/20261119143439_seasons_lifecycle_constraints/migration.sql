@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "seasons_one_active_per_plot_uidx" ON "seasons" ("plot_id") WHERE "status" = 'active';--> statement-breakpoint
+ALTER TABLE "seasons" ADD CONSTRAINT "seasons_date_range_valid_chk" CHECK ("start_date" <= "expected_harvest_date");
