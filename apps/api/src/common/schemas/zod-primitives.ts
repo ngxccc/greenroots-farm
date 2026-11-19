@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { env } from "@/common/config/env.config";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { sanitizeString } from "@/common/utils/sanitize.util";
 
@@ -192,4 +193,59 @@ export function zNumericString(options?: {
  */
 export function zCoerceDate() {
   return z.coerce.date().meta({ format: "date-time" });
+}
+
+/**
+ * Checks whether a parsed URL targets the configured Cloudinary HTTPS image delivery prefix.
+ *
+ * @param rawUrl Candidate URL string to inspect.
+ * @returns True if the URL uses HTTPS on `res.cloudinary.com` under `/<cloudName>/image/upload/`.
+ */
+export function isCloudinaryImageUrl(rawUrl: string): boolean {
+  if (rawUrl.includes("?") || rawUrl.includes("#")) return false;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+
+  const expectedPrefix = `/${env.CLOUDINARY_CLOUD_NAME}/image/upload/`;
+
+  if (parsed.protocol !== "https:") return false;
+  if (parsed.hostname !== "res.cloudinary.com") return false;
+  if (parsed.port !== "" || parsed.username !== "" || parsed.password !== "") {
+    return false;
+  }
+  if (parsed.search !== "" || parsed.hash !== "") return false;
+  if (!parsed.pathname.startsWith(expectedPrefix)) return false;
+  if (parsed.pathname.length <= expectedPrefix.length) return false;
+  if (parsed.pathname.split("/").includes("..")) return false;
+
+  return true;
+}
+
+/**
+ * Builds a Cloudinary HTTPS image URL schema scoped to the active cloud name.
+ */
+export function zCloudinaryImageUrl() {
+  return z
+    .string()
+    .trim()
+    .pipe(z.url({ message: MESSAGES.VALIDATION.INVALID_URL }))
+    .check((ctx) => {
+      if (!isCloudinaryImageUrl(ctx.value)) {
+        ctx.issues.push({
+          code: "invalid_format",
+          format: "url",
+          input: ctx.value,
+          message: MESSAGES.VALIDATION.INVALID_URL,
+        });
+      }
+    })
+    .meta({
+      example:
+        "https://res.cloudinary.com/greenroots-dev/image/upload/v1/plots/soil-a1.png",
+    });
 }

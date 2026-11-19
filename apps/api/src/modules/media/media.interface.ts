@@ -18,25 +18,38 @@ export const ALLOWED_MEDIA_FOLDERS = [
   "complaints",
   "products",
   "waste_logs",
+  "plots",
+  "farms",
 ] as const;
 
 export type MediaFolder = (typeof ALLOWED_MEDIA_FOLDERS)[number];
 
 /**
  * Role-to-Folder authorization mapping:
- * - farming_logs / waste_logs: Farm staff and admins
+ * - farming_logs / waste_logs / plots: Farm staff and admins
  * - products: Sales and admins
+ * - farms: Admins and super admins
  * - complaints: Customers (for defect/damage proof) and admins
  */
 export const FOLDER_PERMISSIONS: Record<MediaFolder, readonly UserRole[]> = {
   farming_logs: [UserRole.FARM_STAFF, UserRole.ADMIN, UserRole.SUPER_ADMIN],
   waste_logs: [UserRole.FARM_STAFF, UserRole.ADMIN, UserRole.SUPER_ADMIN],
+  plots: [UserRole.FARM_STAFF, UserRole.ADMIN, UserRole.SUPER_ADMIN],
   products: [UserRole.ADMIN, UserRole.SALES, UserRole.SUPER_ADMIN],
+  farms: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   complaints: [UserRole.CUSTOMER, UserRole.ADMIN, UserRole.SUPER_ADMIN],
 };
 
 export const MEDIA_RESOURCE_TYPES = ["image", "video"] as const;
 export type MediaResourceType = (typeof MEDIA_RESOURCE_TYPES)[number];
+
+/**
+ * Folders restricted exclusively to image uploads (no video assets).
+ */
+export const IMAGE_ONLY_MEDIA_FOLDERS: readonly MediaFolder[] = [
+  "plots",
+  "farms",
+];
 
 export interface CloudinarySignatureResult {
   signature: string;

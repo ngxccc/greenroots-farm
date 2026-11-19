@@ -243,6 +243,32 @@ describe("CloudinaryService", () => {
             detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
           }),
         );
+
+        const plotsResult = service.createUploadSignature(
+          {
+            resourceType: "image",
+            fileSizeBytes: 1024,
+            folder: "plots",
+          },
+          UserRole.FARM_STAFF,
+        );
+        expect(plotsResult.folder).toBe("plots");
+
+        expect(() =>
+          service.createUploadSignature(
+            {
+              resourceType: "image",
+              fileSizeBytes: 1024,
+              folder: "farms",
+            },
+            UserRole.FARM_STAFF,
+          ),
+        ).toThrow(
+          new ForbiddenException({
+            code: API_ERROR_CODES.FORBIDDEN,
+            detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+          }),
+        );
       });
 
       it("should permit SALES for products, but forbid farming_logs", () => {
@@ -279,6 +305,8 @@ describe("CloudinaryService", () => {
           "complaints",
           "products",
           "waste_logs",
+          "plots",
+          "farms",
         ] as const;
 
         for (const folder of folders) {

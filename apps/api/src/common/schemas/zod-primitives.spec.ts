@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
+import { API_ERROR_CODES } from "@greenroots/shared";
+import { env } from "@/common/config/env.config";
+import { MESSAGES } from "@/common/constants/messages.constant";
+import { formatZodIssue } from "@/common/pipes/zod-validation.pipe";
 import {
   zBooleanString,
+  zCloudinaryImageUrl,
   zCoerceDate,
   zEmail,
   zNumericString,
@@ -158,6 +163,41 @@ describe("Zod Primitives", () => {
       const result = schema.parse(iso);
       expect(result).toBeInstanceOf(Date);
       expect(result.toISOString()).toBe(iso);
+    });
+  });
+
+  describe("zCloudinaryImageUrl", () => {
+    const schema = zCloudinaryImageUrl();
+    const activeCloudName = env.CLOUDINARY_CLOUD_NAME;
+
+    it("accepts HTTPS Cloudinary image delivery URLs for the configured cloud name", () => {
+      const validUrl = `  https://res.cloudinary.com/${activeCloudName}/image/upload/v1/plots/soil-a1.png  `;
+      expect(schema.parse(validUrl)).toBe(
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/plots/soil-a1.png`,
+      );
+    });
+
+    it("rejects non-HTTPS, external hosts, raw uploads, queries, fragments, and path traversal with INVALID_URL", () => {
+      const invalidUrls = [
+        `http://res.cloudinary.com/${activeCloudName}/image/upload/v1/plots/a.png`,
+        `https://evil.example.com/${activeCloudName}/image.png`,
+        `https://res.cloudinary.com/${activeCloudName}/raw/upload/v1/plots/a.pdf`,
+        "https://res.cloudinary.com/other-cloud/image/upload/v1/plots/a.png",
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/../raw/a.png`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/plots/a.png?foo=bar`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/plots/a.png#frag`,
+      ];
+
+      for (const candidate of invalidUrls) {
+        const parsed = schema.safeParse(candidate);
+        expect(parsed.success).toBe(false);
+        if (!parsed.success && parsed.error.issues[0]) {
+          expect(formatZodIssue(parsed.error.issues[0])).toEqual({
+            code: API_ERROR_CODES.INVALID_URL,
+            reason: MESSAGES.VALIDATION.INVALID_URL,
+          });
+        }
+      }
     });
   });
 });

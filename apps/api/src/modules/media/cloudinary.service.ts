@@ -53,8 +53,8 @@ export class CloudinaryService {
     }
 
     const timestamp = Math.floor(Date.now() / 1000);
-    const cloudName = env.CLOUDINARY_CLOUD_NAME ?? "greenroots-dev";
-    const apiKey = env.CLOUDINARY_API_KEY ?? "mock-api-key";
+    const cloudName = env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = env.CLOUDINARY_API_KEY;
     const apiSecret = env.CLOUDINARY_API_SECRET;
 
     if (!apiSecret) {

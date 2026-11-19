@@ -6,6 +6,8 @@ import {
   PAYMENT_DRIVERS,
 } from "@/common/constants/environment.constant";
 
+const DEV_JWT_ACCESS_SECRET = "greenroots-dev-access-secret-min-32-chars";
+
 /**
  * Validated process environment for the API process and CLI tooling.
  *
@@ -35,10 +37,7 @@ const envSchema = z.object({
   REDIS_HOST: z.string().default("localhost"),
   REDIS_PORT: z.coerce.number().int().positive().default(6379),
 
-  JWT_ACCESS_SECRET: z
-    .string()
-    .min(32)
-    .default("greenroots-dev-access-secret-min-32-chars"),
+  JWT_ACCESS_SECRET: z.string().min(32).default(DEV_JWT_ACCESS_SECRET),
   JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_SECRET: z.string().min(32).optional(),
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
@@ -55,8 +54,8 @@ const envSchema = z.object({
   PAYOS_CHECKSUM_KEY: z.string().optional(),
 
   // Cloudinary media storage configuration
-  CLOUDINARY_CLOUD_NAME: z.string().optional(),
-  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_CLOUD_NAME: z.string().min(1).default("greenroots-dev"),
+  CLOUDINARY_API_KEY: z.string().min(1).default("mock-api-key"),
   CLOUDINARY_API_SECRET: z.string().optional(),
 
   // Scheduled tasks / Cron
@@ -72,13 +71,67 @@ const envSchema = z.object({
 
 export type ApiEnvironment = z.infer<typeof envSchema>;
 
-const parsed = envSchema.safeParse(process.env);
+/**
+ * Parses and validates API environment variables, failing fast in production
+ * when required secrets or integration credentials are missing or use dev defaults.
+ */
+export function parseApiEnvironment(
+  rawEnv: Record<string, string | undefined>,
+): ApiEnvironment {
+  const productionSchema = envSchema.superRefine((data, ctx) => {
+    if (data.NODE_ENV !== "production") return;
 
-if (!parsed.success) {
-  const details = parsed.error.issues
-    .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
-    .join("; ");
-  throw new Error(`Invalid API environment configuration: ${details}`);
+    if (
+      !rawEnv["JWT_ACCESS_SECRET"]?.trim() ||
+      data.JWT_ACCESS_SECRET === DEV_JWT_ACCESS_SECRET
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["JWT_ACCESS_SECRET"],
+        message:
+          "JWT_ACCESS_SECRET must be explicitly configured to a non-default secret in production",
+      });
+    }
+    if (data.MAIL_DRIVER === "resend" && !data.RESEND_API_KEY?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["RESEND_API_KEY"],
+        message:
+          "RESEND_API_KEY is required when MAIL_DRIVER is 'resend' in production",
+      });
+    }
+    if (!rawEnv["CLOUDINARY_CLOUD_NAME"]?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["CLOUDINARY_CLOUD_NAME"],
+        message: "CLOUDINARY_CLOUD_NAME is required in production",
+      });
+    }
+    if (!rawEnv["CLOUDINARY_API_KEY"]?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["CLOUDINARY_API_KEY"],
+        message: "CLOUDINARY_API_KEY is required in production",
+      });
+    }
+    if (!data.CLOUDINARY_API_SECRET?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["CLOUDINARY_API_SECRET"],
+        message: "CLOUDINARY_API_SECRET is required in production",
+      });
+    }
+  });
+
+  const parsed = productionSchema.safeParse(rawEnv);
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .join("; ");
+    throw new Error(`Invalid API environment configuration: ${details}`);
+  }
+
+  return parsed.data;
 }
 
-export const env: ApiEnvironment = parsed.data;
+export const env: ApiEnvironment = parseApiEnvironment(process.env);

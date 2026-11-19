@@ -74,6 +74,20 @@ export const MESSAGES = {
     AT_LEAST_ONE_FIELD: "At least one profile field must be provided.",
     AT_LEAST_ONE_ADDRESS_FIELD: "At least one address field must be provided.",
     AT_LEAST_ONE_STAFF_FIELD: "At least one staff field must be provided.",
+    AT_LEAST_ONE_FARM_SETTING_FIELD:
+      "At least one farm setting field must be provided.",
+    AT_LEAST_ONE_PLOT_FIELD: "At least one plot field must be provided.",
+  },
+  FARMS: {
+    NOT_FOUND: "Farm settings record not found.",
+    PAYMENT_METHOD_REQUIRED:
+      "At least one payment method (PayOS or COD) must remain enabled.",
+  },
+  PLOTS: {
+    NOT_FOUND: "Plot not found.",
+    CODE_ALREADY_EXISTS: "An active plot with this plot code already exists.",
+    HAS_ACTIVE_SEASONS:
+      "Cannot delete a plot that still has planning or active seasons.",
   },
   ADDRESS: {
     NOT_FOUND: "Address not found.",
