@@ -1,3 +1,5 @@
+import { SeasonStatus } from "@greenroots/shared";
+
 /**
  * Compile-time constants and types for the Farms Module.
  * Runtime Zod schemas live in `dto/` per ADR-0011.
@@ -31,3 +33,33 @@ export const PLOT_SORT_OPTIONS = [
  * Union of supported sort query strings for the plots listing endpoint.
  */
 export type PlotSortOption = (typeof PLOT_SORT_OPTIONS)[number];
+
+/**
+ * Whitelisted sort expressions for `GET /api/v1/seasons`.
+ */
+export const SEASON_SORT_OPTIONS = [
+  "createdAt:desc",
+  "createdAt:asc",
+  "startDate:desc",
+  "startDate:asc",
+  "expectedHarvestDate:asc",
+  "expectedHarvestDate:desc",
+] as const;
+
+/**
+ * Union of supported sort query strings for the seasons listing endpoint.
+ */
+export type SeasonSortOption = (typeof SEASON_SORT_OPTIONS)[number];
+
+/**
+ * Linear forward-only status transition matrix for cultivation seasons.
+ */
+export const SEASON_ALLOWED_TRANSITIONS: Record<
+  SeasonStatus,
+  readonly SeasonStatus[]
+> = Object.freeze({
+  [SeasonStatus.PLANNING]: [SeasonStatus.ACTIVE],
+  [SeasonStatus.ACTIVE]: [SeasonStatus.HARVESTED],
+  [SeasonStatus.HARVESTED]: [SeasonStatus.COMPLETED],
+  [SeasonStatus.COMPLETED]: [],
+});

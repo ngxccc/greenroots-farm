@@ -3,13 +3,15 @@ import { FarmSettingsController } from "./farm-settings.controller";
 import { FarmSettingsService } from "./farm-settings.service";
 import { PlotsController } from "./plots.controller";
 import { PlotsService } from "./plots.service";
+import { SeasonsController } from "./seasons.controller";
+import { SeasonsService } from "./seasons.service";
 
 /**
- * Farms module hosting singleton farm settings and cultivation plots CRUD.
+ * Farms module hosting singleton farm settings, cultivation plots, and seasons CRUD.
  */
 @Module({
-  controllers: [FarmSettingsController, PlotsController],
-  providers: [FarmSettingsService, PlotsService],
-  exports: [FarmSettingsService, PlotsService],
+  controllers: [FarmSettingsController, PlotsController, SeasonsController],
+  providers: [FarmSettingsService, PlotsService, SeasonsService],
+  exports: [FarmSettingsService, PlotsService, SeasonsService],
 })
 export class FarmsModule {}

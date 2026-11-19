@@ -34,6 +34,7 @@ import type {
   UpdatePlotInput,
 } from "./dto";
 import type { PlotSortOption } from "./farms.interface";
+import { escapeLikePattern } from "./farms.utils";
 
 const PLOT_COLUMNS = {
   id: plots.id,
@@ -62,13 +63,6 @@ const BLOCKING_SEASON_STATUSES = [
   SeasonStatus.PLANNING,
   SeasonStatus.ACTIVE,
 ] as const;
-
-function escapeLikePattern(value: string): string {
-  return value
-    .replaceAll("\\", "\\\\")
-    .replaceAll("%", "\\%")
-    .replaceAll("_", "\\_");
-}
 
 /**
  * Manages cultivation plots CRUD, soft-delete filtering, active-code uniqueness,
