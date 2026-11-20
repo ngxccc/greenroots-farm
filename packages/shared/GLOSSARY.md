@@ -17,6 +17,8 @@ GreenRoots Farm sells farm-grown produce through a storefront and operates produ
 | Season               | A planned production cycle on a plot, progressing linearly through `planning`, `active`, `harvested`, and terminal `completed`.                                                    | `SeasonStatus`, `ADR-0022`          |
 | Batch                | A harvested lot of a product with stock, expiry, and sale status.                                                                                                                  | `BatchStatus`                       |
 | Farming Action       | A recorded field operation (seeding, watering, fertilizing, weeding, pest control, soil testing, harvesting, correction).                                                          | `FarmingActionType`                 |
+| Farming Log          | An immutable, append-only cultivation record authored by a staff member on a season, carrying an action type, description, optional media URLs, and server-assigned timestamp.     | `farming_logs`, `ADR-0023`          |
+| Correction Log       | A farming log with action type `correction` that optionally references an earlier log in the same season to supersede or amend it without mutating prior records.                  | `farming_logs`, `ADR-0023`          |
 | Product              | A sellable catalog item sourced from one or more batches.                                                                                                                          | Catalog domain                      |
 | Order                | A customer purchase progressing from payment through delivery.                                                                                                                     | `OrderStatus`                       |
 | Subscription         | A recurring delivery plan with a fixed delivery day.                                                                                                                               | `SubscriptionStatus`, `DeliveryDay` |
@@ -47,6 +49,7 @@ GreenRoots Farm sells farm-grown produce through a storefront and operates produ
 - An order can transition only along the transitions defined by `OrderStatus`; cancelled and delivered are terminal.
 - A subscription has exactly one active delivery-day selection at a time.
 - A season transitions linearly along `planning -> active -> harvested -> completed` (`completed` is terminal), and each plot allows at most one `active` season at a time.
+- A farming log is strictly append-only (never updated or deleted), and any correction linkage must reference an existing log within the same season.
 - Shared enums and constants are defined once in `packages/shared` and imported by apps. Apps MUST NOT redeclare them.
 - Mutating commands (checkout, payments, refunds) must be guarded with an `Idempotency-Key`; replays with matching payloads return cached responses, while mismatched payloads are rejected with `422`.
 - Media uploads are restricted to $\le 5\text{MB}$ for images and $\le 15\text{MB}$ for videos; oversized uploads are rejected at the signature boundary.
