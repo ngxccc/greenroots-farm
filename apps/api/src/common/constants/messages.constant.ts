@@ -83,6 +83,18 @@ export const MESSAGES = {
     DUPLICATE_MEDIA_URL: "Duplicate media URLs are not allowed.",
     INVALID_BATCH_CODE:
       "Batch code must be 3 to 100 alphanumeric, hyphen, or underscore characters.",
+    INVALID_SLUG:
+      "Slug must contain only lowercase alphanumeric segments separated by single hyphens.",
+    AT_LEAST_ONE_CATEGORY_FIELD:
+      "At least one category field must be provided.",
+    AT_LEAST_ONE_PRODUCT_FIELD: "At least one product field must be provided.",
+    PRICE_RANGE_INVALID: "Minimum price cannot exceed maximum price.",
+    CONFLICTING_CATEGORY_FILTER:
+      "Provide either categoryId or categorySlug, not both.",
+    CONFLICTING_ROOT_CATEGORY_FILTER:
+      "Cannot combine parentId with rootOnly=true.",
+    DUPLICATE_PRODUCT_IMAGE_URL:
+      "Duplicate product image URLs are not allowed.",
   },
   FARMS: {
     NOT_FOUND: "Farm settings record not found.",
@@ -120,6 +132,23 @@ export const MESSAGES = {
   },
   BATCHES: {
     NOT_FOUND: "Batch not found.",
+  },
+  CATEGORIES: {
+    NOT_FOUND: "Category not found.",
+    SLUG_ALREADY_EXISTS: "An active category with this slug already exists.",
+    NAME_ALREADY_EXISTS: "An active category with this name already exists.",
+    HAS_CHILDREN:
+      "Cannot delete a category that still has non-deleted child categories.",
+    HAS_PRODUCTS:
+      "Cannot delete a category that still has non-deleted products.",
+    HIERARCHY_INVALID:
+      "Category hierarchy cannot exceed two levels or reference itself.",
+  },
+  PRODUCTS: {
+    NOT_FOUND: "Product not found.",
+    SLUG_ALREADY_EXISTS: "An active product with this slug already exists.",
+    PRICE_INVALID:
+      "Sale price must be non-negative and less than or equal to base price.",
   },
   ADDRESS: {
     NOT_FOUND: "Address not found.",
