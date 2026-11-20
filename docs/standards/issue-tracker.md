@@ -27,8 +27,8 @@ Epic, related issues, ADRs, standards, and the files or symbols involved.
 
 ### Acceptance Criteria
 
-- [ ] Observable, testable statement, with the proving command when one exists.
-- [ ] Generated contracts committed when a route or DTO surface changes.
+- Observable, testable statement, with the proving command when one exists.
+- Generated contracts committed when a route or DTO surface changes.
 
 ### Non-goals
 

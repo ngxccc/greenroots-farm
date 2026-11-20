@@ -43,9 +43,9 @@ body:
       label: Acceptance Criteria
       description: "Conditions to verify that the bug is fixed without regression."
       value: |
-        - [ ] Root cause identified and resolved.
-        - [ ] Regression test added covering the failure path.
-        - [ ] `bun run check` and `bun run test` pass.
+        - Root cause identified and resolved.
+        - Regression test added covering the failure path.
+        - `bun run check` and `bun run test` pass.
     validations:
       required: true
   - type: textarea

@@ -29,10 +29,10 @@ body:
     id: acceptance-criteria
     attributes:
       label: Acceptance Criteria
-      description: "Checklist of measurable conditions required for completion."
+      description: "List of measurable conditions required for completion."
       value: |
-        - [ ] 
-        - [ ] 
+        - 
+        - 
     validations:
       required: true
   - type: textarea
