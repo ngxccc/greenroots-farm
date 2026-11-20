@@ -22,7 +22,7 @@ import {
   BUSINESS_RULES,
   BatchStatus,
 } from "@greenroots/shared";
-import { env } from "@/common/config/env.config";
+import { env, resolvePublicStorefrontOrigin } from "@/common/config/env.config";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { TIME_IN_MS } from "@/common/constants/time.constant";
@@ -40,6 +40,7 @@ import { TraceCacheService } from "@/modules/farms/trace-cache.service";
 import type {
   BatchProductSummary,
   BatchProjection,
+  BatchQrLabelProjection,
   BatchSeasonSummary,
   CreateBatchInput,
   ListBatchesQuery,
@@ -383,6 +384,56 @@ export class BatchesService {
     }
 
     return this.toProjection(row);
+  }
+
+  /**
+   * Builds a deterministic QR label payload and public storefront trace URL for an existing batch.
+   *
+   * @param id Batch UUIDv7 identifier.
+   * @returns Deterministic QR label payload independent of mutable stock or batch lifecycle status.
+   */
+  async getBatchQrLabel(id: string): Promise<BatchQrLabelProjection> {
+    const [row] = await this.db
+      .select({
+        batchCode: batches.batchCode,
+        harvestDate: batches.harvestDate,
+        expirationDate: batches.expirationDate,
+        productName: products.name,
+        unit: products.unit,
+      })
+      .from(batches)
+      .innerJoin(products, eq(batches.productId, products.id))
+      .where(eq(batches.id, id))
+      .limit(1);
+
+    if (!row) {
+      throw new NotFoundException({
+        code: API_ERROR_CODES.BATCH_NOT_FOUND,
+        detail: MESSAGES.BATCHES.NOT_FOUND,
+      });
+    }
+
+    const origin = resolvePublicStorefrontOrigin(
+      env.STOREFRONT_URL,
+      env.NODE_ENV,
+    );
+    const traceUrl = new URL(
+      `/trace/${encodeURIComponent(row.batchCode)}`,
+      origin,
+    ).toString();
+
+    return {
+      batchCode: row.batchCode,
+      traceUrl,
+      labelPayload: {
+        batchCode: row.batchCode,
+        productName: row.productName,
+        unit: row.unit,
+        harvestDate: row.harvestDate.toISOString(),
+        expirationDate: row.expirationDate.toISOString(),
+        qrValue: traceUrl,
+      },
+    };
   }
 
   /**

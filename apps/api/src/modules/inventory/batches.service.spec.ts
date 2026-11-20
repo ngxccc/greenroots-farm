@@ -572,4 +572,101 @@ describe("BatchesService", () => {
       }
     });
   });
+
+  describe("getBatchQrLabel", () => {
+    it("returns deterministic traceUrl and labelPayload derived from env.STOREFRONT_URL", async () => {
+      // Invariant: INV-QR-LABEL-2, INV-QR-LABEL-4
+      const harvestDate = new Date("2026-11-20T04:00:00.000Z");
+      const expirationDate = new Date("2026-11-23T04:00:00.000Z");
+      const row = {
+        batchCode: "BATCH-20261120-CACHUA-7K9M2P",
+        harvestDate,
+        expirationDate,
+        productName: "Cà chua bi hữu cơ",
+        unit: "kg",
+      };
+
+      const originalStorefrontUrl = env.STOREFRONT_URL;
+      try {
+        (env as { STOREFRONT_URL: string }).STOREFRONT_URL =
+          "https://greenroots.farm/";
+        mockDb.setSelectResultsQueue([[row], [row]]);
+
+        const first = await service.getBatchQrLabel(batchId);
+        const second = await service.getBatchQrLabel(batchId);
+
+        expect(first).toEqual({
+          batchCode: "BATCH-20261120-CACHUA-7K9M2P",
+          traceUrl:
+            "https://greenroots.farm/trace/BATCH-20261120-CACHUA-7K9M2P",
+          labelPayload: {
+            batchCode: "BATCH-20261120-CACHUA-7K9M2P",
+            productName: "Cà chua bi hữu cơ",
+            unit: "kg",
+            harvestDate: harvestDate.toISOString(),
+            expirationDate: expirationDate.toISOString(),
+            qrValue:
+              "https://greenroots.farm/trace/BATCH-20261120-CACHUA-7K9M2P",
+          },
+        });
+        expect(second).toEqual(first);
+      } finally {
+        (env as { STOREFRONT_URL: string }).STOREFRONT_URL =
+          originalStorefrontUrl;
+      }
+    });
+
+    it("throws NotFoundException when batch does not exist", async () => {
+      // Invariant: INV-QR-LABEL-3
+      mockDb.setSelectResultsQueue([[]]);
+
+      try {
+        await service.getBatchQrLabel(batchId);
+        expect.unreachable("Expected NotFoundException");
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundException);
+        expect((error as NotFoundException).getResponse()).toEqual({
+          code: API_ERROR_CODES.BATCH_NOT_FOUND,
+          detail: MESSAGES.BATCHES.NOT_FOUND,
+        });
+      }
+    });
+
+    it("fails closed in production when STOREFRONT_URL resolves to localhost or non-HTTPS", async () => {
+      // Invariant: INV-QR-LABEL-1
+      const row = {
+        batchCode: "BATCH-20261120-CACHUA-7K9M2P",
+        harvestDate: new Date("2026-11-20T04:00:00.000Z"),
+        expirationDate: new Date("2026-11-23T04:00:00.000Z"),
+        productName: "Cà chua bi hữu cơ",
+        unit: "kg",
+      };
+
+      const originalEnv = env.NODE_ENV;
+      const originalStorefrontUrl = env.STOREFRONT_URL;
+      try {
+        (env as { NODE_ENV: string }).NODE_ENV = "production";
+
+        for (const unsafeUrl of [
+          "http://localhost:3001",
+          "http://greenroots.farm",
+        ]) {
+          (env as { STOREFRONT_URL: string }).STOREFRONT_URL = unsafeUrl;
+          mockDb.setSelectResultsQueue([[row]]);
+
+          try {
+            await service.getBatchQrLabel(batchId);
+            expect.unreachable("Expected Error");
+          } catch (error) {
+            expect(error).toBeInstanceOf(Error);
+            expect((error as Error).message).toMatch(/STOREFRONT_URL/);
+          }
+        }
+      } finally {
+        (env as { NODE_ENV: string }).NODE_ENV = originalEnv;
+        (env as { STOREFRONT_URL: string }).STOREFRONT_URL =
+          originalStorefrontUrl;
+      }
+    });
+  });
 });

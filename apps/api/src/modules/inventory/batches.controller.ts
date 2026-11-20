@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpStatus,
   Param,
   Post,
@@ -31,9 +32,11 @@ import { apiSuccess, type ApiResponse } from "@/common/utils/api-response.util";
 import { BatchesService } from "./batches.service";
 import {
   BatchDto,
+  BatchQrLabelDto,
   CreateBatchDto,
   ListBatchesQueryDto,
   type BatchProjection,
+  type BatchQrLabelProjection,
 } from "./dto";
 import { INVENTORY_ROUTES } from "./inventory.routes";
 
@@ -115,5 +118,28 @@ export class BatchesController {
   ): Promise<ApiResponse<BatchProjection>> {
     const batch = await this.batchesService.getBatchById(id);
     return apiSuccess(batch);
+  }
+
+  @Get(INVENTORY_ROUTES.BATCH_QR_LABEL)
+  @ApiAuth(UserRole.FARM_STAFF, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Header("Cache-Control", "no-cache")
+  @ApiOperation({
+    summary: "Get deterministic QR label payload for a batch",
+    description:
+      "Returns the deterministic thermal-label payload and public storefront traceability URL for an existing batch.",
+  })
+  @ApiParam({
+    name: "id",
+    type: "string",
+    format: "uuid",
+    description: "Batch UUIDv7 identifier",
+  })
+  @ApiOkResponseGeneric(BatchQrLabelDto)
+  @ApiNotFoundResponseRfc9457()
+  async getQrLabel(
+    @Param("id", new ZodValidationPipe(zUuidV7())) id: string,
+  ): Promise<ApiResponse<BatchQrLabelProjection>> {
+    const label = await this.batchesService.getBatchQrLabel(id);
+    return apiSuccess(label);
   }
 }
