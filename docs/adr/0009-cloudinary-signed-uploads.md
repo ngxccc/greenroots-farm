@@ -18,7 +18,7 @@ Cultivation logs, complaints, and catalog images need media uploads. Proxying mu
 
 - Expose `POST /api/v1/media/upload-signature` for clients to upload directly to Cloudinary.
 - Enforce image uploads up to 5 MB (`image/jpeg`, `image/png`, `image/webp`) and video uploads up to 15 MB (`video/mp4`, `video/quicktime`, `video/webm`).
-- Restrict destination folders to `farming_logs`, `complaints`, and `products`.
+- Restrict destination folders to `farming_logs`, `complaints`, and `products` _(amended by ADR-0021 to add `plots` and `farms`, and by ADR-0025 to restrict `products` to image-only uploads)_.
 - Reject violations at the HTTP boundary with `422` under `INV-MEDIA-1`.
 - Compute the signature server-side with HMAC SHA-256 over sorted parameters and `CLOUDINARY_API_SECRET`.
 - When `CLOUDINARY_API_SECRET` is absent in development, return a mock signature so local frontend work needs no third-party credentials.
@@ -31,7 +31,7 @@ Cultivation logs, complaints, and catalog images need media uploads. Proxying mu
 
 ## Negative Consequences / Risks
 
-- The mock signature path can mask a misconfigured production environment if the secret is missing there.
+- The mock signature path can mask a misconfigured production environment if the secret is missing there _(mitigated by `parseApiEnvironment()` in `apps/api/src/common/config/env.config.ts`, which now fails fast on startup when `NODE_ENV === "production"` lacks `CLOUDINARY_API_SECRET`)_.
 - Clients must implement multipart upload handling themselves.
 - Direct uploads bypass API-side virus or content scanning.
 

@@ -18,7 +18,7 @@ The predecessor project modeled verification as a `PENDING_VERIFICATION` status.
 
 - Registration inserts `status: active`, `emailVerified: false`, and an Scrypt-hashed password in the `s1$<salt>$<hash>` format.
 - Login requires `emailVerified === true`; an unverified account receives `403` with `AUTH_EMAIL_NOT_VERIFIED`.
-- Verification validates a 32-byte hex token against its SHA-256 digest in `users.verificationToken` and requires `verificationExpiresAt > NOW()`, then sets `emailVerified = true`.
+- Verification validates a 32-byte hex token against its SHA-256 digest in `users.verificationToken` and requires `verificationExpiresAt > NOW()`, then sets `emailVerified = true`. _(Amended by ADR-0019: `AuthService.resetPassword` also sets `emailVerified = true` when an invited staff member consumes a valid reset token.)_
 - Re-registration with an existing unverified email returns `409 AUTH_EMAIL_ALREADY_EXISTS` to prevent account-takeover races.
 - Re-sending uses only `POST /auth/resend-verification`, with a 60-second per-email cooldown and rate limiting.
 - Business account state and verification state stay separate columns.

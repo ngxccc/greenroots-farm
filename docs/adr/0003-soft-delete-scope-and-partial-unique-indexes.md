@@ -17,7 +17,7 @@ Some domain records must survive deletion because orders, subscriptions, or audi
 
 - Exactly five tables carry `deleted_at`: `users`, `plots`, `categories`, `products`, and `subscription_plans`.
 - Each of those tables gets a partial unique index scoped with `WHERE deleted_at IS NULL`.
-- The other thirteen tables must not add `deleted_at`; use hard delete or a domain status instead.
+- The other thirteen tables must not add `deleted_at`; use hard delete or a domain status instead. _(Subsequent non-soft-deletable tables such as `staff_audit_logs` in ADR-0019 follow the same rule.)_
 
 ## Positive Consequences
 

@@ -17,7 +17,7 @@ GreenRoots Farm prices in Vietnamese đồng, which has no minor unit. Floating-
 ## Decision
 
 - Store money as integer VND in PostgreSQL.
-- Use the DBML column names: `base_price`, `shipping_fee`, `subtotal`, `discount_amount`, `total_amount`, `amount`, and `unit_price`.
+- Use the DBML column names: `base_price`, `shipping_fee`, `subtotal`, `discount_amount`, `total_amount`, `amount`, and `unit_price` _(later extended with `products.sale_price` / `salePriceVnd` in ADR-0025)_.
 - Add the `Vnd` suffix at API and JSONB boundaries: `basePriceVnd`, `baseFeeVnd`, `perKmRateVnd`, `shippingFeeVnd`.
 - Never use `numeric`, `float`, or `double` for money.
 

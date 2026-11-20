@@ -19,7 +19,7 @@ The first backend slice needs one persistence toolkit for `apps/api`. `Database_
 - Use Drizzle ORM v1 and `drizzle-kit`, tracking latest releases without hard version pinning.
 - Define relation graphs with `defineRelations` rather than ad-hoc joins.
 - Apply `snakeCase.table` for database naming so TypeScript property names stay `camelCase`.
-- Model all 18 tables from `Database_Schema.dbml`; add no speculative tables.
+- Model all 18 tables from `Database_Schema.dbml`; add no speculative tables. _(Amended by ADR-0019, which added `staff_audit_logs` as the 19th table.)_
 
 ## Positive Consequences
 
