@@ -72,6 +72,11 @@ export const API_ERROR_CODES = {
   BATCH_SEASON_STATUS_INVALID: "BATCH_SEASON_STATUS_INVALID",
   BATCH_HARVEST_DATE_INVALID: "BATCH_HARVEST_DATE_INVALID",
   BATCH_EXPIRED_AT_INTAKE: "BATCH_EXPIRED_AT_INTAKE",
+  WASTE_LOG_NOT_FOUND: "WASTE_LOG_NOT_FOUND",
+  WASTE_LOG_BATCH_NOT_ELIGIBLE: "WASTE_LOG_BATCH_NOT_ELIGIBLE",
+  WASTE_LOG_QUANTITY_EXCEEDS_AVAILABLE: "WASTE_LOG_QUANTITY_EXCEEDS_AVAILABLE",
+  WASTE_LOG_ALREADY_REVIEWED: "WASTE_LOG_ALREADY_REVIEWED",
+  WASTE_LOG_SELF_REVIEW_FORBIDDEN: "WASTE_LOG_SELF_REVIEW_FORBIDDEN",
   CATEGORY_NOT_FOUND: "CATEGORY_NOT_FOUND",
   CATEGORY_SLUG_ALREADY_EXISTS: "CATEGORY_SLUG_ALREADY_EXISTS",
   CATEGORY_NAME_ALREADY_EXISTS: "CATEGORY_NAME_ALREADY_EXISTS",
@@ -207,6 +212,16 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Thời điểm thu hoạch không được vượt quá hiện tại và phải từ ngày bắt đầu mùa vụ.",
   [API_ERROR_CODES.BATCH_EXPIRED_AT_INTAKE]:
     "Lô nông sản đã hết hạn sử dụng so với thời điểm hiện tại.",
+  [API_ERROR_CODES.WASTE_LOG_NOT_FOUND]:
+    "Không tìm thấy phiếu đề xuất xuất hủy yêu cầu.",
+  [API_ERROR_CODES.WASTE_LOG_BATCH_NOT_ELIGIBLE]:
+    "Lô nông sản đã bán hết hoặc không còn tồn khả dụng để báo hủy.",
+  [API_ERROR_CODES.WASTE_LOG_QUANTITY_EXCEEDS_AVAILABLE]:
+    "Số lượng đề xuất hủy vượt quá tồn kho khả dụng chưa có phiếu chờ duyệt.",
+  [API_ERROR_CODES.WASTE_LOG_ALREADY_REVIEWED]:
+    "Phiếu đề xuất xuất hủy này đã được thẩm định trước đó.",
+  [API_ERROR_CODES.WASTE_LOG_SELF_REVIEW_FORBIDDEN]:
+    "Bạn không thể tự phê duyệt hoặc từ chối phiếu xuất hủy do chính mình tạo.",
   [API_ERROR_CODES.CATEGORY_NOT_FOUND]:
     "Không tìm thấy danh mục sản phẩm yêu cầu.",
   [API_ERROR_CODES.CATEGORY_SLUG_ALREADY_EXISTS]:
