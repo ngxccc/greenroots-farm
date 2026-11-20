@@ -68,6 +68,15 @@ export const API_ERROR_CODES = {
   SEASON_PLOT_ACTIVE_CONFLICT: "SEASON_PLOT_ACTIVE_CONFLICT",
   SEASON_NOT_DELETABLE: "SEASON_NOT_DELETABLE",
   BATCH_NOT_FOUND: "BATCH_NOT_FOUND",
+  CATEGORY_NOT_FOUND: "CATEGORY_NOT_FOUND",
+  CATEGORY_SLUG_ALREADY_EXISTS: "CATEGORY_SLUG_ALREADY_EXISTS",
+  CATEGORY_NAME_ALREADY_EXISTS: "CATEGORY_NAME_ALREADY_EXISTS",
+  CATEGORY_HAS_CHILDREN: "CATEGORY_HAS_CHILDREN",
+  CATEGORY_HAS_PRODUCTS: "CATEGORY_HAS_PRODUCTS",
+  CATEGORY_HIERARCHY_INVALID: "CATEGORY_HIERARCHY_INVALID",
+  PRODUCT_NOT_FOUND: "PRODUCT_NOT_FOUND",
+  PRODUCT_SLUG_ALREADY_EXISTS: "PRODUCT_SLUG_ALREADY_EXISTS",
+  PRODUCT_PRICE_INVALID: "PRODUCT_PRICE_INVALID",
 
   // Persistence, Concurrency & Database Violations
   CONFLICT_RECORD: "CONFLICT_RECORD",
@@ -186,6 +195,23 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Chỉ có thể xóa mùa vụ đang lập kế hoạch và chưa phát sinh lô hàng hoặc nhật ký canh tác.",
   [API_ERROR_CODES.BATCH_NOT_FOUND]:
     "Không tìm thấy lô nông sản với mã truy xuất yêu cầu.",
+  [API_ERROR_CODES.CATEGORY_NOT_FOUND]:
+    "Không tìm thấy danh mục sản phẩm yêu cầu.",
+  [API_ERROR_CODES.CATEGORY_SLUG_ALREADY_EXISTS]:
+    "Đường dẫn (slug) này đã tồn tại trên một danh mục đang hoạt động.",
+  [API_ERROR_CODES.CATEGORY_NAME_ALREADY_EXISTS]:
+    "Tên danh mục này đã tồn tại trên một danh mục đang hoạt động.",
+  [API_ERROR_CODES.CATEGORY_HAS_CHILDREN]:
+    "Không thể xóa danh mục khi vẫn còn danh mục con đang hoạt động.",
+  [API_ERROR_CODES.CATEGORY_HAS_PRODUCTS]:
+    "Không thể xóa danh mục khi vẫn còn sản phẩm đang liên kết.",
+  [API_ERROR_CODES.CATEGORY_HIERARCHY_INVALID]:
+    "Cấu trúc phân cấp danh mục không hợp lệ (chỉ hỗ trợ tối đa 2 cấp và không tự tham chiếu).",
+  [API_ERROR_CODES.PRODUCT_NOT_FOUND]: "Không tìm thấy sản phẩm yêu cầu.",
+  [API_ERROR_CODES.PRODUCT_SLUG_ALREADY_EXISTS]:
+    "Đường dẫn (slug) này đã tồn tại trên một sản phẩm đang hoạt động.",
+  [API_ERROR_CODES.PRODUCT_PRICE_INVALID]:
+    "Giá khuyến mãi phải nhỏ hơn hoặc bằng giá gốc và không được âm.",
 
   // Persistence & Database
   [API_ERROR_CODES.CONFLICT_RECORD]: "Dữ liệu này đã tồn tại trong hệ thống.",
