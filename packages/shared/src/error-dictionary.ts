@@ -47,6 +47,9 @@ export const API_ERROR_CODES = {
   INSUFFICIENT_STOCK: "INSUFFICIENT_STOCK",
   OUT_OF_DELIVERY_RADIUS: "OUT_OF_DELIVERY_RADIUS",
   FARMING_LOG_IMMUTABLE: "FARMING_LOG_IMMUTABLE",
+  FARMING_LOG_CORRECTION_TARGET_INVALID:
+    "FARMING_LOG_CORRECTION_TARGET_INVALID",
+  FARMING_LOG_SEASON_STATUS_INVALID: "FARMING_LOG_SEASON_STATUS_INVALID",
   ADDRESS_NOT_FOUND: "ADDRESS_NOT_FOUND",
   ADDRESS_LIMIT_REACHED: "ADDRESS_LIMIT_REACHED",
   DISTRICT_CODE_INVALID: "DISTRICT_CODE_INVALID",
@@ -145,6 +148,10 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
   [API_ERROR_CODES.OUT_OF_DELIVERY_RADIUS]: `Địa chỉ nhận hàng vượt quá bán kính giao hỏa tốc ${BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM} km từ nông trại.`,
   [API_ERROR_CODES.FARMING_LOG_IMMUTABLE]:
     "Nhật ký canh tác đã khóa bất biến, không thể chỉnh sửa hoặc xóa.",
+  [API_ERROR_CODES.FARMING_LOG_CORRECTION_TARGET_INVALID]:
+    "Bản ghi đính chính không hợp lệ hoặc không thuộc cùng mùa vụ.",
+  [API_ERROR_CODES.FARMING_LOG_SEASON_STATUS_INVALID]:
+    "Trạng thái mùa vụ hiện tại không cho phép ghi nhận hành động canh tác này.",
   [API_ERROR_CODES.ADDRESS_NOT_FOUND]:
     "Không tìm thấy địa chỉ giao hàng yêu cầu.",
   [API_ERROR_CODES.ADDRESS_LIMIT_REACHED]: `Bạn chỉ được lưu tối đa ${BUSINESS_RULES.MAX_USER_ADDRESSES} địa chỉ giao hàng.`,
