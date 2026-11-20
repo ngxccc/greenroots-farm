@@ -1,0 +1,227 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c515e5ff-23da-4ba2-8aac-9e5a5dd89fa4",
+  "prevIds": ["656d2ddb-8e1c-4814-b5ea-5ce9616a0e45"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "farming_logs",
+        "corrects_log_id"
+      ],
+      "writes": [
+        "s|col|public.farming_logs.corrects_log_id",
+        "n|col|public.farming_logs.corrects_log_id",
+        "e|col|public.farming_logs.corrects_log_id"
+      ],
+      "reads": ["n|tbl|public.farming_logs", "n|sch|public"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "farming_logs",
+        "farming_logs_id_season_id_uidx"
+      ],
+      "writes": [
+        "s|idx|public.farming_logs_id_season_id_uidx",
+        "n|idx|public.farming_logs_id_season_id_uidx",
+        "e|idx|public.farming_logs_id_season_id_uidx",
+        "n|rel|public.farming_logs_id_season_id_uidx"
+      ],
+      "reads": [
+        "n|tbl|public.farming_logs",
+        "n|sch|public",
+        "n|col|public.farming_logs.id",
+        "n|col|public.farming_logs.season_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "farming_logs",
+        "farming_logs_corrects_log_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.farming_logs_corrects_log_id_idx",
+        "n|idx|public.farming_logs_corrects_log_id_idx",
+        "e|idx|public.farming_logs_corrects_log_id_idx",
+        "n|rel|public.farming_logs_corrects_log_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.farming_logs",
+        "n|sch|public",
+        "n|col|public.farming_logs.corrects_log_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "farming_logs"],
+      "writes": [
+        "s|fk|public.farming_logs.farming_logs_corrects_log_same_season_fkey",
+        "n|fk|public.farming_logs.farming_logs_corrects_log_same_season_fkey",
+        "e|fk|public.farming_logs.farming_logs_corrects_log_same_season_fkey",
+        "n|con|public.farming_logs.farming_logs_corrects_log_same_season_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.farming_logs",
+        "n|sch|public",
+        "n|tbl|public.farming_logs",
+        "n|sch|public",
+        "n|col|public.farming_logs.corrects_log_id",
+        "n|col|public.farming_logs.season_id",
+        "n|col|public.farming_logs.id",
+        "n|col|public.farming_logs.season_id",
+        "e|uniqueness|public.farming_logs.id.season_id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "farming_logs"],
+      "writes": [
+        "s|ck|public.farming_logs.farming_logs_correction_action_chk",
+        "n|ck|public.farming_logs.farming_logs_correction_action_chk",
+        "e|ck|public.farming_logs.farming_logs_correction_action_chk",
+        "n|con|public.farming_logs.farming_logs_correction_action_chk"
+      ],
+      "reads": [
+        "n|tbl|public.farming_logs",
+        "n|sch|public",
+        "n|col|public.farming_logs.corrects_log_id",
+        "n|col|public.farming_logs.action_type"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "farming_logs"],
+      "writes": [
+        "s|ck|public.farming_logs.farming_logs_no_self_correction_chk",
+        "n|ck|public.farming_logs.farming_logs_no_self_correction_chk",
+        "e|ck|public.farming_logs.farming_logs_no_self_correction_chk",
+        "n|con|public.farming_logs.farming_logs_no_self_correction_chk"
+      ],
+      "reads": [
+        "n|tbl|public.farming_logs",
+        "n|sch|public",
+        "n|col|public.farming_logs.corrects_log_id",
+        "n|col|public.farming_logs.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "farming_logs",
+        "name": "corrects_log_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "farming_logs",
+        "name": "farming_logs_id_season_id_uidx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "season_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "farming_logs",
+        "name": "farming_logs_corrects_log_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "corrects_log_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"corrects_log_id\" IS NOT NULL",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "farming_logs",
+        "name": "farming_logs_corrects_log_same_season_fkey",
+        "nameExplicit": true,
+        "columns": ["corrects_log_id", "season_id"],
+        "schemaTo": "public",
+        "tableTo": "farming_logs",
+        "columnsTo": ["id", "season_id"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "farming_logs",
+        "name": "farming_logs_correction_action_chk",
+        "value": "\"corrects_log_id\" IS NULL OR \"action_type\" = 'correction'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "farming_logs",
+        "name": "farming_logs_no_self_correction_chk",
+        "value": "\"corrects_log_id\" IS NULL OR \"corrects_log_id\" <> \"id\"",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

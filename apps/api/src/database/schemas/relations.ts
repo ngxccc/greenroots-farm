@@ -120,6 +120,16 @@ export const schemaRelations = defineRelations(
         to: r.users.id,
         optional: false,
       }),
+      correctsLog: r.one.farmingLogs({
+        from: r.farmingLogs.correctsLogId,
+        to: r.farmingLogs.id,
+        alias: "farmingLogCorrection",
+      }),
+      correctedBy: r.many.farmingLogs({
+        from: r.farmingLogs.id,
+        to: r.farmingLogs.correctsLogId,
+        alias: "farmingLogCorrection",
+      }),
     },
 
     categories: {

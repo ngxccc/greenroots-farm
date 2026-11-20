@@ -2,6 +2,7 @@ import {
   boolean,
   check,
   date,
+  foreignKey,
   index,
   jsonb,
   numeric,
@@ -111,6 +112,7 @@ export const farmingLogs = snakeCase.table(
     actionType: farmingActionTypeEnum().notNull(),
     description: text().notNull(),
     mediaUrls: jsonb().$type<FarmingLogMediaUrls>(),
+    correctsLogId: uuid(),
     loggedAt: timestamp({ withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),
@@ -121,6 +123,23 @@ export const farmingLogs = snakeCase.table(
       table.loggedAt,
     ),
     index("farming_logs_staff_id_idx").on(table.staffId),
+    uniqueIndex("farming_logs_id_season_id_uidx").on(table.id, table.seasonId),
+    index("farming_logs_corrects_log_id_idx")
+      .on(table.correctsLogId)
+      .where(sql`${table.correctsLogId} IS NOT NULL`),
+    foreignKey({
+      columns: [table.correctsLogId, table.seasonId],
+      foreignColumns: [table.id, table.seasonId],
+      name: "farming_logs_corrects_log_same_season_fkey",
+    }).onDelete("restrict"),
+    check(
+      "farming_logs_correction_action_chk",
+      sql`${table.correctsLogId} IS NULL OR ${table.actionType} = 'correction'`,
+    ),
+    check(
+      "farming_logs_no_self_correction_chk",
+      sql`${table.correctsLogId} IS NULL OR ${table.correctsLogId} <> ${table.id}`,
+    ),
   ],
 );
 
