@@ -19,6 +19,7 @@ import {
   type Farm,
   type FarmingLog,
   type NewFarm,
+  type NewFarmingLog,
   type NewPlot,
   type NewSeason,
   type Plot,
@@ -285,6 +286,79 @@ export async function createMinimalBatchForSeason(
 }
 
 /**
+ * Inserts an append-only farming log row, provisioning parent season and staff
+ * user automatically when omitted.
+ *
+ * @param db Drizzle database client.
+ * @param overrides Optional column overrides.
+ * @returns Inserted `farming_logs` row.
+ */
+export async function createFarmingLog(
+  db: DrizzleDB,
+  overrides: Partial<NewFarmingLog> = {},
+): Promise<FarmingLog> {
+  const seasonId = overrides.seasonId ?? (await createSeason(db)).id;
+  const staffId =
+    overrides.staffId ??
+    (
+      await createUser(db, {
+        role: UserRole.FARM_STAFF,
+      })
+    ).id;
+
+  const [log] = await db
+    .insert(farmingLogs)
+    .values({
+      actionType: FarmingActionType.WATERING,
+      description: "Tưới nhỏ giọt theo lịch chuẩn VietGAP",
+      ...overrides,
+      seasonId,
+      staffId,
+    })
+    .returning();
+
+  if (!log) {
+    throw new Error("Failed to create FarmingLog entity in test factory");
+  }
+
+  return log;
+}
+
+/**
+ * Named domain presets for cultivation farming log test fixtures.
+ */
+export const FarmingLogMother = {
+  /** Pre-activation soil testing entry. */
+  soilTesting: (
+    overrides: Partial<NewFarmingLog> = {},
+  ): Partial<NewFarmingLog> => ({
+    actionType: FarmingActionType.SOIL_TESTING,
+    description: "Kiểm tra độ pH và kim loại nặng đầu vụ",
+    ...overrides,
+  }),
+
+  /** Active cultivation watering entry. */
+  watering: (
+    overrides: Partial<NewFarmingLog> = {},
+  ): Partial<NewFarmingLog> => ({
+    actionType: FarmingActionType.WATERING,
+    description: "Tưới nhỏ giọt lúc 05:30 sáng",
+    ...overrides,
+  }),
+
+  /** Correction entry targeting an existing same-season log. */
+  correction: (
+    correctsLogId: string,
+    overrides: Partial<NewFarmingLog> = {},
+  ): Partial<NewFarmingLog> => ({
+    actionType: FarmingActionType.CORRECTION,
+    description: "Đính chính thông số ghi nhận trước đó",
+    correctsLogId,
+    ...overrides,
+  }),
+};
+
+/**
  * Inserts a minimal append-only farming log row linked to a season for testing delete guards.
  *
  * @param db Drizzle database client.
@@ -297,27 +371,10 @@ export async function createMinimalFarmingLogForSeason(
   seasonId: string,
   staffId?: string,
 ): Promise<FarmingLog> {
-  const resolvedStaffId =
-    staffId ??
-    (
-      await createUser(db, {
-        role: UserRole.FARM_STAFF,
-      })
-    ).id;
-
-  const [log] = await db
-    .insert(farmingLogs)
-    .values({
-      seasonId,
-      staffId: resolvedStaffId,
-      actionType: FarmingActionType.SOIL_TESTING,
-      description: "Kiểm tra đất đầu vụ",
-    })
-    .returning();
-
-  if (!log) {
-    throw new Error("Failed to create FarmingLog entity in test factory");
-  }
-
-  return log;
+  return createFarmingLog(db, {
+    seasonId,
+    staffId,
+    actionType: FarmingActionType.SOIL_TESTING,
+    description: "Kiểm tra đất đầu vụ",
+  });
 }
