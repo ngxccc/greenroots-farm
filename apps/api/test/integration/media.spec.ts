@@ -220,6 +220,16 @@ describe("Media Module Integration", () => {
           fileSizeBytes: 2048,
         })
         .expect(400);
+
+      await request(app.getHttpServer())
+        .post("/api/v1/media/upload-signature")
+        .set(adminHeader)
+        .send({
+          folder: "products",
+          resourceType: "video",
+          fileSizeBytes: 2048,
+        })
+        .expect(400);
     });
 
     it("should reject with 422 Unprocessable Entity when image exceeds 5MB", async () => {

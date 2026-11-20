@@ -49,6 +49,7 @@ export type MediaResourceType = (typeof MEDIA_RESOURCE_TYPES)[number];
 export const IMAGE_ONLY_MEDIA_FOLDERS: readonly MediaFolder[] = [
   "plots",
   "farms",
+  "products",
 ];
 
 export interface CloudinarySignatureResult {
