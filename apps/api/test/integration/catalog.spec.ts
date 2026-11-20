@@ -10,12 +10,14 @@ import request from "supertest";
 import { type INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { eq, sql } from "drizzle-orm";
-import { API_ERROR_CODES, UserRole } from "@greenroots/shared";
+import { API_ERROR_CODES, UserRole, WasteLogStatus } from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
 import type { ApiResponse } from "@/common/utils/api-response.util";
-import { categories, products } from "@/database/schemas";
+import { batches, categories, products, wasteLogs } from "@/database/schemas";
+import { ProductsService } from "@/modules/catalog/products.service";
 import {
+  BatchMother,
   CategoryMother,
   createBatch,
   createCategory,
@@ -48,6 +50,7 @@ describe("Catalog Integration", () => {
 
   let customerHeader: { Authorization: string };
   let farmStaffHeader: { Authorization: string };
+  let farmStaffUserId: string;
   let salesHeader: { Authorization: string };
   let adminHeader: { Authorization: string };
   let superAdminHeader: { Authorization: string };
@@ -81,6 +84,7 @@ describe("Catalog Integration", () => {
 
     customerHeader = customerSession.authHeader;
     farmStaffHeader = farmStaffSession.authHeader;
+    farmStaffUserId = farmStaffSession.user.id;
     salesHeader = salesSession.authHeader;
     adminHeader = adminSession.authHeader;
     superAdminHeader = superAdminSession.authHeader;
@@ -484,6 +488,264 @@ describe("Catalog Integration", () => {
         .get("/api/v1/products?minPriceVnd=50000&maxPriceVnd=30000")
         .expect(400);
     });
+
+    it("aggregates sellable in_stock and near_expiry batches while excluding expired, sold_out, pending waste, and hidden products", async () => {
+      // Invariant: INV-PROD-3, INV-PROD-5
+      const activeCat = await createCategory(setup.db, CategoryMother.root());
+      const inactiveCat = await createCategory(
+        setup.db,
+        CategoryMother.inactive({ slug: "inactive-cat-stock" }),
+      );
+      const deletedCat = await createCategory(
+        setup.db,
+        CategoryMother.softDeleted({ slug: "deleted-cat-stock" }),
+      );
+
+      const tomato = await createProduct(
+        setup.db,
+        ProductMother.vietGapMarkdown({
+          categoryId: activeCat.id,
+          slug: "ca-chua-ton-kho",
+        }),
+      );
+      const zeroBatchProduct = await createProduct(
+        setup.db,
+        ProductMother.usdaOrganic({
+          categoryId: activeCat.id,
+          slug: "cai-bo-xoi-khong-lo",
+        }),
+      );
+      const onlyExpiredProduct = await createProduct(setup.db, {
+        categoryId: activeCat.id,
+        slug: "xa-lach-het-han",
+      });
+      const inactiveProduct = await createProduct(
+        setup.db,
+        ProductMother.inactive({
+          categoryId: activeCat.id,
+          slug: "cu-cai-tam-an",
+        }),
+      );
+      const inactiveCategoryProduct = await createProduct(setup.db, {
+        categoryId: inactiveCat.id,
+        slug: "su-hao-danh-muc-an",
+      });
+      const softDeletedProduct = await createProduct(
+        setup.db,
+        ProductMother.softDeleted({
+          categoryId: activeCat.id,
+          slug: "ca-rot-da-xoa",
+        }),
+      );
+      const deletedCategoryProduct = await createProduct(setup.db, {
+        categoryId: deletedCat.id,
+        slug: "bau-danh-muc-da-xoa",
+      });
+
+      const nowMs = Date.now();
+      // Sellable: in_stock (12.50) + near_expiry (3.25) = 15.75
+      const tomatoInStockBatch = await createBatch(
+        setup.db,
+        BatchMother.inStock({
+          productId: tomato.id,
+          initialQuantity: "20.00",
+          availableQuantity: "12.50",
+        }),
+      );
+      await createBatch(
+        setup.db,
+        BatchMother.nearExpiry({
+          productId: tomato.id,
+          initialQuantity: "10.00",
+          availableQuantity: "3.25",
+        }),
+      );
+      // Pending approval waste log must NOT deduct availableQuantity until approved (EDGE-6)
+      await setup.db.insert(wasteLogs).values({
+        batchId: tomatoInStockBatch.id,
+        reportedBy: farmStaffUserId,
+        discardedQuantity: "2.00",
+        reason: "Dập nhẹ chờ duyệt",
+        mediaUrls: [validProductImageUrl("waste-pending.webp")],
+        status: WasteLogStatus.PENDING_APPROVAL,
+      });
+      // Excluded: sold_out, expired status, and pre-cron past-expirationDate batches
+      await createBatch(
+        setup.db,
+        BatchMother.soldOut({
+          productId: tomato.id,
+          initialQuantity: "5.00",
+        }),
+      );
+      await createBatch(
+        setup.db,
+        BatchMother.expired({
+          productId: tomato.id,
+          initialQuantity: "8.00",
+          availableQuantity: "8.00",
+        }),
+      );
+      await createBatch(
+        setup.db,
+        BatchMother.inStock({
+          productId: tomato.id,
+          initialQuantity: "6.00",
+          availableQuantity: "6.00",
+          harvestDate: new Date(nowMs - 48 * 60 * 60 * 1000),
+          expirationDate: new Date(nowMs - 1000),
+        }),
+      );
+      await createBatch(
+        setup.db,
+        BatchMother.nearExpiry({
+          productId: tomato.id,
+          initialQuantity: "4.00",
+          availableQuantity: "4.00",
+          harvestDate: new Date(nowMs - 48 * 60 * 60 * 1000),
+          expirationDate: new Date(nowMs - 1000),
+        }),
+      );
+
+      // Product with only expired batch remains readable with availableQuantity 0
+      await createBatch(
+        setup.db,
+        BatchMother.expired({
+          productId: onlyExpiredProduct.id,
+          initialQuantity: "5.00",
+          availableQuantity: "5.00",
+        }),
+      );
+
+      // Live batches on inactive/soft-deleted products or categories remain hidden publicly (EDGE-7)
+      await Promise.all([
+        createBatch(
+          setup.db,
+          BatchMother.inStock({
+            productId: inactiveProduct.id,
+            initialQuantity: "5.00",
+            availableQuantity: "5.00",
+          }),
+        ),
+        createBatch(
+          setup.db,
+          BatchMother.inStock({
+            productId: inactiveCategoryProduct.id,
+            initialQuantity: "6.00",
+            availableQuantity: "6.00",
+          }),
+        ),
+        createBatch(
+          setup.db,
+          BatchMother.inStock({
+            productId: softDeletedProduct.id,
+            initialQuantity: "9.00",
+            availableQuantity: "9.00",
+          }),
+        ),
+        createBatch(
+          setup.db,
+          BatchMother.inStock({
+            productId: deletedCategoryProduct.id,
+            initialQuantity: "7.00",
+            availableQuantity: "7.00",
+          }),
+        ),
+      ]);
+
+      const listRes = await request(app.getHttpServer())
+        .get("/api/v1/products")
+        .expect(200);
+      const listItems = (listRes.body as ApiResponse<ProductSchema[]>).data;
+      const bySlug = new Map(listItems.map((item) => [item.slug, item]));
+
+      expect(bySlug.get(tomato.slug)?.availableQuantity).toBe(15.75);
+      expect(bySlug.get(zeroBatchProduct.slug)?.availableQuantity).toBe(0);
+      expect(bySlug.get(onlyExpiredProduct.slug)?.availableQuantity).toBe(0);
+      expect(bySlug.has(inactiveProduct.slug)).toBe(false);
+      expect(bySlug.has(inactiveCategoryProduct.slug)).toBe(false);
+      expect(bySlug.has(softDeletedProduct.slug)).toBe(false);
+      expect(bySlug.has(deletedCategoryProduct.slug)).toBe(false);
+
+      const tomatoDetailRes = await request(app.getHttpServer())
+        .get(`/api/v1/products/${tomato.slug}`)
+        .expect(200);
+      expect(
+        (tomatoDetailRes.body as ApiResponse<ProductSchema>).data
+          .availableQuantity,
+      ).toBe(15.75);
+
+      const zeroDetailRes = await request(app.getHttpServer())
+        .get(`/api/v1/products/${zeroBatchProduct.slug}`)
+        .expect(200);
+      expect(
+        (zeroDetailRes.body as ApiResponse<ProductSchema>).data
+          .availableQuantity,
+      ).toBe(0);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${inactiveProduct.slug}`)
+        .expect(404);
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${inactiveCategoryProduct.slug}`)
+        .expect(404);
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${softDeletedProduct.slug}`)
+        .expect(404);
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${deletedCategoryProduct.slug}`)
+        .expect(404);
+
+      // Admin endpoints also exclude soft-deleted products/categories even with sellable batches
+      const adminListRes = await request(app.getHttpServer())
+        .get("/api/v1/admin/products")
+        .set(salesHeader)
+        .expect(200);
+      const adminSlugs = new Set(
+        (adminListRes.body as ApiResponse<ProductSchema[]>).data.map(
+          (item) => item.slug,
+        ),
+      );
+      expect(adminSlugs.has(softDeletedProduct.slug)).toBe(false);
+      expect(adminSlugs.has(deletedCategoryProduct.slug)).toBe(false);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/admin/products/${softDeletedProduct.id}`)
+        .set(salesHeader)
+        .expect(404);
+      await request(app.getHttpServer())
+        .get(`/api/v1/admin/products/${deletedCategoryProduct.id}`)
+        .set(salesHeader)
+        .expect(404);
+    });
+
+    it("excludes a batch whose expiration_date equals NOW() exactly", async () => {
+      // Invariant: INV-PROD-3
+      const cat = await createCategory(setup.db, CategoryMother.root());
+      const product = await createProduct(setup.db, {
+        categoryId: cat.id,
+        slug: "ca-chua-dung-han-now",
+      });
+
+      await setup.db.transaction(async (tx) => {
+        const boundaryBatch = await createBatch(
+          tx,
+          BatchMother.inStock({
+            productId: product.id,
+            initialQuantity: "10.00",
+            availableQuantity: "10.00",
+          }),
+        );
+
+        await tx
+          .update(batches)
+          .set({ expirationDate: sql`NOW()` })
+          .where(eq(batches.id, boundaryBatch.id));
+
+        const txService = new ProductsService(tx);
+        const result = await txService.getPublicProductBySlug(product.slug);
+        expect(result.availableQuantity).toBe(0);
+      });
+    });
   });
 
   describe("GET /api/v1/admin/products and mutations POST / PATCH / DELETE /api/v1/products", () => {
@@ -607,6 +869,7 @@ describe("Catalog Integration", () => {
       const created = (createRes.body as ApiResponse<ProductSchema>).data;
       expect(created.salePriceVnd).toBe(32000);
       expect(created.imageUrls).toEqual([img]);
+      expect(created.availableQuantity).toBe(0);
 
       // Admin reads inactive product by list & :id (while rejecting unauthorized roles)
       await request(app.getHttpServer())
@@ -688,6 +951,62 @@ describe("Catalog Integration", () => {
           basePriceVnd: 42000,
         })
         .expect(201);
+    });
+
+    it("exposes live availableQuantity on admin product reads and PATCH responses", async () => {
+      // Invariant: INV-PROD-3
+      const cat = await createCategory(setup.db, CategoryMother.root());
+      const product = await createProduct(
+        setup.db,
+        ProductMother.inactive({
+          categoryId: cat.id,
+          slug: "bi-do-ton-kho-admin",
+        }),
+      );
+
+      await createBatch(
+        setup.db,
+        BatchMother.inStock({
+          productId: product.id,
+          initialQuantity: "30.00",
+          availableQuantity: "25.00",
+        }),
+      );
+      await createBatch(
+        setup.db,
+        BatchMother.expired({
+          productId: product.id,
+          initialQuantity: "10.00",
+          availableQuantity: "10.00",
+        }),
+      );
+
+      const adminListRes = await request(app.getHttpServer())
+        .get("/api/v1/admin/products?isActive=false")
+        .set(salesHeader)
+        .expect(200);
+      const listMatch = (
+        adminListRes.body as ApiResponse<ProductSchema[]>
+      ).data.find((item) => item.id === product.id);
+      expect(listMatch?.availableQuantity).toBe(25);
+
+      const adminDetailRes = await request(app.getHttpServer())
+        .get(`/api/v1/admin/products/${product.id}`)
+        .set(adminHeader)
+        .expect(200);
+      expect(
+        (adminDetailRes.body as ApiResponse<ProductSchema>).data
+          .availableQuantity,
+      ).toBe(25);
+
+      const patchRes = await request(app.getHttpServer())
+        .patch(`/api/v1/products/${product.id}`)
+        .set(adminHeader)
+        .send({ name: "Bí đỏ hữu cơ (cập nhật)" })
+        .expect(200);
+      expect(
+        (patchRes.body as ApiResponse<ProductSchema>).data.availableQuantity,
+      ).toBe(25);
     });
   });
 
