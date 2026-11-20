@@ -59,6 +59,7 @@ export const API_ERROR_CODES = {
   STAFF_ROLE_INVALID: "STAFF_ROLE_INVALID",
   FARM_NOT_FOUND: "FARM_NOT_FOUND",
   FARM_PAYMENT_METHOD_REQUIRED: "FARM_PAYMENT_METHOD_REQUIRED",
+  FARM_FLASH_SALE_CONFIG_INVALID: "FARM_FLASH_SALE_CONFIG_INVALID",
   PLOT_NOT_FOUND: "PLOT_NOT_FOUND",
   PLOT_CODE_ALREADY_EXISTS: "PLOT_CODE_ALREADY_EXISTS",
   PLOT_HAS_ACTIVE_SEASONS: "PLOT_HAS_ACTIVE_SEASONS",
@@ -68,6 +69,9 @@ export const API_ERROR_CODES = {
   SEASON_PLOT_ACTIVE_CONFLICT: "SEASON_PLOT_ACTIVE_CONFLICT",
   SEASON_NOT_DELETABLE: "SEASON_NOT_DELETABLE",
   BATCH_NOT_FOUND: "BATCH_NOT_FOUND",
+  BATCH_SEASON_STATUS_INVALID: "BATCH_SEASON_STATUS_INVALID",
+  BATCH_HARVEST_DATE_INVALID: "BATCH_HARVEST_DATE_INVALID",
+  BATCH_EXPIRED_AT_INTAKE: "BATCH_EXPIRED_AT_INTAKE",
   CATEGORY_NOT_FOUND: "CATEGORY_NOT_FOUND",
   CATEGORY_SLUG_ALREADY_EXISTS: "CATEGORY_SLUG_ALREADY_EXISTS",
   CATEGORY_NAME_ALREADY_EXISTS: "CATEGORY_NAME_ALREADY_EXISTS",
@@ -179,6 +183,8 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Không tìm thấy cấu hình nông trại trong hệ thống.",
   [API_ERROR_CODES.FARM_PAYMENT_METHOD_REQUIRED]:
     "Phải bật ít nhất một phương thức thanh toán (PayOS hoặc COD).",
+  [API_ERROR_CODES.FARM_FLASH_SALE_CONFIG_INVALID]:
+    "Cấu hình ngưỡng giờ flash sale của nông trại không hợp lệ.",
   [API_ERROR_CODES.PLOT_NOT_FOUND]: "Không tìm thấy lô đất yêu cầu.",
   [API_ERROR_CODES.PLOT_CODE_ALREADY_EXISTS]:
     "Mã lô đất này đã tồn tại trên một lô đất đang hoạt động.",
@@ -195,6 +201,12 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Chỉ có thể xóa mùa vụ đang lập kế hoạch và chưa phát sinh lô hàng hoặc nhật ký canh tác.",
   [API_ERROR_CODES.BATCH_NOT_FOUND]:
     "Không tìm thấy lô nông sản với mã truy xuất yêu cầu.",
+  [API_ERROR_CODES.BATCH_SEASON_STATUS_INVALID]:
+    "Chỉ có thể nhập lô từ mùa vụ đang canh tác hoặc đã thu hoạch.",
+  [API_ERROR_CODES.BATCH_HARVEST_DATE_INVALID]:
+    "Thời điểm thu hoạch không được vượt quá hiện tại và phải từ ngày bắt đầu mùa vụ.",
+  [API_ERROR_CODES.BATCH_EXPIRED_AT_INTAKE]:
+    "Lô nông sản đã hết hạn sử dụng so với thời điểm hiện tại.",
   [API_ERROR_CODES.CATEGORY_NOT_FOUND]:
     "Không tìm thấy danh mục sản phẩm yêu cầu.",
   [API_ERROR_CODES.CATEGORY_SLUG_ALREADY_EXISTS]:
