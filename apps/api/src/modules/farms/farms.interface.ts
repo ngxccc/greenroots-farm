@@ -1,4 +1,4 @@
-import { SeasonStatus } from "@greenroots/shared";
+import { FarmingActionType, SeasonStatus } from "@greenroots/shared";
 
 /**
  * Compile-time constants and types for the Farms Module.
@@ -62,4 +62,36 @@ export const SEASON_ALLOWED_TRANSITIONS: Record<
   [SeasonStatus.ACTIVE]: [SeasonStatus.HARVESTED],
   [SeasonStatus.HARVESTED]: [SeasonStatus.COMPLETED],
   [SeasonStatus.COMPLETED]: [],
+});
+
+/**
+ * Whitelisted sort expressions for `GET /api/v1/seasons/:id/logs`.
+ */
+export const FARMING_LOG_SORT_OPTIONS = [
+  "loggedAt:desc",
+  "loggedAt:asc",
+] as const;
+
+/**
+ * Union of supported sort query strings for the farming logs listing endpoint.
+ */
+export type FarmingLogSortOption = (typeof FARMING_LOG_SORT_OPTIONS)[number];
+
+const ALL_FARMING_ACTION_TYPES: readonly FarmingActionType[] =
+  Object.values(FarmingActionType);
+
+/**
+ * Allowed farming action types per persisted cultivation season status.
+ */
+export const SEASON_ALLOWED_FARMING_ACTIONS: Record<
+  SeasonStatus,
+  readonly FarmingActionType[]
+> = Object.freeze({
+  [SeasonStatus.PLANNING]: [
+    FarmingActionType.SOIL_TESTING,
+    FarmingActionType.CORRECTION,
+  ],
+  [SeasonStatus.ACTIVE]: ALL_FARMING_ACTION_TYPES,
+  [SeasonStatus.HARVESTED]: ALL_FARMING_ACTION_TYPES,
+  [SeasonStatus.COMPLETED]: [FarmingActionType.CORRECTION],
 });
