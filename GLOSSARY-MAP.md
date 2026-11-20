@@ -42,6 +42,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0025-catalog-pricing-hierarchy-and-visibility-boundary.md` — Catalog `sale_price` vs `#34` Flash Sale separation, two-level category hierarchy with soft-delete locks, public vs admin visibility boundary, and image-only `products` media scope.
 - `docs/adr/0026-batch-intake-timestamptz-and-hsd-threshold.md` — Batch `timestamptz` harvest/expiration timestamps (partially superseding ADR-0024), server-generated `batchCode` with `23505` retry, `products -> seasons` `FOR SHARE` intake locking, idempotent intake, and prod fail-closed `FarmSettings` HSD threshold.
 - `docs/adr/0027-live-product-stock-aggregation-and-sellable-batch-index.md` — Live uncached product `availableQuantity` scalar subquery aggregation, unified `ProductDto`, and `batches_sellable_stock_idx` partial index.
+- `docs/adr/0028-batch-qr-label-origin-and-payload-contract.md` — Fail-closed `STOREFRONT_URL` origin normalization, dynamic `traceUrl` construction, deterministic `labelPayload` contract, lifecycle-agnostic label read, and deprecation of `batches.qrCodeUrl` (`#102`).
 
 ### Context-Scoped Decisions
 
