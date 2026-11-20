@@ -1,13 +1,13 @@
 import {
   boolean,
   check,
-  date,
   index,
   integer,
   jsonb,
   numeric,
   snakeCase,
   text,
+  timestamp,
   uniqueIndex,
   uuid,
   varchar,
@@ -103,8 +103,8 @@ export const batches = snakeCase.table(
     productId: uuid()
       .notNull()
       .references(() => products.id, { onDelete: "restrict" }),
-    harvestDate: date().notNull(),
-    expirationDate: date().notNull(),
+    harvestDate: timestamp({ withTimezone: true, mode: "date" }).notNull(),
+    expirationDate: timestamp({ withTimezone: true, mode: "date" }).notNull(),
     initialQuantity: numeric({ precision: 10, scale: 2 }).notNull(),
     availableQuantity: numeric({ precision: 10, scale: 2 }).notNull(),
     qrCodeUrl: text(),
@@ -120,8 +120,20 @@ export const batches = snakeCase.table(
       sql`${table.initialQuantity} >= 0`,
     ),
     check(
+      "batches_initial_quantity_positive",
+      sql`${table.initialQuantity} > 0`,
+    ),
+    check(
       "batches_available_quantity_non_negative",
       sql`${table.availableQuantity} >= 0`,
+    ),
+    check(
+      "batches_available_lte_initial",
+      sql`${table.availableQuantity} <= ${table.initialQuantity}`,
+    ),
+    check(
+      "batches_expiration_after_harvest",
+      sql`${table.expirationDate} > ${table.harvestDate}`,
     ),
   ],
 );

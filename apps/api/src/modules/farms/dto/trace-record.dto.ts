@@ -27,8 +27,8 @@ export const batchCodeParamSchema = z
 export const traceBatchSummarySchema = z.object({
   id: zUuidV7(),
   batchCode: z.string(),
-  harvestDate: zIsoDate(),
-  expirationDate: zIsoDate(),
+  harvestDate: z.iso.datetime(),
+  expirationDate: z.iso.datetime(),
   status: z.enum(BatchStatus),
 });
 

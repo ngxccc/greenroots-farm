@@ -26,18 +26,18 @@ export function seedTimestamp(
 
 /** Relative calendar dates used by the demo dataset. */
 export const SEED_DATES = {
-  tomatoHarvest: seedDate(-8),
-  tomatoExpiry: seedDate(6),
-  spinachHarvest: seedDate(-5),
-  spinachExpiry: seedDate(3),
-  lettuceHarvest: seedDate(-4),
-  lettuceExpiry: seedDate(2),
   subscriptionStart: seedDate(-1),
   subscriptionEnd: seedDate(27),
 } as const;
 
 /** Relative timestamps used by the demo dataset. */
 export const SEED_TIMESTAMPS = {
+  tomatoHarvest: seedTimestamp(-8, 21, 0),
+  tomatoExpiry: seedTimestamp(6, 21, 0),
+  spinachHarvest: seedTimestamp(-5, 21, 0),
+  spinachExpiry: seedTimestamp(3, 21, 0),
+  lettuceHarvest: seedTimestamp(-4, 21, 0),
+  lettuceExpiry: seedTimestamp(2, 21, 0),
   farmingSeeding: seedTimestamp(-72, 1, 30),
   farmingHarvest: seedTimestamp(-8, 23, 0),
   subscriptionPaidAt: seedTimestamp(-1, 3, 15),

@@ -231,8 +231,8 @@ export class TraceService {
       batch: {
         id: provenance.batch.id,
         batchCode: provenance.batch.batchCode,
-        harvestDate: provenance.batch.harvestDate,
-        expirationDate: provenance.batch.expirationDate,
+        harvestDate: provenance.batch.harvestDate.toISOString(),
+        expirationDate: provenance.batch.expirationDate.toISOString(),
         status: provenance.batch.status,
       },
       product: {

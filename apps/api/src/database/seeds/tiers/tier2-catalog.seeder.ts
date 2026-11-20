@@ -17,7 +17,7 @@ import {
   wasteLogs,
 } from "@/database/schemas";
 import { SEED_IDS } from "../constants/seed-ids.constant";
-import { SEED_DATES, SEED_TIMESTAMPS } from "../constants/seed-dates.constant";
+import { SEED_TIMESTAMPS } from "../constants/seed-dates.constant";
 
 interface Tier2Result {
   plots: number;
@@ -193,8 +193,8 @@ export async function seedTier2Catalog(db: DrizzleDB): Promise<Tier2Result> {
         batchCode: "BATCH-2026-TOM-01",
         seasonId: SEED_IDS.seasonTomato,
         productId: SEED_IDS.productCherryTomato,
-        harvestDate: SEED_DATES.tomatoHarvest,
-        expirationDate: SEED_DATES.tomatoExpiry,
+        harvestDate: SEED_TIMESTAMPS.tomatoHarvest,
+        expirationDate: SEED_TIMESTAMPS.tomatoExpiry,
         initialQuantity: "50.00",
         availableQuantity: "45.00",
         qrCodeUrl: "https://greenroots.farm/trace/BATCH-2026-TOM-01",
@@ -205,8 +205,8 @@ export async function seedTier2Catalog(db: DrizzleDB): Promise<Tier2Result> {
         batchCode: "BATCH-2026-SPN-01",
         seasonId: SEED_IDS.seasonSpinach,
         productId: SEED_IDS.productSpinach,
-        harvestDate: SEED_DATES.spinachHarvest,
-        expirationDate: SEED_DATES.spinachExpiry,
+        harvestDate: SEED_TIMESTAMPS.spinachHarvest,
+        expirationDate: SEED_TIMESTAMPS.spinachExpiry,
         initialQuantity: "30.00",
         availableQuantity: "29.00",
         qrCodeUrl: "https://greenroots.farm/trace/BATCH-2026-SPN-01",
@@ -217,8 +217,8 @@ export async function seedTier2Catalog(db: DrizzleDB): Promise<Tier2Result> {
         batchCode: "BATCH-2026-LET-01",
         seasonId: SEED_IDS.seasonSpinach,
         productId: SEED_IDS.productLettuce,
-        harvestDate: SEED_DATES.lettuceHarvest,
-        expirationDate: SEED_DATES.lettuceExpiry,
+        harvestDate: SEED_TIMESTAMPS.lettuceHarvest,
+        expirationDate: SEED_TIMESTAMPS.lettuceExpiry,
         initialQuantity: "25.00",
         availableQuantity: "25.00",
         qrCodeUrl: "https://greenroots.farm/trace/BATCH-2026-LET-01",

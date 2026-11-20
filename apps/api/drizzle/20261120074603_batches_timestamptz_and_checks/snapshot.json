@@ -1,0 +1,130 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8eef91da-afe2-422b-a8ba-39a8ffff50a2",
+  "prevIds": ["4d098181-508c-4017-afdd-d86ad15f7892"],
+  "footprints": [
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "batches", "harvest_date"],
+      "writes": [
+        "s|colprop|public.batches.harvest_date.type",
+        "s|colprop|public.batches.harvest_date.default"
+      ],
+      "reads": [
+        "n|tbl|public.batches",
+        "n|sch|public",
+        "n|col|public.batches.harvest_date"
+      ],
+      "sqlHash": "64b161d5940cbe7c"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "batches", "expiration_date"],
+      "writes": [
+        "s|colprop|public.batches.expiration_date.type",
+        "s|colprop|public.batches.expiration_date.default"
+      ],
+      "reads": [
+        "n|tbl|public.batches",
+        "n|sch|public",
+        "n|col|public.batches.expiration_date"
+      ],
+      "sqlHash": "27870679fe499d45"
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "batches"],
+      "writes": [
+        "s|ck|public.batches.batches_initial_quantity_positive",
+        "n|ck|public.batches.batches_initial_quantity_positive",
+        "e|ck|public.batches.batches_initial_quantity_positive",
+        "n|con|public.batches.batches_initial_quantity_positive"
+      ],
+      "reads": [
+        "n|tbl|public.batches",
+        "n|sch|public",
+        "n|col|public.batches.initial_quantity"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "batches"],
+      "writes": [
+        "s|ck|public.batches.batches_available_lte_initial",
+        "n|ck|public.batches.batches_available_lte_initial",
+        "e|ck|public.batches.batches_available_lte_initial",
+        "n|con|public.batches.batches_available_lte_initial"
+      ],
+      "reads": [
+        "n|tbl|public.batches",
+        "n|sch|public",
+        "n|col|public.batches.available_quantity",
+        "n|col|public.batches.initial_quantity"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "batches"],
+      "writes": [
+        "s|ck|public.batches.batches_expiration_after_harvest",
+        "n|ck|public.batches.batches_expiration_after_harvest",
+        "e|ck|public.batches.batches_expiration_after_harvest",
+        "n|con|public.batches.batches_expiration_after_harvest"
+      ],
+      "reads": [
+        "n|tbl|public.batches",
+        "n|sch|public",
+        "n|col|public.batches.expiration_date",
+        "n|col|public.batches.harvest_date"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "batches",
+        "name": "batches_initial_quantity_positive",
+        "value": "\"initial_quantity\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "batches",
+        "name": "batches_available_lte_initial",
+        "value": "\"available_quantity\" <= \"initial_quantity\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "batches",
+        "name": "batches_expiration_after_harvest",
+        "value": "\"expiration_date\" > \"harvest_date\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"batches\",\"harvest_date\"]",
+      "set": {
+        "type": "timestamp with time zone"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"batches\",\"expiration_date\"]",
+      "set": {
+        "type": "timestamp with time zone"
+      }
+    }
+  ]
+}
