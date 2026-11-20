@@ -67,6 +67,7 @@ export const API_ERROR_CODES = {
   SEASON_INVALID_DATE_RANGE: "SEASON_INVALID_DATE_RANGE",
   SEASON_PLOT_ACTIVE_CONFLICT: "SEASON_PLOT_ACTIVE_CONFLICT",
   SEASON_NOT_DELETABLE: "SEASON_NOT_DELETABLE",
+  BATCH_NOT_FOUND: "BATCH_NOT_FOUND",
 
   // Persistence, Concurrency & Database Violations
   CONFLICT_RECORD: "CONFLICT_RECORD",
@@ -183,6 +184,8 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Lô đất này đã có một mùa vụ đang canh tác.",
   [API_ERROR_CODES.SEASON_NOT_DELETABLE]:
     "Chỉ có thể xóa mùa vụ đang lập kế hoạch và chưa phát sinh lô hàng hoặc nhật ký canh tác.",
+  [API_ERROR_CODES.BATCH_NOT_FOUND]:
+    "Không tìm thấy lô nông sản với mã truy xuất yêu cầu.",
 
   // Persistence & Database
   [API_ERROR_CODES.CONFLICT_RECORD]: "Dữ liệu này đã tồn tại trong hệ thống.",
