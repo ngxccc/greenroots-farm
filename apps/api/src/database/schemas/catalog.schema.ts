@@ -61,8 +61,11 @@ export const products = snakeCase.table(
     slug: varchar({ length: 255 }).notNull(),
     description: text(),
     basePrice: integer().notNull(),
+    salePrice: integer(),
     unit: varchar({ length: 50 }).default("kg").notNull(),
     imageUrls: jsonb().$type<ProductImageUrls>(),
+    isVietGap: boolean().default(false).notNull(),
+    isUsda: boolean().default(false).notNull(),
     isSubscriptionEligible: boolean().default(true).notNull(),
     isActive: boolean().default(true).notNull(),
   },
@@ -71,7 +74,21 @@ export const products = snakeCase.table(
       .on(table.slug)
       .where(sql`${table.deletedAt} IS NULL`),
     index("products_category_id_idx").on(table.categoryId),
+    index("products_public_active_idx")
+      .on(table.categoryId, table.createdAt)
+      .where(sql`${table.deletedAt} IS NULL AND ${table.isActive} = true`),
+    index("products_effective_price_idx")
+      .on(sql`COALESCE(${table.salePrice}, ${table.basePrice})`)
+      .where(sql`${table.deletedAt} IS NULL AND ${table.isActive} = true`),
     check("products_base_price_non_negative", sql`${table.basePrice} >= 0`),
+    check(
+      "products_sale_price_non_negative",
+      sql`${table.salePrice} IS NULL OR ${table.salePrice} >= 0`,
+    ),
+    check(
+      "products_sale_price_lte_base_price",
+      sql`${table.salePrice} IS NULL OR ${table.salePrice} <= ${table.basePrice}`,
+    ),
   ],
 );
 

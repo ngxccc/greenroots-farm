@@ -1,0 +1,232 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "4d098181-508c-4017-afdd-d86ad15f7892",
+  "prevIds": ["9753f99d-2552-478f-91d8-1501ad64d0a8"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "products", "sale_price"],
+      "writes": [
+        "s|col|public.products.sale_price",
+        "n|col|public.products.sale_price",
+        "e|col|public.products.sale_price"
+      ],
+      "reads": ["n|tbl|public.products", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "products", "is_viet_gap"],
+      "writes": [
+        "s|col|public.products.is_viet_gap",
+        "n|col|public.products.is_viet_gap",
+        "e|col|public.products.is_viet_gap"
+      ],
+      "reads": ["n|tbl|public.products", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "products", "is_usda"],
+      "writes": [
+        "s|col|public.products.is_usda",
+        "n|col|public.products.is_usda",
+        "e|col|public.products.is_usda"
+      ],
+      "reads": ["n|tbl|public.products", "n|sch|public"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "products",
+        "products_public_active_idx"
+      ],
+      "writes": [
+        "s|idx|public.products_public_active_idx",
+        "n|idx|public.products_public_active_idx",
+        "e|idx|public.products_public_active_idx",
+        "n|rel|public.products_public_active_idx"
+      ],
+      "reads": [
+        "n|tbl|public.products",
+        "n|sch|public",
+        "n|col|public.products.category_id",
+        "n|col|public.products.created_at"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "products",
+        "products_effective_price_idx"
+      ],
+      "writes": [
+        "s|idx|public.products_effective_price_idx",
+        "n|idx|public.products_effective_price_idx",
+        "e|idx|public.products_effective_price_idx",
+        "n|rel|public.products_effective_price_idx"
+      ],
+      "reads": ["n|tbl|public.products", "n|sch|public"]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "products"],
+      "writes": [
+        "s|ck|public.products.products_sale_price_non_negative",
+        "n|ck|public.products.products_sale_price_non_negative",
+        "e|ck|public.products.products_sale_price_non_negative",
+        "n|con|public.products.products_sale_price_non_negative"
+      ],
+      "reads": [
+        "n|tbl|public.products",
+        "n|sch|public",
+        "n|col|public.products.sale_price"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "products"],
+      "writes": [
+        "s|ck|public.products.products_sale_price_lte_base_price",
+        "n|ck|public.products.products_sale_price_lte_base_price",
+        "e|ck|public.products.products_sale_price_lte_base_price",
+        "n|con|public.products.products_sale_price_lte_base_price"
+      ],
+      "reads": [
+        "n|tbl|public.products",
+        "n|sch|public",
+        "n|col|public.products.sale_price",
+        "n|col|public.products.base_price"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "products",
+        "name": "sale_price",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "products",
+        "name": "is_viet_gap",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "products",
+        "name": "is_usda",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "products",
+        "name": "products_public_active_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "category_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "created_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"deleted_at\" IS NULL AND \"is_active\" = true",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "products",
+        "name": "products_effective_price_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "COALESCE(\"sale_price\", \"base_price\")",
+            "isExpression": true,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"deleted_at\" IS NULL AND \"is_active\" = true",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "products",
+        "name": "products_sale_price_non_negative",
+        "value": "\"sale_price\" IS NULL OR \"sale_price\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "products",
+        "name": "products_sale_price_lte_base_price",
+        "value": "\"sale_price\" IS NULL OR \"sale_price\" <= \"base_price\"",
+        "entityType": "checks"
+      }
+    }
+  ]
+}
