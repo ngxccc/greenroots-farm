@@ -190,8 +190,8 @@ describe("Traceability Integration", () => {
       expect(body.data.batch).toEqual({
         id: batch.id,
         batchCode: "BATCH-2026-TOM-01",
-        harvestDate: batch.harvestDate,
-        expirationDate: batch.expirationDate,
+        harvestDate: batch.harvestDate.toISOString(),
+        expirationDate: batch.expirationDate.toISOString(),
         status: BatchStatus.IN_STOCK,
       });
       expect(body.data.product.unit).toBe("kg");

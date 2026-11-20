@@ -273,14 +273,15 @@ export async function createBatch(
     productId = product.id;
   }
 
+  const nowMs = Date.now();
   const [batch] = await db
     .insert(batches)
     .values({
       batchCode: `BATCH-${uid.toUpperCase()}`,
       seasonId,
       productId,
-      harvestDate: "2026-11-15",
-      expirationDate: "2026-11-22",
+      harvestDate: new Date(nowMs - 2 * 24 * 60 * 60 * 1000),
+      expirationDate: new Date(nowMs + 5 * 24 * 60 * 60 * 1000),
       initialQuantity: "10.00",
       availableQuantity: "10.00",
       ...overrides,
@@ -299,16 +300,26 @@ export async function createBatch(
  */
 export const BatchMother = {
   /** Standard in-stock harvested batch. */
-  inStock: (overrides: Partial<NewBatch> = {}): Partial<NewBatch> => ({
-    status: BatchStatus.IN_STOCK,
-    ...overrides,
-  }),
+  inStock: (overrides: Partial<NewBatch> = {}): Partial<NewBatch> => {
+    const nowMs = Date.now();
+    return {
+      status: BatchStatus.IN_STOCK,
+      harvestDate: new Date(nowMs - 24 * 60 * 60 * 1000),
+      expirationDate: new Date(nowMs + 5 * 24 * 60 * 60 * 1000),
+      ...overrides,
+    };
+  },
 
-  /** Near-expiry batch eligible for flash sale. */
-  nearExpiry: (overrides: Partial<NewBatch> = {}): Partial<NewBatch> => ({
-    status: BatchStatus.NEAR_EXPIRY,
-    ...overrides,
-  }),
+  /** Near-expiry batch eligible for flash sale (< 48h remaining). */
+  nearExpiry: (overrides: Partial<NewBatch> = {}): Partial<NewBatch> => {
+    const nowMs = Date.now();
+    return {
+      status: BatchStatus.NEAR_EXPIRY,
+      harvestDate: new Date(nowMs - 48 * 60 * 60 * 1000),
+      expirationDate: new Date(nowMs + 24 * 60 * 60 * 1000),
+      ...overrides,
+    };
+  },
 
   /** Depleted batch still traceable via packaging QR code. */
   soldOut: (overrides: Partial<NewBatch> = {}): Partial<NewBatch> => ({
@@ -318,10 +329,15 @@ export const BatchMother = {
   }),
 
   /** Expired batch still traceable via packaging QR code. */
-  expired: (overrides: Partial<NewBatch> = {}): Partial<NewBatch> => ({
-    status: BatchStatus.EXPIRED,
-    ...overrides,
-  }),
+  expired: (overrides: Partial<NewBatch> = {}): Partial<NewBatch> => {
+    const nowMs = Date.now();
+    return {
+      status: BatchStatus.EXPIRED,
+      harvestDate: new Date(nowMs - 5 * 24 * 60 * 60 * 1000),
+      expirationDate: new Date(nowMs - 24 * 60 * 60 * 1000),
+      ...overrides,
+    };
+  },
 };
 
 /**

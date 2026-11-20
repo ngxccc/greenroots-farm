@@ -24,8 +24,8 @@ describe("TraceService", () => {
     batch: {
       id: batchId,
       batchCode: "BATCH-2026-TOM-01",
-      harvestDate: "2026-11-10",
-      expirationDate: "2026-11-19",
+      harvestDate: new Date("2026-11-10T04:00:00+07:00"),
+      expirationDate: new Date("2026-11-19T04:00:00+07:00"),
       status: BatchStatus.IN_STOCK,
     },
     product: {

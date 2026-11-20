@@ -28,8 +28,8 @@ describe("TraceCacheService", () => {
     batch: {
       id: "019fa8bc-8f4d-7000-b366-e691f45cfb90",
       batchCode: "BATCH-2026-TOM-01",
-      harvestDate: "2026-11-10",
-      expirationDate: "2026-11-19",
+      harvestDate: "2026-11-09T21:00:00.000Z",
+      expirationDate: "2026-11-18T21:00:00.000Z",
       status: BatchStatus.IN_STOCK,
     },
     product: {
