@@ -95,11 +95,14 @@ export const MESSAGES = {
       "Cannot combine parentId with rootOnly=true.",
     DUPLICATE_PRODUCT_IMAGE_URL:
       "Duplicate product image URLs are not allowed.",
+    INVALID_QUANTITY_PRECISION: "Quantity may have at most 2 decimal places.",
   },
   FARMS: {
     NOT_FOUND: "Farm settings record not found.",
     PAYMENT_METHOD_REQUIRED:
       "At least one payment method (PayOS or COD) must remain enabled.",
+    FLASH_SALE_CONFIG_INVALID:
+      "Farm flash-sale hoursThreshold must be configured as a positive number.",
   },
   PLOTS: {
     NOT_FOUND: "Plot not found.",
@@ -132,6 +135,15 @@ export const MESSAGES = {
   },
   BATCHES: {
     NOT_FOUND: "Batch not found.",
+    SEASON_STATUS_INVALID:
+      "Batches can only be created for active or harvested seasons.",
+    HARVEST_BEFORE_SEASON_START:
+      "Harvest date cannot precede the season start date.",
+    HARVEST_IN_FUTURE: "Harvest timestamp cannot be in the future.",
+    EXPIRED_AT_INTAKE:
+      "Computed expiration timestamp must be strictly in the future at intake.",
+    CODE_GENERATION_EXHAUSTED:
+      "Failed to allocate a unique batch code after maximum retries.",
   },
   CATEGORIES: {
     NOT_FOUND: "Category not found.",
