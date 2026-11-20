@@ -38,6 +38,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0021-farm-settings-cache-and-plot-lifecycle.md` — Farm settings singleton cache consistency, Cloudinary image URL boundary, and plot soft-delete active-season guard.
 - `docs/adr/0022-season-lifecycle-and-plot-allocation.md` — Season schema contract, single active season per plot, phase-scoped mutability, and farming-log delete guard.
 - `docs/adr/0023-append-only-farming-logs-corrections-and-media-boundary.md` — Same-season correction linkage, append-only DAG semantics, phase-scoped action gate, `FOR SHARE` lock ordering, and Cloudinary `farming_logs` media boundary.
+- `docs/adr/0024-public-qr-traceability-cache-and-projection-boundary.md` — Public QR traceability route, hybrid `farm_ver` epoch + batch `UNLINK` Redis cache-aside, singleflight coalescing, redacted provenance projection, and latest-200 log cap.
 
 ### Context-Scoped Decisions
 
