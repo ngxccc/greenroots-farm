@@ -19,7 +19,7 @@ Issue #21 (parent epic #8; Storefront consumer #45 `SF-03`; QR label producer #8
 - **Target modules**: `apps/api/src/modules/farms`, `apps/api/src/database/schemas`, `apps/api/src/common/constants`, `packages/shared`
 - **Issue**: #21 (parent epic #8); downstream consumers: #45 (`SF-03`), #83; future invalidation callers: #82, #84, #34
 - **Spec**: `docs/design/qr-traceability-formal-spec.md`
-- **Related**: ADR-0003, ADR-0007, ADR-0011, ADR-0012, ADR-0013, ADR-0021, ADR-0022, ADR-0023
+- **Related**: ADR-0003, ADR-0007, ADR-0011, ADR-0012, ADR-0013, ADR-0021, ADR-0022, ADR-0023, ADR-0026 (partially supersedes `batches.harvestDate` / `batches.expirationDate` column and DTO format from `date` `YYYY-MM-DD` to `timestamptz` ISO-8601)
 
 ## Decision
 
@@ -33,7 +33,7 @@ Issue #21 (parent epic #8; Storefront consumer #45 `SF-03`; QR label producer #8
   - After commit in `FarmingLogsService.createLog`, `SeasonsService.updateSeason`, and `PlotsService.updatePlot`, look up linked `batchCode` values via `batches.seasonId` and pipeline `UNLINK trace:batch:v1:<CODE>` + `SET trace:batch:invalidated_at:<CODE> <nowMs> EX 60` (`TraceCacheService.invalidateByBatchCodes`). Backfill on `GET` uses an atomic Lua script checking `NX` and `invalidated_at` (matching ADR-0021).
   - Never perform eager write-through cache rebuilds on write paths. Always fail open to PostgreSQL when Redis is unavailable, coalesce concurrent cache-miss reads per `:batchCode` in-process via a singleflight `Map`, and emit `Cache-Control: no-cache` on HTTP responses so browsers/proxies do not hold uninvalidatable copies.
 - **Nested, schema-faithful, redacted public projection (`TraceRecordDto`)**:
-  - Replace the flat storefront mock shape with a nested closed projection containing `batch` (`batchCode`, `harvestDate` and `expirationDate` as `YYYY-MM-DD` strings matching `catalog.schema.ts`, `status`), `product` (`id`, `name`, `slug`, `unit`, `imageUrls`), `farm` (`name`, `legalName`, `tagline`, `address`, `certificationUrl`), `plot` (`plotCode`, `name`, `areaSqm`, nullable `soilTestResult`, nullable `waterTestResult`), `season` (`id`, `seasonName`, `startDate`, `expectedHarvestDate`, `status`), and cultivation timeline (`farmingLogs`, `totalLogCount`, `logsTruncated`).
+  - Replace the flat storefront mock shape with a nested closed projection containing `batch` (`batchCode`, `harvestDate` and `expirationDate` — originally `YYYY-MM-DD` strings, subsequently migrated to `timestamptz` / ISO-8601 datetimes under ADR-0026, `status`), `product` (`id`, `name`, `slug`, `unit`, `imageUrls`), `farm` (`name`, `legalName`, `tagline`, `address`, `certificationUrl`), `plot` (`plotCode`, `name`, `areaSqm`, nullable `soilTestResult`, nullable `waterTestResult`), `season` (`id`, `seasonName`, `startDate`, `expectedHarvestDate`, `status`), and cultivation timeline (`farmingLogs`, `totalLogCount`, `logsTruncated`).
   - Omit `initialQuantity`, `availableQuantity`, `waste_logs`, `farms.bankInfo`, `farms.emails`, `farms.hotlines`, `farms.shippingConfig`, `farms.flashSaleConfig`, `deletedAt`, and staff `users.id` UUIDs—projecting only `recordedByName` (`users.fullName`) on logs and reverse corrections.
   - Allow trace reads even if the historical `plot` or `product` was subsequently soft-deleted (`deletedAt IS NOT NULL`), consistent with ADR-0022.
   - Return `farmingLogs` sorted chronologically ascending (`loggedAt:asc`, `id:asc`), capped at **200** entries; when `totalLogCount > 200`, select the **latest 200** entries (`DESC LIMIT 200`, then reverse to `ASC`) with `logsTruncated: true`, while still hydrating `correctsLog` and `correctedBy` linkage from PostgreSQL.
@@ -46,7 +46,7 @@ Issue #21 (parent epic #8; Storefront consumer #45 `SF-03`; QR label producer #8
 - `harvested` and `completed` seasons reflect new `correction` logs immediately upon `POST /seasons/:id/logs` commit without waiting for TTL expiry, and farm certification updates invalidate all cached traces in `O(1)`.
 - Concurrent `FOR SHARE` log writes and `PATCH /farms/settings` updates cannot pin stale snapshots in Redis or trigger multi-table rebuild storms.
 - Public consumers never receive fabricated `0`/`false` lab readings when `soilTestResult` or `waterTestResult` is `null`, and historical QR labels on sold packaging keep resolving after product or plot soft deletion.
-- Keeping `batches.expirationDate` as `YYYY-MM-DD` and exposing `TraceCacheService` avoids schema churn in `catalog.schema.ts` while giving `#82`, `#34`, and `#84` a clean invalidation seam.
+- Keeping `batches.expirationDate` as `YYYY-MM-DD` during #21 exposed `TraceCacheService` without immediate schema churn while leaving `#82` free to upgrade `batches` timestamps to `timestamptz` cleanly in ADR-0026.
 
 ## Negative Consequences / Risks
 

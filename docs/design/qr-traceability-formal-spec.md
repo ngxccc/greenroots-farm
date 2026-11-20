@@ -156,7 +156,7 @@ sequenceDiagram
    - Validates against `BATCH_CODE_REGEX = /^[A-Z0-9][A-Z0-9_-]{2,99}$/` (`3..100` chars; alphanumeric start; allows hyphens and underscores without hardcoding a `BATCH-YYYY-` prefix so future `#82` code generation stays compatible).
    - Malformed path parameters reject with `400 VALIDATION_FAILED`.
 2. **`TraceRecordDto`** (closed projection; internal wrapper stores `farmVersion` separately in Redis and strips it before HTTP serialization):
-   - `batch`: `{ id (UUID), batchCode, harvestDate (YYYY-MM-DD), expirationDate (YYYY-MM-DD), status (BatchStatus) }` — excludes `initialQuantity`, `availableQuantity`, `qrCodeUrl`.
+   - `batch`: `{ id (UUID), batchCode, harvestDate (ISO datetime per ADR-0026; originally YYYY-MM-DD under ADR-0024), expirationDate (ISO datetime per ADR-0026; originally YYYY-MM-DD under ADR-0024), status (BatchStatus) }` — excludes `initialQuantity`, `availableQuantity`, `qrCodeUrl`.
    - `product`: `{ id (UUID), name, slug, unit, imageUrls (string[], normalized from null to []) }` — excludes `basePrice`, `isActive`, `deletedAt`.
    - `farm`: `{ name, legalName, tagline (string | null), address, certificationUrl (string | null) }` — excludes `id`, `taxId`, `latitude`, `longitude`, `hotlines`, `emails`, `workingHours`, `bankInfo`, `shippingConfig`, `flashSaleConfig`, `isPayosEnabled`, `isCodEnabled`.
    - `plot`: `{ plotCode, name, areaSqm (number), soilTestResult (SoilTestResult | null), waterTestResult (WaterTestResult | null) }` — excludes `id`, `farmId`, `deletedAt`.
