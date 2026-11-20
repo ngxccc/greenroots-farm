@@ -8,6 +8,76 @@ import {
 
 const DEV_JWT_ACCESS_SECRET = "greenroots-dev-access-secret-min-32-chars";
 
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "::1", "[::1]", "0.0.0.0"]);
+
+/**
+ * Checks whether a URL hostname targets a loopback or unspecified local address.
+ *
+ * @param hostname Parsed URL hostname.
+ * @returns `true` when the hostname is a loopback or `.localhost` address.
+ */
+export function isLoopbackHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return (
+    LOOPBACK_HOSTNAMES.has(normalized) ||
+    normalized.startsWith("127.") ||
+    normalized.endsWith(".localhost")
+  );
+}
+
+/**
+ * Validates and normalizes `STOREFRONT_URL` to a canonical HTTP(S) origin without
+ * credentials, trailing slashes, path prefixes, query strings, or hash fragments.
+ *
+ * @param rawUrl Raw URL string supplied from environment configuration.
+ * @returns Normalized URL origin (`scheme://host[:port]`).
+ */
+export function normalizeStorefrontOrigin(rawUrl: string): string {
+  const parsed = new URL(rawUrl);
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("STOREFRONT_URL must use http or https protocol");
+  }
+  if (
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    throw new Error(
+      "STOREFRONT_URL must be a pure origin without credentials, path, query, or hash",
+    );
+  }
+  return parsed.origin;
+}
+
+/**
+ * Resolves the canonical public storefront origin for link and QR URL generation,
+ * failing closed in production when the origin is non-HTTPS or loopback.
+ *
+ * @param rawUrl Configured `STOREFRONT_URL` string.
+ * @param nodeEnv Active `NODE_ENV` value.
+ * @returns Normalized storefront origin safe for the active environment.
+ */
+export function resolvePublicStorefrontOrigin(
+  rawUrl: string,
+  nodeEnv: string,
+): string {
+  const origin = normalizeStorefrontOrigin(rawUrl);
+  if (nodeEnv === "production") {
+    const parsed = new URL(origin);
+    if (parsed.protocol !== "https:") {
+      throw new Error("STOREFRONT_URL must use https in production");
+    }
+    if (isLoopbackHostname(parsed.hostname)) {
+      throw new Error(
+        "STOREFRONT_URL must not resolve to localhost or a loopback address in production",
+      );
+    }
+  }
+  return origin;
+}
+
 /**
  * Validated process environment for the API process and CLI tooling.
  *
@@ -65,7 +135,24 @@ const envSchema = z.object({
   CORS_ORIGINS: z
     .string()
     .default("http://localhost:3001,http://localhost:3002"),
-  STOREFRONT_URL: z.url().default("http://localhost:3001"),
+  STOREFRONT_URL: z
+    .string()
+    .trim()
+    .default("http://localhost:3001")
+    .transform((val, ctx) => {
+      try {
+        return normalizeStorefrontOrigin(val);
+      } catch (error) {
+        ctx.addIssue({
+          code: "custom",
+          message:
+            error instanceof Error
+              ? error.message
+              : "STOREFRONT_URL must be a valid HTTP(S) origin",
+        });
+        return z.NEVER;
+      }
+    }),
   BACKOFFICE_URL: z.url().default("http://localhost:3002"),
 });
 
@@ -120,6 +207,26 @@ export function parseApiEnvironment(
         path: ["CLOUDINARY_API_SECRET"],
         message: "CLOUDINARY_API_SECRET is required in production",
       });
+    }
+    if (!rawEnv["STOREFRONT_URL"]?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["STOREFRONT_URL"],
+        message: "STOREFRONT_URL must be explicitly configured in production",
+      });
+    } else if (URL.canParse(data.STOREFRONT_URL)) {
+      try {
+        resolvePublicStorefrontOrigin(data.STOREFRONT_URL, data.NODE_ENV);
+      } catch (error) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["STOREFRONT_URL"],
+          message:
+            error instanceof Error
+              ? error.message
+              : "STOREFRONT_URL is invalid for production",
+        });
+      }
     }
   });
 

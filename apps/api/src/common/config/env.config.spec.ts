@@ -7,17 +7,20 @@ const PROD_BASE_ENV = {
   CLOUDINARY_CLOUD_NAME: "prod-cloud",
   CLOUDINARY_API_KEY: "prod-key",
   CLOUDINARY_API_SECRET: "prod-secret",
+  STOREFRONT_URL: "https://greenroots.farm",
 } as const;
 
 describe("parseApiEnvironment", () => {
-  it("defaults Cloudinary dev values in non-production environments", () => {
+  it("defaults Cloudinary dev values and STOREFRONT_URL in non-production environments", () => {
     const devEnv = parseApiEnvironment({ NODE_ENV: "development" });
     expect(devEnv.CLOUDINARY_CLOUD_NAME).toBe("greenroots-dev");
     expect(devEnv.CLOUDINARY_API_KEY).toBe("mock-api-key");
+    expect(devEnv.STOREFRONT_URL).toBe("http://localhost:3001");
 
     const testEnv = parseApiEnvironment({ NODE_ENV: "test" });
     expect(testEnv.CLOUDINARY_CLOUD_NAME).toBe("greenroots-dev");
     expect(testEnv.CLOUDINARY_API_KEY).toBe("mock-api-key");
+    expect(testEnv.STOREFRONT_URL).toBe("http://localhost:3001");
   });
 
   it("fails fast in production when JWT_ACCESS_SECRET is missing or uses the dev default", () => {
@@ -68,9 +71,65 @@ describe("parseApiEnvironment", () => {
     ).toThrow(/CLOUDINARY_API_SECRET/);
   });
 
+  it("normalizes trailing slashes and rejects non-origin STOREFRONT_URL values", () => {
+    const devEnv = parseApiEnvironment({
+      NODE_ENV: "development",
+      STOREFRONT_URL: "http://localhost:3001/",
+    });
+    expect(devEnv.STOREFRONT_URL).toBe("http://localhost:3001");
+
+    for (const invalidUrl of [
+      "https://greenroots.farm/shop",
+      "https://greenroots.farm?foo=bar",
+      "https://greenroots.farm#top",
+      "https://user:pass@greenroots.farm",
+      "ftp://greenroots.farm",
+    ]) {
+      expect(() =>
+        parseApiEnvironment({
+          NODE_ENV: "development",
+          STOREFRONT_URL: invalidUrl,
+        }),
+      ).toThrow(/STOREFRONT_URL/);
+    }
+  });
+
+  it("fails fast in production when STOREFRONT_URL is missing, non-HTTPS, or loopback", () => {
+    // Invariant: INV-QR-LABEL-1
+    expect(() =>
+      parseApiEnvironment({
+        ...PROD_BASE_ENV,
+        STOREFRONT_URL: undefined,
+      }),
+    ).toThrow(/STOREFRONT_URL/);
+
+    expect(() =>
+      parseApiEnvironment({
+        ...PROD_BASE_ENV,
+        STOREFRONT_URL: "http://greenroots.farm",
+      }),
+    ).toThrow(/STOREFRONT_URL/);
+
+    for (const loopbackUrl of [
+      "https://localhost:3001",
+      "https://sub.localhost:3001",
+      "https://127.0.0.1:3001",
+      "https://[::1]:3001",
+      "https://0.0.0.0:3001",
+    ]) {
+      expect(() =>
+        parseApiEnvironment({
+          ...PROD_BASE_ENV,
+          STOREFRONT_URL: loopbackUrl,
+        }),
+      ).toThrow(/STOREFRONT_URL/);
+    }
+  });
+
   it("accepts production configuration when required secrets and credentials are provided", () => {
     const prodEnv = parseApiEnvironment({
       ...PROD_BASE_ENV,
+      STOREFRONT_URL: "https://greenroots.farm/",
       MAIL_DRIVER: "resend",
       RESEND_API_KEY: "re_prod_123456",
     });
@@ -78,5 +137,6 @@ describe("parseApiEnvironment", () => {
     expect(prodEnv.CLOUDINARY_API_KEY).toBe("prod-key");
     expect(prodEnv.CLOUDINARY_API_SECRET).toBe("prod-secret");
     expect(prodEnv.RESEND_API_KEY).toBe("re_prod_123456");
+    expect(prodEnv.STOREFRONT_URL).toBe("https://greenroots.farm");
   });
 });
