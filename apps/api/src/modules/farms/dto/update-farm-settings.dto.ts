@@ -2,7 +2,7 @@ import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import {
-  zCloudinaryImageUrl,
+  zCloudinaryMediaUrl,
   zEmail,
   zOptionalTaxId,
   zSanitizedString,
@@ -67,7 +67,9 @@ export const updateFarmSettingsSchema = z
     address: zSanitizedString({ min: 1, max: 500 }).optional(),
     latitude: z.number().min(-90).max(90).optional(),
     longitude: z.number().min(-180).max(180).optional(),
-    certificationUrl: zCloudinaryImageUrl().nullable().optional(),
+    certificationUrl: zCloudinaryMediaUrl({ resourceTypes: ["image"] })
+      .nullable()
+      .optional(),
     hotlines: updateFarmHotlinesSchema.optional(),
     emails: updateFarmEmailsSchema.optional(),
     workingHours: updateFarmWorkingHoursSchema.optional(),

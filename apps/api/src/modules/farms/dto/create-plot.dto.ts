@@ -1,7 +1,7 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import {
-  zCloudinaryImageUrl,
+  zCloudinaryMediaUrl,
   zSanitizedString,
 } from "@/common/schemas/zod-primitives";
 
@@ -27,7 +27,9 @@ export const soilTestResultInputSchema = z
     potassium_ppm: z.number().min(0),
     heavy_metals: heavyMetalsInputSchema,
     tested_at: z.iso.datetime(),
-    certificate_url: zCloudinaryImageUrl().optional(),
+    certificate_url: zCloudinaryMediaUrl({
+      resourceTypes: ["image"],
+    }).optional(),
   })
   .strict();
 
@@ -42,7 +44,9 @@ export const waterTestResultInputSchema = z
     e_coli_cfu_100ml: z.number().min(0),
     heavy_metals_pass: z.boolean(),
     tested_at: z.iso.datetime(),
-    certificate_url: zCloudinaryImageUrl().optional(),
+    certificate_url: zCloudinaryMediaUrl({
+      resourceTypes: ["image"],
+    }).optional(),
   })
   .strict();
 

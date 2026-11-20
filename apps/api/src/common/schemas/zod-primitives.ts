@@ -207,12 +207,25 @@ export function zCoerceDate() {
 }
 
 /**
- * Checks whether a parsed URL targets the configured Cloudinary HTTPS image delivery prefix.
+ * Options restricting Cloudinary delivery URL validation by resource type and upload folder.
+ */
+export interface CloudinaryMediaUrlOptions {
+  readonly resourceTypes: readonly ("image" | "video")[];
+  readonly folder?: string;
+}
+
+/**
+ * Checks whether a parsed URL targets a configured Cloudinary HTTPS delivery prefix
+ * matching the allowed resource types and optional upload folder.
  *
  * @param rawUrl Candidate URL string to inspect.
- * @returns True if the URL uses HTTPS on `res.cloudinary.com` under `/<cloudName>/image/upload/`.
+ * @param options Allowed resource types and optional destination folder constraint.
+ * @returns True if the URL uses HTTPS on `res.cloudinary.com` with a matching upload path.
  */
-export function isCloudinaryImageUrl(rawUrl: string): boolean {
+export function isCloudinaryMediaUrl(
+  rawUrl: string,
+  options: CloudinaryMediaUrlOptions,
+): boolean {
   if (rawUrl.includes("?") || rawUrl.includes("#")) return false;
 
   let parsed: URL;
@@ -222,31 +235,72 @@ export function isCloudinaryImageUrl(rawUrl: string): boolean {
     return false;
   }
 
-  const expectedPrefix = `/${env.CLOUDINARY_CLOUD_NAME}/image/upload/`;
-
   if (parsed.protocol !== "https:") return false;
   if (parsed.hostname !== "res.cloudinary.com") return false;
   if (parsed.port !== "" || parsed.username !== "" || parsed.password !== "") {
     return false;
   }
   if (parsed.search !== "" || parsed.hash !== "") return false;
-  if (!parsed.pathname.startsWith(expectedPrefix)) return false;
-  if (parsed.pathname.length <= expectedPrefix.length) return false;
-  if (parsed.pathname.split("/").includes("..")) return false;
+
+  const matchedPrefix = options.resourceTypes
+    .map((type) => `/${env.CLOUDINARY_CLOUD_NAME}/${type}/upload/`)
+    .find((prefix) => parsed.pathname.startsWith(prefix));
+
+  if (!matchedPrefix) return false;
+
+  const remainder = parsed.pathname.slice(matchedPrefix.length);
+  if (remainder.length === 0) return false;
+
+  const segments = remainder.split("/");
+  for (const segment of segments) {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+      return false;
+    }
+
+    if (
+      decoded === "" ||
+      decoded === "." ||
+      decoded === ".." ||
+      decoded.includes("/") ||
+      decoded.includes("\\") ||
+      /%[0-9a-f]{2}/i.test(decoded)
+    ) {
+      return false;
+    }
+  }
+
+  if (options.folder !== undefined) {
+    const afterVersion = /^v\d+$/.test(segments[0] ?? "")
+      ? segments.slice(1)
+      : segments;
+    if (afterVersion[0] !== options.folder || afterVersion.length < 2) {
+      return false;
+    }
+  }
 
   return true;
 }
 
 /**
- * Builds a Cloudinary HTTPS image URL schema scoped to the active cloud name.
+ * Builds a Cloudinary HTTPS media URL schema scoped to the active cloud name,
+ * allowed resource types, and optional upload folder.
+ *
+ * @param options Allowed resource types and optional folder scope.
+ * @returns Validated URL schema.
  */
-export function zCloudinaryImageUrl() {
+export function zCloudinaryMediaUrl(options: CloudinaryMediaUrlOptions) {
+  const folderSegment = options.folder ? `${options.folder}/` : "";
+  const primaryType = options.resourceTypes[0] ?? "image";
+
   return z
     .string()
     .trim()
     .pipe(z.url({ message: MESSAGES.VALIDATION.INVALID_URL }))
     .check((ctx) => {
-      if (!isCloudinaryImageUrl(ctx.value)) {
+      if (!isCloudinaryMediaUrl(ctx.value, options)) {
         ctx.issues.push({
           code: "invalid_format",
           format: "url",
@@ -256,7 +310,6 @@ export function zCloudinaryImageUrl() {
       }
     })
     .meta({
-      example:
-        "https://res.cloudinary.com/greenroots-dev/image/upload/v1/plots/soil-a1.png",
+      example: `https://res.cloudinary.com/greenroots-dev/${primaryType}/upload/v1/${folderSegment}sample.webp`,
     });
 }

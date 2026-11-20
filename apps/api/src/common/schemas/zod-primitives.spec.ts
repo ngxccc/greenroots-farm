@@ -5,7 +5,7 @@ import { MESSAGES } from "@/common/constants/messages.constant";
 import { formatZodIssue } from "@/common/pipes/zod-validation.pipe";
 import {
   zBooleanString,
-  zCloudinaryImageUrl,
+  zCloudinaryMediaUrl,
   zCoerceDate,
   zEmail,
   zIsoDate,
@@ -199,26 +199,52 @@ describe("Zod Primitives", () => {
     });
   });
 
-  describe("zCloudinaryImageUrl", () => {
-    const schema = zCloudinaryImageUrl();
+  describe("zCloudinaryMediaUrl", () => {
+    const schema = zCloudinaryMediaUrl({
+      folder: "farming_logs",
+      resourceTypes: ["image", "video"],
+    });
+    const imageOnlySchema = zCloudinaryMediaUrl({ resourceTypes: ["image"] });
     const activeCloudName = env.CLOUDINARY_CLOUD_NAME;
 
-    it("accepts HTTPS Cloudinary image delivery URLs for the configured cloud name", () => {
+    it("accepts HTTPS Cloudinary image delivery URLs when restricted to image resource type", () => {
       const validUrl = `  https://res.cloudinary.com/${activeCloudName}/image/upload/v1/plots/soil-a1.png  `;
-      expect(schema.parse(validUrl)).toBe(
+      expect(imageOnlySchema.parse(validUrl)).toBe(
         `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/plots/soil-a1.png`,
       );
+      expect(
+        imageOnlySchema.safeParse(
+          `https://res.cloudinary.com/${activeCloudName}/video/upload/v1/plots/clip.mp4`,
+        ).success,
+      ).toBe(false);
     });
 
-    it("rejects non-HTTPS, external hosts, raw uploads, queries, fragments, and path traversal with INVALID_URL", () => {
+    it("accepts HTTPS Cloudinary image and video URLs inside the farming_logs folder", () => {
+      const imageUrl = `  https://res.cloudinary.com/${activeCloudName}/image/upload/v1700000000/farming_logs/bed-a1.webp  `;
+      const videoUrl = `https://res.cloudinary.com/${activeCloudName}/video/upload/farming_logs/2026/irrigation.mp4`;
+
+      expect(schema.parse(imageUrl)).toBe(
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1700000000/farming_logs/bed-a1.webp`,
+      );
+      expect(schema.parse(videoUrl)).toBe(videoUrl);
+    });
+
+    it("rejects wrong folders, transformation segments, raw uploads, external hosts, and traversal", () => {
       const invalidUrls = [
-        `http://res.cloudinary.com/${activeCloudName}/image/upload/v1/plots/a.png`,
-        `https://evil.example.com/${activeCloudName}/image.png`,
-        `https://res.cloudinary.com/${activeCloudName}/raw/upload/v1/plots/a.pdf`,
-        "https://res.cloudinary.com/other-cloud/image/upload/v1/plots/a.png",
-        `https://res.cloudinary.com/${activeCloudName}/image/upload/../raw/a.png`,
-        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/plots/a.png?foo=bar`,
-        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/plots/a.png#frag`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/products/tomato.png`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/farming_logs/`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/w_500,f_auto/v1/farming_logs/a.png`,
+        `https://res.cloudinary.com/${activeCloudName}/raw/upload/v1/farming_logs/a.pdf`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/farming_logs/../products/a.png`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/farming_logs/%2e%2e/products/a.png`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/farming_logs/%2E%2E/products/a.png`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/farming_logs/%252e%252e/products/a.png`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/farming_logs/a%2fb.png`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/v1/farming_logs/bad%ZZ.png`,
+        `http://res.cloudinary.com/${activeCloudName}/video/upload/v1/farming_logs/a.mp4`,
+        `https://evil.example.com/${activeCloudName}/image/upload/farming_logs/a.png`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/farming_logs/a.png?v=1`,
+        `https://res.cloudinary.com/${activeCloudName}/image/upload/farming_logs/a.png#hash`,
       ];
 
       for (const candidate of invalidUrls) {

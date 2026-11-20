@@ -80,6 +80,7 @@ export const MESSAGES = {
     AT_LEAST_ONE_SEASON_FIELD: "At least one season field must be provided.",
     SEASON_DATE_RANGE_INVALID:
       "Start date must be on or before expected harvest date.",
+    DUPLICATE_MEDIA_URL: "Duplicate media URLs are not allowed.",
   },
   FARMS: {
     NOT_FOUND: "Farm settings record not found.",
@@ -105,6 +106,15 @@ export const MESSAGES = {
     NOT_DELETABLE_STATUS: "Only planning seasons can be deleted.",
     NOT_DELETABLE_BATCHES: "Cannot delete a season that already has batches.",
     NOT_DELETABLE_LOGS: "Cannot delete a season that already has farming logs.",
+  },
+  FARMING_LOGS: {
+    CORRECTION_TARGET_MISSING_OR_CROSS_SEASON:
+      "Correction target log was not found in this season.",
+    CORRECTION_ID_NOT_ALLOWED_FOR_ACTION:
+      "correctsLogId may only be provided when actionType is correction.",
+    SELF_CORRECTION_FORBIDDEN: "A correction log cannot reference itself.",
+    SEASON_STATUS_DISALLOWS_ACTION:
+      "The requested farming action is not allowed in the current season status.",
   },
   ADDRESS: {
     NOT_FOUND: "Address not found.",
