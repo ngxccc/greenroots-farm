@@ -2,11 +2,8 @@ import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { zUuidV7 } from "@/common/schemas/zod-primitives";
-import {
-  BATCH_MAX_QUANTITY,
-  BATCH_MAX_SHELF_LIFE_DAYS,
-  BATCH_MIN_QUANTITY,
-} from "../inventory.interface";
+import { BATCH_MAX_SHELF_LIFE_DAYS } from "../inventory.interface";
+import { zInventoryQuantity } from "./inventory-zod.util";
 
 /**
  * Zod schema for creating a harvested inventory batch (`POST /api/v1/batches`).
@@ -28,16 +25,7 @@ export const createBatchSchema = z
       .max(BATCH_MAX_SHELF_LIFE_DAYS, {
         message: MESSAGES.VALIDATION.MAX_VALUE,
       }),
-    initialQuantity: z
-      .number()
-      .min(BATCH_MIN_QUANTITY, { message: MESSAGES.VALIDATION.MIN_VALUE })
-      .max(BATCH_MAX_QUANTITY, { message: MESSAGES.VALIDATION.MAX_VALUE })
-      .refine(
-        (value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-6,
-        {
-          message: MESSAGES.VALIDATION.INVALID_QUANTITY_PRECISION,
-        },
-      ),
+    initialQuantity: zInventoryQuantity(),
   })
   .strict();
 
