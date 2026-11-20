@@ -1510,6 +1510,7 @@ export interface components {
             description: string | null;
             basePriceVnd: number;
             salePriceVnd: number | null;
+            availableQuantity: number;
             unit: string;
             imageUrls: string[];
             isVietGap: boolean;

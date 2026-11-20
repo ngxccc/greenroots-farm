@@ -11176,6 +11176,10 @@
               }
             ]
           },
+          "availableQuantity": {
+            "type": "number",
+            "minimum": 0
+          },
           "unit": {
             "type": "string"
           },
@@ -11217,6 +11221,7 @@
           "description",
           "basePriceVnd",
           "salePriceVnd",
+          "availableQuantity",
           "unit",
           "imageUrls",
           "isVietGap",
