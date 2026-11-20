@@ -1,0 +1,1 @@
+CREATE INDEX "batches_sellable_stock_idx" ON "batches" ("product_id","expiration_date","available_quantity") WHERE "status" IN ('in_stock', 'near_expiry') AND "available_quantity" > 0;

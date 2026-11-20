@@ -115,6 +115,11 @@ export const batches = snakeCase.table(
     index("batches_season_id_idx").on(table.seasonId),
     index("batches_product_id_idx").on(table.productId),
     index("batches_fefo_outbound_idx").on(table.expirationDate, table.status),
+    index("batches_sellable_stock_idx")
+      .on(table.productId, table.expirationDate, table.availableQuantity)
+      .where(
+        sql`${table.status} IN ('in_stock', 'near_expiry') AND ${table.availableQuantity} > 0`,
+      ),
     check(
       "batches_initial_quantity_non_negative",
       sql`${table.initialQuantity} >= 0`,
