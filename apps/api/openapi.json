@@ -5237,6 +5237,135 @@
         ]
       }
     },
+    "/api/v1/trace/{batchCode}": {
+      "get": {
+        "description": "Returns redacted provenance metadata, environmental lab telemetry, and chronological append-only cultivation logs for a batch code.",
+        "operationId": "TraceController_getByBatchCode_v1",
+        "parameters": [
+          {
+            "name": "batchCode",
+            "required": true,
+            "in": "path",
+            "description": "Batch traceability code (case-insensitive, trimmed)",
+            "schema": {
+              "example": "BATCH-2026-TOM-01",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponseDto"
+                    },
+                    {
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TraceRecordDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (Not Found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/not-found",
+                  "title": "Not Found",
+                  "status": 404,
+                  "detail": "The requested resource could not be found",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get public batch QR traceability record",
+        "tags": [
+          "farms"
+        ]
+      }
+    },
     "/api/v1/media/upload-signature": {
       "post": {
         "description": "Generates an HMAC SHA-256 signature and upload parameters for client-side direct asset uploads to Cloudinary without streaming files through API memory.",
@@ -7380,6 +7509,427 @@
           "description"
         ],
         "additionalProperties": false
+      },
+      "TraceRecordDto": {
+        "type": "object",
+        "properties": {
+          "batch": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+              },
+              "batchCode": {
+                "type": "string"
+              },
+              "harvestDate": {
+                "format": "date",
+                "example": "2026-09-01",
+                "type": "string"
+              },
+              "expirationDate": {
+                "format": "date",
+                "example": "2026-09-01",
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "in_stock",
+                  "near_expiry",
+                  "sold_out",
+                  "expired"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "batchCode",
+              "harvestDate",
+              "expirationDate",
+              "status"
+            ]
+          },
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+              },
+              "name": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "imageUrls": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "slug",
+              "unit",
+              "imageUrls"
+            ]
+          },
+          "farm": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "legalName": {
+                "type": "string"
+              },
+              "tagline": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "address": {
+                "type": "string"
+              },
+              "certificationUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "legalName",
+              "tagline",
+              "address",
+              "certificationUrl"
+            ]
+          },
+          "plot": {
+            "type": "object",
+            "properties": {
+              "plotCode": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "areaSqm": {
+                "type": "number"
+              },
+              "soilTestResult": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "ph": {
+                        "type": "number"
+                      },
+                      "nitrogen_ppm": {
+                        "type": "number"
+                      },
+                      "phosphorus_ppm": {
+                        "type": "number"
+                      },
+                      "potassium_ppm": {
+                        "type": "number"
+                      },
+                      "heavy_metals": {
+                        "type": "object",
+                        "properties": {
+                          "lead_ppm": {
+                            "type": "number"
+                          },
+                          "cadmium_ppm": {
+                            "type": "number"
+                          },
+                          "pass": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "lead_ppm",
+                          "cadmium_ppm",
+                          "pass"
+                        ]
+                      },
+                      "tested_at": {
+                        "type": "string"
+                      },
+                      "certificate_url": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "ph",
+                      "nitrogen_ppm",
+                      "phosphorus_ppm",
+                      "potassium_ppm",
+                      "heavy_metals",
+                      "tested_at"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "waterTestResult": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "ph": {
+                        "type": "number"
+                      },
+                      "ec_ms_cm": {
+                        "type": "number"
+                      },
+                      "dissolved_oxygen_ppm": {
+                        "type": "number"
+                      },
+                      "e_coli_cfu_100ml": {
+                        "type": "number"
+                      },
+                      "heavy_metals_pass": {
+                        "type": "boolean"
+                      },
+                      "tested_at": {
+                        "type": "string"
+                      },
+                      "certificate_url": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "ph",
+                      "ec_ms_cm",
+                      "dissolved_oxygen_ppm",
+                      "e_coli_cfu_100ml",
+                      "heavy_metals_pass",
+                      "tested_at"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "plotCode",
+              "name",
+              "areaSqm",
+              "soilTestResult",
+              "waterTestResult"
+            ]
+          },
+          "season": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+              },
+              "seasonName": {
+                "type": "string"
+              },
+              "startDate": {
+                "format": "date",
+                "example": "2026-09-01",
+                "type": "string"
+              },
+              "expectedHarvestDate": {
+                "format": "date",
+                "example": "2026-09-01",
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "planning",
+                  "active",
+                  "harvested",
+                  "completed"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "seasonName",
+              "startDate",
+              "expectedHarvestDate",
+              "status"
+            ]
+          },
+          "farmingLogs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+                },
+                "actionType": {
+                  "type": "string",
+                  "enum": [
+                    "seeding",
+                    "watering",
+                    "bio_fertilizing",
+                    "weeding",
+                    "pest_control",
+                    "soil_testing",
+                    "harvesting",
+                    "correction"
+                  ]
+                },
+                "description": {
+                  "type": "string"
+                },
+                "mediaUrls": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "recordedByName": {
+                  "type": "string"
+                },
+                "correctsLogId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                      "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "correctsLog": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                          "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+                        },
+                        "actionType": {
+                          "type": "string",
+                          "enum": [
+                            "seeding",
+                            "watering",
+                            "bio_fertilizing",
+                            "weeding",
+                            "pest_control",
+                            "soil_testing",
+                            "harvesting",
+                            "correction"
+                          ]
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "loggedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "actionType",
+                        "description",
+                        "loggedAt"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "correctedBy": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                        "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+                      },
+                      "loggedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      "recordedByName": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "loggedAt",
+                      "recordedByName"
+                    ]
+                  }
+                },
+                "loggedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "id",
+                "actionType",
+                "description",
+                "mediaUrls",
+                "recordedByName",
+                "correctsLogId",
+                "correctsLog",
+                "correctedBy",
+                "loggedAt"
+              ]
+            }
+          },
+          "totalLogCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "logsTruncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "batch",
+          "product",
+          "farm",
+          "plot",
+          "season",
+          "farmingLogs",
+          "totalLogCount",
+          "logsTruncated"
+        ]
       },
       "SignedUploadResponseDto": {
         "type": "object",
