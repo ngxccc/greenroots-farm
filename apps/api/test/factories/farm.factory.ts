@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  BatchStatus,
   BUSINESS_RULES,
   FarmingActionType,
   SeasonStatus,
@@ -18,6 +19,7 @@ import {
   type Batch,
   type Farm,
   type FarmingLog,
+  type NewBatch,
   type NewFarm,
   type NewFarmingLog,
   type NewPlot,
@@ -227,6 +229,102 @@ export const SeasonMother = {
 };
 
 /**
+ * Inserts a batch row, provisioning parent season, category, and product when omitted.
+ *
+ * @param db Drizzle database client.
+ * @param overrides Optional column overrides.
+ * @returns Inserted `batches` row.
+ */
+export async function createBatch(
+  db: DrizzleDB,
+  overrides: Partial<NewBatch> = {},
+): Promise<Batch> {
+  const seasonId = overrides.seasonId ?? (await createSeason(db)).id;
+  const uid = randomUUID().slice(0, 8);
+
+  let productId = overrides.productId;
+  if (!productId) {
+    const [category] = await db
+      .insert(categories)
+      .values({
+        name: `Danh mục ${uid}`,
+        slug: `danh-muc-${uid}`,
+      })
+      .returning();
+
+    if (!category) {
+      throw new Error("Failed to create Category entity in test factory");
+    }
+
+    const [product] = await db
+      .insert(products)
+      .values({
+        categoryId: category.id,
+        name: `Sản phẩm ${uid}`,
+        slug: `san-pham-${uid}`,
+        basePrice: 30000,
+      })
+      .returning();
+
+    if (!product) {
+      throw new Error("Failed to create Product entity in test factory");
+    }
+
+    productId = product.id;
+  }
+
+  const [batch] = await db
+    .insert(batches)
+    .values({
+      batchCode: `BATCH-${uid.toUpperCase()}`,
+      seasonId,
+      productId,
+      harvestDate: "2026-11-15",
+      expirationDate: "2026-11-22",
+      initialQuantity: "10.00",
+      availableQuantity: "10.00",
+      ...overrides,
+    })
+    .returning();
+
+  if (!batch) {
+    throw new Error("Failed to create Batch entity in test factory");
+  }
+
+  return batch;
+}
+
+/**
+ * Named domain presets for batch test fixtures.
+ */
+export const BatchMother = {
+  /** Standard in-stock harvested batch. */
+  inStock: (overrides: Partial<NewBatch> = {}): Partial<NewBatch> => ({
+    status: BatchStatus.IN_STOCK,
+    ...overrides,
+  }),
+
+  /** Near-expiry batch eligible for flash sale. */
+  nearExpiry: (overrides: Partial<NewBatch> = {}): Partial<NewBatch> => ({
+    status: BatchStatus.NEAR_EXPIRY,
+    ...overrides,
+  }),
+
+  /** Depleted batch still traceable via packaging QR code. */
+  soldOut: (overrides: Partial<NewBatch> = {}): Partial<NewBatch> => ({
+    status: BatchStatus.SOLD_OUT,
+    availableQuantity: "0.00",
+    ...overrides,
+  }),
+
+  /** Expired batch still traceable via packaging QR code. */
+  expired: (overrides: Partial<NewBatch> = {}): Partial<NewBatch> => ({
+    status: BatchStatus.EXPIRED,
+    ...overrides,
+  }),
+};
+
+/**
  * Inserts a minimal harvested batch row linked to a season for testing delete guards.
  *
  * @param db Drizzle database client.
@@ -237,52 +335,7 @@ export async function createMinimalBatchForSeason(
   db: DrizzleDB,
   seasonId: string,
 ): Promise<Batch> {
-  const uid = randomUUID().slice(0, 8);
-
-  const [category] = await db
-    .insert(categories)
-    .values({
-      name: `Danh mục ${uid}`,
-      slug: `danh-muc-${uid}`,
-    })
-    .returning();
-
-  if (!category) {
-    throw new Error("Failed to create Category entity in test factory");
-  }
-
-  const [product] = await db
-    .insert(products)
-    .values({
-      categoryId: category.id,
-      name: `Sản phẩm ${uid}`,
-      slug: `san-pham-${uid}`,
-      basePrice: 30000,
-    })
-    .returning();
-
-  if (!product) {
-    throw new Error("Failed to create Product entity in test factory");
-  }
-
-  const [batch] = await db
-    .insert(batches)
-    .values({
-      batchCode: `BATCH-${uid.toUpperCase()}`,
-      seasonId,
-      productId: product.id,
-      harvestDate: "2026-11-15",
-      expirationDate: "2026-11-22",
-      initialQuantity: "10.00",
-      availableQuantity: "10.00",
-    })
-    .returning();
-
-  if (!batch) {
-    throw new Error("Failed to create Batch entity in test factory");
-  }
-
-  return batch;
+  return createBatch(db, { seasonId });
 }
 
 /**
