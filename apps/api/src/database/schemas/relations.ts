@@ -44,7 +44,7 @@ export const schemaRelations = defineRelations(
       addresses: r.many.userAddresses(),
       farmingLogs: r.many.farmingLogs(),
       wasteLogsReported: r.many.wasteLogs({ alias: "reporter" }),
-      wasteLogsApproved: r.many.wasteLogs({ alias: "approver" }),
+      wasteLogsReviewed: r.many.wasteLogs({ alias: "reviewer" }),
       orders: r.many.orders(),
       subscriptions: r.many.subscriptions(),
       complaints: r.many.complaints(),
@@ -181,10 +181,10 @@ export const schemaRelations = defineRelations(
         optional: false,
         alias: "reporter",
       }),
-      approver: r.one.users({
-        from: r.wasteLogs.approvedBy,
+      reviewer: r.one.users({
+        from: r.wasteLogs.reviewedBy,
         to: r.users.id,
-        alias: "approver",
+        alias: "reviewer",
       }),
     },
 

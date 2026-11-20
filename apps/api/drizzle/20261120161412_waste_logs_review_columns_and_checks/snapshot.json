@@ -1,0 +1,222 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "fae2f0da-4825-429b-bc65-f31969f55294",
+  "prevIds": ["1d7cbd0b-196d-4dfd-a2b9-90a2a6d826e6"],
+  "footprints": [
+    {
+      "statementType": "rename_column",
+      "statementTarget": ["column", "public", "waste_logs", "approved_by"],
+      "writes": [
+        "s|col|public.waste_logs.approved_by",
+        "n|col|public.waste_logs.approved_by",
+        "s|col|public.waste_logs.reviewed_by",
+        "n|col|public.waste_logs.reviewed_by"
+      ],
+      "reads": ["n|tbl|public.waste_logs", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "waste_logs", "rejection_reason"],
+      "writes": [
+        "s|col|public.waste_logs.rejection_reason",
+        "n|col|public.waste_logs.rejection_reason",
+        "e|col|public.waste_logs.rejection_reason"
+      ],
+      "reads": ["n|tbl|public.waste_logs", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "waste_logs", "reviewed_at"],
+      "writes": [
+        "s|col|public.waste_logs.reviewed_at",
+        "n|col|public.waste_logs.reviewed_at",
+        "e|col|public.waste_logs.reviewed_at"
+      ],
+      "reads": ["n|tbl|public.waste_logs", "n|sch|public"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "waste_logs",
+        "waste_logs_reported_by_idx"
+      ],
+      "writes": [
+        "s|idx|public.waste_logs_reported_by_idx",
+        "n|idx|public.waste_logs_reported_by_idx",
+        "e|idx|public.waste_logs_reported_by_idx",
+        "n|rel|public.waste_logs_reported_by_idx"
+      ],
+      "reads": [
+        "n|tbl|public.waste_logs",
+        "n|sch|public",
+        "n|col|public.waste_logs.reported_by"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "waste_logs",
+        "waste_logs_reviewed_by_idx"
+      ],
+      "writes": [
+        "s|idx|public.waste_logs_reviewed_by_idx",
+        "n|idx|public.waste_logs_reviewed_by_idx",
+        "e|idx|public.waste_logs_reviewed_by_idx",
+        "n|rel|public.waste_logs_reviewed_by_idx"
+      ],
+      "reads": [
+        "n|tbl|public.waste_logs",
+        "n|sch|public",
+        "n|col|public.waste_logs.reviewed_by"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "waste_logs"],
+      "writes": [
+        "s|ck|public.waste_logs.waste_logs_discarded_quantity_positive",
+        "n|ck|public.waste_logs.waste_logs_discarded_quantity_positive",
+        "e|ck|public.waste_logs.waste_logs_discarded_quantity_positive",
+        "n|con|public.waste_logs.waste_logs_discarded_quantity_positive"
+      ],
+      "reads": [
+        "n|tbl|public.waste_logs",
+        "n|sch|public",
+        "n|col|public.waste_logs.discarded_quantity"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "waste_logs"],
+      "writes": [
+        "s|ck|public.waste_logs.waste_logs_review_state_consistent",
+        "n|ck|public.waste_logs.waste_logs_review_state_consistent",
+        "e|ck|public.waste_logs.waste_logs_review_state_consistent",
+        "n|con|public.waste_logs.waste_logs_review_state_consistent"
+      ],
+      "reads": [
+        "n|tbl|public.waste_logs",
+        "n|sch|public",
+        "n|col|public.waste_logs.status",
+        "n|col|public.waste_logs.reviewed_by",
+        "n|col|public.waste_logs.reviewed_at",
+        "n|col|public.waste_logs.rejection_reason"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "rename",
+      "key": "columns\u0000[\"public\",\"waste_logs\",\"approved_by\"]",
+      "set": {
+        "name": "reviewed_by"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "waste_logs",
+        "name": "rejection_reason",
+        "type": "varchar(500)",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "waste_logs",
+        "name": "reviewed_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "waste_logs",
+        "name": "waste_logs_reported_by_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "reported_by",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "waste_logs",
+        "name": "waste_logs_reviewed_by_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "reviewed_by",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "waste_logs",
+        "name": "waste_logs_discarded_quantity_positive",
+        "value": "\"discarded_quantity\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "waste_logs",
+        "name": "waste_logs_review_state_consistent",
+        "value": "(\n        (\"status\" = 'pending_approval' AND \"reviewed_by\" IS NULL AND \"reviewed_at\" IS NULL AND \"rejection_reason\" IS NULL)\n        OR (\"status\" = 'approved' AND \"reviewed_at\" IS NOT NULL AND \"rejection_reason\" IS NULL)\n        OR (\"status\" = 'rejected' AND \"reviewed_at\" IS NOT NULL AND \"rejection_reason\" IS NOT NULL AND length(btrim(\"rejection_reason\")) > 0)\n      )",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

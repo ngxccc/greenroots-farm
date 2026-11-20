@@ -153,17 +153,33 @@ export const wasteLogs = snakeCase.table(
     reportedBy: uuid()
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
-    approvedBy: uuid().references(() => users.id, { onDelete: "set null" }),
+    reviewedBy: uuid().references(() => users.id, { onDelete: "set null" }),
     discardedQuantity: numeric({ precision: 10, scale: 2 }).notNull(),
     reason: varchar({ length: 255 }).notNull(),
+    rejectionReason: varchar({ length: 500 }),
     mediaUrls: jsonb().$type<WasteLogMediaUrls>().notNull(),
     status: wasteLogStatusEnum()
       .default(WasteLogStatus.PENDING_APPROVAL)
       .notNull(),
+    reviewedAt: timestamp({ withTimezone: true, mode: "date" }),
   },
   (table) => [
     index("waste_logs_batch_id_idx").on(table.batchId),
+    index("waste_logs_reported_by_idx").on(table.reportedBy),
+    index("waste_logs_reviewed_by_idx").on(table.reviewedBy),
     index("waste_logs_status_idx").on(table.status),
+    check(
+      "waste_logs_discarded_quantity_positive",
+      sql`${table.discardedQuantity} > 0`,
+    ),
+    check(
+      "waste_logs_review_state_consistent",
+      sql`(
+        (${table.status} = 'pending_approval' AND ${table.reviewedBy} IS NULL AND ${table.reviewedAt} IS NULL AND ${table.rejectionReason} IS NULL)
+        OR (${table.status} = 'approved' AND ${table.reviewedAt} IS NOT NULL AND ${table.rejectionReason} IS NULL)
+        OR (${table.status} = 'rejected' AND ${table.reviewedAt} IS NOT NULL AND ${table.rejectionReason} IS NOT NULL AND length(btrim(${table.rejectionReason})) > 0)
+      )`,
+    ),
   ],
 );
 

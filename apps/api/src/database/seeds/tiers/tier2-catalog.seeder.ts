@@ -296,7 +296,7 @@ export async function seedTier2Catalog(db: DrizzleDB): Promise<Tier2Result> {
       discardedQuantity: "1.50",
       reason: "Dập nát sau thu hoạch",
       mediaUrls: [
-        "https://res.cloudinary.com/greenroots/waste/tomato-waste-01.webp",
+        "https://res.cloudinary.com/greenroots/image/upload/v1/waste_logs/tomato-waste-01.webp",
       ],
       status: WasteLogStatus.PENDING_APPROVAL,
     })

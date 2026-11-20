@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import { API_ERROR_CODES, UserRole } from "@greenroots/shared";
 import { CloudinaryService } from "./cloudinary.service";
+import { signedUploadSchema } from "./dto/signed-upload.dto";
 import { MEDIA_CONSTRAINTS } from "./media.interface";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { env } from "@/common/config/env.config";
@@ -322,6 +323,16 @@ describe("CloudinaryService", () => {
           );
           expect(superAdminResult.folder).toBe(folder);
         }
+      });
+
+      it("rejects video uploads for image-only waste_logs folder via signedUploadSchema", () => {
+        const result = signedUploadSchema.safeParse({
+          resourceType: "video",
+          fileSizeBytes: 1024,
+          folder: "waste_logs",
+        });
+
+        expect(result.success).toBe(false);
       });
     });
   });

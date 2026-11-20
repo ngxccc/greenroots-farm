@@ -50,6 +50,7 @@ export const IMAGE_ONLY_MEDIA_FOLDERS: readonly MediaFolder[] = [
   "plots",
   "farms",
   "products",
+  "waste_logs",
 ];
 
 export interface CloudinarySignatureResult {

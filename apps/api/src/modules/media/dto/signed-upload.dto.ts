@@ -31,7 +31,7 @@ export const signedUploadSchema = z
     {
       path: ["resourceType"],
       message:
-        "Only image uploads are permitted for plots, farms, and products folders.",
+        "Only image uploads are permitted for plots, farms, products, and waste_logs folders.",
     },
   );
 
