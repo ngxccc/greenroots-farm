@@ -145,6 +145,19 @@ export const MESSAGES = {
     CODE_GENERATION_EXHAUSTED:
       "Failed to allocate a unique batch code after maximum retries.",
   },
+  WASTE_LOGS: {
+    NOT_FOUND: "Waste log not found.",
+    BATCH_NOT_ELIGIBLE:
+      "Cannot propose waste for a batch that is sold out or has no remaining available quantity.",
+    QUANTITY_EXCEEDS_AVAILABLE:
+      "Discarded quantity exceeds available batch stock minus pending waste proposals.",
+    ALREADY_REVIEWED:
+      "This waste log has already been reviewed and cannot be modified.",
+    SELF_REVIEW_FORBIDDEN:
+      "Reporters cannot approve or reject their own waste log proposals.",
+    INSUFFICIENT_STOCK:
+      "Batch available quantity is insufficient to approve this waste write-off.",
+  },
   CATEGORIES: {
     NOT_FOUND: "Category not found.",
     SLUG_ALREADY_EXISTS: "An active category with this slug already exists.",
