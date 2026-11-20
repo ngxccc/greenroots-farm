@@ -5,6 +5,7 @@ import {
   FarmingActionType,
   SeasonStatus,
   UserRole,
+  WasteLogStatus,
 } from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import type { DrizzleDB } from "@/database/database.module";
@@ -16,6 +17,7 @@ import {
   plots,
   products,
   seasons,
+  wasteLogs,
   type Batch,
   type Farm,
   type FarmingLog,
@@ -24,8 +26,10 @@ import {
   type NewFarmingLog,
   type NewPlot,
   type NewSeason,
+  type NewWasteLog,
   type Plot,
   type Season,
+  type WasteLog,
 } from "@/database/schemas";
 import { createUser } from "./user.factory";
 
@@ -447,3 +451,88 @@ export async function createMinimalFarmingLogForSeason(
     description: "Kiểm tra đất đầu vụ",
   });
 }
+
+/**
+ * Inserts a waste log row, provisioning parent batch and reporter user
+ * automatically when omitted.
+ *
+ * @param db Drizzle database client.
+ * @param overrides Optional column overrides.
+ * @returns Inserted `waste_logs` row.
+ */
+export async function createWasteLog(
+  db: DrizzleDB,
+  overrides: Partial<NewWasteLog> = {},
+): Promise<WasteLog> {
+  const uid = randomUUID().slice(0, 8).toLowerCase();
+  const cloudName = env.CLOUDINARY_CLOUD_NAME;
+  const batchId = overrides.batchId ?? (await createBatch(db)).id;
+  const reportedBy =
+    overrides.reportedBy ??
+    (
+      await createUser(db, {
+        role: UserRole.FARM_STAFF,
+      })
+    ).id;
+
+  const [log] = await db
+    .insert(wasteLogs)
+    .values({
+      discardedQuantity: "1.50",
+      reason: `Hỏng do bảo quản lạnh ${uid}`,
+      mediaUrls: [
+        `https://res.cloudinary.com/${cloudName}/image/upload/v1/waste_logs/${uid}.webp`,
+      ],
+      status: WasteLogStatus.PENDING_APPROVAL,
+      ...overrides,
+      batchId,
+      reportedBy,
+    })
+    .returning();
+
+  if (!log) {
+    throw new Error("Failed to create WasteLog entity in test factory");
+  }
+
+  return log;
+}
+
+/**
+ * Named domain presets for two-step waste write-off test fixtures.
+ */
+export const WasteLogMother = {
+  /** Pending waste proposal awaiting administrative review. */
+  pendingApproval: (
+    overrides: Partial<NewWasteLog> = {},
+  ): Partial<NewWasteLog> => ({
+    status: WasteLogStatus.PENDING_APPROVAL,
+    reviewedBy: null,
+    reviewedAt: null,
+    rejectionReason: null,
+    ...overrides,
+  }),
+
+  /** Approved waste write-off finalized by an independent reviewer. */
+  approved: (
+    reviewedBy: string | null,
+    overrides: Partial<NewWasteLog> = {},
+  ): Partial<NewWasteLog> => ({
+    status: WasteLogStatus.APPROVED,
+    reviewedBy,
+    reviewedAt: new Date(),
+    rejectionReason: null,
+    ...overrides,
+  }),
+
+  /** Rejected waste proposal with mandatory administrative reason. */
+  rejected: (
+    reviewedBy: string | null,
+    overrides: Partial<NewWasteLog> = {},
+  ): Partial<NewWasteLog> => ({
+    status: WasteLogStatus.REJECTED,
+    reviewedBy,
+    reviewedAt: new Date(),
+    rejectionReason: "Ảnh cân đo mờ, vui lòng chụp lại rõ số kg.",
+    ...overrides,
+  }),
+};
