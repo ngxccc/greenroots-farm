@@ -1,0 +1,1 @@
+CREATE INDEX "batches_season_id_idx" ON "batches" ("season_id");

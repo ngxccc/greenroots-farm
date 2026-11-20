@@ -1,0 +1,55 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "9753f99d-2552-478f-91d8-1501ad64d0a8",
+  "prevIds": ["c515e5ff-23da-4ba2-8aac-9e5a5dd89fa4"],
+  "footprints": [
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "batches",
+        "batches_season_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.batches_season_id_idx",
+        "n|idx|public.batches_season_id_idx",
+        "e|idx|public.batches_season_id_idx",
+        "n|rel|public.batches_season_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.batches",
+        "n|sch|public",
+        "n|col|public.batches.season_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "batches",
+        "name": "batches_season_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "season_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    }
+  ]
+}

@@ -95,6 +95,7 @@ export const batches = snakeCase.table(
   },
   (table) => [
     uniqueIndex("batches_batch_code_uidx").on(table.batchCode),
+    index("batches_season_id_idx").on(table.seasonId),
     index("batches_product_id_idx").on(table.productId),
     index("batches_fefo_outbound_idx").on(table.expirationDate, table.status),
     check(
