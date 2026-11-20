@@ -25,6 +25,7 @@ import {
   FARM_SETTINGS_INVALIDATED_AT_KEY,
   FARM_SETTINGS_INVALIDATION_MARKER_TTL_SECONDS,
 } from "./farms.interface";
+import { TraceCacheService } from "./trace-cache.service";
 
 const FARM_SETTINGS_COLUMNS = {
   id: farms.id,
@@ -78,6 +79,7 @@ export class FarmSettingsService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDB,
     private readonly redisService: RedisService,
+    private readonly traceCacheService: TraceCacheService,
   ) {}
 
   /**
@@ -156,6 +158,7 @@ export class FarmSettingsService {
     });
 
     await this.invalidateCache();
+    await this.traceCacheService.rotateFarmVersion();
     return this.toFarmSettings(updatedRow);
   }
 

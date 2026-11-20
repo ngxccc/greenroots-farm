@@ -35,6 +35,7 @@ import type {
 } from "./dto";
 import type { PlotSortOption } from "./farms.interface";
 import { escapeLikePattern } from "./farms.utils";
+import { TraceCacheService } from "./trace-cache.service";
 
 const PLOT_COLUMNS = {
   id: plots.id,
@@ -73,6 +74,7 @@ export class PlotsService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDB,
+    private readonly traceCacheService: TraceCacheService,
   ) {}
 
   /**
@@ -217,6 +219,7 @@ export class PlotsService {
         });
       }
 
+      await this.traceCacheService.invalidateByPlotId(plotId);
       return this.toPlotProjection(updated);
     } catch (error) {
       this.rethrowPlotConflict(error);

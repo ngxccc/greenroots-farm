@@ -10,4 +10,6 @@ export const FARMS_ROUTES = Object.freeze({
   SEASONS_BASE: "seasons",
   SEASON_BY_ID: ":id",
   SEASON_LOGS_BASE: "seasons/:id/logs",
+  TRACE_BASE: "trace",
+  TRACE_BY_BATCH_CODE: ":batchCode",
 } as const);

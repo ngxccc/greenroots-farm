@@ -8,6 +8,7 @@ export * from "./list-plots-query.dto";
 export * from "./list-seasons-query.dto";
 export * from "./plot.dto";
 export * from "./season.dto";
+export * from "./trace-record.dto";
 export * from "./update-farm-settings.dto";
 export * from "./update-plot.dto";
 export * from "./update-season.dto";

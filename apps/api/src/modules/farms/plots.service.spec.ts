@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { API_ERROR_CODES } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { createMockDb } from "../../../test/mocks/mock-database";
 import { PlotsService } from "./plots.service";
+import type { TraceCacheService } from "./trace-cache.service";
 
 type MockDb = ReturnType<typeof createMockDb> & {
   setSelectResult: (result: unknown[]) => void;
@@ -29,10 +30,19 @@ describe("PlotsService", () => {
 
   let service: PlotsService;
   let mockDb: MockDb;
+  let mockTraceCacheService: {
+    invalidateByPlotId: ReturnType<typeof mock>;
+  };
 
   beforeEach(() => {
     mockDb = createMockDb() as unknown as MockDb;
-    service = new PlotsService(mockDb);
+    mockTraceCacheService = {
+      invalidateByPlotId: mock(() => Promise.resolve()),
+    };
+    service = new PlotsService(
+      mockDb,
+      mockTraceCacheService as unknown as TraceCacheService,
+    );
   });
 
   describe("listPlots", () => {

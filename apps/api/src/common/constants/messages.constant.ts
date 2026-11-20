@@ -81,6 +81,8 @@ export const MESSAGES = {
     SEASON_DATE_RANGE_INVALID:
       "Start date must be on or before expected harvest date.",
     DUPLICATE_MEDIA_URL: "Duplicate media URLs are not allowed.",
+    INVALID_BATCH_CODE:
+      "Batch code must be 3 to 100 alphanumeric, hyphen, or underscore characters.",
   },
   FARMS: {
     NOT_FOUND: "Farm settings record not found.",
@@ -115,6 +117,9 @@ export const MESSAGES = {
     SELF_CORRECTION_FORBIDDEN: "A correction log cannot reference itself.",
     SEASON_STATUS_DISALLOWS_ACTION:
       "The requested farming action is not allowed in the current season status.",
+  },
+  BATCHES: {
+    NOT_FOUND: "Batch not found.",
   },
   ADDRESS: {
     NOT_FOUND: "Address not found.",

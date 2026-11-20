@@ -7,9 +7,13 @@ import { PlotsController } from "./plots.controller";
 import { PlotsService } from "./plots.service";
 import { SeasonsController } from "./seasons.controller";
 import { SeasonsService } from "./seasons.service";
+import { TraceCacheService } from "./trace-cache.service";
+import { TraceController } from "./trace.controller";
+import { TraceService } from "./trace.service";
 
 /**
- * Farms module hosting singleton farm settings, cultivation plots, seasons, and append-only farming logs.
+ * Farms module hosting singleton farm settings, cultivation plots, seasons,
+ * append-only farming logs, and public QR batch traceability.
  */
 @Module({
   controllers: [
@@ -17,18 +21,22 @@ import { SeasonsService } from "./seasons.service";
     PlotsController,
     SeasonsController,
     FarmingLogsController,
+    TraceController,
   ],
   providers: [
     FarmSettingsService,
     PlotsService,
     SeasonsService,
     FarmingLogsService,
+    TraceCacheService,
+    TraceService,
   ],
   exports: [
     FarmSettingsService,
     PlotsService,
     SeasonsService,
     FarmingLogsService,
+    TraceCacheService,
   ],
 })
 export class FarmsModule {}

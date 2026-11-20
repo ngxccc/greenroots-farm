@@ -29,6 +29,7 @@ import {
   SEASON_ALLOWED_FARMING_ACTIONS,
   type FarmingLogSortOption,
 } from "./farms.interface";
+import { TraceCacheService } from "./trace-cache.service";
 
 const FARMING_LOG_COLUMNS = {
   id: farmingLogs.id,
@@ -83,6 +84,7 @@ export class FarmingLogsService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDB,
+    private readonly traceCacheService: TraceCacheService,
   ) {}
 
   /**
@@ -203,7 +205,7 @@ export class FarmingLogsService {
     staffId: string,
     input: CreateFarmingLogInput,
   ): Promise<FarmingLogProjection> {
-    return this.db.transaction(async (tx) => {
+    const createdProjection = await this.db.transaction(async (tx) => {
       // Lock the season row FOR SHARE so concurrent log writes run in parallel while
       // serializing cleanly against DELETE /seasons/:id and -> completed transitions.
       const [season] = await tx
@@ -292,6 +294,9 @@ export class FarmingLogsService {
         throw error;
       }
     });
+
+    await this.traceCacheService.invalidateBySeasonId(seasonId);
+    return createdProjection;
   }
 
   private toFarmingLogProjection(

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import {
   ConflictException,
   NotFoundException,
@@ -9,6 +9,7 @@ import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { createMockDb } from "../../../test/mocks/mock-database";
 import { SeasonsService } from "./seasons.service";
+import type { TraceCacheService } from "./trace-cache.service";
 
 type MockDb = ReturnType<typeof createMockDb> & {
   setSelectResultsQueue: (results: unknown[][]) => void;
@@ -43,10 +44,19 @@ describe("SeasonsService", () => {
 
   let service: SeasonsService;
   let mockDb: MockDb;
+  let mockTraceCacheService: {
+    invalidateBySeasonId: ReturnType<typeof mock>;
+  };
 
   beforeEach(() => {
     mockDb = createMockDb() as unknown as MockDb;
-    service = new SeasonsService(mockDb);
+    mockTraceCacheService = {
+      invalidateBySeasonId: mock(() => Promise.resolve()),
+    };
+    service = new SeasonsService(
+      mockDb,
+      mockTraceCacheService as unknown as TraceCacheService,
+    );
   });
 
   describe("listSeasons", () => {

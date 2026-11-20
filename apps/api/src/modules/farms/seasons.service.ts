@@ -39,6 +39,7 @@ import {
   type SeasonSortOption,
 } from "./farms.interface";
 import { escapeLikePattern } from "./farms.utils";
+import { TraceCacheService } from "./trace-cache.service";
 
 const SEASON_COLUMNS = {
   id: seasons.id,
@@ -90,6 +91,7 @@ export class SeasonsService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDB,
+    private readonly traceCacheService: TraceCacheService,
   ) {}
 
   /**
@@ -220,7 +222,7 @@ export class SeasonsService {
     seasonId: string,
     input: UpdateSeasonInput,
   ): Promise<SeasonProjection> {
-    return this.db.transaction(async (tx) => {
+    const updatedProjection = await this.db.transaction(async (tx) => {
       const [preRead] = await tx
         .select(SEASON_COLUMNS)
         .from(seasons)
@@ -311,6 +313,9 @@ export class SeasonsService {
         throw error;
       }
     });
+
+    await this.traceCacheService.invalidateBySeasonId(seasonId);
+    return updatedProjection;
   }
 
   /**

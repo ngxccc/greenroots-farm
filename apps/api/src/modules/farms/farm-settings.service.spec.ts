@@ -14,6 +14,7 @@ import {
   FARM_SETTINGS_INVALIDATED_AT_KEY,
 } from "./farms.interface";
 import { FarmSettingsService } from "./farm-settings.service";
+import type { TraceCacheService } from "./trace-cache.service";
 
 type MockDb = ReturnType<typeof createMockDb> & {
   setSelectResult: (result: unknown[]) => void;
@@ -74,6 +75,9 @@ describe("FarmSettingsService", () => {
     pipeline: ReturnType<typeof mock>;
   };
   let mockRedisService: RedisService;
+  let mockTraceCacheService: {
+    rotateFarmVersion: ReturnType<typeof mock>;
+  };
 
   beforeEach(() => {
     spyOn(Logger.prototype, "warn").mockImplementation(() => undefined);
@@ -98,8 +102,15 @@ describe("FarmSettingsService", () => {
     mockRedisService = {
       getClient: () => mockRedisClient,
     } as unknown as RedisService;
+    mockTraceCacheService = {
+      rotateFarmVersion: mock(() => Promise.resolve()),
+    };
 
-    service = new FarmSettingsService(mockDb, mockRedisService);
+    service = new FarmSettingsService(
+      mockDb,
+      mockRedisService,
+      mockTraceCacheService as unknown as TraceCacheService,
+    );
   });
 
   describe("getSettings", () => {

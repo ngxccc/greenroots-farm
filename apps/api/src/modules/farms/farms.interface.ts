@@ -95,3 +95,30 @@ export const SEASON_ALLOWED_FARMING_ACTIONS: Record<
   [SeasonStatus.HARVESTED]: ALL_FARMING_ACTION_TYPES,
   [SeasonStatus.COMPLETED]: [FarmingActionType.CORRECTION],
 });
+
+/** Redis key prefix storing serialized public batch trace envelopes. */
+export const TRACE_CACHE_PREFIX = "trace:batch:v1:";
+
+/** Redis key prefix storing short-lived negative-cache markers for missing batch codes. */
+export const TRACE_MISS_CACHE_PREFIX = "trace:batch:miss:v1:";
+
+/** Redis key prefix recording the latest per-batch invalidation timestamp in ms. */
+export const TRACE_INVALIDATED_AT_PREFIX = "trace:batch:invalidated_at:";
+
+/** Redis key storing the current farm-wide invalidation epoch UUID nonce. */
+export const TRACE_FARM_VERSION_KEY = "trace:farm_ver:v1";
+
+/** 15-minute safety-net TTL for cached public batch trace records in seconds. */
+export const TRACE_CACHE_TTL_SECONDS = 900;
+
+/** 30-second negative-cache TTL for syntactically valid missing batch codes. */
+export const TRACE_MISS_TTL_SECONDS = 30;
+
+/** 60-second TTL for per-batch stale-backfill guard markers after invalidation. */
+export const TRACE_INVALIDATION_MARKER_TTL_SECONDS = 60;
+
+/** Maximum chronological farming log entries included in a single public trace payload. */
+export const TRACE_MAX_FARMING_LOGS = 200;
+
+/** Canonical batch code path format enforced after uppercase trimming. */
+export const BATCH_CODE_REGEX = /^[A-Z0-9][A-Z0-9_-]{2,99}$/;
