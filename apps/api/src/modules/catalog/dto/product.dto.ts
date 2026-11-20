@@ -25,6 +25,7 @@ export const productSchema = z.object({
   description: z.string().nullable(),
   basePriceVnd: z.number().int(),
   salePriceVnd: z.number().int().nullable(),
+  availableQuantity: z.number().nonnegative(),
   unit: z.string(),
   imageUrls: z.array(z.string()),
   isVietGap: z.boolean(),

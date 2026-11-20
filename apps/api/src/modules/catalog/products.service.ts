@@ -17,7 +17,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import { API_ERROR_CODES } from "@greenroots/shared";
+import { API_ERROR_CODES, BatchStatus } from "@greenroots/shared";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import type { PaginationMetaDto } from "@/common/dto/api-response.dto";
@@ -28,7 +28,7 @@ import {
   DATABASE_CONNECTION,
   type DrizzleDB,
 } from "@/database/database.module";
-import { categories, products } from "@/database/schemas";
+import { batches, categories, products } from "@/database/schemas";
 import type {
   CatalogVisibilityScope,
   ProductSortOption,
@@ -75,7 +75,23 @@ type ProductRow = Pick<
 interface ProductJoinedRow {
   product: ProductRow;
   category: ProductCategorySummary;
+  availableQuantity: string | number;
 }
+
+// Keep sellable statuses and 0 as SQL literals so PostgreSQL proves predicate implication for batches_sellable_stock_idx.
+const SELLABLE_BATCH_STATUS_SQL = sql.raw(
+  `'${BatchStatus.IN_STOCK}', '${BatchStatus.NEAR_EXPIRY}'`,
+);
+
+// Qualify products."id" explicitly because Drizzle strips table names from column refs in single-table queries, which would shadow against b.id inside the subquery.
+const LIVE_AVAILABLE_QUANTITY_EXPR = sql<string>`COALESCE((
+  SELECT SUM(b.available_quantity)
+  FROM ${batches} AS b
+  WHERE b.product_id = ${products}."id"
+    AND b.status IN (${SELLABLE_BATCH_STATUS_SQL})
+    AND b.expiration_date > NOW()
+    AND b.available_quantity > 0
+), 0)`;
 
 const EFFECTIVE_PRICE_EXPR = sql<number>`COALESCE(${products.salePrice}, ${products.basePrice})`;
 
@@ -191,6 +207,7 @@ export class ProductsService {
       .select({
         product: PRODUCT_COLUMNS,
         category: PRODUCT_CATEGORY_SUMMARY_COLUMNS,
+        availableQuantity: LIVE_AVAILABLE_QUANTITY_EXPR,
       })
       .from(products)
       .innerJoin(categories, eq(products.categoryId, categories.id))
@@ -214,6 +231,7 @@ export class ProductsService {
       .select({
         product: PRODUCT_COLUMNS,
         category: PRODUCT_CATEGORY_SUMMARY_COLUMNS,
+        availableQuantity: LIVE_AVAILABLE_QUANTITY_EXPR,
       })
       .from(products)
       .innerJoin(categories, eq(products.categoryId, categories.id))
@@ -246,6 +264,7 @@ export class ProductsService {
       .select({
         product: PRODUCT_COLUMNS,
         category: PRODUCT_CATEGORY_SUMMARY_COLUMNS,
+        availableQuantity: LIVE_AVAILABLE_QUANTITY_EXPR,
       })
       .from(products)
       .innerJoin(categories, eq(products.categoryId, categories.id))
@@ -316,7 +335,7 @@ export class ProductsService {
           throw new Error("Product insert returned no row.");
         }
 
-        return { product: created, category };
+        return { product: created, category, availableQuantity: 0 };
       });
 
       return this.toProductProjection(joined);
@@ -448,7 +467,19 @@ export class ProductsService {
           lockedCategory = category;
         }
 
-        return { product: updated, category: lockedCategory };
+        const [stockRow] = await tx
+          .select({
+            availableQuantity: LIVE_AVAILABLE_QUANTITY_EXPR,
+          })
+          .from(products)
+          .where(eq(products.id, updated.id))
+          .limit(1);
+
+        return {
+          product: updated,
+          category: lockedCategory,
+          availableQuantity: stockRow?.availableQuantity ?? 0,
+        };
       });
 
       return this.toProductProjection(joined);
@@ -508,6 +539,7 @@ export class ProductsService {
   private toProductProjection({
     product,
     category,
+    availableQuantity,
   }: ProductJoinedRow): ProductProjection {
     return {
       id: product.id,
@@ -518,6 +550,7 @@ export class ProductsService {
       description: product.description,
       basePriceVnd: product.basePrice,
       salePriceVnd: product.salePrice,
+      availableQuantity: Number(availableQuantity),
       unit: product.unit,
       imageUrls: product.imageUrls ?? [],
       isVietGap: product.isVietGap,

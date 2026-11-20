@@ -75,7 +75,13 @@ describe("ProductsService", () => {
     it("normalizes null imageUrls to an empty array and maps integer Vnd price suffixes", async () => {
       mockDb.setSelectResultsQueue([
         [{ total: 1 }],
-        [{ product: sampleProductRow, category: sampleCategorySummary }],
+        [
+          {
+            product: sampleProductRow,
+            category: sampleCategorySummary,
+            availableQuantity: "15.50",
+          },
+        ],
       ]);
 
       const result = await service.listProducts(
@@ -90,11 +96,54 @@ describe("ProductsService", () => {
       expect(result.items).toHaveLength(1);
       expect(result.items[0]?.basePriceVnd).toBe(45000);
       expect(result.items[0]?.salePriceVnd).toBe(36000);
+      expect(result.items[0]?.availableQuantity).toBe(15.5);
       expect(result.items[0]?.imageUrls).toEqual([]);
+    });
+
+    it("maps zero string availableQuantity values to 0", async () => {
+      // Invariant: INV-PROD-3
+      mockDb.setSelectResultsQueue([
+        [{ total: 1 }],
+        [
+          {
+            product: sampleProductRow,
+            category: sampleCategorySummary,
+            availableQuantity: "0",
+          },
+        ],
+      ]);
+
+      const result = await service.listProducts(
+        {
+          page: 1,
+          limit: 20,
+          sort: "createdAt:desc",
+        },
+        { includeInactive: false },
+      );
+
+      expect(result.items[0]?.availableQuantity).toBe(0);
     });
   });
 
   describe("getPublicProductBySlug", () => {
+    it("maps aggregated availableQuantity decimal string to number", async () => {
+      // Invariant: INV-PROD-3
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            product: sampleProductRow,
+            category: sampleCategorySummary,
+            availableQuantity: "12.25",
+          },
+        ],
+      ]);
+
+      const result = await service.getPublicProductBySlug("ca-chua-bi-huu-co");
+
+      expect(result.availableQuantity).toBe(12.25);
+    });
+
     it("throws NotFoundException when product or category is missing, inactive, or deleted", async () => {
       // Invariant: INV-CAT-1
       mockDb.setSelectResultsQueue([[]]);
@@ -112,7 +161,73 @@ describe("ProductsService", () => {
     });
   });
 
+  describe("getAdminProductById", () => {
+    it("maps zero and fractional availableQuantity decimal strings for admin reads", async () => {
+      // Invariant: INV-PROD-3
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            product: sampleProductRow,
+            category: sampleCategorySummary,
+            availableQuantity: "0.00",
+          },
+        ],
+        [
+          {
+            product: sampleProductRow,
+            category: sampleCategorySummary,
+            availableQuantity: "45.50",
+          },
+        ],
+      ]);
+
+      const zeroResult = await service.getAdminProductById(productId);
+      const stockedResult = await service.getAdminProductById(productId);
+
+      expect(zeroResult.availableQuantity).toBe(0);
+      expect(stockedResult.availableQuantity).toBe(45.5);
+    });
+
+    it("throws NotFoundException when admin target product is missing or soft-deleted", async () => {
+      mockDb.setSelectResultsQueue([[]]);
+
+      try {
+        await service.getAdminProductById(productId);
+        expect.unreachable("Expected NotFoundException");
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundException);
+        expect((error as NotFoundException).getResponse()).toEqual({
+          code: API_ERROR_CODES.PRODUCT_NOT_FOUND,
+          detail: MESSAGES.PRODUCTS.NOT_FOUND,
+        });
+      }
+    });
+  });
+
   describe("createProduct", () => {
+    it("returns availableQuantity 0 for a newly created product", async () => {
+      // Invariant: INV-PROD-3
+      mockDb.setSelectResultsQueue([
+        [sampleCategorySummary],
+        [sampleProductRow],
+      ]);
+
+      const result = await service.createProduct({
+        categoryId,
+        name: "Cà chua bi hữu cơ",
+        slug: "ca-chua-bi-huu-co",
+        basePriceVnd: 45000,
+        unit: "kg",
+        imageUrls: [],
+        isVietGap: true,
+        isUsda: false,
+        isSubscriptionEligible: true,
+        isActive: true,
+      });
+
+      expect(result.availableQuantity).toBe(0);
+    });
+
     it("throws NotFoundException when target categoryId is missing or soft-deleted", async () => {
       mockDb.setSelectResultsQueue([[]]);
 
@@ -241,6 +356,22 @@ describe("ProductsService", () => {
           detail: MESSAGES.PRODUCTS.PRICE_INVALID,
         });
       }
+    });
+
+    it("queries and returns live availableQuantity inside update transaction", async () => {
+      // Invariant: INV-PROD-3
+      mockDb.setSelectResultsQueue([
+        [sampleProductRow],
+        [sampleProductRow],
+        [sampleCategorySummary],
+        [{ availableQuantity: "25.75" }],
+      ]);
+
+      const result = await service.updateProduct(productId, {
+        name: "Cà chua bi hữu cơ (mới)",
+      });
+
+      expect(result.availableQuantity).toBe(25.75);
     });
   });
 
