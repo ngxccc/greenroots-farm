@@ -13,6 +13,7 @@ import { type INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { eq, sql } from "drizzle-orm";
 import { API_ERROR_CODES, BatchStatus, UserRole } from "@greenroots/shared";
+import { env } from "@/common/config/env.config";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { IDEMPOTENCY_HEADER_NAME } from "@/common/constants/idempotency.constant";
 import { TIME_IN_MS } from "@/common/constants/time.constant";
@@ -31,6 +32,7 @@ import {
   TRACE_MISS_CACHE_PREFIX,
 } from "@/modules/farms/farms.interface";
 import {
+  BatchMother,
   createBatch,
   createFarm,
   createPlot,
@@ -52,6 +54,7 @@ import {
 } from "../helpers/auth.helper";
 
 type BatchSchema = components["schemas"]["BatchDto"];
+type BatchQrLabelSchema = components["schemas"]["BatchQrLabelDto"];
 type TraceRecordSchema = components["schemas"]["TraceRecordDto"];
 type PaginationMetaSchema = components["schemas"]["PaginationMetaDto"];
 
@@ -150,6 +153,9 @@ describe("Batches Integration", () => {
         .get(`/api/v1/batches/${batch.id}`)
         .expect(401);
       await request(app.getHttpServer())
+        .get(`/api/v1/batches/${batch.id}/qr-label`)
+        .expect(401);
+      await request(app.getHttpServer())
         .post("/api/v1/batches")
         .set(IDEMPOTENCY_HEADER_NAME, randomUUID())
         .send({
@@ -168,6 +174,10 @@ describe("Batches Integration", () => {
           .expect(403);
         await request(app.getHttpServer())
           .get(`/api/v1/batches/${batch.id}`)
+          .set(header)
+          .expect(403);
+        await request(app.getHttpServer())
+          .get(`/api/v1/batches/${batch.id}/qr-label`)
           .set(header)
           .expect(403);
         await request(app.getHttpServer())
@@ -218,6 +228,11 @@ describe("Batches Integration", () => {
 
         await request(app.getHttpServer())
           .get(`/api/v1/batches/${body.data.id}`)
+          .set(header)
+          .expect(200);
+
+        await request(app.getHttpServer())
+          .get(`/api/v1/batches/${body.data.id}/qr-label`)
           .set(header)
           .expect(200);
       }
@@ -882,6 +897,121 @@ describe("Batches Integration", () => {
 
       const missingRes = await request(app.getHttpServer())
         .get(`/api/v1/batches/${UNKNOWN_UUID_V7}`)
+        .set(farmStaffHeader)
+        .expect(404);
+      expect((missingRes.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.BATCH_NOT_FOUND,
+      );
+    });
+  });
+
+  describe("GET /api/v1/batches/:id/qr-label", () => {
+    it("returns deterministic QR label payload built from configured public origin while ignoring legacy qrCodeUrl", async () => {
+      // Invariant: INV-QR-LABEL-2, INV-QR-LABEL-4
+      const product = await createProduct(setup.db, {
+        name: "Rau cải ngọt hữu cơ",
+        unit: "500g",
+      });
+      const batch = await createBatch(setup.db, {
+        productId: product.id,
+        qrCodeUrl: "https://legacy.example.com/trace/OLD-CODE",
+      });
+
+      const originalStorefrontUrl = env.STOREFRONT_URL;
+      try {
+        (env as { STOREFRONT_URL: string }).STOREFRONT_URL =
+          "https://greenroots.farm/";
+
+        const firstRes = await request(app.getHttpServer())
+          .get(`/api/v1/batches/${batch.id}/qr-label`)
+          .set(farmStaffHeader)
+          .expect(200);
+        const secondRes = await request(app.getHttpServer())
+          .get(`/api/v1/batches/${batch.id}/qr-label`)
+          .set(adminHeader)
+          .expect(200);
+
+        expect(firstRes.headers["cache-control"]).toBe("no-cache");
+
+        const firstBody = firstRes.body as ApiResponse<BatchQrLabelSchema>;
+        const secondBody = secondRes.body as ApiResponse<BatchQrLabelSchema>;
+        const expectedTraceUrl = `https://greenroots.farm/trace/${encodeURIComponent(batch.batchCode)}`;
+
+        expect(firstBody.success).toBe(true);
+        expect(firstBody.data).toEqual({
+          batchCode: batch.batchCode,
+          traceUrl: expectedTraceUrl,
+          labelPayload: {
+            batchCode: batch.batchCode,
+            productName: "Rau cải ngọt hữu cơ",
+            unit: "500g",
+            harvestDate: batch.harvestDate.toISOString(),
+            expirationDate: batch.expirationDate.toISOString(),
+            qrValue: expectedTraceUrl,
+          },
+        });
+        expect(secondBody.data).toEqual(firstBody.data);
+        expect(firstBody.data.traceUrl).not.toContain("localhost");
+        expect(Object.keys(firstBody.data).sort()).toEqual([
+          "batchCode",
+          "labelPayload",
+          "traceUrl",
+        ]);
+      } finally {
+        (env as { STOREFRONT_URL: string }).STOREFRONT_URL =
+          originalStorefrontUrl;
+      }
+    });
+
+    it("returns QR label for expired, sold-out, and soft-deleted-product batches", async () => {
+      // Invariant: INV-QR-LABEL-3
+      const product = await createProduct(setup.db, {
+        name: "Xà lách thủy canh",
+        unit: "300g",
+      });
+      const expiredBatch = await createBatch(
+        setup.db,
+        BatchMother.expired({ productId: product.id }),
+      );
+      const soldOutBatch = await createBatch(setup.db, {
+        productId: product.id,
+        availableQuantity: "0.00",
+        status: BatchStatus.SOLD_OUT,
+      });
+
+      await setup.db
+        .update(products)
+        .set({ deletedAt: new Date() })
+        .where(eq(products.id, product.id));
+
+      for (const batch of [expiredBatch, soldOutBatch]) {
+        const res = await request(app.getHttpServer())
+          .get(`/api/v1/batches/${batch.id}/qr-label`)
+          .set(superAdminHeader)
+          .expect(200);
+        const body = res.body as ApiResponse<BatchQrLabelSchema>;
+        expect(body.data.batchCode).toBe(batch.batchCode);
+        expect(body.data.labelPayload.productName).toBe("Xà lách thủy canh");
+      }
+    });
+
+    it("rejects malformed batch identifiers and returns not-found for missing batches", async () => {
+      // Invariant: INV-QR-LABEL-3
+      for (const invalidId of [
+        "not-a-uuid",
+        "550e8400-e29b-41d4-a716-446655440000", // UUIDv4
+      ]) {
+        const invalidRes = await request(app.getHttpServer())
+          .get(`/api/v1/batches/${invalidId}/qr-label`)
+          .set(farmStaffHeader)
+          .expect(400);
+        const invalidBody = invalidRes.body as Rfc9457ProblemDetails;
+        expect(invalidBody.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+        expect(invalidBody.invalidParams.length).toBeGreaterThan(0);
+      }
+
+      const missingRes = await request(app.getHttpServer())
+        .get(`/api/v1/batches/${UNKNOWN_UUID_V7}/qr-label`)
         .set(farmStaffHeader)
         .expect(404);
       expect((missingRes.body as Rfc9457ProblemDetails).code).toBe(
