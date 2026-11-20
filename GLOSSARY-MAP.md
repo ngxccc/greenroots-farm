@@ -43,6 +43,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0026-batch-intake-timestamptz-and-hsd-threshold.md` — Batch `timestamptz` harvest/expiration timestamps (partially superseding ADR-0024), server-generated `batchCode` with `23505` retry, `products -> seasons` `FOR SHARE` intake locking, idempotent intake, and prod fail-closed `FarmSettings` HSD threshold.
 - `docs/adr/0027-live-product-stock-aggregation-and-sellable-batch-index.md` — Live uncached product `availableQuantity` scalar subquery aggregation, unified `ProductDto`, and `batches_sellable_stock_idx` partial index.
 - `docs/adr/0028-batch-qr-label-origin-and-payload-contract.md` — Fail-closed `STOREFRONT_URL` origin normalization, dynamic `traceUrl` construction, deterministic `labelPayload` contract, lifecycle-agnostic label read, and deprecation of `batches.qrCodeUrl` (`#102`).
+- `docs/adr/0029-two-step-waste-write-off-and-review-boundary.md` — `waste_logs` as SSOT for discarded stock, `reviewed_by` + `reviewed_at` + `rejection_reason` schema evolution, 4-eyes non-self-review RBAC, pending-quota `FOR UPDATE` locking, and image-only `waste_logs` media boundary.
 
 ### Context-Scoped Decisions
 
