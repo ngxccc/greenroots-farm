@@ -97,7 +97,8 @@ Errors return `application/problem+json` with `{ type, title, status, code, deta
 
 - Every module declares `<module>.routes.ts` with frozen `TAG`, `BASE`, and action constants. Controllers reference them (`@ApiTags(ROUTES.TAG)`, `@Controller({ path: ROUTES.BASE, version: "1" })`, `@Post(ROUTES.UPLOAD_SIGNATURE)`) instead of string literals. Use `@HttpCode(HttpStatus.OK)` on `POST` commands that return `200`.
 - Zod schemas and their `createZodDto()` classes live together in `dto/<action>.dto.ts`; export `z.infer` types from the same file so services never import transport classes.
-- `<module>.interface.ts` holds compile-time types, interfaces, and business constants only. Runtime Zod schemas belong in `dto/`.
+- `<module>.interface.ts` holds compile-time `interface` and `type` declarations only (zero runtime JS exports; omit the file if no module types remain).
+- `<module>.constant.ts` holds module runtime constants, frozen maps, DI `Symbol` tokens, whitelisted const tuples, and their directly derived union types (`typeof ...[number]`); cross-module API constants belong in `apps/api/src/common/constants/`. Runtime Zod schemas belong in `dto/`.
 - `@Body()` and `@Query()` are typed with DTO classes, because interfaces vanish at compile time and leave OpenAPI bodies empty.
 - Response envelopes are plain classes in `common/dto/api-response.dto.ts` with `@ApiProperty()` and `allOf`. Runtime-generated generic envelopes collide and mangle `components/schemas` names.
 - Every endpoint declares its contract from `@/common/decorators`:

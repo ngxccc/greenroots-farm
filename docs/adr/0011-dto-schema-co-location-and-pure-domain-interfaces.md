@@ -19,7 +19,7 @@ During media signed-upload work, one input schema lived in `media.interface.ts` 
 - Co-locate every HTTP request and response Zod schema inside its DTO file: `src/modules/<module>/dto/<action>.dto.ts`.
 - Each DTO file exports the schema constant, the inferred input type, and a `createZodDto` class.
 - Domain services import the inferred type, never the NestJS DTO class.
-- Reserve `<module>.interface.ts` for pure domain types, interfaces, and business constants. Executable Zod schemas are forbidden there.
+- Reserve `<module>.interface.ts` for pure domain types, interfaces, and business constants. Executable Zod schemas are forbidden there. _(Partially superseded by `ADR-0035`: runtime business constants, DI `Symbol` tokens, and const tuples now live in `<module>.constant.ts` so `*.interface.ts` emits zero runtime JS.)_
 
 ## Positive Consequences
 
