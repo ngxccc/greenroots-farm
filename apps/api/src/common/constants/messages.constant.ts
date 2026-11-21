@@ -96,6 +96,8 @@ export const MESSAGES = {
     DUPLICATE_PRODUCT_IMAGE_URL:
       "Duplicate product image URLs are not allowed.",
     INVALID_QUANTITY_PRECISION: "Quantity may have at most 2 decimal places.",
+    SHIPPING_QUOTE_TARGET_XOR:
+      "Provide either addressId or districtCode, not both.",
   },
   FARMS: {
     NOT_FOUND: "Farm settings record not found.",

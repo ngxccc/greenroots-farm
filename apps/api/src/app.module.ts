@@ -23,6 +23,7 @@ import { InventoryModule } from "@/modules/inventory/inventory.module";
 import { UsersModule } from "@/modules/users/users.module";
 import { MailModule } from "@/modules/mail/mail.module";
 import { MediaModule } from "@/modules/media/media.module";
+import { ShippingModule } from "@/modules/orders/shipping/shipping.module";
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { MediaModule } from "@/modules/media/media.module";
     InventoryModule,
     MailModule,
     MediaModule,
+    ShippingModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,0 +1,32 @@
+import { Module } from "@nestjs/common";
+import { env } from "@/common/config/env.config";
+import { FarmsModule } from "@/modules/farms/farms.module";
+import { UsersModule } from "@/modules/users/users.module";
+import { HaversineShippingDriver } from "./drivers/haversine-shipping.driver";
+import { ShippingController } from "./shipping.controller";
+import { SHIPPING_DRIVER_TOKEN } from "./shipping.interface";
+import { ShippingService } from "./shipping.service";
+
+/**
+ * Standalone shipping calculation module shared across orders and subscriptions
+ * without creating circular module dependencies.
+ */
+@Module({
+  imports: [UsersModule, FarmsModule],
+  controllers: [ShippingController],
+  providers: [
+    HaversineShippingDriver,
+    {
+      provide: SHIPPING_DRIVER_TOKEN,
+      useFactory: (haversine: HaversineShippingDriver) => {
+        // Only the offline Haversine driver exists today; branch on env.SHIPPING_DRIVER when live adapters land.
+        void env.SHIPPING_DRIVER;
+        return haversine;
+      },
+      inject: [HaversineShippingDriver],
+    },
+    ShippingService,
+  ],
+  exports: [ShippingService, SHIPPING_DRIVER_TOKEN],
+})
+export class ShippingModule {}

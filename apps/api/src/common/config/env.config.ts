@@ -4,6 +4,7 @@ import {
   MAIL_DRIVERS,
   NODE_ENVIRONMENTS,
   PAYMENT_DRIVERS,
+  SHIPPING_DRIVERS,
 } from "@/common/constants/environment.constant";
 
 const DEV_JWT_ACCESS_SECRET = "greenroots-dev-access-secret-min-32-chars";
@@ -122,6 +123,9 @@ const envSchema = z.object({
   PAYOS_CLIENT_ID: z.string().optional(),
   PAYOS_API_KEY: z.string().optional(),
   PAYOS_CHECKSUM_KEY: z.string().optional(),
+
+  // Shipping calculation driver configuration
+  SHIPPING_DRIVER: z.enum(SHIPPING_DRIVERS).default("haversine"),
 
   // Cloudinary media storage configuration
   CLOUDINARY_CLOUD_NAME: z.string().min(1).default("greenroots-dev"),
