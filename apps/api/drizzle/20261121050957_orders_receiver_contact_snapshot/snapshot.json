@@ -1,0 +1,63 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e8d110e2-0d4d-4f92-b585-f8ad74741204",
+  "prevIds": ["229dc9be-9b68-44a4-bb98-bbc2fa7c43f5"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "orders", "receiver_name"],
+      "writes": [
+        "s|col|public.orders.receiver_name",
+        "n|col|public.orders.receiver_name",
+        "e|col|public.orders.receiver_name"
+      ],
+      "reads": ["n|tbl|public.orders", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "orders", "receiver_phone"],
+      "writes": [
+        "s|col|public.orders.receiver_phone",
+        "n|col|public.orders.receiver_phone",
+        "e|col|public.orders.receiver_phone"
+      ],
+      "reads": ["n|tbl|public.orders", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "orders",
+        "name": "receiver_name",
+        "type": "varchar(255)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "orders",
+        "name": "receiver_phone",
+        "type": "varchar(20)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

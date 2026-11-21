@@ -33,6 +33,8 @@ export const orders = snakeCase.table(
     subscriptionId: uuid().references(() => subscriptions.id, {
       onDelete: "set null",
     }),
+    receiverName: varchar({ length: 255 }).notNull(),
+    receiverPhone: varchar({ length: 20 }).notNull(),
     shippingAddress: text().notNull(),
     shippingDistanceKm: numeric({ precision: 6, scale: 2 })
       .default("0")
