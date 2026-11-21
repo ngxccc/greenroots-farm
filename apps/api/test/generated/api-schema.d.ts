@@ -1358,8 +1358,8 @@ export interface components {
                 freeKmThreshold: number;
                 perKmRateVnd: number;
                 detourFactor: number;
-                maxRadiusKm?: number;
-                subscriptionFreeRadiusKm?: number;
+                maxRadiusKm: number;
+                subscriptionFreeRadiusKm: number;
             };
             flashSaleConfig: {
                 hoursThreshold: number;
@@ -1403,8 +1403,8 @@ export interface components {
                 freeKmThreshold: number;
                 perKmRateVnd: number;
                 detourFactor: number;
-                maxRadiusKm?: number;
-                subscriptionFreeRadiusKm?: number;
+                maxRadiusKm: number;
+                subscriptionFreeRadiusKm: number;
             };
             flashSaleConfig?: {
                 hoursThreshold: number;

@@ -12254,17 +12254,21 @@
                 "type": "number"
               },
               "maxRadiusKm": {
-                "type": "number"
+                "type": "number",
+                "exclusiveMinimum": 0
               },
               "subscriptionFreeRadiusKm": {
-                "type": "number"
+                "type": "number",
+                "exclusiveMinimum": 0
               }
             },
             "required": [
               "baseFeeVnd",
               "freeKmThreshold",
               "perKmRateVnd",
-              "detourFactor"
+              "detourFactor",
+              "maxRadiusKm",
+              "subscriptionFreeRadiusKm"
             ]
           },
           "flashSaleConfig": {
@@ -12483,7 +12487,9 @@
               "baseFeeVnd",
               "freeKmThreshold",
               "perKmRateVnd",
-              "detourFactor"
+              "detourFactor",
+              "maxRadiusKm",
+              "subscriptionFreeRadiusKm"
             ],
             "additionalProperties": false
           },
