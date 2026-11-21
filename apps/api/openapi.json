@@ -9716,6 +9716,196 @@
           "media"
         ]
       }
+    },
+    "/api/v1/shipping/quote": {
+      "post": {
+        "description": "Calculates server-authoritative straight-line distance, road distance, deliverability, and integer VND fee from dynamic farm settings for an owned address or HCMC district code.",
+        "operationId": "ShippingController_quote_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingQuoteRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponseDto"
+                    },
+                    {
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ShippingQuoteDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid token (Unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unauthorized",
+                  "title": "Unauthorized",
+                  "status": 401,
+                  "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden resource access (Forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/forbidden",
+                  "title": "Forbidden",
+                  "status": 403,
+                  "detail": "You do not have permission to perform this action",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (Not Found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/not-found",
+                  "title": "Not Found",
+                  "status": 404,
+                  "detail": "The requested resource could not be found",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Semantic validation failure (Unprocessable Entity)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unprocessable-entity",
+                  "title": "Unprocessable Entity",
+                  "status": 422,
+                  "detail": "The request was well-formed but could not be processed due to semantic errors",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Calculate shipping delivery quote",
+        "tags": [
+          "shipping"
+        ]
+      }
     }
   },
   "info": {
@@ -13088,6 +13278,74 @@
           "fileSizeBytes",
           "folder"
         ],
+        "additionalProperties": false
+      },
+      "ShippingQuoteDto": {
+        "type": "object",
+        "properties": {
+          "straightLineKm": {
+            "type": "number",
+            "minimum": 0
+          },
+          "roadDistanceKm": {
+            "type": "number",
+            "minimum": 0
+          },
+          "feeVnd": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isDeliverable": {
+            "type": "boolean"
+          },
+          "isFreeShipping": {
+            "type": "boolean"
+          },
+          "maxRadiusKm": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "subscriptionFreeRadiusKm": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "straightLineKm",
+          "roadDistanceKm",
+          "feeVnd",
+          "isDeliverable",
+          "isFreeShipping",
+          "maxRadiusKm",
+          "subscriptionFreeRadiusKm"
+        ]
+      },
+      "ShippingQuoteRequestDto": {
+        "type": "object",
+        "properties": {
+          "addressId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+          },
+          "districtCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "isSubscription": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
         "additionalProperties": false
       }
     }
