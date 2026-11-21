@@ -28,7 +28,7 @@ Split write ownership of `users` into disjoint column groups. A module may write
 | Identity and credentials | `email`, `password`, `emailVerified`, `verificationToken`, `verificationExpiresAt`, `resetPasswordToken`, `resetPasswordExpiresAt` | `AuthService`                                                     |
 | Profile                  | `fullName`, `phone`                                                                                                                | `ProfileService` (`modules/users`)                                |
 | Role and status          | `role`, `status`                                                                                                                   | `StaffService` (`modules/users`, #77)                             |
-| Loyalty                  | `rewardPoints`                                                                                                                     | Unassigned; the loyalty feature claims it before its first write  |
+| Loyalty                  | `rewardPoints`                                                                                                                     | `OrdersService` (`#84` deduction; `#29`/`#86` refund/award)       |
 | Lifecycle                | `deletedAt`                                                                                                                        | Unassigned; the deletion feature claims it before its first write |
 | Timestamps               | `createdAt`, `updatedAt`                                                                                                           | Database defaults and `$onUpdate`                                 |
 
@@ -53,7 +53,7 @@ Rules that follow from the split:
 - Two modules can still write the same row concurrently on separate endpoints (for example self-service profile edit vs admin edit); updates converge per column, with no cross-group optimistic locking.
 - The rule is a convention enforced by review, not by the type system or the database. A new contributor can violate it without a failing build.
 - `UsersModule` imports `AuthModule` to call tx-scoped credential helpers, creating a directed dependency edge (`AuthModule` must never import `UsersModule`).
-- Unassigned groups (`rewardPoints`, `deletedAt`) are a known gap until their features land.
+- Unassigned group (`deletedAt`) remains a known gap until account deletion lands (`rewardPoints` claimed by `OrdersService` in `ADR-0031`).
 
 ## Explicit Tradeoffs
 

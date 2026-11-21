@@ -45,6 +45,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0028-batch-qr-label-origin-and-payload-contract.md` — Fail-closed `STOREFRONT_URL` origin normalization, dynamic `traceUrl` construction, deterministic `labelPayload` contract, lifecycle-agnostic label read, and deprecation/removal of `batches.qrCodeUrl` (`#102`).
 - `docs/adr/0029-two-step-waste-write-off-and-review-boundary.md` — `waste_logs` as SSOT for discarded stock, `reviewed_by` + `reviewed_at` + `rejection_reason` schema evolution, 4-eyes non-self-review RBAC, pending-quota `FOR UPDATE` locking, and image-only `waste_logs` media boundary.
 - `docs/adr/0030-shipping-driver-seam-and-quote-boundary.md` — `ShippingDriver` async adapter seam, `FarmSettingsService`-backed `HaversineShippingDriver`, XOR `addressId | districtCode` quote boundary, `200` undeliverable quote projection (`feeVnd: null`), and paid `(20 km, 25 km]` subscription delivery rule.
+- `docs/adr/0031-cod-checkout-loyalty-redemption-and-cart-validation-boundary.md` — `PENDING_CONFIRMATION` COD initial state with atomic `payments` row, catalog-only checkout pricing (`COALESCE(sale_price, base_price)`), `1 pt = 1 VND` subtotal-only loyalty redemption (`ADR-0020` ownership), `150_000 VND` merchandise MOV, diagnostic `200` `validate-cart`, and user/route-scoped Redis idempotency keys (amending `ADR-0008`).
 
 ### Context-Scoped Decisions
 
