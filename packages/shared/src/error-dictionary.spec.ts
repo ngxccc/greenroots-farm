@@ -1,9 +1,16 @@
 import { describe, expect, it } from "bun:test";
+import { BUSINESS_RULES } from "./business.constants";
 import {
   API_ERROR_CODES,
   API_ERROR_DICTIONARY,
   resolveSharedApiErrorMessage,
 } from "./error-dictionary";
+
+describe("BUSINESS_RULES", () => {
+  it("defines the 150,000 VND minimum order value constant", () => {
+    expect(BUSINESS_RULES.MIN_ORDER_VALUE_VND).toBe(150_000);
+  });
+});
 
 describe("API_ERROR_DICTIONARY", () => {
   it("provides a non-empty Vietnamese message for every API_ERROR_CODES member", () => {
@@ -74,6 +81,14 @@ describe("resolveSharedApiErrorMessage", () => {
         maximum: 5,
       }),
     ).toBe("Danh sách tối đa 5 phần tử.");
+  });
+
+  it("interpolates minOrderValueVnd for ORDER_BELOW_MINIMUM_VALUE", () => {
+    expect(
+      resolveSharedApiErrorMessage(API_ERROR_CODES.ORDER_BELOW_MINIMUM_VALUE, {
+        minOrderValueVnd: 150_000,
+      }),
+    ).toContain("150.000");
   });
 
   it("falls back to detail string or NETWORK_ERROR when error code is unknown or absent", () => {

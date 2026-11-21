@@ -46,6 +46,8 @@ export const API_ERROR_CODES = {
   // Business & Domain Errors
   INSUFFICIENT_STOCK: "INSUFFICIENT_STOCK",
   OUT_OF_DELIVERY_RADIUS: "OUT_OF_DELIVERY_RADIUS",
+  ORDER_BELOW_MINIMUM_VALUE: "ORDER_BELOW_MINIMUM_VALUE",
+  ORDER_COD_DISABLED: "ORDER_COD_DISABLED",
   FARMING_LOG_IMMUTABLE: "FARMING_LOG_IMMUTABLE",
   FARMING_LOG_CORRECTION_TARGET_INVALID:
     "FARMING_LOG_CORRECTION_TARGET_INVALID",
@@ -166,6 +168,9 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Số lượng nông sản còn lại trong kho không đủ cho yêu cầu này.",
   [API_ERROR_CODES.OUT_OF_DELIVERY_RADIUS]:
     "Địa chỉ nhận hàng vượt quá bán kính giao hỏa tốc cho phép từ nông trại.",
+  [API_ERROR_CODES.ORDER_BELOW_MINIMUM_VALUE]: `Giá trị đơn hàng chưa đạt mức tối thiểu ${BUSINESS_RULES.MIN_ORDER_VALUE_VND.toLocaleString("vi-VN")}đ (không tính phí giao hàng).`,
+  [API_ERROR_CODES.ORDER_COD_DISABLED]:
+    "Phương thức thanh toán khi nhận hàng (COD) hiện đang tạm ngưng.",
   [API_ERROR_CODES.FARMING_LOG_IMMUTABLE]:
     "Nhật ký canh tác đã khóa bất biến, không thể chỉnh sửa hoặc xóa.",
   [API_ERROR_CODES.FARMING_LOG_CORRECTION_TARGET_INVALID]:
@@ -295,6 +300,13 @@ export function resolveSharedApiErrorMessage(
         if (params["origin"] === "array" && params["maximum"] !== undefined) {
           return `Danh sách tối đa ${String(params["maximum"])} phần tử.`;
         }
+      }
+
+      if (
+        code === API_ERROR_CODES.ORDER_BELOW_MINIMUM_VALUE &&
+        typeof params["minOrderValueVnd"] === "number"
+      ) {
+        return `Giá trị đơn hàng chưa đạt mức tối thiểu ${params["minOrderValueVnd"].toLocaleString("vi-VN")}đ (không tính phí giao hàng).`;
       }
     }
 

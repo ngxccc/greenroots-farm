@@ -31,6 +31,7 @@ export function isStaffRole(role: UserRole): role is StaffRole {
 
 export const BUSINESS_RULES = {
   CURRENCY: "VND",
+  MIN_ORDER_VALUE_VND: 150_000,
   FLASH_SALE_HOURS_THRESHOLD: 48,
   FLASH_SALE_DISCOUNT_PERCENT: 50,
   HARVEST_START_HOUR: 4,
