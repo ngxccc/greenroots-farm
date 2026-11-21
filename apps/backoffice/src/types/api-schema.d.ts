@@ -1013,6 +1013,26 @@ export interface paths {
         patch: operations["OrdersController_updateOrderStatus_v1"];
         trace?: never;
     };
+    "/api/v1/orders/{id}/pick-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get FEFO batch-grouped pick list for a confirmed order
+         * @description Returns active FEFO batch allocations grouped by batch for orders in confirmed, packing, or shipping status without mutating stock.
+         */
+        get: operations["OrdersController_getOrderPickList_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shipping/quote": {
         parameters: {
             query?: never;
@@ -2116,6 +2136,30 @@ export interface components {
         UpdateOrderStatusRequestDto: {
             /** @enum {string} */
             status: "pending_payment" | "pending_confirmation" | "confirmed" | "packing" | "shipping" | "delivered" | "completed" | "cancelled";
+        };
+        OrderPickListDto: {
+            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+            orderId: string;
+            orderCode: string;
+            /** @enum {string} */
+            orderStatus: "confirmed" | "packing" | "shipping";
+            /** Format: date-time */
+            generatedAt: string;
+            batches: {
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                batchId: string;
+                batchCode: string;
+                /** Format: date-time */
+                expirationDate: string;
+                /** @enum {string} */
+                batchStatus: "in_stock" | "near_expiry" | "sold_out" | "expired";
+                isExpired: boolean;
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                productId: string;
+                productName: string;
+                unit: string;
+                allocatedQuantity: number;
+            }[];
         };
         ShippingQuoteDto: {
             straightLineKm: number;
@@ -10799,6 +10843,175 @@ export interface operations {
                      *       "title": "Unprocessable Entity",
                      *       "status": 422,
                      *       "detail": "The request was well-formed but could not be processed due to semantic errors",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    OrdersController_getOrderPickList_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Order UUIDv7 identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data: components["schemas"]["OrderPickListDto"];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Resource not found (Not Found) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/not-found",
+                     *       "title": "Not Found",
+                     *       "status": 404,
+                     *       "detail": "The requested resource could not be found",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Resource conflict or concurrency collision (Conflict) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/conflict",
+                     *       "title": "Conflict",
+                     *       "status": 409,
+                     *       "detail": "A conflict occurred with the current state of the resource",
                      *       "instance": "/api/v1/resource",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
