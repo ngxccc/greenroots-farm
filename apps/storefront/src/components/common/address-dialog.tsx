@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { HCMC_DISTRICTS, estimateDeliveryQuote } from "@greenroots/shared";
+import { HCMC_DISTRICTS } from "@greenroots/shared";
 import {
   Badge,
   Button,
@@ -20,6 +20,7 @@ import {
 import { MapPin, Truck } from "lucide-react";
 import { FARM_METADATA } from "@/constants/farm-metadata.constant";
 import { formatVnd } from "@/lib/format";
+import { estimateDistrictPreviewQuote } from "@/lib/shipping";
 import { useCartStore } from "@/stores/cart.store";
 
 interface AddressDialogProps {
@@ -43,7 +44,7 @@ export function AddressDialog({ open, onOpenChange }: AddressDialogProps) {
   const district =
     HCMC_DISTRICTS.find((item) => item.code === draftDistrictCode) ??
     HCMC_DISTRICTS[0];
-  const quote = estimateDeliveryQuote(district.latitude, district.longitude);
+  const quote = estimateDistrictPreviewQuote(district);
 
   function handleSave() {
     setDeliveryDistrict(district.code, draftStreet.trim());

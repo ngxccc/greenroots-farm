@@ -16,6 +16,10 @@ describe("API_ERROR_DICTIONARY", () => {
       expect(typeof message).toBe("string");
       expect(message.trim().length).toBeGreaterThan(0);
     }
+
+    expect(
+      API_ERROR_DICTIONARY[API_ERROR_CODES.OUT_OF_DELIVERY_RADIUS],
+    ).not.toContain("25 km");
   });
 });
 

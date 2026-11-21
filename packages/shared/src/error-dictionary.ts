@@ -164,7 +164,8 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
   // Business & Domain
   [API_ERROR_CODES.INSUFFICIENT_STOCK]:
     "Số lượng nông sản còn lại trong kho không đủ cho yêu cầu này.",
-  [API_ERROR_CODES.OUT_OF_DELIVERY_RADIUS]: `Địa chỉ nhận hàng vượt quá bán kính giao hỏa tốc ${BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM} km từ nông trại.`,
+  [API_ERROR_CODES.OUT_OF_DELIVERY_RADIUS]:
+    "Địa chỉ nhận hàng vượt quá bán kính giao hỏa tốc cho phép từ nông trại.",
   [API_ERROR_CODES.FARMING_LOG_IMMUTABLE]:
     "Nhật ký canh tác đã khóa bất biến, không thể chỉnh sửa hoặc xóa.",
   [API_ERROR_CODES.FARMING_LOG_CORRECTION_TARGET_INVALID]:

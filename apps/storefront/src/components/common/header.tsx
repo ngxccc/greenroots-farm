@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type SubmitEvent } from "react";
-import { HCMC_DISTRICTS, estimateDeliveryQuote } from "@greenroots/shared";
+import { HCMC_DISTRICTS } from "@greenroots/shared";
 import { Leaf, MapPin, Search, ShoppingCart, User } from "lucide-react";
+import { estimateDistrictPreviewQuote } from "@/lib/shipping";
 import { useCartStore } from "@/stores/cart.store";
 import { AddressDialog } from "./address-dialog";
 import { CartDrawer } from "./cart-drawer";
@@ -25,10 +26,7 @@ export function StorefrontHeader() {
   const activeDistrict =
     HCMC_DISTRICTS.find((item) => item.code === selectedDistrictCode) ??
     HCMC_DISTRICTS[0];
-  const deliveryQuote = estimateDeliveryQuote(
-    activeDistrict.latitude,
-    activeDistrict.longitude,
-  );
+  const deliveryQuote = estimateDistrictPreviewQuote(activeDistrict);
 
   function handleSearchSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();

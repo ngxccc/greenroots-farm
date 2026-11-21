@@ -1,4 +1,5 @@
 import { BUSINESS_RULES } from "./business.constants";
+import type { FarmShippingConfig } from "./jsonb-contracts.type";
 
 /**
  * Representative district/city center coordinate in Ho Chi Minh City used for
@@ -111,12 +112,45 @@ export const HCMC_DISTRICTS: readonly HcmcDistrictCoordinate[] = [
   },
 ] as const;
 
-export interface DeliveryQuote {
-  readonly straightLineKm: number;
-  readonly roadDistanceKm: number;
-  readonly feeVnd: number;
-  readonly isDeliverable: boolean;
+/**
+ * WGS84 geographic coordinate pair in decimal degrees.
+ */
+export interface GeoCoordinate {
+  readonly latitude: number;
+  readonly longitude: number;
 }
+
+/**
+ * Shipping pricing and delivery radius rules evaluated by {@link calculateDeliveryQuote}.
+ */
+export type ShippingQuoteConfig = FarmShippingConfig;
+
+/**
+ * Optional delivery-context flags modifying shipping quote eligibility or fee calculation.
+ */
+export interface DeliveryQuoteOptions {
+  readonly isSubscription?: boolean;
+}
+
+/**
+ * Result of {@link calculateDeliveryQuote}: carries an integer VND fee when deliverable,
+ * or `feeVnd: null` when `roadDistanceKm` exceeds the farm's maximum delivery radius.
+ */
+export type DeliveryQuote =
+  | {
+      readonly straightLineKm: number;
+      readonly roadDistanceKm: number;
+      readonly feeVnd: number;
+      readonly isDeliverable: true;
+      readonly isFreeShipping: boolean;
+    }
+  | {
+      readonly straightLineKm: number;
+      readonly roadDistanceKm: number;
+      readonly feeVnd: null;
+      readonly isDeliverable: false;
+      readonly isFreeShipping: false;
+    };
 
 /**
  * Resolves a Ho Chi Minh City district entry by its canonical code.
@@ -134,7 +168,14 @@ const EARTH_RADIUS_KM = 6371;
 const DEG_TO_RAD = Math.PI / 180;
 
 /**
- * Calculates great-circle distance in kilometers between two WGS84 coordinates.
+ * Calculates great-circle distance in kilometers between two WGS84 coordinates,
+ * rounded to two decimal places.
+ *
+ * @param originLat Origin latitude in decimal degrees.
+ * @param originLng Origin longitude in decimal degrees.
+ * @param destLat Destination latitude in decimal degrees.
+ * @param destLng Destination longitude in decimal degrees.
+ * @returns Great-circle distance in kilometers rounded to 2 decimal places.
  */
 export function calculateHaversineDistanceKm(
   originLat: number,
@@ -156,13 +197,21 @@ export function calculateHaversineDistanceKm(
 }
 
 /**
- * Estimates road distance in kilometers using the urban detour factor (1.30).
+ * Estimates road distance in kilometers using the configured detour factor (defaults to 1.30).
+ *
+ * @param originLat Origin latitude in decimal degrees.
+ * @param originLng Origin longitude in decimal degrees.
+ * @param destLat Destination latitude in decimal degrees.
+ * @param destLng Destination longitude in decimal degrees.
+ * @param detourFactor Multiplicative urban road detour factor.
+ * @returns Estimated road distance in kilometers rounded to 2 decimal places.
  */
 export function calculateRoadDistanceKm(
   originLat: number,
   originLng: number,
   destLat: number,
   destLng: number,
+  detourFactor: number = BUSINESS_RULES.SHIPPING.DETOUR_FACTOR,
 ): number {
   const straightKm = calculateHaversineDistanceKm(
     originLat,
@@ -170,56 +219,74 @@ export function calculateRoadDistanceKm(
     destLat,
     destLng,
   );
-  return Number(
-    (straightKm * BUSINESS_RULES.SHIPPING.DETOUR_FACTOR).toFixed(2),
-  );
+  return Number((straightKm * detourFactor).toFixed(2));
 }
 
 /**
- * Estimates delivery fee in integer VND and checks radius eligibility from GreenRoots Farm.
+ * Calculates a delivery quote in integer VND and checks radius eligibility
+ * using explicit origin coordinates and shipping configuration.
+ *
+ * @param origin Farm origin coordinates.
+ * @param destination Customer or district centroid coordinates.
+ * @param config Active shipping pricing and radius thresholds.
+ * @param options Delivery quote options such as `isSubscription`.
+ * @returns Delivery quote with integer VND fee when deliverable or `feeVnd: null` otherwise.
  */
-export function estimateDeliveryQuote(
-  destLat: number,
-  destLng: number,
-  options: { isSubscription?: boolean } = {},
+export function calculateDeliveryQuote(
+  origin: GeoCoordinate,
+  destination: GeoCoordinate,
+  config: ShippingQuoteConfig,
+  options: DeliveryQuoteOptions = {},
 ): DeliveryQuote {
-  const { LATITUDE, LONGITUDE } = BUSINESS_RULES.FARM_COORDINATES;
-  const {
-    BASE_FEE_VND,
-    FREE_KM_THRESHOLD,
-    PER_KM_RATE_VND,
-    MAX_RADIUS_KM,
-    SUBSCRIPTION_FREE_RADIUS_KM,
-  } = BUSINESS_RULES.SHIPPING;
+  const maxRadiusKm =
+    config.maxRadiusKm ?? BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM;
+  const subscriptionFreeRadiusKm =
+    config.subscriptionFreeRadiusKm ??
+    BUSINESS_RULES.SHIPPING.SUBSCRIPTION_FREE_RADIUS_KM;
 
   const straightLineKm = calculateHaversineDistanceKm(
-    LATITUDE,
-    LONGITUDE,
-    destLat,
-    destLng,
+    origin.latitude,
+    origin.longitude,
+    destination.latitude,
+    destination.longitude,
   );
+  // Keep two-step rounding matching calculateRoadDistanceKm so shared preview and API quotes never diverge.
   const roadDistanceKm = Number(
-    (straightLineKm * BUSINESS_RULES.SHIPPING.DETOUR_FACTOR).toFixed(2),
+    (straightLineKm * config.detourFactor).toFixed(2),
   );
 
-  if (options.isSubscription) {
-    const isDeliverable = roadDistanceKm <= SUBSCRIPTION_FREE_RADIUS_KM;
+  // Enforce maxRadiusKm before subscription free-tier rules so misconfigured settings cannot exceed max radius.
+  if (roadDistanceKm > maxRadiusKm) {
+    return {
+      straightLineKm,
+      roadDistanceKm,
+      feeVnd: null,
+      isDeliverable: false,
+      isFreeShipping: false,
+    };
+  }
+
+  if (options.isSubscription && roadDistanceKm <= subscriptionFreeRadiusKm) {
     return {
       straightLineKm,
       roadDistanceKm,
       feeVnd: 0,
-      isDeliverable,
+      isDeliverable: true,
+      isFreeShipping: true,
     };
   }
 
-  const isDeliverable = roadDistanceKm <= MAX_RADIUS_KM;
-  const extraKm = Math.max(0, Math.ceil(roadDistanceKm - FREE_KM_THRESHOLD));
-  const feeVnd = BASE_FEE_VND + extraKm * PER_KM_RATE_VND;
+  const extraKm = Math.max(
+    0,
+    Math.ceil(roadDistanceKm - config.freeKmThreshold),
+  );
+  const feeVnd = config.baseFeeVnd + extraKm * config.perKmRateVnd;
 
   return {
     straightLineKm,
     roadDistanceKm,
     feeVnd,
-    isDeliverable,
+    isDeliverable: true,
+    isFreeShipping: feeVnd === 0,
   };
 }
