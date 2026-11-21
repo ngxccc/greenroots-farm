@@ -52,10 +52,10 @@ import type {
   CreateStaffInput,
   ListStaffQuery,
   StaffMember,
-  StaffSortOption,
   UpdateStaffInput,
 } from "./dto";
 import { ProfileService } from "./profile.service";
+import type { StaffSortOption } from "./users.constant";
 
 const STAFF_SORT_EXPRESSIONS = new Map<StaffSortOption, SQL[]>([
   ["createdAt:desc", [desc(users.createdAt), desc(users.id)]],

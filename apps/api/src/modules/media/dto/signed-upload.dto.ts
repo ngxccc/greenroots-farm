@@ -4,7 +4,7 @@ import {
   ALLOWED_MEDIA_FOLDERS,
   IMAGE_ONLY_MEDIA_FOLDERS,
   MEDIA_RESOURCE_TYPES,
-} from "../media.interface";
+} from "../media.constant";
 
 export const signedUploadSchema = z
   .object({

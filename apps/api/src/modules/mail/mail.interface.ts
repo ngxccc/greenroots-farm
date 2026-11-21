@@ -1,3 +1,6 @@
+/**
+ * Input payload passed to an `IMailDriver` implementation for outbound email dispatch.
+ */
 export interface SendEmailPayload {
   to: string | string[];
   subject: string;
@@ -6,14 +9,16 @@ export interface SendEmailPayload {
   replyTo?: string;
 }
 
+/**
+ * Provider confirmation metadata returned after dispatching an email.
+ */
 export interface SendEmailResult {
   messageId: string;
 }
 
+/**
+ * Contract for outbound email delivery adapters (Resend or mock driver).
+ */
 export interface IMailDriver {
   send(payload: SendEmailPayload): Promise<SendEmailResult>;
 }
-
-export const MAIL_DRIVER_TOKEN = Symbol("MAIL_DRIVER_TOKEN");
-export const MAIL_QUEUE_NAME = "mail";
-export const SEND_MAIL_JOB = "send-mail";

@@ -7,7 +7,7 @@ import {
   zSanitizedString,
   zUuidV7,
 } from "@/common/schemas/zod-primitives";
-import { PRODUCT_SORT_OPTIONS } from "../catalog.interface";
+import { PRODUCT_SORT_OPTIONS } from "../catalog.constant";
 import { zCatalogSlug } from "./catalog-primitives";
 
 const baseListProductsShape = {

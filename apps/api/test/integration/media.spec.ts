@@ -18,10 +18,8 @@ import type {
   Rfc9457ProblemDetails,
 } from "@/common/filters/global-exception.filter";
 import type { ApiResponse } from "@/common/utils/api-response.util";
-import {
-  MEDIA_CONSTRAINTS,
-  type CloudinarySignatureResult,
-} from "@/modules/media/media.interface";
+import { MEDIA_CONSTRAINTS } from "@/modules/media/media.constant";
+import type { CloudinarySignatureResult } from "@/modules/media/media.interface";
 
 describe("Media Module Integration", () => {
   let setup: TestAppSetup;

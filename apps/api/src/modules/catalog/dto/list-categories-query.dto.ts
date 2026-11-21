@@ -7,7 +7,7 @@ import {
   zSanitizedString,
   zUuidV7,
 } from "@/common/schemas/zod-primitives";
-import { CATEGORY_SORT_OPTIONS } from "../catalog.interface";
+import { CATEGORY_SORT_OPTIONS } from "../catalog.constant";
 
 const baseListCategoriesShape = {
   q: zSanitizedString({ min: 1, max: 100 }).optional(),

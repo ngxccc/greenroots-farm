@@ -2,11 +2,8 @@ import { describe, expect, it, beforeEach } from "bun:test";
 import { MailService } from "./mail.service";
 import { MailProcessor } from "./mail.processor";
 import { MockMailDriver } from "./drivers/mock-mail.driver";
-import {
-  MAIL_QUEUE_NAME,
-  SEND_MAIL_JOB,
-  type SendEmailPayload,
-} from "./mail.interface";
+import { MAIL_QUEUE_NAME, SEND_MAIL_JOB } from "./mail.constant";
+import type { SendEmailPayload } from "./mail.interface";
 import type { Job, Queue } from "bullmq";
 
 describe("Mail Module Integration", () => {

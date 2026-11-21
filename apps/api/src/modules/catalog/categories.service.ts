@@ -30,10 +30,8 @@ import {
   type DrizzleDB,
 } from "@/database/database.module";
 import { categories, products } from "@/database/schemas";
-import type {
-  CategorySortOption,
-  CatalogVisibilityScope,
-} from "./catalog.interface";
+import type { CategorySortOption } from "./catalog.constant";
+import type { CatalogVisibilityScope } from "./catalog.interface";
 import type {
   AdminListCategoriesQuery,
   CategoryProjection,

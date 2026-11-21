@@ -15,7 +15,7 @@ import {
 import { API_ERROR_CODES, UserRole } from "@greenroots/shared";
 import { CloudinaryService } from "./cloudinary.service";
 import { signedUploadSchema } from "./dto/signed-upload.dto";
-import { MEDIA_CONSTRAINTS } from "./media.interface";
+import { MEDIA_CONSTRAINTS } from "./media.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { env } from "@/common/config/env.config";
 

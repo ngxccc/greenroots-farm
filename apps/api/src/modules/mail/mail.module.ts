@@ -1,7 +1,7 @@
 import { Global, Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
 import { env } from "@/common/config/env.config";
-import { MAIL_DRIVER_TOKEN, MAIL_QUEUE_NAME } from "./mail.interface";
+import { MAIL_DRIVER_TOKEN, MAIL_QUEUE_NAME } from "./mail.constant";
 import { MailService } from "./mail.service";
 import { MailProcessor } from "./mail.processor";
 import { MockMailDriver } from "./drivers/mock-mail.driver";

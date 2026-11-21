@@ -9,11 +9,8 @@ import { MESSAGES } from "@/common/constants/messages.constant";
 import { sha256 } from "@/common/utils/crypto.util";
 import { env } from "@/common/config/env.config";
 import type { SignedUploadInput } from "./dto";
-import {
-  FOLDER_PERMISSIONS,
-  MEDIA_CONSTRAINTS,
-  type CloudinarySignatureResult,
-} from "./media.interface";
+import { FOLDER_PERMISSIONS, MEDIA_CONSTRAINTS } from "./media.constant";
+import type { CloudinarySignatureResult } from "./media.interface";
 
 @Injectable()
 export class CloudinaryService {

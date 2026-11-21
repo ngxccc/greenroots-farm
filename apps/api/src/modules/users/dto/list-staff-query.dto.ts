@@ -5,23 +5,7 @@ import {
   zNumericString,
   zSanitizedString,
 } from "@/common/schemas/zod-primitives";
-
-/**
- * Whitelisted sort expressions for `GET /api/v1/admin/users`.
- */
-export const STAFF_SORT_OPTIONS = [
-  "createdAt:desc",
-  "createdAt:asc",
-  "fullName:asc",
-  "fullName:desc",
-  "email:asc",
-  "email:desc",
-] as const;
-
-/**
- * Union of supported sort query strings for the staff directory.
- */
-export type StaffSortOption = (typeof STAFF_SORT_OPTIONS)[number];
+import { STAFF_SORT_OPTIONS } from "../users.constant";
 
 /**
  * Zod schema for paginated staff directory filters and sorting.

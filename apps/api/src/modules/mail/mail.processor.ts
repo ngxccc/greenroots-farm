@@ -5,9 +5,11 @@ import {
   MAIL_DRIVER_TOKEN,
   MAIL_QUEUE_NAME,
   SEND_MAIL_JOB,
-  type IMailDriver,
-  type SendEmailPayload,
-  type SendEmailResult,
+} from "./mail.constant";
+import type {
+  IMailDriver,
+  SendEmailPayload,
+  SendEmailResult,
 } from "./mail.interface";
 
 @Processor(MAIL_QUEUE_NAME)

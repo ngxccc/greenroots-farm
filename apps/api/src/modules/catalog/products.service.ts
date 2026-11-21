@@ -29,10 +29,8 @@ import {
   type DrizzleDB,
 } from "@/database/database.module";
 import { batches, categories, products } from "@/database/schemas";
-import type {
-  CatalogVisibilityScope,
-  ProductSortOption,
-} from "./catalog.interface";
+import type { ProductSortOption } from "./catalog.constant";
+import type { CatalogVisibilityScope } from "./catalog.interface";
 import type {
   AdminListProductsQuery,
   CreateProductInput,

@@ -8,7 +8,7 @@ import {
 import { MailService } from "@/modules/mail/mail.service";
 import { MailProcessor } from "@/modules/mail/mail.processor";
 import { MockMailDriver } from "@/modules/mail/drivers/mock-mail.driver";
-import { SEND_MAIL_JOB } from "@/modules/mail/mail.interface";
+import { SEND_MAIL_JOB } from "@/modules/mail/mail.constant";
 import type { Job } from "bullmq";
 describe("Mail Queue BullMQ E2E Integration", () => {
   let setup: TestAppSetup;

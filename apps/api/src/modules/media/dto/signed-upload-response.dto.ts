@@ -1,6 +1,6 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
-import { MEDIA_RESOURCE_TYPES } from "../media.interface";
+import { MEDIA_RESOURCE_TYPES } from "../media.constant";
 
 export const signedUploadResponseSchema = z.object({
   signature: z.string().describe("Cloudinary SHA-256 HMAC signature").meta({

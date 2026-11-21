@@ -2,11 +2,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { env } from "@/common/config/env.config";
-import {
-  MAIL_QUEUE_NAME,
-  SEND_MAIL_JOB,
-  type SendEmailPayload,
-} from "./mail.interface";
+import { MAIL_QUEUE_NAME, SEND_MAIL_JOB } from "./mail.constant";
+import type { SendEmailPayload } from "./mail.interface";
 
 @Injectable()
 export class MailService {

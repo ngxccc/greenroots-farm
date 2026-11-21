@@ -8,7 +8,7 @@ import {
   MAX_CATALOG_DESCRIPTION_LENGTH,
   MAX_PRODUCT_IMAGES,
   SLUG_REGEX,
-} from "../catalog.interface";
+} from "../catalog.constant";
 
 /**
  * Validates a strict lowercase kebab-case catalog slug (1..255 chars).
