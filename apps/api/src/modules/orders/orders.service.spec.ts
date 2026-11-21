@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import {
   API_ERROR_CODES,
+  BatchStatus,
   BUSINESS_RULES,
   OrderStatus,
   PaymentMethod,
@@ -24,6 +25,7 @@ import { createMockDb } from "../../../test/mocks/mock-database";
 import {
   checkoutRequestSchema,
   listMyOrdersQuerySchema,
+  updateOrderStatusRequestSchema,
   validateCartRequestSchema,
 } from "./dto";
 import { OrdersService } from "./orders.service";
@@ -986,6 +988,600 @@ describe("OrdersService", () => {
       expect(order.paymentMethod).toBe(PaymentMethod.SUBSCRIPTION);
       expect(order.items[0]?.productImageUrl).toBeNull();
       expect(order.items[0]?.lineTotalVnd).toBe(150_000);
+    });
+  });
+
+  describe("confirmOrder", () => {
+    const orderId = "019fa8bc-8f4d-7000-b366-e691f45cfb50";
+    const itemAId = "019fa8bc-8f4d-7000-b366-e691f45cfb51";
+    const batch1Id = "019fa8bc-8f4d-7000-b366-e691f45cfb61";
+    const batch2Id = "019fa8bc-8f4d-7000-b366-e691f45cfb62";
+
+    function buildOrderRow(
+      overrides: Partial<{
+        orderStatus: OrderStatus;
+        paymentMethod: PaymentMethod;
+        paymentStatus: PaymentStatus;
+        loyaltyPointsUsed: number;
+      }> = {},
+    ) {
+      const now = new Date("2026-11-21T03:00:00.000Z");
+      return {
+        id: orderId,
+        customerId: userId,
+        orderCode: "ORD-20261121-ABC123",
+        orderStatus: overrides.orderStatus ?? OrderStatus.PENDING_CONFIRMATION,
+        paymentMethod: overrides.paymentMethod ?? PaymentMethod.COD,
+        paymentStatus: overrides.paymentStatus ?? PaymentStatus.PENDING,
+        receiverName: "Nguyen Van An",
+        receiverPhone: "0912345678",
+        shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+        shippingDistanceKm: "5.00",
+        shippingFee: 15_000,
+        subtotal: 160_000,
+        discountAmount: overrides.loyaltyPointsUsed ?? 0,
+        loyaltyPointsUsed: overrides.loyaltyPointsUsed ?? 0,
+        totalAmount: 175_000 - (overrides.loyaltyPointsUsed ?? 0),
+        createdAt: now,
+        updatedAt: now,
+      };
+    }
+
+    // Invariant: INV-ORD-12
+    it("returns active allocations idempotently when order is already confirmed without touching stock", async () => {
+      const exp = new Date("2026-11-23T00:00:00.000Z");
+      const confirmedOrder = buildOrderRow({
+        orderStatus: OrderStatus.CONFIRMED,
+      });
+
+      mockDb.setSelectResultsQueue([
+        [confirmedOrder],
+        [
+          {
+            id: itemAId,
+            orderId,
+            productId: productAId,
+            quantity: "2.00",
+            unitPrice: 80_000,
+            productName: "Ca chua bi",
+            productSlug: "ca-chua-bi",
+            productImageUrls: null,
+            unit: "kg",
+          },
+        ],
+        [
+          {
+            id: "019fa8bc-8f4d-7000-b366-e691f45cfb71",
+            orderItemId: itemAId,
+            batchId: batch1Id,
+            batchCode: "BATCH-20261121-TOMATO-AAAAAA",
+            expirationDate: exp,
+            allocatedQuantity: "2.00",
+            releasedAt: null,
+          },
+        ],
+      ]);
+
+      const result = await service.confirmOrder(orderId);
+      expect(result.orderStatus).toBe(OrderStatus.CONFIRMED);
+      expect(result.customerId).toBe(userId);
+      expect(result.items[0]?.allocations).toHaveLength(1);
+      expect(result.items[0]?.allocations[0]?.releasedAt).toBeNull();
+      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
+    });
+
+    // Invariant: INV-ORD-12
+    it("rejects confirmation when order is in packing, pending_payment, or cancelled", async () => {
+      for (const status of [
+        OrderStatus.PENDING_PAYMENT,
+        OrderStatus.PACKING,
+        OrderStatus.CANCELLED,
+      ]) {
+        mockDb.setSelectResultsQueue([
+          [buildOrderRow({ orderStatus: status })],
+        ]);
+
+        let caught: unknown;
+        try {
+          await service.confirmOrder(orderId);
+        } catch (err) {
+          caught = err;
+        }
+
+        expect(caught).toBeInstanceOf(ConflictException);
+        expect(
+          (caught as ConflictException).getResponse() as { code: string },
+        ).toMatchObject({
+          code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
+        });
+      }
+    });
+
+    // Invariant: INV-ORD-11
+    it("allocates FEFO sorted by expirationDate ASC then id ASC, splitting across batches and marking depleted batches sold_out", async () => {
+      const pendingOrder = buildOrderRow();
+      const confirmedOrder = buildOrderRow({
+        orderStatus: OrderStatus.CONFIRMED,
+      });
+      const earlierExp = new Date("2026-11-22T06:00:00.000Z");
+      const laterExp = new Date("2026-11-24T06:00:00.000Z");
+      const batchUpdates: Record<string, unknown>[] = [];
+      const insertedAllocations: unknown[] = [];
+
+      const origInsert = mockDb.insert.bind(mockDb);
+      mockDb.insert = ((table: unknown) => ({
+        values: (vals: unknown) => {
+          insertedAllocations.push(vals);
+          return origInsert(table as never).values(vals as never);
+        },
+      })) as unknown as typeof mockDb.insert;
+
+      const origUpdate = mockDb.update.bind(mockDb);
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          batchUpdates.push(vals);
+          return origUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+
+      mockDb.setSelectResultsQueue([
+        [pendingOrder],
+        [
+          {
+            id: itemAId,
+            orderId,
+            productId: productAId,
+            quantity: "3.50",
+            unitPrice: 80_000,
+            productName: "Ca chua bi",
+            productSlug: "ca-chua-bi",
+            productImageUrls: null,
+            unit: "kg",
+          },
+        ],
+        [
+          {
+            id: batch2Id,
+            productId: productAId,
+            batchCode: "BATCH-LATER",
+            expirationDate: laterExp,
+            availableQuantity: "5.00",
+            status: BatchStatus.IN_STOCK,
+          },
+          {
+            id: batch1Id,
+            productId: productAId,
+            batchCode: "BATCH-EARLIER",
+            expirationDate: earlierExp,
+            availableQuantity: "2.00",
+            status: BatchStatus.NEAR_EXPIRY,
+          },
+        ],
+        [confirmedOrder],
+        [
+          {
+            id: itemAId,
+            orderId,
+            productId: productAId,
+            quantity: "3.50",
+            unitPrice: 80_000,
+            productName: "Ca chua bi",
+            productSlug: "ca-chua-bi",
+            productImageUrls: null,
+            unit: "kg",
+          },
+        ],
+        [
+          {
+            id: "019fa8bc-8f4d-7000-b366-e691f45cfb71",
+            orderItemId: itemAId,
+            batchId: batch1Id,
+            batchCode: "BATCH-EARLIER",
+            expirationDate: earlierExp,
+            allocatedQuantity: "2.00",
+            releasedAt: null,
+          },
+          {
+            id: "019fa8bc-8f4d-7000-b366-e691f45cfb72",
+            orderItemId: itemAId,
+            batchId: batch2Id,
+            batchCode: "BATCH-LATER",
+            expirationDate: laterExp,
+            allocatedQuantity: "1.50",
+            releasedAt: null,
+          },
+        ],
+      ]);
+
+      const result = await service.confirmOrder(orderId);
+      expect(result.orderStatus).toBe(OrderStatus.CONFIRMED);
+
+      const allocRows = insertedAllocations[0] as {
+        batchId: string;
+        allocatedQuantity: string;
+      }[];
+      expect(allocRows).toHaveLength(2);
+      expect(allocRows[0]).toMatchObject({
+        batchId: batch1Id,
+        allocatedQuantity: "2.00",
+      });
+      expect(allocRows[1]).toMatchObject({
+        batchId: batch2Id,
+        allocatedQuantity: "1.50",
+      });
+
+      expect(batchUpdates[0]).toMatchObject({
+        availableQuantity: "0.00",
+        status: BatchStatus.SOLD_OUT,
+      });
+      expect(batchUpdates[1]).toMatchObject({
+        availableQuantity: "3.50",
+        status: BatchStatus.IN_STOCK,
+      });
+    });
+
+    // Invariant: INV-ORD-11
+    it("breaks identical expirationDate ties by ascending batch id during FEFO allocation", async () => {
+      const pendingOrder = buildOrderRow();
+      const confirmedOrder = buildOrderRow({
+        orderStatus: OrderStatus.CONFIRMED,
+      });
+      const sharedExp = new Date("2026-11-23T06:00:00.000Z");
+      const insertedAllocations: unknown[] = [];
+
+      const origInsert = mockDb.insert.bind(mockDb);
+      mockDb.insert = ((table: unknown) => ({
+        values: (vals: unknown) => {
+          insertedAllocations.push(vals);
+          return origInsert(table as never).values(vals as never);
+        },
+      })) as unknown as typeof mockDb.insert;
+
+      mockDb.setSelectResultsQueue([
+        [pendingOrder],
+        [
+          {
+            id: itemAId,
+            orderId,
+            productId: productAId,
+            quantity: "2.50",
+            unitPrice: 80_000,
+            productName: "Ca chua bi",
+            productSlug: "ca-chua-bi",
+            productImageUrls: null,
+            unit: "kg",
+          },
+        ],
+        [
+          {
+            id: batch2Id,
+            productId: productAId,
+            batchCode: "BATCH-TIE-2",
+            expirationDate: sharedExp,
+            availableQuantity: "2.00",
+            status: BatchStatus.IN_STOCK,
+          },
+          {
+            id: batch1Id,
+            productId: productAId,
+            batchCode: "BATCH-TIE-1",
+            expirationDate: sharedExp,
+            availableQuantity: "2.00",
+            status: BatchStatus.IN_STOCK,
+          },
+        ],
+        [confirmedOrder],
+        [
+          {
+            id: itemAId,
+            orderId,
+            productId: productAId,
+            quantity: "2.50",
+            unitPrice: 80_000,
+            productName: "Ca chua bi",
+            productSlug: "ca-chua-bi",
+            productImageUrls: null,
+            unit: "kg",
+          },
+        ],
+        [],
+      ]);
+
+      await service.confirmOrder(orderId);
+
+      const allocRows = insertedAllocations[0] as {
+        batchId: string;
+        allocatedQuantity: string;
+      }[];
+      expect(allocRows).toHaveLength(2);
+      expect(allocRows[0]).toMatchObject({
+        batchId: batch1Id,
+        allocatedQuantity: "2.00",
+      });
+      expect(allocRows[1]).toMatchObject({
+        batchId: batch2Id,
+        allocatedQuantity: "0.50",
+      });
+    });
+
+    // Invariant: INV-ORD-11
+    it("rejects confirmation with shortage details when sellable stock is insufficient", async () => {
+      mockDb.setSelectResultsQueue([
+        [buildOrderRow()],
+        [
+          {
+            id: itemAId,
+            orderId,
+            productId: productAId,
+            quantity: "5.00",
+            unitPrice: 80_000,
+            productName: "Ca chua bi",
+            productSlug: "ca-chua-bi",
+            productImageUrls: null,
+            unit: "kg",
+          },
+        ],
+        [
+          {
+            id: batch1Id,
+            productId: productAId,
+            batchCode: "BATCH-1",
+            expirationDate: new Date("2026-11-24T00:00:00.000Z"),
+            availableQuantity: "3.00",
+            status: BatchStatus.IN_STOCK,
+          },
+        ],
+      ]);
+
+      let caught: unknown;
+      try {
+        await service.confirmOrder(orderId);
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(ConflictException);
+      expect(
+        (caught as ConflictException).getResponse() as Record<string, unknown>,
+      ).toMatchObject({
+        code: API_ERROR_CODES.INSUFFICIENT_STOCK,
+        invalidParams: [
+          {
+            name: "items",
+            code: API_ERROR_CODES.INSUFFICIENT_STOCK,
+            params: {
+              productId: productAId,
+              requested: 5,
+              available: 3,
+            },
+          },
+        ],
+      });
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("updateOrderStatus", () => {
+    const orderId = "019fa8bc-8f4d-7000-b366-e691f45cfb50";
+
+    it("rejects unknown keys or invalid status on UpdateOrderStatusRequestDto", () => {
+      expect(
+        updateOrderStatusRequestSchema.safeParse({
+          status: OrderStatus.PACKING,
+          extra: true,
+        }).success,
+      ).toBe(false);
+      expect(
+        updateOrderStatusRequestSchema.safeParse({
+          status: "processing",
+        }).success,
+      ).toBe(false);
+    });
+
+    // Invariant: INV-ORD-13
+    it("rejects direct transition into confirmed or backward and terminal FSM transitions", async () => {
+      const invalidCases: [OrderStatus, OrderStatus][] = [
+        [OrderStatus.PENDING_CONFIRMATION, OrderStatus.CONFIRMED],
+        [OrderStatus.PENDING_CONFIRMATION, OrderStatus.PACKING],
+        [OrderStatus.CONFIRMED, OrderStatus.CONFIRMED],
+        [OrderStatus.PACKING, OrderStatus.DELIVERED],
+        [OrderStatus.SHIPPING, OrderStatus.CANCELLED],
+        [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+        [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
+        [OrderStatus.CANCELLED, OrderStatus.PACKING],
+      ];
+
+      for (const [current, target] of invalidCases) {
+        mockDb.setSelectResultsQueue([
+          [
+            {
+              id: orderId,
+              customerId: userId,
+              orderCode: "ORD-20261121-ABC123",
+              orderStatus: current,
+              paymentMethod: PaymentMethod.COD,
+              paymentStatus: PaymentStatus.PENDING,
+              receiverName: "Nguyen Van An",
+              receiverPhone: "0912345678",
+              shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+              shippingDistanceKm: "5.00",
+              shippingFee: 15_000,
+              subtotal: 160_000,
+              discountAmount: 0,
+              loyaltyPointsUsed: 0,
+              totalAmount: 175_000,
+              createdAt: new Date("2026-11-21T03:00:00.000Z"),
+              updatedAt: new Date("2026-11-21T03:00:00.000Z"),
+            },
+          ],
+        ]);
+
+        let caught: unknown;
+        try {
+          await service.updateOrderStatus(orderId, target);
+        } catch (err) {
+          caught = err;
+        }
+
+        expect(caught).toBeInstanceOf(UnprocessableEntityException);
+        expect(
+          (caught as UnprocessableEntityException).getResponse() as {
+            code: string;
+          },
+        ).toMatchObject({
+          code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
+        });
+      }
+    });
+
+    // Invariant: INV-ORD-15
+    it("rejects cancelling a PAID or subscription order", async () => {
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            id: orderId,
+            customerId: userId,
+            orderCode: "ORD-20261121-PAYOS1",
+            orderStatus: OrderStatus.CONFIRMED,
+            paymentMethod: PaymentMethod.PAYOS,
+            paymentStatus: PaymentStatus.PAID,
+            receiverName: "Nguyen Van An",
+            receiverPhone: "0912345678",
+            shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+            shippingDistanceKm: "5.00",
+            shippingFee: 15_000,
+            subtotal: 160_000,
+            discountAmount: 0,
+            loyaltyPointsUsed: 0,
+            totalAmount: 175_000,
+            createdAt: new Date("2026-11-21T03:00:00.000Z"),
+            updatedAt: new Date("2026-11-21T03:00:00.000Z"),
+          },
+        ],
+      ]);
+
+      let caught: unknown;
+      try {
+        await service.updateOrderStatus(orderId, OrderStatus.CANCELLED);
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+      expect(
+        (caught as UnprocessableEntityException).getResponse() as {
+          code: string;
+        },
+      ).toMatchObject({
+        code: API_ERROR_CODES.ORDER_PAID_CANCELLATION_FORBIDDEN,
+      });
+    });
+
+    // Invariant: INV-ORD-14
+    it("re-evaluates restored batch status as expired, near_expiry, or in_stock when cancelling an allocated order", async () => {
+      const nowMs = Date.now();
+      const expiredAt = new Date(nowMs - 60_000);
+      const nearExpiryAt = new Date(nowMs + 12 * 3_600_000);
+      const freshAt = new Date(nowMs + 96 * 3_600_000);
+      const batchUpdates: Record<string, unknown>[] = [];
+
+      const origUpdate = mockDb.update.bind(mockDb);
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          batchUpdates.push(vals);
+          return origUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+
+      const confirmedOrder = {
+        id: orderId,
+        customerId: userId,
+        orderCode: "ORD-20261121-ABC123",
+        orderStatus: OrderStatus.CONFIRMED,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PENDING,
+        receiverName: "Nguyen Van An",
+        receiverPhone: "0912345678",
+        shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+        shippingDistanceKm: "5.00",
+        shippingFee: 15_000,
+        subtotal: 160_000,
+        discountAmount: 0,
+        loyaltyPointsUsed: 0,
+        totalAmount: 175_000,
+        createdAt: new Date(nowMs - 3_600_000),
+        updatedAt: new Date(nowMs - 3_600_000),
+      };
+
+      const cancelledOrder = {
+        ...confirmedOrder,
+        orderStatus: OrderStatus.CANCELLED,
+        paymentStatus: PaymentStatus.CANCELLED,
+      };
+
+      mockDb.setSelectResultsQueue([
+        [confirmedOrder],
+        [
+          {
+            id: "alloc-1",
+            batchId: "batch-1",
+            allocatedQuantity: "1.00",
+          },
+          {
+            id: "alloc-2",
+            batchId: "batch-2",
+            allocatedQuantity: "2.00",
+          },
+          {
+            id: "alloc-3",
+            batchId: "batch-3",
+            allocatedQuantity: "3.00",
+          },
+        ],
+        [
+          {
+            id: "batch-1",
+            availableQuantity: "0.00",
+            expirationDate: expiredAt,
+            status: BatchStatus.SOLD_OUT,
+          },
+          {
+            id: "batch-2",
+            availableQuantity: "0.00",
+            expirationDate: nearExpiryAt,
+            status: BatchStatus.SOLD_OUT,
+          },
+          {
+            id: "batch-3",
+            availableQuantity: "1.00",
+            expirationDate: freshAt,
+            status: BatchStatus.IN_STOCK,
+          },
+        ],
+        [cancelledOrder],
+        [],
+      ]);
+
+      const result = await service.updateOrderStatus(
+        orderId,
+        OrderStatus.CANCELLED,
+      );
+      expect(result.orderStatus).toBe(OrderStatus.CANCELLED);
+      expect(result.paymentStatus).toBe(PaymentStatus.CANCELLED);
+
+      expect(batchUpdates[0]).toMatchObject({
+        availableQuantity: "1.00",
+        status: BatchStatus.EXPIRED,
+      });
+      expect(batchUpdates[1]).toMatchObject({
+        availableQuantity: "2.00",
+        status: BatchStatus.NEAR_EXPIRY,
+      });
+      expect(batchUpdates[2]).toMatchObject({
+        availableQuantity: "4.00",
+        status: BatchStatus.IN_STOCK,
+      });
     });
   });
 });
