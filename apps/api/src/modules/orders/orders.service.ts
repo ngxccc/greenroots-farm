@@ -64,7 +64,9 @@ import type {
   CheckoutRequestInput,
   ListMyOrdersQuery,
   OrderItemProjection,
+  OrderPickListProjection,
   OrderProjection,
+  PickListBatchItemProjection,
   StaffOrderItemProjection,
   StaffOrderProjection,
   ValidateCartRequestInput,
@@ -79,10 +81,12 @@ import {
   ORDER_CODE_RANDOM_LENGTH,
   ORDER_ITEM_MAX_QUANTITY,
   ORDER_STATUS_TRANSITIONS,
+  PICK_LIST_ALLOWED_STATUSES,
   VIETNAM_TIMEZONE,
   type CartItemIssue,
   type NormalizedCartItem,
   type OrderSortOption,
+  type PickListOrderStatus,
 } from "./orders.interface";
 import type { ShippingQuote } from "./shipping/dto";
 import { ShippingService } from "./shipping/shipping.service";
@@ -450,6 +454,143 @@ export class OrdersService {
 
       return this.hydrateStaffOrderProjection(tx, updatedOrder, "active");
     });
+  }
+
+  /**
+   * Returns a read-only FEFO batch-grouped pick list for an order in `confirmed`, `packing`, or `shipping` status (`#87`).
+   * Reads `orders` and active `batch_allocations` (`released_at IS NULL`) in a single statement snapshot without mutating stock.
+   *
+   * @param orderId Target order UUIDv7 identifier.
+   * @returns Closed `OrderPickListProjection` grouped by `batchId` in FEFO order.
+   */
+  async getOrderPickList(orderId: string): Promise<OrderPickListProjection> {
+    // Evaluate order status and active allocations in one READ COMMITTED statement to avoid TOCTOU races with concurrent cancellation.
+    // Join products without deletedAt/isActive filters so confirmed orders remain pickable even after catalog archival (ADR-0032).
+    const rows = await this.db
+      .select({
+        orderId: orders.id,
+        orderCode: orders.orderCode,
+        orderStatus: orders.orderStatus,
+        allocationId: batchAllocations.id,
+        allocatedQuantity: batchAllocations.allocatedQuantity,
+        batchId: batches.id,
+        batchCode: batches.batchCode,
+        expirationDate: batches.expirationDate,
+        batchStatus: batches.status,
+        productId: products.id,
+        productName: products.name,
+        unit: products.unit,
+      })
+      .from(orders)
+      .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
+      .leftJoin(
+        batchAllocations,
+        and(
+          eq(batchAllocations.orderItemId, orderItems.id),
+          isNull(batchAllocations.releasedAt),
+        ),
+      )
+      .leftJoin(batches, eq(batches.id, batchAllocations.batchId))
+      .leftJoin(products, eq(products.id, batches.productId))
+      .where(eq(orders.id, orderId))
+      .orderBy(
+        asc(batches.expirationDate),
+        asc(batches.id),
+        asc(batchAllocations.id),
+      );
+
+    const header = rows[0];
+    if (!header) {
+      throw new NotFoundException({
+        code: API_ERROR_CODES.ORDER_NOT_FOUND,
+        detail: MESSAGES.ORDERS.NOT_FOUND,
+      });
+    }
+
+    if (!this.isPickListOrderStatus(header.orderStatus)) {
+      throw new ConflictException({
+        code: API_ERROR_CODES.ORDER_PICK_LIST_STATUS_INVALID,
+        detail: MESSAGES.ORDERS.PICK_LIST_STATUS_INVALID,
+      });
+    }
+
+    const now = new Date();
+    const nowMs = now.getTime();
+    const groupedBatches = new Map<
+      string,
+      {
+        readonly batchId: string;
+        readonly batchCode: string;
+        readonly expirationDate: Date;
+        readonly batchStatus: BatchStatus;
+        readonly productId: string;
+        readonly productName: string;
+        readonly unit: string;
+        allocatedCents: number;
+      }
+    >();
+
+    for (const row of rows) {
+      if (
+        !row.allocationId ||
+        !row.batchId ||
+        !row.batchCode ||
+        !row.expirationDate ||
+        !row.batchStatus ||
+        !row.productId ||
+        !row.productName ||
+        !row.unit ||
+        row.allocatedQuantity === null
+      ) {
+        continue;
+      }
+
+      const deltaCents = this.toQuantityCents(row.allocatedQuantity);
+      const existing = groupedBatches.get(row.batchId);
+      if (existing) {
+        existing.allocatedCents += deltaCents;
+      } else {
+        groupedBatches.set(row.batchId, {
+          batchId: row.batchId,
+          batchCode: row.batchCode,
+          expirationDate: row.expirationDate,
+          batchStatus: row.batchStatus,
+          productId: row.productId,
+          productName: row.productName,
+          unit: row.unit,
+          allocatedCents: deltaCents,
+        });
+      }
+    }
+
+    if (groupedBatches.size === 0) {
+      throw new ConflictException({
+        code: API_ERROR_CODES.ORDER_ACTIVE_ALLOCATIONS_MISSING,
+        detail: MESSAGES.ORDERS.ACTIVE_ALLOCATIONS_MISSING,
+      });
+    }
+
+    const pickListBatches: PickListBatchItemProjection[] = Array.from(
+      groupedBatches.values(),
+    ).map((entry) => ({
+      batchId: entry.batchId,
+      batchCode: entry.batchCode,
+      expirationDate: entry.expirationDate.toISOString(),
+      batchStatus: entry.batchStatus,
+      isExpired: entry.expirationDate.getTime() <= nowMs,
+      productId: entry.productId,
+      productName: entry.productName,
+      unit: entry.unit,
+      allocatedQuantity: entry.allocatedCents / 100,
+    }));
+
+    return {
+      orderId: header.orderId,
+      orderCode: header.orderCode,
+      orderStatus: header.orderStatus,
+      generatedAt: now.toISOString(),
+      batches: pickListBatches,
+    };
   }
 
   /**
@@ -1465,6 +1606,14 @@ export class OrdersService {
 
       throw error;
     }
+  }
+
+  private isPickListOrderStatus(
+    status: OrderStatus,
+  ): status is PickListOrderStatus {
+    return (PICK_LIST_ALLOWED_STATUSES as readonly OrderStatus[]).includes(
+      status,
+    );
   }
 
   private toQuantityCents(value: string | number): number {

@@ -71,6 +71,16 @@ export const ALLOCATED_CANCELLABLE_STATUSES: readonly OrderStatus[] = [
   OrderStatus.PACKING,
 ];
 
+/** Order statuses eligible to render an active warehouse pick list (`#87`, `ADR-0033`). */
+export const PICK_LIST_ALLOWED_STATUSES = [
+  OrderStatus.CONFIRMED,
+  OrderStatus.PACKING,
+  OrderStatus.SHIPPING,
+] as const;
+
+/** Narrowed order status union eligible to render an active warehouse pick list. */
+export type PickListOrderStatus = (typeof PICK_LIST_ALLOWED_STATUSES)[number];
+
 /** Staff roles authorized to confirm orders and manage fulfillment status transitions. */
 export const FULFILLMENT_ALLOWED_ROLES = [
   UserRole.SALES,

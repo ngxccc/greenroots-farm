@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -37,10 +38,12 @@ import {
   CheckoutRequestDto,
   ListMyOrdersQueryDto,
   OrderDto,
+  OrderPickListDto,
   StaffOrderDto,
   UpdateOrderStatusRequestDto,
   ValidateCartRequestDto,
   ValidateCartResponseDto,
+  type OrderPickListProjection,
   type OrderProjection,
   type StaffOrderProjection,
   type ValidateCartResponse,
@@ -213,5 +216,30 @@ export class OrdersController {
       dto.status,
     );
     return apiSuccess(updated);
+  }
+
+  @Get(ORDERS_ROUTES.PICK_LIST)
+  @ApiAuth(...FULFILLMENT_ALLOWED_ROLES)
+  @Header("Cache-Control", "no-cache")
+  @ApiOperation({
+    summary: "Get FEFO batch-grouped pick list for a confirmed order",
+    description:
+      "Returns active FEFO batch allocations grouped by batch for orders in confirmed, packing, or shipping status without mutating stock.",
+  })
+  @ApiParam({
+    name: "id",
+    type: "string",
+    format: "uuid",
+    description: "Order UUIDv7 identifier",
+  })
+  @ApiOkResponseGeneric(OrderPickListDto)
+  @ApiNotFoundResponseRfc9457()
+  @ApiConflictResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
+  async getOrderPickList(
+    @Param("id", new ZodValidationPipe(zUuidV7())) orderId: string,
+  ): Promise<ApiResponse<OrderPickListProjection>> {
+    const pickList = await this.ordersService.getOrderPickList(orderId);
+    return apiSuccess(pickList);
   }
 }

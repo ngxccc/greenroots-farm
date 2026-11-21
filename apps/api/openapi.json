@@ -10934,6 +10934,197 @@
         ]
       }
     },
+    "/api/v1/orders/{id}/pick-list": {
+      "get": {
+        "description": "Returns active FEFO batch allocations grouped by batch for orders in confirmed, packing, or shipping status without mutating stock.",
+        "operationId": "OrdersController_getOrderPickList_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Order UUIDv7 identifier",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponseDto"
+                    },
+                    {
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/OrderPickListDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid token (Unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unauthorized",
+                  "title": "Unauthorized",
+                  "status": 401,
+                  "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden resource access (Forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/forbidden",
+                  "title": "Forbidden",
+                  "status": 403,
+                  "detail": "You do not have permission to perform this action",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (Not Found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/not-found",
+                  "title": "Not Found",
+                  "status": 404,
+                  "detail": "The requested resource could not be found",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict or concurrency collision (Conflict)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/conflict",
+                  "title": "Conflict",
+                  "status": 409,
+                  "detail": "A conflict occurred with the current state of the resource",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get FEFO batch-grouped pick list for a confirmed order",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
     "/api/v1/shipping/quote": {
       "post": {
         "description": "Calculates server-authoritative straight-line distance, road distance, deliverability, and integer VND fee from dynamic farm settings for an owned address or HCMC district code.",
@@ -15210,6 +15401,99 @@
           "status"
         ],
         "additionalProperties": false
+      },
+      "OrderPickListDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+          },
+          "orderCode": {
+            "type": "string"
+          },
+          "orderStatus": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "packing",
+              "shipping"
+            ]
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "batches": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "batchId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+                },
+                "batchCode": {
+                  "type": "string"
+                },
+                "expirationDate": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "batchStatus": {
+                  "type": "string",
+                  "enum": [
+                    "in_stock",
+                    "near_expiry",
+                    "sold_out",
+                    "expired"
+                  ]
+                },
+                "isExpired": {
+                  "type": "boolean"
+                },
+                "productId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+                },
+                "productName": {
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "allocatedQuantity": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": [
+                "batchId",
+                "batchCode",
+                "expirationDate",
+                "batchStatus",
+                "isExpired",
+                "productId",
+                "productName",
+                "unit",
+                "allocatedQuantity"
+              ]
+            }
+          }
+        },
+        "required": [
+          "orderId",
+          "orderCode",
+          "orderStatus",
+          "generatedAt",
+          "batches"
+        ]
       },
       "ShippingQuoteDto": {
         "type": "object",

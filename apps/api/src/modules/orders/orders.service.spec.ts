@@ -1584,4 +1584,201 @@ describe("OrdersService", () => {
       });
     });
   });
+
+  describe("getOrderPickList", () => {
+    const orderId = "019fa8bc-8f4d-7000-b366-e691f45cfb50";
+    const batch1Id = "019fa8bc-8f4d-7000-b366-e691f45cfb61";
+    const batch2Id = "019fa8bc-8f4d-7000-b366-e691f45cfb62";
+
+    // Invariant: INV-ORD-18, INV-ORD-19
+    it("groups active allocations by batchId in FEFO order, sums duplicate product lines in cents, and marks expired batches", async () => {
+      const nowMs = Date.now();
+      const expiredAt = new Date(nowMs - 60_000);
+      const freshAt = new Date(nowMs + 48 * 3_600_000);
+
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            orderId,
+            orderCode: "ORD-20261121-PICK01",
+            orderStatus: OrderStatus.CONFIRMED,
+            allocationId: "alloc-1",
+            allocatedQuantity: "1.25",
+            batchId: batch1Id,
+            batchCode: "BATCH-EXP-01",
+            expirationDate: expiredAt,
+            batchStatus: BatchStatus.NEAR_EXPIRY,
+            productId: productAId,
+            productName: "Cà chua bi hữu cơ",
+            unit: "kg",
+          },
+          {
+            orderId,
+            orderCode: "ORD-20261121-PICK01",
+            orderStatus: OrderStatus.CONFIRMED,
+            allocationId: "alloc-2",
+            allocatedQuantity: "0.75",
+            batchId: batch1Id,
+            batchCode: "BATCH-EXP-01",
+            expirationDate: expiredAt,
+            batchStatus: BatchStatus.NEAR_EXPIRY,
+            productId: productAId,
+            productName: "Cà chua bi hữu cơ",
+            unit: "kg",
+          },
+          {
+            orderId,
+            orderCode: "ORD-20261121-PICK01",
+            orderStatus: OrderStatus.CONFIRMED,
+            allocationId: "alloc-3",
+            allocatedQuantity: "3.50",
+            batchId: batch2Id,
+            batchCode: "BATCH-FRESH-02",
+            expirationDate: freshAt,
+            batchStatus: BatchStatus.IN_STOCK,
+            productId: productBId,
+            productName: "Cải bó xôi hữu cơ",
+            unit: "kg",
+          },
+        ],
+      ]);
+
+      const pickList = await service.getOrderPickList(orderId);
+
+      expect(pickList.orderId).toBe(orderId);
+      expect(pickList.orderCode).toBe("ORD-20261121-PICK01");
+      expect(pickList.orderStatus).toBe(OrderStatus.CONFIRMED);
+      expect(typeof pickList.generatedAt).toBe("string");
+      expect(pickList.batches).toEqual([
+        {
+          batchId: batch1Id,
+          batchCode: "BATCH-EXP-01",
+          expirationDate: expiredAt.toISOString(),
+          batchStatus: BatchStatus.NEAR_EXPIRY,
+          isExpired: true,
+          productId: productAId,
+          productName: "Cà chua bi hữu cơ",
+          unit: "kg",
+          allocatedQuantity: 2,
+        },
+        {
+          batchId: batch2Id,
+          batchCode: "BATCH-FRESH-02",
+          expirationDate: freshAt.toISOString(),
+          batchStatus: BatchStatus.IN_STOCK,
+          isExpired: false,
+          productId: productBId,
+          productName: "Cải bó xôi hữu cơ",
+          unit: "kg",
+          allocatedQuantity: 3.5,
+        },
+      ]);
+      expect(Object.keys(pickList).sort()).toEqual([
+        "batches",
+        "generatedAt",
+        "orderCode",
+        "orderId",
+        "orderStatus",
+      ]);
+    });
+
+    // Invariant: INV-ORD-17
+    it("throws not found when the order does not exist", async () => {
+      mockDb.setSelectResultsQueue([[]]);
+
+      let caught: unknown;
+      try {
+        await service.getOrderPickList(orderId);
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(NotFoundException);
+      expect(
+        (caught as NotFoundException).getResponse() as { code: string },
+      ).toMatchObject({
+        code: API_ERROR_CODES.ORDER_NOT_FOUND,
+      });
+    });
+
+    // Invariant: INV-ORD-17
+    it("rejects orders outside confirmed, packing, and shipping statuses", async () => {
+      for (const disallowedStatus of [
+        OrderStatus.PENDING_PAYMENT,
+        OrderStatus.PENDING_CONFIRMATION,
+        OrderStatus.DELIVERED,
+        OrderStatus.COMPLETED,
+        OrderStatus.CANCELLED,
+      ]) {
+        mockDb.setSelectResultsQueue([
+          [
+            {
+              orderId,
+              orderCode: "ORD-20261121-PICK02",
+              orderStatus: disallowedStatus,
+              allocationId: null,
+              allocatedQuantity: null,
+              batchId: null,
+              batchCode: null,
+              expirationDate: null,
+              batchStatus: null,
+              productId: null,
+              productName: null,
+              unit: null,
+            },
+          ],
+        ]);
+
+        let caught: unknown;
+        try {
+          await service.getOrderPickList(orderId);
+        } catch (err) {
+          caught = err;
+        }
+
+        expect(caught).toBeInstanceOf(ConflictException);
+        expect(
+          (caught as ConflictException).getResponse() as { code: string },
+        ).toMatchObject({
+          code: API_ERROR_CODES.ORDER_PICK_LIST_STATUS_INVALID,
+        });
+      }
+    });
+
+    // Invariant: INV-ORD-17
+    it("rejects pickable orders when active allocations are missing", async () => {
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            orderId,
+            orderCode: "ORD-20261121-PICK03",
+            orderStatus: OrderStatus.CONFIRMED,
+            allocationId: null,
+            allocatedQuantity: null,
+            batchId: null,
+            batchCode: null,
+            expirationDate: null,
+            batchStatus: null,
+            productId: null,
+            productName: null,
+            unit: null,
+          },
+        ],
+      ]);
+
+      let caught: unknown;
+      try {
+        await service.getOrderPickList(orderId);
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(ConflictException);
+      expect(
+        (caught as ConflictException).getResponse() as { code: string },
+      ).toMatchObject({
+        code: API_ERROR_CODES.ORDER_ACTIVE_ALLOCATIONS_MISSING,
+      });
+    });
+  });
 });
