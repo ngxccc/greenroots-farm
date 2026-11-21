@@ -48,6 +48,7 @@ export const API_ERROR_CODES = {
   OUT_OF_DELIVERY_RADIUS: "OUT_OF_DELIVERY_RADIUS",
   ORDER_BELOW_MINIMUM_VALUE: "ORDER_BELOW_MINIMUM_VALUE",
   ORDER_COD_DISABLED: "ORDER_COD_DISABLED",
+  ORDER_NOT_FOUND: "ORDER_NOT_FOUND",
   FARMING_LOG_IMMUTABLE: "FARMING_LOG_IMMUTABLE",
   FARMING_LOG_CORRECTION_TARGET_INVALID:
     "FARMING_LOG_CORRECTION_TARGET_INVALID",
@@ -171,6 +172,7 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
   [API_ERROR_CODES.ORDER_BELOW_MINIMUM_VALUE]: `Giá trị đơn hàng chưa đạt mức tối thiểu ${BUSINESS_RULES.MIN_ORDER_VALUE_VND.toLocaleString("vi-VN")}đ (không tính phí giao hàng).`,
   [API_ERROR_CODES.ORDER_COD_DISABLED]:
     "Phương thức thanh toán khi nhận hàng (COD) hiện đang tạm ngưng.",
+  [API_ERROR_CODES.ORDER_NOT_FOUND]: "Không tìm thấy đơn hàng yêu cầu.",
   [API_ERROR_CODES.FARMING_LOG_IMMUTABLE]:
     "Nhật ký canh tác đã khóa bất biến, không thể chỉnh sửa hoặc xóa.",
   [API_ERROR_CODES.FARMING_LOG_CORRECTION_TARGET_INVALID]:

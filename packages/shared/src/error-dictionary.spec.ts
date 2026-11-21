@@ -35,6 +35,9 @@ describe("resolveSharedApiErrorMessage", () => {
     expect(resolveSharedApiErrorMessage(API_ERROR_CODES.FORBIDDEN)).toBe(
       API_ERROR_DICTIONARY[API_ERROR_CODES.FORBIDDEN],
     );
+    expect(resolveSharedApiErrorMessage(API_ERROR_CODES.ORDER_NOT_FOUND)).toBe(
+      API_ERROR_DICTIONARY[API_ERROR_CODES.ORDER_NOT_FOUND],
+    );
   });
 
   it("interpolates minimum constraints for TOO_SMALL across string, number, and array origins", () => {
