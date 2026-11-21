@@ -893,6 +893,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List customer order history
+         * @description Returns a paginated list of orders owned by the authenticated customer with optional status filtering and sorting.
+         */
+        get: operations["OrdersController_listMyOrders_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get customer order detail
+         * @description Returns a single order with line items and totals owned by the authenticated customer; returns 404 when missing or owned by another customer.
+         */
+        get: operations["OrdersController_getMyOrderById_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/validate-cart": {
         parameters: {
             query?: never;
@@ -1888,6 +1928,43 @@ export interface components {
              */
             folder: "farming_logs" | "complaints" | "products" | "waste_logs" | "plots" | "farms";
         };
+        OrderDto: {
+            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+            id: string;
+            orderCode: string;
+            /** @enum {string} */
+            orderStatus: "pending_payment" | "pending_confirmation" | "packing" | "shipping" | "delivered" | "completed" | "cancelled";
+            /** @enum {string} */
+            paymentMethod: "cod" | "payos" | "subscription";
+            /** @enum {string} */
+            paymentStatus: "pending" | "paid" | "failed" | "refunded";
+            receiverName: string;
+            receiverPhone: string;
+            shippingAddress: string;
+            shippingDistanceKm: number;
+            shippingFeeVnd: number;
+            subtotalVnd: number;
+            discountAmountVnd: number;
+            loyaltyPointsUsed: number;
+            totalAmountVnd: number;
+            items: {
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                id: string;
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                productId: string;
+                productName: string;
+                productSlug: string;
+                productImageUrl: string | null;
+                unit: string;
+                quantity: number;
+                unitPriceVnd: number;
+                lineTotalVnd: number;
+            }[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         ValidateCartResponseDto: {
             isValid: boolean;
             meetsMinOrderValue: boolean;
@@ -1933,42 +2010,6 @@ export interface components {
             /** @default 0 */
             loyaltyPoints: number;
             clientTotalVnd?: number;
-        };
-        OrderDto: {
-            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
-            id: string;
-            orderCode: string;
-            /** @enum {string} */
-            orderStatus: "pending_payment" | "pending_confirmation" | "packing" | "shipping" | "delivered" | "completed" | "cancelled";
-            /** @enum {string} */
-            paymentMethod: "cod" | "payos" | "subscription";
-            /** @enum {string} */
-            paymentStatus: "pending" | "paid" | "failed" | "refunded";
-            receiverName: string;
-            receiverPhone: string;
-            shippingAddress: string;
-            shippingDistanceKm: number;
-            shippingFeeVnd: number;
-            subtotalVnd: number;
-            discountAmountVnd: number;
-            loyaltyPointsUsed: number;
-            totalAmountVnd: number;
-            items: {
-                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
-                id: string;
-                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
-                productId: string;
-                productName: string;
-                productSlug: string;
-                unit: string;
-                quantity: number;
-                unitPriceVnd: number;
-                lineTotalVnd: number;
-            }[];
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
         };
         CheckoutRequestDto: {
             items: {
@@ -9650,6 +9691,287 @@ export interface operations {
                      *       "title": "Unprocessable Entity",
                      *       "status": 422,
                      *       "detail": "The request was well-formed but could not be processed due to semantic errors",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    OrdersController_listMyOrders_v1: {
+        parameters: {
+            query?: {
+                status?: "pending_payment" | "pending_confirmation" | "packing" | "shipping" | "delivered" | "completed" | "cancelled";
+                page?: number | string;
+                limit?: number | string;
+                sort?: "createdAt:desc" | "createdAt:asc" | "totalAmount:desc" | "totalAmount:asc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiResponseDto"] & {
+                        data: components["schemas"]["OrderDto"][];
+                        meta: components["schemas"]["PaginationMetaDto"];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    OrdersController_getMyOrderById_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Order UUIDv7 identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data: components["schemas"]["OrderDto"];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Resource not found (Not Found) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/not-found",
+                     *       "title": "Not Found",
+                     *       "status": 404,
+                     *       "detail": "The requested resource could not be found",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
                      *       "instance": "/api/v1/resource",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
