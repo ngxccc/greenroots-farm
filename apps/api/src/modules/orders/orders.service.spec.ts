@@ -21,7 +21,11 @@ import type { FarmSettingsService } from "@/modules/farms/farm-settings.service"
 import type { AddressService } from "@/modules/users/address.service";
 import type { ResolvedQuoteAddress } from "@/modules/users/users.interface";
 import { createMockDb } from "../../../test/mocks/mock-database";
-import { checkoutRequestSchema, validateCartRequestSchema } from "./dto";
+import {
+  checkoutRequestSchema,
+  listMyOrdersQuerySchema,
+  validateCartRequestSchema,
+} from "./dto";
 import { OrdersService } from "./orders.service";
 import type { ShippingQuote } from "./shipping/dto";
 import type { ShippingService } from "./shipping/shipping.service";
@@ -143,6 +147,7 @@ describe("OrdersService", () => {
                   receiverPhone: "0912345678",
                   shippingAddress:
                     "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+                  shippingDistanceKm: "13.00",
                   shippingFee: 65_000,
                   subtotal: 160_000,
                   discountAmount: 50_000,
@@ -197,6 +202,43 @@ describe("OrdersService", () => {
         }).success,
       ).toBe(false);
     });
+
+    it("rejects customerId, unknown keys, and invalid sort or limit on listMyOrdersQuerySchema", () => {
+      expect(
+        listMyOrdersQuerySchema.safeParse({
+          customerId: userId,
+        }).success,
+      ).toBe(false);
+
+      expect(
+        listMyOrdersQuerySchema.safeParse({
+          sort: "orderCode:asc",
+        }).success,
+      ).toBe(false);
+
+      expect(
+        listMyOrdersQuerySchema.safeParse({
+          limit: "101",
+        }).success,
+      ).toBe(false);
+
+      const valid = listMyOrdersQuerySchema.parse({
+        status: OrderStatus.PENDING_CONFIRMATION,
+        page: "2",
+        limit: "10",
+        sort: "totalAmount:desc",
+      });
+      expect(valid).toEqual({
+        status: OrderStatus.PENDING_CONFIRMATION,
+        page: 2,
+        limit: 10,
+        sort: "totalAmount:desc",
+      });
+
+      expect(
+        listMyOrdersQuerySchema.parse({ sort: "createdAt:asc" }).sort,
+      ).toBe("createdAt:asc");
+    });
   });
 
   describe("validateCart", () => {
@@ -218,6 +260,9 @@ describe("OrdersService", () => {
             id: productBId,
             name: "Cai bo xoi",
             slug: "cai-bo-xoi",
+            imageUrls: [
+              "https://res.cloudinary.com/greenroots-dev/image/upload/v1/products/cai.webp",
+            ],
             unit: "kg",
             basePrice: 50_000,
             salePrice: null,
@@ -231,6 +276,7 @@ describe("OrdersService", () => {
             id: productAId,
             name: "Ca chua bi",
             slug: "ca-chua-bi",
+            imageUrls: null,
             unit: "kg",
             basePrice: 60_000,
             salePrice: 40_000,
@@ -283,6 +329,9 @@ describe("OrdersService", () => {
             id: productAId,
             name: "Ca chua bi",
             slug: "ca-chua-bi",
+            imageUrls: [
+              "https://res.cloudinary.com/greenroots-dev/image/upload/v1/products/ca-chua.webp",
+            ],
             unit: "kg",
             basePrice: 80_000,
             salePrice: null,
@@ -449,6 +498,9 @@ describe("OrdersService", () => {
             id: productAId,
             name: "Ca chua bi",
             slug: "ca-chua-bi",
+            imageUrls: [
+              "https://res.cloudinary.com/greenroots-dev/image/upload/v1/products/ca-chua.webp",
+            ],
             unit: "kg",
             basePrice: 80_000,
             salePrice: null,
@@ -486,6 +538,7 @@ describe("OrdersService", () => {
             id: productAId,
             name: "Ca chua bi",
             slug: "ca-chua-bi",
+            imageUrls: null,
             unit: "kg",
             basePrice: 70_000,
             salePrice: null,
@@ -536,6 +589,9 @@ describe("OrdersService", () => {
             id: productAId,
             name: "Ca chua bi",
             slug: "ca-chua-bi",
+            imageUrls: [
+              "https://res.cloudinary.com/greenroots-dev/image/upload/v1/products/ca-chua.webp",
+            ],
             unit: "kg",
             basePrice: 80_000,
             salePrice: null,
@@ -689,6 +745,247 @@ describe("OrdersService", () => {
       expect(
         (caught as ConflictException).getResponse() as { code: string },
       ).toMatchObject({ code: API_ERROR_CODES.CONFLICT_RECORD });
+    });
+  });
+
+  describe("listMyOrders", () => {
+    it("short-circuits item hydration when total is zero or offset exceeds total", async () => {
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [{ total: 0 }],
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [{ total: 2 }],
+      ]);
+
+      const empty = await service.listMyOrders(userId, {
+        page: 1,
+        limit: 20,
+        sort: "createdAt:desc",
+      });
+      expect(empty.items).toEqual([]);
+      expect(empty.meta).toEqual({
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: false,
+      });
+
+      const beyondPage = await service.listMyOrders(userId, {
+        page: 3,
+        limit: 20,
+        sort: "createdAt:desc",
+      });
+      expect(beyondPage.items).toEqual([]);
+      expect(beyondPage.meta).toEqual({
+        page: 3,
+        limit: 20,
+        total: 2,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: true,
+      });
+    });
+
+    // Invariant: INV-ORD-8, INV-ORD-10
+    it("hydrates paginated order rows with thumbnail URLs and integer-cent line totals", async () => {
+      const orderId = "019fa8bc-8f4d-7000-b366-e691f45cfb50";
+      const createdAt = new Date("2026-11-21T03:00:00.000Z");
+      const updatedAt = new Date("2026-11-21T03:05:00.000Z");
+
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [{ total: 1 }],
+        [
+          {
+            id: orderId,
+            orderCode: "ORD-20261121-ABC123",
+            orderStatus: OrderStatus.PENDING_CONFIRMATION,
+            paymentMethod: PaymentMethod.COD,
+            paymentStatus: PaymentStatus.PENDING,
+            receiverName: "Nguyen Van An",
+            receiverPhone: "0912345678",
+            shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+            shippingDistanceKm: "13.00",
+            shippingFee: 65_000,
+            subtotal: 120_000,
+            discountAmount: 0,
+            loyaltyPointsUsed: 0,
+            totalAmount: 185_000,
+            createdAt,
+            updatedAt,
+          },
+        ],
+        [
+          {
+            id: "019fa8bc-8f4d-7000-b366-e691f45cfb51",
+            orderId,
+            productId: productAId,
+            quantity: "1.50",
+            unitPrice: 80_000,
+            productName: "Ca chua bi",
+            productSlug: "ca-chua-bi",
+            productImageUrls: [
+              "https://res.cloudinary.com/greenroots-dev/image/upload/v1/products/ca-chua.webp",
+            ],
+            unit: "kg",
+          },
+        ],
+      ]);
+
+      const result = await service.listMyOrders(userId, {
+        page: 1,
+        limit: 20,
+        status: OrderStatus.PENDING_CONFIRMATION,
+        sort: "totalAmount:desc",
+      });
+
+      expect(result.meta.total).toBe(1);
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toEqual({
+        id: orderId,
+        orderCode: "ORD-20261121-ABC123",
+        orderStatus: OrderStatus.PENDING_CONFIRMATION,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PENDING,
+        receiverName: "Nguyen Van An",
+        receiverPhone: "0912345678",
+        shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+        shippingDistanceKm: 13,
+        shippingFeeVnd: 65_000,
+        subtotalVnd: 120_000,
+        discountAmountVnd: 0,
+        loyaltyPointsUsed: 0,
+        totalAmountVnd: 185_000,
+        items: [
+          {
+            id: "019fa8bc-8f4d-7000-b366-e691f45cfb51",
+            productId: productAId,
+            productName: "Ca chua bi",
+            productSlug: "ca-chua-bi",
+            productImageUrl:
+              "https://res.cloudinary.com/greenroots-dev/image/upload/v1/products/ca-chua.webp",
+            unit: "kg",
+            quantity: 1.5,
+            unitPriceVnd: 80_000,
+            lineTotalVnd: 120_000,
+          },
+        ],
+        createdAt: createdAt.toISOString(),
+        updatedAt: updatedAt.toISOString(),
+      });
+    });
+
+    it("supports ascending createdAt and totalAmount sort options", async () => {
+      const createdAt = new Date("2026-11-21T03:00:00.000Z");
+      const orderRow = {
+        id: "019fa8bc-8f4d-7000-b366-e691f45cfb50",
+        orderCode: "ORD-20261121-ASC001",
+        orderStatus: OrderStatus.PENDING_CONFIRMATION,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PENDING,
+        receiverName: "Nguyen Van An",
+        receiverPhone: "0912345678",
+        shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+        shippingDistanceKm: "5.00",
+        shippingFee: 15_000,
+        subtotal: 150_000,
+        discountAmount: 0,
+        loyaltyPointsUsed: 0,
+        totalAmount: 165_000,
+        createdAt,
+        updatedAt: createdAt,
+      };
+
+      for (const sort of ["createdAt:asc", "totalAmount:asc"] as const) {
+        mockDb.setSelectResultsQueue([
+          [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+          [{ total: 1 }],
+          [orderRow],
+          [],
+        ]);
+
+        const res = await service.listMyOrders(userId, {
+          page: 1,
+          limit: 20,
+          sort,
+        });
+        expect(res.items).toHaveLength(1);
+        expect(res.items[0]?.items).toEqual([]);
+      }
+    });
+  });
+
+  describe("getMyOrderById", () => {
+    // Invariant: INV-ORD-7
+    it("throws ORDER_NOT_FOUND when the order is missing or owned by another customer", async () => {
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [],
+      ]);
+
+      let caught: unknown;
+      try {
+        await service.getMyOrderById(
+          userId,
+          "019fa8bc-8f4d-7000-b366-e691f45cfb50",
+        );
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(NotFoundException);
+      expect(
+        (caught as NotFoundException).getResponse() as { code: string },
+      ).toMatchObject({ code: API_ERROR_CODES.ORDER_NOT_FOUND });
+    });
+
+    it("returns null productImageUrl when product imageUrls is empty or null", async () => {
+      const orderId = "019fa8bc-8f4d-7000-b366-e691f45cfb50";
+      const createdAt = new Date("2026-11-21T03:00:00.000Z");
+
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [
+          {
+            id: orderId,
+            orderCode: "ORD-20261121-ABC123",
+            orderStatus: OrderStatus.PACKING,
+            paymentMethod: PaymentMethod.SUBSCRIPTION,
+            paymentStatus: PaymentStatus.PAID,
+            receiverName: "Nguyen Van An",
+            receiverPhone: "0912345678",
+            shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+            shippingDistanceKm: "5.50",
+            shippingFee: 0,
+            subtotal: 150_000,
+            discountAmount: 0,
+            loyaltyPointsUsed: 0,
+            totalAmount: 150_000,
+            createdAt,
+            updatedAt: createdAt,
+          },
+        ],
+        [
+          {
+            id: "019fa8bc-8f4d-7000-b366-e691f45cfb51",
+            orderId,
+            productId: productAId,
+            quantity: "2.00",
+            unitPrice: 75_000,
+            productName: "Ca chua bi",
+            productSlug: "ca-chua-bi",
+            productImageUrls: [],
+            unit: "kg",
+          },
+        ],
+      ]);
+
+      const order = await service.getMyOrderById(userId, orderId);
+      expect(order.paymentMethod).toBe(PaymentMethod.SUBSCRIPTION);
+      expect(order.items[0]?.productImageUrl).toBeNull();
+      expect(order.items[0]?.lineTotalVnd).toBe(150_000);
     });
   });
 });

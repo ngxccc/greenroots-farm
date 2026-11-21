@@ -11,6 +11,7 @@ export const orderItemSchema = z.object({
   productId: zUuidV7(),
   productName: z.string(),
   productSlug: z.string(),
+  productImageUrl: z.string().nullable(),
   unit: z.string(),
   quantity: z.number().positive(),
   unitPriceVnd: z.number().int().nonnegative(),

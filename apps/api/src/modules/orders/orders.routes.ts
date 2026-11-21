@@ -7,4 +7,6 @@ export const ORDERS_ROUTES = Object.freeze({
   BASE: "orders",
   VALIDATE_CART: "validate-cart",
   CHECKOUT: "checkout",
+  ME: "me",
+  BY_ID: ":id",
 } as const);

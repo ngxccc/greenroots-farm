@@ -189,6 +189,7 @@ export const MESSAGES = {
       "Sale price must be non-negative and less than or equal to base price.",
   },
   ORDERS: {
+    NOT_FOUND: "Order not found.",
     BELOW_MINIMUM_VALUE:
       "Order merchandise subtotal is below the minimum order value.",
     COD_DISABLED: "Cash on delivery is currently disabled in farm settings.",

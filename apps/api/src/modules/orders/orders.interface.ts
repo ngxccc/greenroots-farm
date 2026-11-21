@@ -2,6 +2,17 @@
  * Pure domain constants and internal interfaces for `OrdersModule` (`ADR-0011`).
  */
 
+/** Whitelisted sort expressions for `GET /api/v1/orders/me`. */
+export const ORDER_SORT_OPTIONS = [
+  "createdAt:desc",
+  "createdAt:asc",
+  "totalAmount:desc",
+  "totalAmount:asc",
+] as const;
+
+/** Union of supported sort query strings for customer order history. */
+export type OrderSortOption = (typeof ORDER_SORT_OPTIONS)[number];
+
 export const ORDER_CODE_PREFIX = "ORD";
 export const ORDER_CODE_RANDOM_LENGTH = 6;
 export const ORDER_CODE_MAX_GENERATION_ATTEMPTS = 5;

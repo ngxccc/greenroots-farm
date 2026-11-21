@@ -1,5 +1,14 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
-import { ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+} from "@nestjs/common";
+import { ApiHeader, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@greenroots/shared";
 import { IDEMPOTENCY_HEADER_NAME } from "@/common/constants/idempotency.constant";
 import { ERROR_SLUGS, MESSAGES } from "@/common/constants/messages.constant";
@@ -8,18 +17,24 @@ import {
   ApiBadRequestResponseRfc9457,
   ApiConflictResponseRfc9457,
   ApiCreatedResponseGeneric,
+  ApiForbiddenResponseRfc9457,
   ApiInternalServerErrorResponseRfc9457,
   ApiNotFoundResponseRfc9457,
   ApiOkResponseGeneric,
+  ApiOkResponsePaginated,
   ApiRfc9457Response,
   ApiTooManyRequestsResponseRfc9457,
   ApiUnprocessableEntityResponseRfc9457,
   CurrentUser,
   Idempotent,
 } from "@/common/decorators";
+import type { PaginationMetaDto } from "@/common/dto/api-response.dto";
+import { ZodValidationPipe } from "@/common/pipes/zod-validation.pipe";
+import { zUuidV7 } from "@/common/schemas/zod-primitives";
 import { apiSuccess, type ApiResponse } from "@/common/utils/api-response.util";
 import {
   CheckoutRequestDto,
+  ListMyOrdersQueryDto,
   OrderDto,
   ValidateCartRequestDto,
   ValidateCartResponseDto,
@@ -30,7 +45,7 @@ import { ORDERS_ROUTES } from "./orders.routes";
 import { OrdersService } from "./orders.service";
 
 /**
- * Customer cart validation and retail COD checkout endpoints (`/api/v1/orders`).
+ * Customer cart validation, retail COD checkout, and order history endpoints (`/api/v1/orders`).
  */
 @ApiTags(ORDERS_ROUTES.TAG)
 @Controller({ path: ORDERS_ROUTES.BASE, version: "1" })
@@ -39,6 +54,51 @@ import { OrdersService } from "./orders.service";
 @ApiInternalServerErrorResponseRfc9457()
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
+
+  // Register static `me` route before `:id` so `/orders/me` is never captured as an order UUID parameter.
+  @Get(ORDERS_ROUTES.ME)
+  @ApiOperation({
+    summary: "List customer order history",
+    description:
+      "Returns a paginated list of orders owned by the authenticated customer with optional status filtering and sorting.",
+  })
+  @ApiOkResponsePaginated(OrderDto)
+  @ApiForbiddenResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
+  async listMyOrders(
+    @CurrentUser("sub") userId: string,
+    @Query() query: ListMyOrdersQueryDto,
+  ): Promise<ApiResponse<OrderProjection[], PaginationMetaDto>> {
+    const { items, meta } = await this.ordersService.listMyOrders(
+      userId,
+      query,
+    );
+    return apiSuccess(items, meta);
+  }
+
+  @Get(ORDERS_ROUTES.BY_ID)
+  @ApiOperation({
+    summary: "Get customer order detail",
+    description:
+      "Returns a single order with line items and totals owned by the authenticated customer; returns 404 when missing or owned by another customer.",
+  })
+  @ApiParam({
+    name: "id",
+    type: "string",
+    format: "uuid",
+    description: "Order UUIDv7 identifier",
+  })
+  @ApiOkResponseGeneric(OrderDto)
+  @ApiForbiddenResponseRfc9457()
+  @ApiNotFoundResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
+  async getMyOrderById(
+    @CurrentUser("sub") userId: string,
+    @Param("id", new ZodValidationPipe(zUuidV7())) orderId: string,
+  ): Promise<ApiResponse<OrderProjection>> {
+    const order = await this.ordersService.getMyOrderById(userId, orderId);
+    return apiSuccess(order);
+  }
 
   @Post(ORDERS_ROUTES.VALIDATE_CART)
   @HttpCode(HttpStatus.OK)

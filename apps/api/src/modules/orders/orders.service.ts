@@ -10,7 +10,17 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import {
   API_ERROR_CODES,
   BUSINESS_RULES,
@@ -19,9 +29,12 @@ import {
   PaymentStatus,
   PaymentTransactionType,
   UserStatus,
+  type ProductImageUrls,
 } from "@greenroots/shared";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
+import type { PaginationMetaDto } from "@/common/dto/api-response.dto";
+import { buildPaginationMeta } from "@/common/utils/api-response.util";
 import { extractDatabaseErrorDetails } from "@/common/utils/error.util";
 import {
   DATABASE_CONNECTION,
@@ -41,6 +54,8 @@ import { FarmSettingsService } from "@/modules/farms/farm-settings.service";
 import { AddressService } from "@/modules/users/address.service";
 import type {
   CheckoutRequestInput,
+  ListMyOrdersQuery,
+  OrderItemProjection,
   OrderProjection,
   ValidateCartRequestInput,
   ValidateCartResponse,
@@ -55,6 +70,7 @@ import {
   VIETNAM_TIMEZONE,
   type CartItemIssue,
   type NormalizedCartItem,
+  type OrderSortOption,
 } from "./orders.interface";
 import type { ShippingQuote } from "./shipping/dto";
 import { ShippingService } from "./shipping/shipping.service";
@@ -66,10 +82,39 @@ const VN_CALENDAR_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
+const ORDER_COLUMNS = {
+  id: orders.id,
+  orderCode: orders.orderCode,
+  orderStatus: orders.orderStatus,
+  paymentMethod: orders.paymentMethod,
+  paymentStatus: orders.paymentStatus,
+  receiverName: orders.receiverName,
+  receiverPhone: orders.receiverPhone,
+  shippingAddress: orders.shippingAddress,
+  shippingDistanceKm: orders.shippingDistanceKm,
+  shippingFee: orders.shippingFee,
+  subtotal: orders.subtotal,
+  discountAmount: orders.discountAmount,
+  loyaltyPointsUsed: orders.loyaltyPointsUsed,
+  totalAmount: orders.totalAmount,
+  createdAt: orders.createdAt,
+  updatedAt: orders.updatedAt,
+} as const;
+
+type OrderRow = Pick<typeof orders.$inferSelect, keyof typeof ORDER_COLUMNS>;
+
+const ORDER_SORT_EXPRESSIONS = new Map<OrderSortOption, SQL[]>([
+  ["createdAt:desc", [desc(orders.createdAt), desc(orders.id)]],
+  ["createdAt:asc", [asc(orders.createdAt), desc(orders.id)]],
+  ["totalAmount:desc", [desc(orders.totalAmount), desc(orders.id)]],
+  ["totalAmount:asc", [asc(orders.totalAmount), desc(orders.id)]],
+]);
+
 interface CatalogProductStockRow {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
+  readonly imageUrls: ProductImageUrls | null;
   readonly unit: string;
   readonly basePrice: number;
   readonly salePrice: number | null;
@@ -115,6 +160,100 @@ export class OrdersService {
     private readonly shippingService: ShippingService,
     private readonly farmSettingsService: FarmSettingsService,
   ) {}
+
+  /**
+   * Lists the authenticated customer's orders with pagination, status filtering,
+   * and deterministic sorting, excluding internal allocation and payment gateway fields (`ADR-0032`).
+   *
+   * @param sub Authenticated customer UUID from JWT `sub`.
+   * @param query Validated pagination, status filter, and sort options.
+   * @returns Closed `OrderProjection` page and pagination metadata.
+   */
+  async listMyOrders(
+    sub: string,
+    query: ListMyOrdersQuery,
+  ): Promise<{ items: OrderProjection[]; meta: PaginationMetaDto }> {
+    await this.loadActiveCustomer(this.db, sub, false);
+
+    const whereClause = query.status
+      ? and(eq(orders.customerId, sub), eq(orders.orderStatus, query.status))
+      : eq(orders.customerId, sub);
+
+    const [countRow] = await this.db
+      .select({ total: count() })
+      .from(orders)
+      .where(whereClause);
+
+    const total = Number(countRow?.total ?? 0);
+    const meta = buildPaginationMeta(total, query.page, query.limit);
+    const offset = (query.page - 1) * query.limit;
+
+    if (total === 0 || offset >= total) {
+      return { items: [], meta };
+    }
+
+    const orderByClause = ORDER_SORT_EXPRESSIONS.get(query.sort) ?? [
+      desc(orders.createdAt),
+      desc(orders.id),
+    ];
+
+    const orderRows = await this.db
+      .select(ORDER_COLUMNS)
+      .from(orders)
+      .where(whereClause)
+      .orderBy(...orderByClause)
+      .limit(query.limit)
+      .offset(offset);
+
+    if (orderRows.length === 0) {
+      return { items: [], meta };
+    }
+
+    const itemsByOrderId = await this.hydrateOrderItemsByOrderIds(
+      orderRows.map((row) => row.id),
+    );
+
+    return {
+      items: orderRows.map((row) =>
+        this.mapOrderRowToProjection(row, itemsByOrderId.get(row.id) ?? []),
+      ),
+      meta,
+    };
+  }
+
+  /**
+   * Retrieves a single owned customer order with line items and totals (`ADR-0032`).
+   * Throws `404 ORDER_NOT_FOUND` for both unknown IDs and orders owned by another customer.
+   *
+   * @param sub Authenticated customer UUID from JWT `sub`.
+   * @param orderId Target order UUIDv7 identifier.
+   * @returns Closed `OrderProjection` including line items and monetary totals.
+   */
+  async getMyOrderById(sub: string, orderId: string): Promise<OrderProjection> {
+    await this.loadActiveCustomer(this.db, sub, false);
+
+    const [orderRow] = await this.db
+      .select(ORDER_COLUMNS)
+      .from(orders)
+      .where(and(eq(orders.id, orderId), eq(orders.customerId, sub)))
+      .limit(1);
+
+    if (!orderRow) {
+      throw new NotFoundException({
+        code: API_ERROR_CODES.ORDER_NOT_FOUND,
+        detail: MESSAGES.ORDERS.NOT_FOUND,
+      });
+    }
+
+    const itemsByOrderId = await this.hydrateOrderItemsByOrderIds([
+      orderRow.id,
+    ]);
+
+    return this.mapOrderRowToProjection(
+      orderRow,
+      itemsByOrderId.get(orderRow.id) ?? [],
+    );
+  }
 
   /**
    * Validates cart items, live sellable stock, delivery quote, loyalty cap,
@@ -485,23 +624,7 @@ export class OrdersService {
         paymentStatus: PaymentStatus.PENDING,
         orderStatus: OrderStatus.PENDING_CONFIRMATION,
       })
-      .returning({
-        id: orders.id,
-        orderCode: orders.orderCode,
-        orderStatus: orders.orderStatus,
-        paymentMethod: orders.paymentMethod,
-        paymentStatus: orders.paymentStatus,
-        receiverName: orders.receiverName,
-        receiverPhone: orders.receiverPhone,
-        shippingAddress: orders.shippingAddress,
-        shippingFee: orders.shippingFee,
-        subtotal: orders.subtotal,
-        discountAmount: orders.discountAmount,
-        loyaltyPointsUsed: orders.loyaltyPointsUsed,
-        totalAmount: orders.totalAmount,
-        createdAt: orders.createdAt,
-        updatedAt: orders.updatedAt,
-      });
+      .returning(ORDER_COLUMNS);
 
     if (!createdOrder) {
       throw new Error("Failed to insert order record.");
@@ -534,34 +657,21 @@ export class OrdersService {
       transactionType: PaymentTransactionType.PAYMENT,
     });
 
-    return {
-      id: createdOrder.id,
-      orderCode: createdOrder.orderCode,
-      orderStatus: createdOrder.orderStatus,
-      paymentMethod: createdOrder.paymentMethod,
-      paymentStatus: createdOrder.paymentStatus,
-      receiverName: createdOrder.receiverName,
-      receiverPhone: createdOrder.receiverPhone,
-      shippingAddress: createdOrder.shippingAddress,
-      shippingDistanceKm: params.shippingDistanceKm,
-      shippingFeeVnd: createdOrder.shippingFee,
-      subtotalVnd: createdOrder.subtotal,
-      discountAmountVnd: createdOrder.discountAmount,
-      loyaltyPointsUsed: createdOrder.loyaltyPointsUsed,
-      totalAmountVnd: createdOrder.totalAmount,
-      items: params.evaluated.map((item) => ({
+    const projectedItems: OrderItemProjection[] = params.evaluated.map(
+      (item) => ({
         id: insertedItemIdByProduct.get(item.normalized.productId) ?? "",
         productId: item.normalized.productId,
         productName: item.row?.name ?? "",
         productSlug: item.row?.slug ?? "",
+        productImageUrl: item.row?.imageUrls?.[0] ?? null,
         unit: item.row?.unit ?? "",
         quantity: item.normalized.quantity,
         unitPriceVnd: item.unitPriceVnd,
         lineTotalVnd: item.lineTotalVnd,
-      })),
-      createdAt: createdOrder.createdAt.toISOString(),
-      updatedAt: createdOrder.updatedAt.toISOString(),
-    };
+      }),
+    );
+
+    return this.mapOrderRowToProjection(createdOrder, projectedItems);
   }
 
   private async resolveCartValidationShipping(
@@ -601,6 +711,7 @@ export class OrdersService {
         id: products.id,
         name: products.name,
         slug: products.slug,
+        imageUrls: products.imageUrls,
         unit: products.unit,
         basePrice: products.basePrice,
         salePrice: products.salePrice,
@@ -712,6 +823,83 @@ export class OrdersService {
 
     normalized.sort((a, b) => a.productId.localeCompare(b.productId));
     return normalized;
+  }
+
+  private async hydrateOrderItemsByOrderIds(
+    orderIds: readonly string[],
+  ): Promise<Map<string, OrderItemProjection[]>> {
+    const itemsByOrderId = new Map<string, OrderItemProjection[]>();
+    if (orderIds.length === 0) {
+      return itemsByOrderId;
+    }
+
+    const rows = await this.db
+      .select({
+        id: orderItems.id,
+        orderId: orderItems.orderId,
+        productId: orderItems.productId,
+        quantity: orderItems.quantity,
+        unitPrice: orderItems.unitPrice,
+        productName: products.name,
+        productSlug: products.slug,
+        productImageUrls: products.imageUrls,
+        unit: products.unit,
+      })
+      .from(orderItems)
+      // Preserve historical order line items even if a product was later deactivated or soft-deleted.
+      .innerJoin(products, eq(orderItems.productId, products.id))
+      .where(inArray(orderItems.orderId, [...orderIds]))
+      .orderBy(asc(orderItems.id));
+
+    for (const row of rows) {
+      const quantity = Number(row.quantity);
+      const quantityCents = Math.round(quantity * 100);
+      const item: OrderItemProjection = {
+        id: row.id,
+        productId: row.productId,
+        productName: row.productName,
+        productSlug: row.productSlug,
+        productImageUrl: row.productImageUrls?.[0] ?? null,
+        unit: row.unit,
+        quantity,
+        unitPriceVnd: row.unitPrice,
+        lineTotalVnd: this.computeLineTotalVnd(quantityCents, row.unitPrice),
+      };
+
+      const existing = itemsByOrderId.get(row.orderId);
+      if (existing) {
+        existing.push(item);
+      } else {
+        itemsByOrderId.set(row.orderId, [item]);
+      }
+    }
+
+    return itemsByOrderId;
+  }
+
+  private mapOrderRowToProjection(
+    row: OrderRow,
+    items: OrderItemProjection[],
+  ): OrderProjection {
+    return {
+      id: row.id,
+      orderCode: row.orderCode,
+      orderStatus: row.orderStatus,
+      paymentMethod: row.paymentMethod,
+      paymentStatus: row.paymentStatus,
+      receiverName: row.receiverName,
+      receiverPhone: row.receiverPhone,
+      shippingAddress: row.shippingAddress,
+      shippingDistanceKm: Number(row.shippingDistanceKm),
+      shippingFeeVnd: row.shippingFee,
+      subtotalVnd: row.subtotal,
+      discountAmountVnd: row.discountAmount,
+      loyaltyPointsUsed: row.loyaltyPointsUsed,
+      totalAmountVnd: row.totalAmount,
+      items,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
   }
 
   private computeLineTotalVnd(
