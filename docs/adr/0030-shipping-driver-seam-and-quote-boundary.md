@@ -19,7 +19,7 @@ Issue #25 introduces the shipping calculation abstraction and `POST /api/v1/ship
 - **Target modules**: `apps/api/src/modules/orders/shipping`, `apps/api/src/common/constants/environment.constant.ts`, `packages/shared`
 - **Issue**: #25 (parent epic #10); consumers: #49, #84, #30, #31
 - **Spec Reference**: `docs/design/shipping-quote-and-driver-formal-spec.md`
-- **Related**: ADR-0010, ADR-0011, ADR-0018, ADR-0021
+- **Related**: ADR-0010, ADR-0011, ADR-0018, ADR-0021, ADR-0034 (partially supersedes optional-radius fallback in `ShippingService` and adds `PATCH /farms/settings` cross-field radius validation)
 
 ## Decision
 

@@ -2,23 +2,24 @@
 title: "Farm Settings & Plots Formal Specification"
 docType: "feature-workflow"
 status: "approved"
-date: "2026-11-19"
+date: "2026-11-21"
 author: "ngxccc"
-version: "1.0.0"
+version: "1.1.0"
 ---
 
 # Farm Settings & Plots Formal Specification
 
 ## Overview & Context
 
-This document specifies the Farm Settings (`UC-21`) and Plots management endpoints introduced by #78 (split from #19; parent epic #8; Backoffice consumer #43). Architectural decisions are recorded in ADR-0021; soft-delete scope follows ADR-0003; database constraints follow ADR-0005; signed media uploads follow ADR-0009 (as amended by ADR-0021); DTO co-location, envelopes, and RFC 9457 error contracts follow ADR-0011, ADR-0012, and ADR-0013.
+This document specifies the Farm Settings (`UC-21`) and Plots management endpoints introduced by #78 (split from #19; parent epic #8; Backoffice consumer #43) and amended by #106 (`ADR-0034`) for shipping radius invariants and Tier 1 seeding. Architectural decisions are recorded in ADR-0021 and ADR-0034; soft-delete scope follows ADR-0003; database constraints follow ADR-0005; signed media uploads follow ADR-0009 (as amended by ADR-0021); DTO co-location, envelopes, and RFC 9457 error contracts follow ADR-0011, ADR-0012, and ADR-0013.
 
-`apps/api/src/database/schemas/farm.schema.ts` already defines `farms`, `plots`, `seasons`, and `farmingLogs`, and `apps/api/src/modules/farms/farms.module.ts` exists as an empty skeleton. However, the API currently exposes no HTTP endpoints for reading or updating farm configuration or managing plots, `media.interface.ts` lacks `"plots"` and `"farms"` folders, and `plots` lacks a positive `area_sqm` check constraint.
+`apps/api/src/database/schemas/farm.schema.ts` defines `farms`, `plots`, `seasons`, and `farmingLogs`. Under `v1.0.0` (#78), `FarmShippingConfig` and the Farm Settings DTOs kept `maxRadiusKm` and `subscriptionFreeRadiusKm` optional and `seedTier1Reference` omitted them; `v1.1.0` (#106, `ADR-0034`) promotes both radius fields to required across shared contracts, DTOs, Tier 1 seeding, and a pre-launch backfill migration, and enforces `subscriptionFreeRadiusKm <= maxRadiusKm` and `freeKmThreshold <= maxRadiusKm` at the `PATCH /api/v1/farms/settings` DTO boundary.
 
 ### Goals
 
 - Expose `GET /api/v1/farms/settings` (`admin`, `super_admin`) backed by a 24-hour Redis cache (`farm:settings:v1`) with fail-open PostgreSQL fallback and stale-write race protection.
-- Expose `PATCH /api/v1/farms/settings` (`super_admin` only) with strict validation, payment-method availability invariant (`isPayosEnabled || isCodEnabled`), and post-commit Redis `UNLINK` + `invalidated_at` invalidation.
+- Expose `PATCH /api/v1/farms/settings` (`super_admin` only) with strict validation (including required `maxRadiusKm` and `subscriptionFreeRadiusKm` and cross-field radius invariants `subscriptionFreeRadiusKm <= maxRadiusKm` and `freeKmThreshold <= maxRadiusKm` mapped to dedicated RFC 9457 codes), payment-method availability invariant (`isPayosEnabled || isCodEnabled`), and post-commit Redis `UNLINK` + `invalidated_at` invalidation.
+- Backfill pre-launch `farms.shipping_config` rows via a forward-only custom migration, populate `maxRadiusKm` and `subscriptionFreeRadiusKm` in `seedTier1Reference`, and remove redundant `?? BUSINESS_RULES.SHIPPING` fallbacks in `ShippingService` (`ADR-0034`).
 - Expose `GET /api/v1/plots` (paginated, filtered, sorted) and `GET /api/v1/plots/:id` to internal staff (`STAFF_ROLES`), excluding soft-deleted rows (`deletedAt IS NULL`).
 - Expose `POST /api/v1/plots` and `PATCH /api/v1/plots/:id` (`farm_staff`, `admin`, `super_admin`) enforcing `plotCode` active uniqueness, `areaSqm > 0`, and structured `SoilTestResult` / `WaterTestResult` JSONB validation.
 - Expose `DELETE /api/v1/plots/:id` (`admin`, `super_admin`) performing transactional soft delete (`204 No Content`) while blocking deletion if any `planning` or `active` season references the plot.
@@ -67,7 +68,8 @@ Symbols and module layout:
 - `farms.interface.ts` holds compile-time interfaces, cache key/TTL constants, and sort/projection constants only (no Zod schemas per ADR-0011).
 - `dto/` holds co-located Zod schemas, inferred input/output types, and `createZodDto()` classes (`farm-settings.dto.ts`, `update-farm-settings.dto.ts`, `plot.dto.ts`, `create-plot.dto.ts`, `update-plot.dto.ts`, `list-plots-query.dto.ts`).
 - `CloudinaryService` and `media.interface.ts` in `apps/api/src/modules/media/` expand `ALLOWED_MEDIA_FOLDERS` and `FOLDER_PERMISSIONS` with `"plots"` and `"farms"`.
-- `@greenroots/shared` (`packages/shared`) adds `maxRadiusKm?: number` and `subscriptionFreeRadiusKm?: number` to `FarmShippingConfig` in `jsonb-contracts.type.ts`, plus domain error codes in `error-dictionary.ts`.
+- `@greenroots/shared` (`packages/shared`) defines required `maxRadiusKm: number` and `subscriptionFreeRadiusKm: number` on `FarmShippingConfig` in `jsonb-contracts.type.ts` (`ADR-0034`), plus domain error codes in `error-dictionary.ts`.
+- `ZodValidationPipe` (`apps/api/src/common/pipes/zod-validation.pipe.ts`) maps explicit `API_ERROR_CODES` issue messages via `VALIDATION_CODE_REASONS` so `invalidParams[].code` carries the specific domain validation code while `invalidParams[].reason` remains an English developer sentence.
 
 ## Operational Flow
 
@@ -103,33 +105,40 @@ sequenceDiagram
     end
 ```
 
-### 2. Update Farm Settings (`super_admin` + `UNLINK` Invalidation)
+### 2. Update Farm Settings (`super_admin` + DTO Radius Validation + `UNLINK` Invalidation)
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor SuperAdmin
+    participant Pipe as ZodValidationPipe
     participant Ctrl as FarmSettingsController
     participant Svc as FarmSettingsService
     participant DB as PostgreSQL 18
     participant Redis as Redis 8
 
-    SuperAdmin->>Ctrl: PATCH /api/v1/farms/settings { ...partialFields }
-    Ctrl->>Svc: updateSettings(dto)
-    Svc->>DB: BEGIN
-    Svc->>DB: SELECT FARM_SETTINGS_COLUMNS FROM farms ORDER BY created_at ASC LIMIT 1 FOR UPDATE
-    alt Zero rows in farms
-        Svc-->>SuperAdmin: 404 FARM_NOT_FOUND (rollback)
-    else Effective isPayosEnabled=false AND isCodEnabled=false
-        Svc-->>SuperAdmin: 422 FARM_PAYMENT_METHOD_REQUIRED (rollback)
-    else Valid update
-        Svc->>DB: UPDATE farms SET ..., updated_at = NOW() WHERE id = farm.id RETURNING FARM_SETTINGS_COLUMNS
-        Svc->>DB: COMMIT
-        Svc->>Redis: Pipeline UNLINK farm:settings:v1 + SET farm:settings:invalidated_at <nowMs> EX 60
-        alt Redis pipeline fails
-            Svc->>Svc: logger.error (ops alert; do not fail committed request)
+    SuperAdmin->>Pipe: PATCH /api/v1/farms/settings { ...partialFields }
+    Pipe->>Pipe: validate schema + shippingConfig radius invariants (<= maxRadiusKm)
+    alt Invalid syntax, missing required shipping radius, or radius > maxRadiusKm
+        Pipe-->>SuperAdmin: 400 VALIDATION_FAILED (with invalidParams[].code)
+    else Valid DTO
+        Pipe->>Ctrl: UpdateFarmSettingsDto
+        Ctrl->>Svc: updateSettings(dto)
+        Svc->>DB: BEGIN
+        Svc->>DB: SELECT FARM_SETTINGS_COLUMNS FROM farms ORDER BY created_at ASC LIMIT 1 FOR UPDATE
+        alt Zero rows in farms
+            Svc-->>SuperAdmin: 404 FARM_NOT_FOUND (rollback)
+        else Effective isPayosEnabled=false AND isCodEnabled=false
+            Svc-->>SuperAdmin: 422 FARM_PAYMENT_METHOD_REQUIRED (rollback)
+        else Valid update
+            Svc->>DB: UPDATE farms SET ..., updated_at = NOW() WHERE id = farm.id RETURNING FARM_SETTINGS_COLUMNS
+            Svc->>DB: COMMIT
+            Svc->>Redis: Pipeline UNLINK farm:settings:v1 + SET farm:settings:invalidated_at <nowMs> EX 60
+            alt Redis pipeline fails
+                Svc->>Svc: logger.error (ops alert; do not fail committed request)
+            end
+            Svc-->>SuperAdmin: 200 OK (updated FarmSettingsDto)
         end
-        Svc-->>SuperAdmin: 200 OK (updated FarmSettingsDto)
     end
 ```
 
@@ -219,7 +228,10 @@ All request DTOs use `.strict()` so unknown keys return `400 VALIDATION_FAILED` 
    - `emails`: `{ primary: zEmail(), support?: zEmail() }` (strict).
    - `workingHours`: `{ weekdays: zSanitizedString({ min: 1, max: 100 }), weekend: zSanitizedString({ min: 1, max: 100 }) }` (strict).
    - `bankInfo`: `{ bankName: zSanitizedString({ min: 1, max: 100 }), accountNumber: zSanitizedString({ min: 1, max: 50 }), accountHolder: zSanitizedString({ min: 1, max: 150 }) }.nullable()` (strict).
-   - `shippingConfig`: `{ baseFeeVnd: int >= 0, freeKmThreshold: number >= 0, perKmRateVnd: int >= 0, detourFactor: number >= 1, maxRadiusKm?: number > 0, subscriptionFreeRadiusKm?: number > 0 }` (strict).
+   - `shippingConfig`: `{ baseFeeVnd: int >= 0, freeKmThreshold: number >= 0, perKmRateVnd: int >= 0, detourFactor: number >= 1, maxRadiusKm: number > 0, subscriptionFreeRadiusKm: number > 0 }` (strict, all six fields required whenever `shippingConfig` is sent, matching `farmShippingConfigSchema` in `farm-settings.dto.ts`).
+   - `shippingConfig` cross-field `.superRefine()` invariants (`400 VALIDATION_FAILED`, equality `===` permitted, no cross-constraint between `freeKmThreshold` and `subscriptionFreeRadiusKm`, both violations reported independently when violated):
+     - `subscriptionFreeRadiusKm > maxRadiusKm` → issue at `["subscriptionFreeRadiusKm"]` (`invalidParams[].name = "shippingConfig.subscriptionFreeRadiusKm"`, `code = API_ERROR_CODES.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID`, `reason = MESSAGES.VALIDATION.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID`).
+     - `freeKmThreshold > maxRadiusKm` → issue at `["freeKmThreshold"]` (`invalidParams[].name = "shippingConfig.freeKmThreshold"`, `code = API_ERROR_CODES.FARM_SHIPPING_FREE_THRESHOLD_INVALID`, `reason = MESSAGES.VALIDATION.FARM_SHIPPING_FREE_THRESHOLD_INVALID`).
    - `flashSaleConfig`: `{ hoursThreshold: int >= 1 && <= 168, discountPercent: int >= 1 && <= 99 }` (strict).
    - `isPayosEnabled`, `isCodEnabled`: `boolean`.
 3. **`PlotDto`** (`PLOT_COLUMNS` closed projection, omitting `deletedAt`):
@@ -240,13 +252,16 @@ All request DTOs use `.strict()` so unknown keys return `400 VALIDATION_FAILED` 
 ### Shared Contracts, Error Codes & Migration
 
 - `@greenroots/shared`:
-  - `packages/shared/src/jsonb-contracts.type.ts`: add optional `maxRadiusKm?: number` and `subscriptionFreeRadiusKm?: number` to `FarmShippingConfig`.
-  - `packages/shared/src/error-dictionary.ts`: add `FARM_NOT_FOUND` (`404`), `FARM_PAYMENT_METHOD_REQUIRED` (`422`), `PLOT_NOT_FOUND` (`404`), `PLOT_CODE_ALREADY_EXISTS` (`409`), `PLOT_HAS_ACTIVE_SEASONS` (`409`) with Vietnamese copy in `API_ERROR_DICTIONARY`.
-- `apps/api/src/common/constants/messages.constant.ts`: add `MESSAGES.FARMS` and `MESSAGES.PLOTS` English developer messages plus `AT_LEAST_ONE_FARM_SETTING_FIELD` and `AT_LEAST_ONE_PLOT_FIELD` under `MESSAGES.VALIDATION`.
+  - `packages/shared/src/jsonb-contracts.type.ts`: require `maxRadiusKm: number` and `subscriptionFreeRadiusKm: number` on `FarmShippingConfig` (`ADR-0034`).
+  - `packages/shared/src/error-dictionary.ts`: add `FARM_NOT_FOUND` (`404`), `FARM_PAYMENT_METHOD_REQUIRED` (`422`), `FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID` (`400` `invalidParams` code), `FARM_SHIPPING_FREE_THRESHOLD_INVALID` (`400` `invalidParams` code), `PLOT_NOT_FOUND` (`404`), `PLOT_CODE_ALREADY_EXISTS` (`409`), `PLOT_HAS_ACTIVE_SEASONS` (`409`) with Vietnamese copy in `API_ERROR_DICTIONARY`.
+- `apps/api/src/common/constants/messages.constant.ts`: add `MESSAGES.FARMS` and `MESSAGES.PLOTS` English developer messages plus `AT_LEAST_ONE_FARM_SETTING_FIELD`, `AT_LEAST_ONE_PLOT_FIELD`, `FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID`, and `FARM_SHIPPING_FREE_THRESHOLD_INVALID` under `MESSAGES.VALIDATION`.
+- `apps/api/src/common/pipes/zod-validation.pipe.ts`: map explicit `API_ERROR_CODES` Zod issue messages via `VALIDATION_CODE_REASONS` to English `MESSAGES.VALIDATION.*` developer reasons so `invalidParams[].reason` never leaks raw error code strings.
+- `apps/api/src/modules/orders/shipping/shipping.service.ts`: read `settings.shippingConfig.maxRadiusKm` and `settings.shippingConfig.subscriptionFreeRadiusKm` directly without `?? BUSINESS_RULES.SHIPPING` fallbacks (preserving `INV-SHIP-3` in `calculateDeliveryQuote()`).
 - `apps/api/src/modules/media/media.interface.ts`: add `"plots"` (`[UserRole.FARM_STAFF, UserRole.ADMIN, UserRole.SUPER_ADMIN]`) and `"farms"` (`[UserRole.ADMIN, UserRole.SUPER_ADMIN]`) to `ALLOWED_MEDIA_FOLDERS` and `FOLDER_PERMISSIONS`.
-- Database schema & migration (`apps/api/src/database/schemas/farm.schema.ts`):
-  - Add Drizzle `check("plots_area_sqm_positive_chk", sql\`${table.areaSqm} > 0\`)`on`plots`and generate one forward-only migration per`docs/standards/database-and-migrations.md` §5.
-  - Update `tier1-reference.seeder.ts` (`certificationUrl`) and `tier2-catalog.seeder.ts` (`soilTestResult.certificate_url`) to use valid `https://res.cloudinary.com/greenroots-dev/image/upload/...` URLs.
+- Database schema, migration & seeding (`apps/api/src/database/schemas/farm.schema.ts`, `tier1-reference.seeder.ts`):
+  - Add Drizzle `check("plots_area_sqm_positive_chk", sql\`${table.areaSqm} > 0\`)`on`plots`(#78), while intentionally keeping`farms.shipping_config`free of SQL JSONB`CHECK`constraints per`ADR-0034`(consistent with`flashSaleConfig`and preserving`INV-SHIP-3` E2E testability).
+  - Generate one forward-only custom SQL migration (`docs/standards/database-and-migrations.md` §5) backfilling missing or null `maxRadiusKm` (`25`) and `subscriptionFreeRadiusKm` (`20`) keys in `farms.shipping_config`.
+  - Update `tier1-reference.seeder.ts` (`certificationUrl` plus `shippingConfig.maxRadiusKm: BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM` and `shippingConfig.subscriptionFreeRadiusKm: BUSINESS_RULES.SHIPPING.SUBSCRIPTION_FREE_RADIUS_KM`) and `tier2-catalog.seeder.ts` (`soilTestResult.certificate_url`).
 
 ## Security & Reliability
 
@@ -278,38 +293,46 @@ All request DTOs use `.strict()` so unknown keys return `400 VALIDATION_FAILED` 
 
 ## Domain Invariant Taxonomy
 
-| Invariant    | Name                         | Formal Statement                                                                                                                                                      | Enforcement Seam                                                     | Verification Test                                                                         |
-| :----------- | :--------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------- | :---------------------------------------------------------------------------------------- |
-| `INV-FARM-1` | Singleton Resolution         | Farm settings read/write targets the unique operational `farms` row without client `:farmId`; empty table yields `404 FARM_NOT_FOUND`                                 | `FarmSettingsService` singleton query                                | Unseeded DB `GET`/`PATCH` returns `404`                                                   |
-| `INV-FARM-2` | Cache Fallback & Consistency | `GET` reads Redis (`86400s` TTL) first, falls back to PostgreSQL on miss/Redis error without `500`, and `PATCH` invalidates via `UNLINK` + `invalidated_at` Lua guard | `FarmSettingsService` + Redis Lua script                             | Miss, Redis down, post-`PATCH` `UNLINK`, and stale-backfill guard                         |
-| `INV-FARM-3` | At Least One Payment Method  | After every `PATCH /farms/settings`, `isPayosEnabled` or `isCodEnabled` must remain `true`                                                                            | `FarmSettingsService.updateSettings` under `FOR UPDATE`              | Disabling both PayOS and COD -> `422 FARM_PAYMENT_METHOD_REQUIRED`                        |
-| `INV-FARM-4` | Cloudinary Image Boundary    | Non-null `certificationUrl` and `certificate_url` values must use `https://res.cloudinary.com/<cloudName>/image/upload/...`                                           | `zCloudinaryMediaUrl` (`resourceTypes: ["image"]`) in DTO validation | Arbitrary/HTTP/raw URLs -> `400 VALIDATION_FAILED`                                        |
-| `INV-PLOT-1` | Soft-Delete Visibility       | Every `/api/v1/plots*` read and `PATCH`/`DELETE` lookup filters `deleted_at IS NULL`                                                                                  | `PlotsService` base predicates                                       | Soft-deleted plot absent from list and `404` on `GET :id`                                 |
-| `INV-PLOT-2` | Active Plot Code Uniqueness  | Among rows with `deleted_at IS NULL`, `plot_code` is unique; soft-deleted codes may be reused                                                                         | `plots_plot_code_uidx` + `23505` error mapping                       | Duplicate active `plotCode` -> `409 PLOT_CODE_ALREADY_EXISTS`; after soft delete -> `201` |
-| `INV-PLOT-3` | Positive Plot Area           | `plots.area_sqm > 0` enforced at both Zod DTO and PostgreSQL `CHECK` levels                                                                                           | `CreatePlotDto`/`UpdatePlotDto` + `plots_area_sqm_positive_chk`      | `areaSqm <= 0` -> `400`; direct SQL `<= 0` -> `23514` (`422`)                             |
-| `INV-PLOT-4` | Active-Season Delete Guard   | `DELETE /plots/:id` cannot soft-delete a plot linked to any season in `planning` or `active` status                                                                   | `PlotsService.deletePlot` (`FOR UPDATE` + `seasons` check)           | Plot with `active`/`planning` season -> `409 PLOT_HAS_ACTIVE_SEASONS`                     |
-| `INV-PLOT-5` | Structured Lab Telemetry     | `soilTestResult` and `waterTestResult` conform strictly to `SoilTestResult` and `WaterTestResult` contracts                                                           | `CreatePlotDto` / `UpdatePlotDto` `.strict()` schemas                | Missing metrics or unknown keys -> `400 VALIDATION_FAILED`                                |
+| Invariant    | Name                         | Formal Statement                                                                                                                                                      | Enforcement Seam                                                     | Verification Test                                                                                                                            |
+| :----------- | :--------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INV-FARM-1` | Singleton Resolution         | Farm settings read/write targets the unique operational `farms` row without client `:farmId`; empty table yields `404 FARM_NOT_FOUND`                                 | `FarmSettingsService` singleton query                                | Unseeded DB `GET`/`PATCH` returns `404`                                                                                                      |
+| `INV-FARM-2` | Cache Fallback & Consistency | `GET` reads Redis (`86400s` TTL) first, falls back to PostgreSQL on miss/Redis error without `500`, and `PATCH` invalidates via `UNLINK` + `invalidated_at` Lua guard | `FarmSettingsService` + Redis Lua script                             | Miss, Redis down, post-`PATCH` `UNLINK`, and stale-backfill guard                                                                            |
+| `INV-FARM-3` | At Least One Payment Method  | After every `PATCH /farms/settings`, `isPayosEnabled` or `isCodEnabled` must remain `true`                                                                            | `FarmSettingsService.updateSettings` under `FOR UPDATE`              | Disabling both PayOS and COD -> `422 FARM_PAYMENT_METHOD_REQUIRED`                                                                           |
+| `INV-FARM-4` | Cloudinary Image Boundary    | Non-null `certificationUrl` and `certificate_url` values must use `https://res.cloudinary.com/<cloudName>/image/upload/...`                                           | `zCloudinaryMediaUrl` (`resourceTypes: ["image"]`) in DTO validation | Arbitrary/HTTP/raw URLs -> `400 VALIDATION_FAILED`                                                                                           |
+| `INV-FARM-5` | Required Positive Radii      | `farms.shippingConfig` requires positive `maxRadiusKm` and `subscriptionFreeRadiusKm` across `@greenroots/shared`, Tier 1 seeding, and Farm Settings DTOs             | `FarmShippingConfig`, `seedTier1Reference`, Farm Settings DTOs       | Omitted or `<= 0` radius on `PATCH` -> `400 VALIDATION_FAILED`; seeded row contains defaults                                                 |
+| `INV-FARM-6` | Shipping Radius Consistency  | Whenever `shippingConfig` is updated via `PATCH /farms/settings`, `subscriptionFreeRadiusKm <= maxRadiusKm` and `freeKmThreshold <= maxRadiusKm` must both hold       | `updateFarmShippingConfigSchema.superRefine()` + `ZodValidationPipe` | `subscriptionFreeRadiusKm > maxRadiusKm` or `freeKmThreshold > maxRadiusKm` -> `400 VALIDATION_FAILED` with dedicated `invalidParams[].code` |
+| `INV-PLOT-1` | Soft-Delete Visibility       | Every `/api/v1/plots*` read and `PATCH`/`DELETE` lookup filters `deleted_at IS NULL`                                                                                  | `PlotsService` base predicates                                       | Soft-deleted plot absent from list and `404` on `GET :id`                                                                                    |
+| `INV-PLOT-2` | Active Plot Code Uniqueness  | Among rows with `deleted_at IS NULL`, `plot_code` is unique; soft-deleted codes may be reused                                                                         | `plots_plot_code_uidx` + `23505` error mapping                       | Duplicate active `plotCode` -> `409 PLOT_CODE_ALREADY_EXISTS`; after soft delete -> `201`                                                    |
+| `INV-PLOT-3` | Positive Plot Area           | `plots.area_sqm > 0` enforced at both Zod DTO and PostgreSQL `CHECK` levels                                                                                           | `CreatePlotDto`/`UpdatePlotDto` + `plots_area_sqm_positive_chk`      | `areaSqm <= 0` -> `400`; direct SQL `<= 0` -> `23514` (`422`)                                                                                |
+| `INV-PLOT-4` | Active-Season Delete Guard   | `DELETE /plots/:id` cannot soft-delete a plot linked to any season in `planning` or `active` status                                                                   | `PlotsService.deletePlot` (`FOR UPDATE` + `seasons` check)           | Plot with `active`/`planning` season -> `409 PLOT_HAS_ACTIVE_SEASONS`                                                                        |
+| `INV-PLOT-5` | Structured Lab Telemetry     | `soilTestResult` and `waterTestResult` conform strictly to `SoilTestResult` and `WaterTestResult` contracts                                                           | `CreatePlotDto` / `UpdatePlotDto` `.strict()` schemas                | Missing metrics or unknown keys -> `400 VALIDATION_FAILED`                                                                                   |
 
-### Edge Cases (`EDGE-1..16`)
+### Edge Cases (`EDGE-1..22`)
 
-| ID        | Case                                                                                             | Expected Behaviour                                               |
-| :-------- | :----------------------------------------------------------------------------------------------- | :--------------------------------------------------------------- |
-| `EDGE-1`  | `GET /api/v1/farms/settings` called by `farm_staff`, `sales`, or `customer`                      | `403 FORBIDDEN`                                                  |
-| `EDGE-2`  | `PATCH /api/v1/farms/settings` called by `admin`                                                 | `403 FORBIDDEN` (`super_admin` only)                             |
-| `EDGE-3`  | `PATCH /api/v1/farms/settings` with `{}` (empty payload) or unknown key                          | `400 VALIDATION_FAILED` (`UNRECOGNIZED_KEYS` for extra keys)     |
-| `EDGE-4`  | `PATCH /api/v1/farms/settings` setting `isPayosEnabled: false, isCodEnabled: false`              | `422 FARM_PAYMENT_METHOD_REQUIRED`                               |
-| `EDGE-5`  | `PATCH /api/v1/farms/settings` setting `bankInfo: null`                                          | Allowed (`200 OK`); clears `bankInfo`                            |
-| `EDGE-6`  | `GET /api/v1/farms/settings` when Redis contains corrupt non-JSON payload                        | Logs warning, treats as cache miss, reads PostgreSQL (`200 OK`)  |
-| `EDGE-7`  | `GET /api/v1/farms/settings` when Redis connection is closed/unreachable                         | Falls back to PostgreSQL without returning `500` (`200 OK`)      |
-| `EDGE-8`  | `GET /api/v1/plots?q=100%` (SQL wildcard characters in `q`)                                      | `%`, `_`, `\` escaped; matches literal substring safely          |
-| `EDGE-9`  | `GET /api/v1/plots?unknown=1` or invalid `sort`                                                  | `400 VALIDATION_FAILED`                                          |
-| `EDGE-10` | `GET /api/v1/plots/:id` with non-UUIDv7 `:id`                                                    | `400 VALIDATION_FAILED` (`INVALID_FORMAT`)                       |
-| `EDGE-11` | `POST /api/v1/plots` with `areaSqm: 0`, `-5`, or `0.001`                                         | `400 VALIDATION_FAILED`                                          |
-| `EDGE-12` | `POST /api/v1/plots` with `certificate_url: "https://evil.com/x.png"` or `.../raw/upload/...pdf` | `400 VALIDATION_FAILED` (`INVALID_URL`)                          |
-| `EDGE-13` | `PATCH /api/v1/plots/:id` with `soilTestResult: null`                                            | Allowed (`200 OK`); clears `soilTestResult`                      |
-| `EDGE-14` | `POST /api/v1/plots` reusing `plotCode` of a previously soft-deleted plot                        | `201 Created` (partial unique index scopes `deleted_at IS NULL`) |
-| `EDGE-15` | `DELETE /api/v1/plots/:id` called by `farm_staff`                                                | `403 FORBIDDEN`                                                  |
-| `EDGE-16` | `DELETE /api/v1/plots/:id` on plot with only `harvested` / `archived` seasons                    | `204 No Content`; plot soft-deleted                              |
+| ID        | Case                                                                                                                       | Expected Behaviour                                                                                                                                                    |
+| :-------- | :------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EDGE-1`  | `GET /api/v1/farms/settings` called by `farm_staff`, `sales`, or `customer`                                                | `403 FORBIDDEN`                                                                                                                                                       |
+| `EDGE-2`  | `PATCH /api/v1/farms/settings` called by `admin`                                                                           | `403 FORBIDDEN` (`super_admin` only)                                                                                                                                  |
+| `EDGE-3`  | `PATCH /api/v1/farms/settings` with `{}` (empty payload) or unknown key                                                    | `400 VALIDATION_FAILED` (`UNRECOGNIZED_KEYS` for extra keys)                                                                                                          |
+| `EDGE-4`  | `PATCH /api/v1/farms/settings` setting `isPayosEnabled: false, isCodEnabled: false`                                        | `422 FARM_PAYMENT_METHOD_REQUIRED`                                                                                                                                    |
+| `EDGE-5`  | `PATCH /api/v1/farms/settings` setting `bankInfo: null`                                                                    | Allowed (`200 OK`); clears `bankInfo`                                                                                                                                 |
+| `EDGE-6`  | `GET /api/v1/farms/settings` when Redis contains corrupt non-JSON payload                                                  | Logs warning, treats as cache miss, reads PostgreSQL (`200 OK`)                                                                                                       |
+| `EDGE-7`  | `GET /api/v1/farms/settings` when Redis connection is closed/unreachable                                                   | Falls back to PostgreSQL without returning `500` (`200 OK`)                                                                                                           |
+| `EDGE-8`  | `GET /api/v1/plots?q=100%` (SQL wildcard characters in `q`)                                                                | `%`, `_`, `\` escaped; matches literal substring safely                                                                                                               |
+| `EDGE-9`  | `GET /api/v1/plots?unknown=1` or invalid `sort`                                                                            | `400 VALIDATION_FAILED`                                                                                                                                               |
+| `EDGE-10` | `GET /api/v1/plots/:id` with non-UUIDv7 `:id`                                                                              | `400 VALIDATION_FAILED` (`INVALID_FORMAT`)                                                                                                                            |
+| `EDGE-11` | `POST /api/v1/plots` with `areaSqm: 0`, `-5`, or `0.001`                                                                   | `400 VALIDATION_FAILED`                                                                                                                                               |
+| `EDGE-12` | `POST /api/v1/plots` with `certificate_url: "https://evil.com/x.png"` or `.../raw/upload/...pdf`                           | `400 VALIDATION_FAILED` (`INVALID_URL`)                                                                                                                               |
+| `EDGE-13` | `PATCH /api/v1/plots/:id` with `soilTestResult: null`                                                                      | Allowed (`200 OK`); clears `soilTestResult`                                                                                                                           |
+| `EDGE-14` | `POST /api/v1/plots` reusing `plotCode` of a previously soft-deleted plot                                                  | `201 Created` (partial unique index scopes `deleted_at IS NULL`)                                                                                                      |
+| `EDGE-15` | `DELETE /api/v1/plots/:id` called by `farm_staff`                                                                          | `403 FORBIDDEN`                                                                                                                                                       |
+| `EDGE-16` | `DELETE /api/v1/plots/:id` on plot with only `harvested` / `archived` seasons                                              | `204 No Content`; plot soft-deleted                                                                                                                                   |
+| `EDGE-17` | `PATCH /api/v1/farms/settings` with `shippingConfig` omitting `maxRadiusKm` or `subscriptionFreeRadiusKm`                  | `400 VALIDATION_FAILED` (`REQUIRED` on missing radius field)                                                                                                          |
+| `EDGE-18` | `PATCH /api/v1/farms/settings` with `subscriptionFreeRadiusKm > maxRadiusKm`                                               | `400 VALIDATION_FAILED`; `invalidParams` has `name: "shippingConfig.subscriptionFreeRadiusKm"`, `code: "FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID"`, English `reason` |
+| `EDGE-19` | `PATCH /api/v1/farms/settings` with `freeKmThreshold > maxRadiusKm`                                                        | `400 VALIDATION_FAILED`; `invalidParams` has `name: "shippingConfig.freeKmThreshold"`, `code: "FARM_SHIPPING_FREE_THRESHOLD_INVALID"`, English `reason`               |
+| `EDGE-20` | `PATCH /api/v1/farms/settings` violating both `subscriptionFreeRadiusKm > maxRadiusKm` and `freeKmThreshold > maxRadiusKm` | `400 VALIDATION_FAILED`; `invalidParams` reports both field errors independently                                                                                      |
+| `EDGE-21` | `PATCH /api/v1/farms/settings` with `subscriptionFreeRadiusKm === maxRadiusKm` or `freeKmThreshold === maxRadiusKm`        | `200 OK` (boundary equality permitted)                                                                                                                                |
+| `EDGE-22` | `GET /api/v1/farms/settings` when Redis `farm:settings:v1` holds legacy 4-key `shippingConfig` without radii               | `safeParse()` fails open to PostgreSQL, backfills Redis with 6-key row (`200 OK`)                                                                                     |
 
 ### Concurrency & Adversarial Matrix (`ADV-1..5`)
 
@@ -324,15 +347,18 @@ All request DTOs use `.strict()` so unknown keys return `400 VALIDATION_FAILED` 
 ## Test Matrix
 
 - **Factories & Mothers (`apps/api/test/factories/`)**:
-  - `createFarm(db, overrides)` / `FarmMother.default()` (idempotent singleton helper for tests needing an unseeded or custom farm).
+  - `createFarm(db, overrides)` / `FarmMother.default()` (populated with explicit `maxRadiusKm` and `subscriptionFreeRadiusKm` matching `BUSINESS_RULES.SHIPPING` for tests needing an unseeded or custom farm).
   - `createPlot(db, overrides)` / `PlotMother.standard()` / `PlotMother.withLabTests()`.
 - **Unit specs**:
-  - `FarmSettingsService` (`farm-settings.service.spec.ts`): cache hit, cache miss backfill, Redis failure fallback, Lua stale-guard behavior, `UNLINK` failure resilience, payment-method invariant.
+  - `FarmSettingsService` (`farm-settings.service.spec.ts`): cache hit, cache miss backfill, Redis failure fallback, Lua stale-guard behavior, `UNLINK` failure resilience, payment-method invariant (using 6-key `shippingConfig`).
+  - `ZodValidationPipe` (`zod-validation.pipe.spec.ts`): explicit `API_ERROR_CODES` issue mapping via `VALIDATION_CODE_REASONS` returns the specific error code with English developer `reason`, and `UpdateFarmSettingsDto` schema unit assertions for `INV-FARM-5` and `INV-FARM-6`.
+  - `ShippingService` (`shipping.service.spec.ts`) & `OrdersService` (`orders.service.spec.ts`): updated 6-key `shippingConfig` fixtures; `seedTier1Reference` verification asserting populated `maxRadiusKm` and `subscriptionFreeRadiusKm`.
   - `PlotsService` (`plots.service.spec.ts`): query filter/sort escaping, `numeric` <-> `number` conversion, soft-delete active-season branch.
   - `CloudinaryService` (`cloudinary.service.spec.ts`): folder permissions for `"plots"` (`farm_staff`, `admin`, `super_admin`) and `"farms"` (`admin`, `super_admin`).
-- **E2E Integration suite (`apps/api/test/integration/farms.spec.ts`)**:
+- **E2E Integration suite (`apps/api/test/integration/farms.spec.ts`, `shipping.spec.ts`)**:
   - RBAC matrix across `guest`/`customer`, `sales`, `farm_staff`, `admin`, `super_admin` for `/farms/settings`, `/plots*`, and `/media/upload-signature` (`plots`, `farms`).
-  - `GET`/`PATCH /farms/settings`: Redis key population (`TTL <= 86400`), cache hit without DB change reflection until `PATCH` invalidates via `UNLINK`, Redis offline fallback without `500`, `422 FARM_PAYMENT_METHOD_REQUIRED`, `400` validation rejections (`UNRECOGNIZED_KEYS`, invalid `taxId`, negative VND, invalid Cloudinary URL).
+  - `GET`/`PATCH /farms/settings`: Redis key population (`TTL <= 86400`), cache hit without DB change reflection until `PATCH` invalidates via `UNLINK`, Redis offline fallback without `500`, `422 FARM_PAYMENT_METHOD_REQUIRED`, `400` validation rejections (`UNRECOGNIZED_KEYS`, invalid `taxId`, negative VND, invalid Cloudinary URL, missing `maxRadiusKm`/`subscriptionFreeRadiusKm`, `<= 0` radii, `subscriptionFreeRadiusKm > maxRadiusKm` -> `FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID`, `freeKmThreshold > maxRadiusKm` -> `FARM_SHIPPING_FREE_THRESHOLD_INVALID`, dual violation, boundary equality `200 OK`).
+  - `shipping.spec.ts`: `INV-SHIP-3` test writes misconfigured `subscriptionFreeRadiusKm > maxRadiusKm` directly to `farms` via Drizzle (plus cache unlink) rather than `PATCH /farms/settings`.
   - `GET`/`POST`/`PATCH`/`DELETE /plots`: pagination/filtering/sorting, soft-delete hiding, `plotCode` uniqueness & reuse after soft-delete, `areaSqm <= 0` DTO (`400`) & DB check (`23514`), `409 PLOT_HAS_ACTIVE_SEASONS` vs `204` with `harvested` season, and `Promise.all` concurrency tests (`ADV-2`, `ADV-3`).
 - **Contract propagation**: run `bun run types:sync`, `bun run check`, `bun run test`, and `bun run test:e2e` after implementation and commit generated OpenAPI/type artifacts.
 

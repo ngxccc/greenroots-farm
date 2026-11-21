@@ -18,7 +18,7 @@ Issue #78 (split from #19; Backoffice consumer #43) introduces the first endpoin
 - **Target modules**: `apps/api/src/modules/farms`, `apps/api/src/modules/media`, `apps/api/src/database/schemas`, `apps/api/src/database/seeds`, `packages/shared`
 - **Issue**: #78 (split from #19); backoffice consumer: #43
 - **Spec**: `docs/design/farm-settings-and-plots-formal-spec.md`
-- **Related**: ADR-0003, ADR-0004, ADR-0005, ADR-0009, ADR-0018, ADR-0019
+- **Related**: ADR-0003, ADR-0004, ADR-0005, ADR-0009, ADR-0018, ADR-0019, ADR-0034 (partially supersedes `FarmShippingConfig` optionality to require `maxRadiusKm` and `subscriptionFreeRadiusKm`)
 
 ## Decision
 
