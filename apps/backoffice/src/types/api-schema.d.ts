@@ -1690,7 +1690,6 @@ export interface components {
             expirationDate: string;
             initialQuantity: number;
             availableQuantity: number;
-            qrCodeUrl: string | null;
             /** @enum {string} */
             status: "in_stock" | "near_expiry" | "sold_out" | "expired";
             /** Format: date-time */

@@ -12658,12 +12658,6 @@
           "availableQuantity": {
             "type": "number"
           },
-          "qrCodeUrl": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "status": {
             "type": "string",
             "enum": [
@@ -12695,7 +12689,6 @@
           "expirationDate",
           "initialQuantity",
           "availableQuantity",
-          "qrCodeUrl",
           "status",
           "createdAt",
           "updatedAt"
