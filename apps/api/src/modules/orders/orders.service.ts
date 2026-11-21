@@ -16,13 +16,16 @@ import {
   count,
   desc,
   eq,
+  gt,
   inArray,
+  isNotNull,
   isNull,
   sql,
   type SQL,
 } from "drizzle-orm";
 import {
   API_ERROR_CODES,
+  BatchStatus,
   BUSINESS_RULES,
   OrderStatus,
   PaymentMethod,
@@ -31,8 +34,10 @@ import {
   UserStatus,
   type ProductImageUrls,
 } from "@greenroots/shared";
+import { env } from "@/common/config/env.config";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
+import { TIME_IN_MS } from "@/common/constants/time.constant";
 import type { PaginationMetaDto } from "@/common/dto/api-response.dto";
 import { buildPaginationMeta } from "@/common/utils/api-response.util";
 import { extractDatabaseErrorDetails } from "@/common/utils/error.util";
@@ -42,6 +47,8 @@ import {
   type DrizzleTx,
 } from "@/database/database.module";
 import {
+  batchAllocations,
+  batches,
   categories,
   orderItems,
   orders,
@@ -53,20 +60,25 @@ import { LIVE_AVAILABLE_QUANTITY_EXPR } from "@/modules/catalog/products.service
 import { FarmSettingsService } from "@/modules/farms/farm-settings.service";
 import { AddressService } from "@/modules/users/address.service";
 import type {
+  BatchAllocationSummaryProjection,
   CheckoutRequestInput,
   ListMyOrdersQuery,
   OrderItemProjection,
   OrderProjection,
+  StaffOrderItemProjection,
+  StaffOrderProjection,
   ValidateCartRequestInput,
   ValidateCartResponse,
   ValidatedCartItem,
 } from "./dto";
 import {
+  ALLOCATED_CANCELLABLE_STATUSES,
   CROCKFORD_BASE32_ALPHABET,
   ORDER_CODE_MAX_GENERATION_ATTEMPTS,
   ORDER_CODE_PREFIX,
   ORDER_CODE_RANDOM_LENGTH,
   ORDER_ITEM_MAX_QUANTITY,
+  ORDER_STATUS_TRANSITIONS,
   VIETNAM_TIMEZONE,
   type CartItemIssue,
   type NormalizedCartItem,
@@ -84,6 +96,7 @@ const VN_CALENDAR_FORMATTER = new Intl.DateTimeFormat("en-CA", {
 
 const ORDER_COLUMNS = {
   id: orders.id,
+  customerId: orders.customerId,
   orderCode: orders.orderCode,
   orderStatus: orders.orderStatus,
   paymentMethod: orders.paymentMethod,
@@ -102,6 +115,32 @@ const ORDER_COLUMNS = {
 } as const;
 
 type OrderRow = Pick<typeof orders.$inferSelect, keyof typeof ORDER_COLUMNS>;
+
+// Keep sellable statuses as SQL literals so PostgreSQL proves predicate implication for batches_sellable_stock_idx.
+const SELLABLE_BATCH_STATUS_SQL = sql.raw(
+  `'${BatchStatus.IN_STOCK}', '${BatchStatus.NEAR_EXPIRY}'`,
+);
+
+interface LockedSellableBatch {
+  readonly id: string;
+  readonly productId: string;
+  readonly batchCode: string;
+  readonly expirationDate: Date;
+  readonly availableQuantity: string;
+  readonly status: BatchStatus;
+}
+
+interface OrderItemWithProductRow {
+  readonly id: string;
+  readonly orderId: string;
+  readonly productId: string;
+  readonly quantity: string;
+  readonly unitPrice: number;
+  readonly productName: string;
+  readonly productSlug: string;
+  readonly productImageUrls: ProductImageUrls | null;
+  readonly unit: string;
+}
 
 const ORDER_SORT_EXPRESSIONS = new Map<OrderSortOption, SQL[]>([
   ["createdAt:desc", [desc(orders.createdAt), desc(orders.id)]],
@@ -253,6 +292,164 @@ export class OrdersService {
       orderRow,
       itemsByOrderId.get(orderRow.id) ?? [],
     );
+  }
+
+  /**
+   * Confirms a `pending_confirmation` order with atomic FEFO batch allocation under row locks (`ADR-0033`).
+   * Naturally idempotent when the order is already `confirmed` (returns active allocations without mutating stock).
+   *
+   * @param orderId Target order UUIDv7 identifier.
+   * @returns Staff order projection including active FEFO batch allocations.
+   */
+  async confirmOrder(orderId: string): Promise<StaffOrderProjection> {
+    return this.db.transaction(async (tx) => {
+      const orderRow = await this.lockOrderForUpdate(tx, orderId);
+
+      if (orderRow.orderStatus === OrderStatus.CONFIRMED) {
+        return this.hydrateStaffOrderProjection(tx, orderRow, "active");
+      }
+
+      if (orderRow.orderStatus !== OrderStatus.PENDING_CONFIRMATION) {
+        throw new ConflictException({
+          code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
+          detail: MESSAGES.ORDERS.INVALID_STATUS_TRANSITION,
+        });
+      }
+
+      const itemRows = await this.fetchOrderItemsWithProduct(tx, [orderRow.id]);
+      if (itemRows.length === 0) {
+        throw new ConflictException({
+          code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
+          detail: MESSAGES.ORDERS.INVALID_STATUS_TRANSITION,
+        });
+      }
+
+      const now = new Date();
+      await this.allocateFefoForOrder(tx, itemRows, now);
+
+      const [updatedOrder] = await tx
+        .update(orders)
+        .set({
+          orderStatus: OrderStatus.CONFIRMED,
+          updatedAt: now,
+        })
+        .where(eq(orders.id, orderRow.id))
+        .returning(ORDER_COLUMNS);
+
+      if (!updatedOrder) {
+        throw new Error("Failed to update confirmed order status.");
+      }
+
+      return this.hydrateStaffOrderProjection(tx, updatedOrder, "active");
+    });
+  }
+
+  /**
+   * Advances or cancels an order strictly along the 8-state `OrderStatus` FSM (`ADR-0033`).
+   * Cancelling an allocated order soft-releases `batch_allocations`, restores batch stock/status,
+   * cancels pending COD payments, and refunds `loyaltyPointsUsed`.
+   *
+   * @param orderId Target order UUIDv7 identifier.
+   * @param targetStatus Desired next `OrderStatus`.
+   * @returns Staff order projection with active or soft-released batch allocations.
+   */
+  async updateOrderStatus(
+    orderId: string,
+    targetStatus: OrderStatus,
+  ): Promise<StaffOrderProjection> {
+    const hoursThreshold =
+      targetStatus === OrderStatus.CANCELLED
+        ? await this.resolveHoursThreshold()
+        : null;
+
+    return this.db.transaction(async (tx) => {
+      const orderRow = await this.lockOrderForUpdate(tx, orderId);
+      const allowedNext =
+        ORDER_STATUS_TRANSITIONS.get(orderRow.orderStatus) ?? [];
+
+      if (!allowedNext.includes(targetStatus)) {
+        throw new UnprocessableEntityException({
+          code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
+          detail: MESSAGES.ORDERS.INVALID_STATUS_TRANSITION,
+        });
+      }
+
+      const now = new Date();
+
+      if (targetStatus === OrderStatus.CANCELLED) {
+        if (
+          orderRow.paymentStatus === PaymentStatus.PAID ||
+          orderRow.paymentMethod === PaymentMethod.SUBSCRIPTION
+        ) {
+          throw new UnprocessableEntityException({
+            code: API_ERROR_CODES.ORDER_PAID_CANCELLATION_FORBIDDEN,
+            detail: MESSAGES.ORDERS.PAID_CANCELLATION_FORBIDDEN,
+          });
+        }
+
+        if (ALLOCATED_CANCELLABLE_STATUSES.includes(orderRow.orderStatus)) {
+          await this.releaseOrderAllocations(
+            tx,
+            orderRow.id,
+            hoursThreshold ?? BUSINESS_RULES.FLASH_SALE_HOURS_THRESHOLD,
+            now,
+          );
+        }
+
+        if (orderRow.loyaltyPointsUsed > 0) {
+          await this.refundLoyaltyPoints(
+            tx,
+            orderRow.customerId,
+            orderRow.loyaltyPointsUsed,
+          );
+        }
+
+        const [cancelledOrder] = await tx
+          .update(orders)
+          .set({
+            orderStatus: OrderStatus.CANCELLED,
+            paymentStatus: PaymentStatus.CANCELLED,
+            updatedAt: now,
+          })
+          .where(eq(orders.id, orderRow.id))
+          .returning(ORDER_COLUMNS);
+
+        if (!cancelledOrder) {
+          throw new Error("Failed to cancel order record.");
+        }
+
+        await tx
+          .update(payments)
+          .set({
+            status: PaymentStatus.CANCELLED,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(payments.orderId, orderRow.id),
+              eq(payments.status, PaymentStatus.PENDING),
+              eq(payments.transactionType, PaymentTransactionType.PAYMENT),
+            ),
+          );
+
+        return this.hydrateStaffOrderProjection(tx, cancelledOrder, "released");
+      }
+
+      const [updatedOrder] = await tx
+        .update(orders)
+        .set({
+          orderStatus: targetStatus,
+          updatedAt: now,
+        })
+        .where(eq(orders.id, orderRow.id))
+        .returning(ORDER_COLUMNS);
+
+      if (!updatedOrder) {
+        throw new Error("Failed to update order status.");
+      }
+
+      return this.hydrateStaffOrderProjection(tx, updatedOrder, "active");
+    });
   }
 
   /**
@@ -833,39 +1030,10 @@ export class OrdersService {
       return itemsByOrderId;
     }
 
-    const rows = await this.db
-      .select({
-        id: orderItems.id,
-        orderId: orderItems.orderId,
-        productId: orderItems.productId,
-        quantity: orderItems.quantity,
-        unitPrice: orderItems.unitPrice,
-        productName: products.name,
-        productSlug: products.slug,
-        productImageUrls: products.imageUrls,
-        unit: products.unit,
-      })
-      .from(orderItems)
-      // Preserve historical order line items even if a product was later deactivated or soft-deleted.
-      .innerJoin(products, eq(orderItems.productId, products.id))
-      .where(inArray(orderItems.orderId, [...orderIds]))
-      .orderBy(asc(orderItems.id));
+    const rows = await this.fetchOrderItemsWithProduct(this.db, orderIds);
 
     for (const row of rows) {
-      const quantity = Number(row.quantity);
-      const quantityCents = Math.round(quantity * 100);
-      const item: OrderItemProjection = {
-        id: row.id,
-        productId: row.productId,
-        productName: row.productName,
-        productSlug: row.productSlug,
-        productImageUrl: row.productImageUrls?.[0] ?? null,
-        unit: row.unit,
-        quantity,
-        unitPriceVnd: row.unitPrice,
-        lineTotalVnd: this.computeLineTotalVnd(quantityCents, row.unitPrice),
-      };
-
+      const item = this.mapOrderItemProjection(row);
       const existing = itemsByOrderId.get(row.orderId);
       if (existing) {
         existing.push(item);
@@ -875,6 +1043,436 @@ export class OrdersService {
     }
 
     return itemsByOrderId;
+  }
+
+  private async fetchOrderItemsWithProduct(
+    executor: DrizzleDB | DrizzleTx,
+    orderIds: readonly string[],
+  ): Promise<OrderItemWithProductRow[]> {
+    return (
+      executor
+        .select({
+          id: orderItems.id,
+          orderId: orderItems.orderId,
+          productId: orderItems.productId,
+          quantity: orderItems.quantity,
+          unitPrice: orderItems.unitPrice,
+          productName: products.name,
+          productSlug: products.slug,
+          productImageUrls: products.imageUrls,
+          unit: products.unit,
+        })
+        .from(orderItems)
+        // Preserve historical order line items even if a product was later deactivated or soft-deleted.
+        .innerJoin(products, eq(orderItems.productId, products.id))
+        .where(inArray(orderItems.orderId, [...orderIds]))
+        .orderBy(asc(orderItems.id))
+    );
+  }
+
+  private mapOrderItemProjection(
+    row: OrderItemWithProductRow,
+  ): OrderItemProjection {
+    const quantity = Number(row.quantity);
+    const quantityCents = this.toQuantityCents(quantity);
+
+    return {
+      id: row.id,
+      productId: row.productId,
+      productName: row.productName,
+      productSlug: row.productSlug,
+      productImageUrl: row.productImageUrls?.[0] ?? null,
+      unit: row.unit,
+      quantity,
+      unitPriceVnd: row.unitPrice,
+      lineTotalVnd: this.computeLineTotalVnd(quantityCents, row.unitPrice),
+    };
+  }
+
+  private async lockOrderForUpdate(
+    tx: DrizzleTx,
+    orderId: string,
+  ): Promise<OrderRow> {
+    const [orderRow] = await tx
+      .select(ORDER_COLUMNS)
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .for("update");
+
+    if (!orderRow) {
+      throw new NotFoundException({
+        code: API_ERROR_CODES.ORDER_NOT_FOUND,
+        detail: MESSAGES.ORDERS.NOT_FOUND,
+      });
+    }
+
+    return orderRow;
+  }
+
+  private async allocateFefoForOrder(
+    tx: DrizzleTx,
+    itemRows: readonly OrderItemWithProductRow[],
+    now: Date,
+  ): Promise<void> {
+    const sortedProductIds = Array.from(
+      new Set(itemRows.map((item) => item.productId)),
+    ).sort((a, b) => a.localeCompare(b));
+
+    // Lock all candidate sellable batches across every order item in one ascending-ID query to eliminate crossed-item deadlocks.
+    const candidateBatches: LockedSellableBatch[] = await tx
+      .select({
+        id: batches.id,
+        productId: batches.productId,
+        batchCode: batches.batchCode,
+        expirationDate: batches.expirationDate,
+        availableQuantity: batches.availableQuantity,
+        status: batches.status,
+      })
+      .from(batches)
+      .where(
+        and(
+          inArray(batches.productId, sortedProductIds),
+          sql`${batches.status} IN (${SELLABLE_BATCH_STATUS_SQL})`,
+          gt(batches.expirationDate, now),
+          sql`${batches.availableQuantity} > 0`,
+        ),
+      )
+      .orderBy(asc(batches.id))
+      .for("update");
+
+    const batchesByProduct = new Map<string, LockedSellableBatch[]>();
+    const remainingCentsByBatchId = new Map<string, number>();
+
+    for (const batch of candidateBatches) {
+      remainingCentsByBatchId.set(
+        batch.id,
+        this.toQuantityCents(batch.availableQuantity),
+      );
+      const list = batchesByProduct.get(batch.productId);
+      if (list) {
+        list.push(batch);
+      } else {
+        batchesByProduct.set(batch.productId, [batch]);
+      }
+    }
+
+    for (const list of batchesByProduct.values()) {
+      list.sort((a, b) => {
+        const expDiff = a.expirationDate.getTime() - b.expirationDate.getTime();
+        return expDiff !== 0 ? expDiff : a.id.localeCompare(b.id);
+      });
+    }
+
+    const allocationsToInsert: {
+      orderItemId: string;
+      batchId: string;
+      allocatedQuantity: string;
+      allocatedAt: Date;
+      releasedAt: null;
+    }[] = [];
+    const touchedBatches = new Map<string, LockedSellableBatch>();
+    const shortages: {
+      productId: string;
+      requested: number;
+      available: number;
+    }[] = [];
+
+    for (const item of itemRows) {
+      const requestedCents = this.toQuantityCents(item.quantity);
+      let remainingNeededCents = requestedCents;
+      const productBatches = batchesByProduct.get(item.productId) ?? [];
+
+      const availableForProductCents = productBatches.reduce(
+        (sum, batch) => sum + (remainingCentsByBatchId.get(batch.id) ?? 0),
+        0,
+      );
+
+      if (availableForProductCents < requestedCents) {
+        shortages.push({
+          productId: item.productId,
+          requested: requestedCents / 100,
+          available: availableForProductCents / 100,
+        });
+        continue;
+      }
+
+      for (const batch of productBatches) {
+        if (remainingNeededCents === 0) {
+          break;
+        }
+
+        const batchRemainingCents = remainingCentsByBatchId.get(batch.id) ?? 0;
+        if (batchRemainingCents <= 0) {
+          continue;
+        }
+
+        const takeCents = Math.min(remainingNeededCents, batchRemainingCents);
+        remainingCentsByBatchId.set(batch.id, batchRemainingCents - takeCents);
+        remainingNeededCents -= takeCents;
+        touchedBatches.set(batch.id, batch);
+
+        allocationsToInsert.push({
+          orderItemId: item.id,
+          batchId: batch.id,
+          allocatedQuantity: this.formatQuantityFromCents(takeCents),
+          allocatedAt: now,
+          releasedAt: null,
+        });
+      }
+    }
+
+    if (shortages.length > 0) {
+      throw new ConflictException({
+        code: API_ERROR_CODES.INSUFFICIENT_STOCK,
+        detail: MESSAGES.ORDERS.INSUFFICIENT_STOCK,
+        invalidParams: shortages.map((shortage) => ({
+          name: "items",
+          code: API_ERROR_CODES.INSUFFICIENT_STOCK,
+          reason: MESSAGES.ORDERS.INSUFFICIENT_STOCK,
+          params: shortage,
+        })),
+      });
+    }
+
+    if (allocationsToInsert.length > 0) {
+      await tx.insert(batchAllocations).values(allocationsToInsert);
+    }
+
+    for (const batch of touchedBatches.values()) {
+      const nextAvailableCents = remainingCentsByBatchId.get(batch.id) ?? 0;
+      const nextStatus =
+        nextAvailableCents === 0 ? BatchStatus.SOLD_OUT : batch.status;
+
+      await tx
+        .update(batches)
+        .set({
+          availableQuantity: this.formatQuantityFromCents(nextAvailableCents),
+          status: nextStatus,
+          updatedAt: now,
+        })
+        .where(eq(batches.id, batch.id));
+    }
+  }
+
+  private async releaseOrderAllocations(
+    tx: DrizzleTx,
+    orderId: string,
+    hoursThreshold: number,
+    now: Date,
+  ): Promise<void> {
+    const activeAllocations = await tx
+      .select({
+        id: batchAllocations.id,
+        batchId: batchAllocations.batchId,
+        allocatedQuantity: batchAllocations.allocatedQuantity,
+      })
+      .from(batchAllocations)
+      .innerJoin(orderItems, eq(batchAllocations.orderItemId, orderItems.id))
+      .where(
+        and(
+          eq(orderItems.orderId, orderId),
+          isNull(batchAllocations.releasedAt),
+        ),
+      );
+
+    if (activeAllocations.length === 0) {
+      return;
+    }
+
+    const restoredCentsByBatchId = new Map<string, number>();
+    const allocationIds: string[] = [];
+
+    for (const allocation of activeAllocations) {
+      allocationIds.push(allocation.id);
+      const cents = this.toQuantityCents(allocation.allocatedQuantity);
+      restoredCentsByBatchId.set(
+        allocation.batchId,
+        (restoredCentsByBatchId.get(allocation.batchId) ?? 0) + cents,
+      );
+    }
+
+    const sortedBatchIds = Array.from(restoredCentsByBatchId.keys()).sort(
+      (a, b) => a.localeCompare(b),
+    );
+
+    const lockedBatches = await tx
+      .select({
+        id: batches.id,
+        availableQuantity: batches.availableQuantity,
+        expirationDate: batches.expirationDate,
+        status: batches.status,
+      })
+      .from(batches)
+      .where(inArray(batches.id, sortedBatchIds))
+      .orderBy(asc(batches.id))
+      .for("update");
+
+    for (const batch of lockedBatches) {
+      const restoredCents = restoredCentsByBatchId.get(batch.id) ?? 0;
+      if (restoredCents <= 0) {
+        continue;
+      }
+
+      const nextAvailableCents =
+        this.toQuantityCents(batch.availableQuantity) + restoredCents;
+      const nextStatus = this.resolveBatchStatusAfterRestore(
+        batch.expirationDate,
+        hoursThreshold,
+        now,
+      );
+
+      await tx
+        .update(batches)
+        .set({
+          availableQuantity: this.formatQuantityFromCents(nextAvailableCents),
+          status: nextStatus,
+          updatedAt: now,
+        })
+        .where(eq(batches.id, batch.id));
+    }
+
+    await tx
+      .update(batchAllocations)
+      .set({ releasedAt: now })
+      .where(
+        and(
+          inArray(batchAllocations.id, allocationIds),
+          isNull(batchAllocations.releasedAt),
+        ),
+      );
+  }
+
+  private async refundLoyaltyPoints(
+    tx: DrizzleTx,
+    customerId: string,
+    loyaltyPointsUsed: number,
+  ): Promise<void> {
+    await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.id, customerId), isNull(users.deletedAt)))
+      .for("update");
+
+    await tx
+      .update(users)
+      .set({
+        rewardPoints: sql`${users.rewardPoints} + ${loyaltyPointsUsed}`,
+      })
+      .where(and(eq(users.id, customerId), isNull(users.deletedAt)));
+  }
+
+  private async hydrateStaffOrderProjection(
+    tx: DrizzleTx,
+    orderRow: OrderRow,
+    allocationScope: "active" | "released",
+  ): Promise<StaffOrderProjection> {
+    const itemRows = await this.fetchOrderItemsWithProduct(tx, [orderRow.id]);
+    const itemIds = itemRows.map((item) => item.id);
+    const allocationsByItemId = new Map<
+      string,
+      BatchAllocationSummaryProjection[]
+    >();
+
+    if (itemIds.length > 0) {
+      const releaseFilter =
+        allocationScope === "active"
+          ? isNull(batchAllocations.releasedAt)
+          : isNotNull(batchAllocations.releasedAt);
+
+      const allocationRows = await tx
+        .select({
+          id: batchAllocations.id,
+          orderItemId: batchAllocations.orderItemId,
+          batchId: batchAllocations.batchId,
+          batchCode: batches.batchCode,
+          expirationDate: batches.expirationDate,
+          allocatedQuantity: batchAllocations.allocatedQuantity,
+          releasedAt: batchAllocations.releasedAt,
+        })
+        .from(batchAllocations)
+        .innerJoin(batches, eq(batchAllocations.batchId, batches.id))
+        .where(
+          and(inArray(batchAllocations.orderItemId, itemIds), releaseFilter),
+        )
+        .orderBy(asc(batches.expirationDate), asc(batchAllocations.id));
+
+      for (const row of allocationRows) {
+        const entry: BatchAllocationSummaryProjection = {
+          id: row.id,
+          batchId: row.batchId,
+          batchCode: row.batchCode,
+          expirationDate: row.expirationDate.toISOString(),
+          allocatedQuantity: Number(row.allocatedQuantity),
+          releasedAt: row.releasedAt ? row.releasedAt.toISOString() : null,
+        };
+
+        const existing = allocationsByItemId.get(row.orderItemId);
+        if (existing) {
+          existing.push(entry);
+        } else {
+          allocationsByItemId.set(row.orderItemId, [entry]);
+        }
+      }
+    }
+
+    const staffItems: StaffOrderItemProjection[] = itemRows.map((row) => ({
+      ...this.mapOrderItemProjection(row),
+      allocations: allocationsByItemId.get(row.id) ?? [],
+    }));
+
+    return {
+      ...this.mapOrderRowToProjection(orderRow, []),
+      customerId: orderRow.customerId,
+      items: staffItems,
+    };
+  }
+
+  private resolveBatchStatusAfterRestore(
+    expirationDate: Date,
+    hoursThreshold: number,
+    now: Date,
+  ): BatchStatus {
+    const remainingMs = expirationDate.getTime() - now.getTime();
+    if (remainingMs <= 0) {
+      return BatchStatus.EXPIRED;
+    }
+    if (remainingMs < hoursThreshold * TIME_IN_MS.HOUR) {
+      return BatchStatus.NEAR_EXPIRY;
+    }
+    return BatchStatus.IN_STOCK;
+  }
+
+  private async resolveHoursThreshold(): Promise<number> {
+    try {
+      const settings = await this.farmSettingsService.getSettings();
+      const hoursThreshold = settings.flashSaleConfig.hoursThreshold;
+
+      if (!Number.isFinite(hoursThreshold) || hoursThreshold <= 0) {
+        throw new UnprocessableEntityException({
+          code: API_ERROR_CODES.FARM_FLASH_SALE_CONFIG_INVALID,
+          detail: MESSAGES.FARMS.FLASH_SALE_CONFIG_INVALID,
+        });
+      }
+
+      return hoursThreshold;
+    } catch (error) {
+      if (error instanceof NotFoundException && env.NODE_ENV !== "production") {
+        this.logger.warn(
+          `Farm settings not found in ${env.NODE_ENV}; falling back to default ${BUSINESS_RULES.FLASH_SALE_HOURS_THRESHOLD}h threshold.`,
+        );
+        return BUSINESS_RULES.FLASH_SALE_HOURS_THRESHOLD;
+      }
+
+      throw error;
+    }
+  }
+
+  private toQuantityCents(value: string | number): number {
+    return Math.round(Number(value) * 100);
+  }
+
+  private formatQuantityFromCents(cents: number): string {
+    return (cents / 100).toFixed(2);
   }
 
   private mapOrderRowToProjection(

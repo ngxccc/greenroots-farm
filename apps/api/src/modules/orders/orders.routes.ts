@@ -9,4 +9,6 @@ export const ORDERS_ROUTES = Object.freeze({
   CHECKOUT: "checkout",
   ME: "me",
   BY_ID: ":id",
+  CONFIRM: ":id/confirm",
+  STATUS: ":id/status",
 } as const);

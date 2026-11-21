@@ -1,3 +1,5 @@
+import { OrderStatus, UserRole } from "@greenroots/shared";
+
 /**
  * Pure domain constants and internal interfaces for `OrdersModule` (`ADR-0011`).
  */
@@ -44,3 +46,34 @@ export interface NormalizedCartItem {
   readonly quantity: number;
   readonly quantityFormatted: string;
 }
+
+/**
+ * Allowed target statuses for `PATCH /api/v1/orders/:id/status` keyed by current status (`ADR-0033`).
+ * Direct transitions into `confirmed` are excluded and must go through `POST /api/v1/orders/:id/confirm`.
+ */
+export const ORDER_STATUS_TRANSITIONS: ReadonlyMap<
+  OrderStatus,
+  readonly OrderStatus[]
+> = new Map<OrderStatus, readonly OrderStatus[]>([
+  [OrderStatus.PENDING_PAYMENT, [OrderStatus.CANCELLED]],
+  [OrderStatus.PENDING_CONFIRMATION, [OrderStatus.CANCELLED]],
+  [OrderStatus.CONFIRMED, [OrderStatus.PACKING, OrderStatus.CANCELLED]],
+  [OrderStatus.PACKING, [OrderStatus.SHIPPING, OrderStatus.CANCELLED]],
+  [OrderStatus.SHIPPING, [OrderStatus.DELIVERED]],
+  [OrderStatus.DELIVERED, [OrderStatus.COMPLETED]],
+  [OrderStatus.COMPLETED, []],
+  [OrderStatus.CANCELLED, []],
+]);
+
+/** Order statuses that hold active FEFO allocations requiring stock restoration upon cancellation. */
+export const ALLOCATED_CANCELLABLE_STATUSES: readonly OrderStatus[] = [
+  OrderStatus.CONFIRMED,
+  OrderStatus.PACKING,
+];
+
+/** Staff roles authorized to confirm orders and manage fulfillment status transitions. */
+export const FULFILLMENT_ALLOWED_ROLES = [
+  UserRole.SALES,
+  UserRole.ADMIN,
+  UserRole.SUPER_ADMIN,
+] as const;

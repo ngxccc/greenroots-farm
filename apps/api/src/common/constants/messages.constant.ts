@@ -201,6 +201,10 @@ export const MESSAGES = {
       "Failed to allocate a unique order code after maximum retries.",
     CLIENT_TOTAL_MISMATCH_PREFIX:
       "Client-submitted total differs from server-computed total and was ignored.",
+    INVALID_STATUS_TRANSITION:
+      "Current order status does not allow this transition.",
+    PAID_CANCELLATION_FORBIDDEN:
+      "Paid or non-COD orders cannot be cancelled directly via status transition.",
   },
   ADDRESS: {
     NOT_FOUND: "Address not found.",

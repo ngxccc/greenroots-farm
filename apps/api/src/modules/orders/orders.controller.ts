@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
 } from "@nestjs/common";
@@ -36,20 +37,23 @@ import {
   CheckoutRequestDto,
   ListMyOrdersQueryDto,
   OrderDto,
+  StaffOrderDto,
+  UpdateOrderStatusRequestDto,
   ValidateCartRequestDto,
   ValidateCartResponseDto,
   type OrderProjection,
+  type StaffOrderProjection,
   type ValidateCartResponse,
 } from "./dto";
 import { ORDERS_ROUTES } from "./orders.routes";
+import { FULFILLMENT_ALLOWED_ROLES } from "./orders.interface";
 import { OrdersService } from "./orders.service";
 
 /**
- * Customer cart validation, retail COD checkout, and order history endpoints (`/api/v1/orders`).
+ * Customer cart validation, retail COD checkout, order history, and staff fulfillment endpoints (`/api/v1/orders`).
  */
 @ApiTags(ORDERS_ROUTES.TAG)
 @Controller({ path: ORDERS_ROUTES.BASE, version: "1" })
-@ApiAuth(UserRole.CUSTOMER)
 @ApiBadRequestResponseRfc9457()
 @ApiInternalServerErrorResponseRfc9457()
 export class OrdersController {
@@ -57,6 +61,7 @@ export class OrdersController {
 
   // Register static `me` route before `:id` so `/orders/me` is never captured as an order UUID parameter.
   @Get(ORDERS_ROUTES.ME)
+  @ApiAuth(UserRole.CUSTOMER)
   @ApiOperation({
     summary: "List customer order history",
     description:
@@ -77,6 +82,7 @@ export class OrdersController {
   }
 
   @Get(ORDERS_ROUTES.BY_ID)
+  @ApiAuth(UserRole.CUSTOMER)
   @ApiOperation({
     summary: "Get customer order detail",
     description:
@@ -101,6 +107,7 @@ export class OrdersController {
   }
 
   @Post(ORDERS_ROUTES.VALIDATE_CART)
+  @ApiAuth(UserRole.CUSTOMER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "Validate cart items, shipping quote, loyalty cap, and MOV",
@@ -120,6 +127,7 @@ export class OrdersController {
   }
 
   @Post(ORDERS_ROUTES.CHECKOUT)
+  @ApiAuth(UserRole.CUSTOMER)
   @Idempotent({ required: true })
   @ApiOperation({
     summary: "Place a Cash-on-Delivery retail order",
@@ -151,5 +159,59 @@ export class OrdersController {
   ): Promise<ApiResponse<OrderProjection>> {
     const created = await this.ordersService.checkoutCod(userId, dto);
     return apiSuccess(created);
+  }
+
+  @Post(ORDERS_ROUTES.CONFIRM)
+  @ApiAuth(...FULFILLMENT_ALLOWED_ROLES)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Confirm a pending order with atomic FEFO batch allocation",
+    description:
+      "Locks candidate sellable batches in ascending ID order, allocates FEFO stock into batch_allocations, transitions the order to confirmed, and returns active allocations idempotently.",
+  })
+  @ApiParam({
+    name: "id",
+    type: "string",
+    format: "uuid",
+    description: "Order UUIDv7 identifier",
+  })
+  @ApiOkResponseGeneric(StaffOrderDto)
+  @ApiNotFoundResponseRfc9457()
+  @ApiConflictResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
+  async confirmOrder(
+    @Param("id", new ZodValidationPipe(zUuidV7())) orderId: string,
+  ): Promise<ApiResponse<StaffOrderProjection>> {
+    const confirmed = await this.ordersService.confirmOrder(orderId);
+    return apiSuccess(confirmed);
+  }
+
+  @Patch(ORDERS_ROUTES.STATUS)
+  @ApiAuth(...FULFILLMENT_ALLOWED_ROLES)
+  @ApiOperation({
+    summary: "Transition an order along the OrderStatus FSM",
+    description:
+      "Advances confirmed orders through packing, shipping, delivered, and completed, or cancels unpaid orders while soft-releasing allocations, restoring batch stock/status, and refunding loyalty points.",
+  })
+  @ApiParam({
+    name: "id",
+    type: "string",
+    format: "uuid",
+    description: "Order UUIDv7 identifier",
+  })
+  @ApiOkResponseGeneric(StaffOrderDto)
+  @ApiNotFoundResponseRfc9457()
+  @ApiConflictResponseRfc9457()
+  @ApiUnprocessableEntityResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
+  async updateOrderStatus(
+    @Param("id", new ZodValidationPipe(zUuidV7())) orderId: string,
+    @Body() dto: UpdateOrderStatusRequestDto,
+  ): Promise<ApiResponse<StaffOrderProjection>> {
+    const updated = await this.ordersService.updateOrderStatus(
+      orderId,
+      dto.status,
+    );
+    return apiSuccess(updated);
   }
 }
