@@ -7,6 +7,7 @@ import {
   InternalServerErrorException,
   Post,
 } from "@nestjs/common";
+import { API_ERROR_CODES } from "@greenroots/shared";
 import { Idempotent } from "@/common/decorators/idempotent.decorator";
 import { Public } from "@/common/decorators/public.decorator";
 import { apiSuccess } from "@/common/utils/api-response.util";
@@ -26,11 +27,22 @@ class TestIdempotentController {
   testMutation(@Body() body: Record<string, unknown>) {
     if (body["simulateError"] === true) {
       throw new InternalServerErrorException(
-        "Mô phỏng lỗi giao dịch để kiểm tra giải phóng khóa Idempotency",
+        "Simulated transaction failure to verify idempotency key release.",
       );
     }
     return apiSuccess({
       status: "processed",
+      echo: body,
+      executionId: randomUUID(),
+      processedAt: new Date().toISOString(),
+    });
+  }
+
+  @Post("test/idempotent-mutation-secondary")
+  @Idempotent({ required: true })
+  testSecondaryMutation(@Body() body: Record<string, unknown>) {
+    return apiSuccess({
+      status: "secondary-processed",
       echo: body,
       executionId: randomUUID(),
       processedAt: new Date().toISOString(),
@@ -54,7 +66,7 @@ describe("Idempotency Interceptor E2E Integration", () => {
   });
 
   describe("Header Validation", () => {
-    it("should return 400 Bad Request when Idempotency-Key header is missing on required endpoint", async () => {
+    it("rejects request when Idempotency-Key header is missing on required endpoint", async () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/test/idempotent-mutation")
         .send({ action: "checkout", amount: 150000 })
@@ -63,9 +75,10 @@ describe("Idempotency Interceptor E2E Integration", () => {
       const body = res.body as Rfc9457ProblemDetails;
       expect(body.status).toBe(400);
       expect(body.type).toBe("/errors/bad-request");
+      expect(body.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
     });
 
-    it("should return 400 Bad Request when Idempotency-Key is not a valid UUID format", async () => {
+    it("rejects request when Idempotency-Key is not a valid UUID format", async () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/test/idempotent-mutation")
         .set("Idempotency-Key", "invalid-non-uuid-key")
@@ -75,19 +88,19 @@ describe("Idempotency Interceptor E2E Integration", () => {
       const body = res.body as Rfc9457ProblemDetails;
       expect(body.status).toBe(400);
       expect(body.type).toBe("/errors/bad-request");
+      expect(body.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
       expect(body.detail).toContain("UUID");
     });
   });
 
   describe("Cache Replay Consistency within 24h", () => {
-    it("should process initial request and return identical cached response on replay without re-executing", async () => {
+    it("processes initial request and returns identical cached response on replay without re-executing", async () => {
       const key = randomUUID();
       const payload = {
         action: "create_order",
         items: [{ id: "prod_1", qty: 2 }],
       };
 
-      // Call 1: initial execution
       const res1 = await request(app.getHttpServer())
         .post("/api/v1/test/idempotent-mutation")
         .set("Idempotency-Key", key)
@@ -99,7 +112,6 @@ describe("Idempotency Interceptor E2E Integration", () => {
       const firstExecutionId = res1.body.data.executionId;
       expect(firstExecutionId).toBeDefined();
 
-      // Call 2: replay with exact same key and body
       const res2 = await request(app.getHttpServer())
         .post("/api/v1/test/idempotent-mutation")
         .set("Idempotency-Key", key)
@@ -108,23 +120,20 @@ describe("Idempotency Interceptor E2E Integration", () => {
 
       expect(res2.body.success).toBe(true);
       expect(res2.body.data.status).toBe("processed");
-      // Execution ID must match exactly, proving controller was not re-executed
       expect(res2.body.data.executionId).toBe(firstExecutionId);
     });
   });
 
   describe("Payload Mismatch Detection", () => {
-    it("should return 422 Unprocessable Entity when same key is reused with a different body", async () => {
+    it("rejects request when same key is reused with a different body", async () => {
       const key = randomUUID();
 
-      // Call 1 with original payload
       await request(app.getHttpServer())
         .post("/api/v1/test/idempotent-mutation")
         .set("Idempotency-Key", key)
         .send({ orderId: "order_123", amountVnd: 500000 })
         .expect(201);
 
-      // Call 2 with same key but altered payload (amount changed)
       const res2 = await request(app.getHttpServer())
         .post("/api/v1/test/idempotent-mutation")
         .set("Idempotency-Key", key)
@@ -134,23 +143,22 @@ describe("Idempotency Interceptor E2E Integration", () => {
       const body = res2.body as Rfc9457ProblemDetails;
       expect(body.status).toBe(422);
       expect(body.type).toBe("/errors/unprocessable-entity");
-      expect(body.detail).toContain("nội dung yêu cầu khác");
+      expect(body.code).toBe(API_ERROR_CODES.UNPROCESSABLE_ENTITY);
+      expect(body.detail).toContain("different request payload");
     });
   });
 
   describe("Error Rollback and Key Release", () => {
-    it("should release idempotency key when request fails, allowing subsequent retry", async () => {
+    it("releases idempotency key when request fails so subsequent retry succeeds", async () => {
       const key = randomUUID();
       const payload = { test: "rollback", simulateError: true };
 
-      // Call 1: simulated server error
       await request(app.getHttpServer())
         .post("/api/v1/test/idempotent-mutation")
         .set("Idempotency-Key", key)
         .send(payload)
         .expect(500);
 
-      // Call 2: retry with error removed should succeed because key was released
       const retryRes = await request(app.getHttpServer())
         .post("/api/v1/test/idempotent-mutation")
         .set("Idempotency-Key", key)
@@ -159,6 +167,31 @@ describe("Idempotency Interceptor E2E Integration", () => {
 
       expect(retryRes.body.success).toBe(true);
       expect(retryRes.body.data.status).toBe("processed");
+    });
+  });
+
+  describe("Route Scoping Isolation", () => {
+    it("isolates identical Idempotency-Key across distinct routes", async () => {
+      const key = randomUUID();
+      const payload = { test: "route-isolation" };
+
+      const primaryRes = await request(app.getHttpServer())
+        .post("/api/v1/test/idempotent-mutation")
+        .set("Idempotency-Key", key)
+        .send(payload)
+        .expect(201);
+
+      const secondaryRes = await request(app.getHttpServer())
+        .post("/api/v1/test/idempotent-mutation-secondary")
+        .set("Idempotency-Key", key)
+        .send(payload)
+        .expect(201);
+
+      expect(primaryRes.body.data.status).toBe("processed");
+      expect(secondaryRes.body.data.status).toBe("secondary-processed");
+      expect(secondaryRes.body.data.executionId).not.toBe(
+        primaryRes.body.data.executionId,
+      );
     });
   });
 });
