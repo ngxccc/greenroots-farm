@@ -40,6 +40,7 @@ export const orders = snakeCase.table(
     shippingFee: integer().default(0).notNull(),
     subtotal: integer().notNull(),
     discountAmount: integer().default(0).notNull(),
+    loyaltyPointsUsed: integer().default(0).notNull(),
     totalAmount: integer().notNull(),
     paymentMethod: paymentMethodEnum().default(PaymentMethod.COD).notNull(),
     paymentStatus: paymentStatusEnum().default(PaymentStatus.PENDING).notNull(),
@@ -60,6 +61,14 @@ export const orders = snakeCase.table(
     check(
       "orders_discount_amount_non_negative",
       sql`${table.discountAmount} >= 0`,
+    ),
+    check(
+      "orders_loyalty_points_used_non_negative",
+      sql`${table.loyaltyPointsUsed} >= 0`,
+    ),
+    check(
+      "orders_discount_lte_subtotal",
+      sql`${table.discountAmount} <= ${table.subtotal}`,
     ),
     check("orders_total_amount_non_negative", sql`${table.totalAmount} >= 0`),
   ],

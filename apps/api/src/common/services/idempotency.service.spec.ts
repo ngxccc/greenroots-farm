@@ -183,6 +183,38 @@ describe("IdempotencyService", () => {
         body: null,
       });
     });
+
+    it("should isolate identical keys across distinct caller/route scopes", async () => {
+      const scopeA = "user-a:POST:/api/v1/orders/checkout";
+      const scopeB = "user-b:POST:/api/v1/orders/checkout";
+
+      await service.acquire(validKey, { amount: 150000 }, scopeA);
+      await service.complete(
+        validKey,
+        201,
+        { orderId: "ord-a" },
+        undefined,
+        { amount: 150000 },
+        scopeA,
+      );
+
+      const resultB = await service.acquire(
+        validKey,
+        { amount: 250000 },
+        scopeB,
+      );
+      expect(resultB.isNew).toBe(true);
+      expect(resultB.cached).toBeNull();
+
+      await service.release(validKey, scopeB);
+      const replayA = await service.acquire(
+        validKey,
+        { amount: 150000 },
+        scopeA,
+      );
+      expect(replayA.isNew).toBe(false);
+      expect(replayA.cached?.body).toEqual({ orderId: "ord-a" });
+    });
   });
 
   describe("complete", () => {

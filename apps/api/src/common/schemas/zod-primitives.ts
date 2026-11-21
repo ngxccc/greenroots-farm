@@ -145,6 +145,22 @@ export function zBooleanString() {
 }
 
 /**
+ * Builds a bounded positive decimal quantity schema enforcing PostgreSQL `numeric(10, 2)` precision.
+ *
+ * @param options Minimum and maximum inclusive quantity bounds.
+ * @returns Validated numeric schema allowing at most 2 decimal places.
+ */
+export function zDecimalQuantity(options: { min: number; max: number }) {
+  return z
+    .number()
+    .min(options.min, { message: MESSAGES.VALIDATION.MIN_VALUE })
+    .max(options.max, { message: MESSAGES.VALIDATION.MAX_VALUE })
+    .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-6, {
+      message: MESSAGES.VALIDATION.INVALID_QUANTITY_PRECISION,
+    });
+}
+
+/**
  * Builds a safe numeric coercion schema for query parameters and JSON numbers.
  */
 export function zNumericString(options?: {

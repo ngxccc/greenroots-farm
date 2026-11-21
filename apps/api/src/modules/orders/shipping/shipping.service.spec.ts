@@ -53,6 +53,8 @@ describe("ShippingService", () => {
 
   const resolvedAddress: ResolvedQuoteAddress = {
     id: "019fa8bc-8f4d-7000-b366-e691f45cfb99",
+    receiverName: "Nguyen Van An",
+    phoneNumber: "0912345678",
     formattedAddress: "123 TL8, Huyện Củ Chi, TP. Hồ Chí Minh",
     districtCode: cuChi.code,
     district: cuChi.name,

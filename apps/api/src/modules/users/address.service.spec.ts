@@ -224,7 +224,7 @@ describe("AddressService", () => {
   });
 
   describe("resolveAddressForQuote", () => {
-    it("returns centroid coordinates from HCMC_DISTRICTS rather than DB cache columns", async () => {
+    it("returns centroid coordinates from HCMC_DISTRICTS and recipient contact details", async () => {
       const quan7 = HCMC_DISTRICTS.find((d) => d.code === "quan-7")!;
       mockDb.setSelectResultsQueue([[{ id: userId }], [sampleAddressRow]]);
 
@@ -232,6 +232,8 @@ describe("AddressService", () => {
 
       expect(resolved).toEqual({
         id: addressId,
+        receiverName: sampleAddressRow.receiverName,
+        phoneNumber: sampleAddressRow.phoneNumber,
         formattedAddress: `12 Nguyen Van Linh, ${quan7.name}, ${BUSINESS_RULES.DEFAULT_DELIVERY_CITY}`,
         districtCode: quan7.code,
         district: quan7.name,
@@ -239,6 +241,15 @@ describe("AddressService", () => {
         latitude: quan7.latitude,
         longitude: quan7.longitude,
       });
+    });
+
+    it("returns null from resolveOptionalDefaultAddressForQuote when customer has no saved addresses", async () => {
+      mockDb.setSelectResultsQueue([[{ id: userId }], []]);
+
+      const resolved =
+        await service.resolveOptionalDefaultAddressForQuote(userId);
+
+      expect(resolved).toBeNull();
     });
   });
 

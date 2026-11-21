@@ -177,6 +177,19 @@ export const MESSAGES = {
     PRICE_INVALID:
       "Sale price must be non-negative and less than or equal to base price.",
   },
+  ORDERS: {
+    BELOW_MINIMUM_VALUE:
+      "Order merchandise subtotal is below the minimum order value.",
+    COD_DISABLED: "Cash on delivery is currently disabled in farm settings.",
+    INSUFFICIENT_STOCK:
+      "Requested quantity exceeds available sellable batch stock.",
+    OUT_OF_DELIVERY_RADIUS:
+      "Delivery address exceeds the farm maximum delivery radius.",
+    CODE_GENERATION_EXHAUSTED:
+      "Failed to allocate a unique order code after maximum retries.",
+    CLIENT_TOTAL_MISMATCH_PREFIX:
+      "Client-submitted total differs from server-computed total and was ignored.",
+  },
   ADDRESS: {
     NOT_FOUND: "Address not found.",
     LIMIT_REACHED: "You can save at most 10 delivery addresses.",

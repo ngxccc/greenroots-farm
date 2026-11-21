@@ -6,6 +6,7 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from "@nestjs/common";
+import { API_ERROR_CODES } from "@greenroots/shared";
 import { RedisService } from "./redis.service";
 import { canonicalJson } from "@/common/utils/canonical-json.util";
 import { sha256 } from "@/common/utils/crypto.util";
@@ -43,19 +44,30 @@ export class IdempotencyService {
 
   constructor(private readonly redisService: RedisService) {}
 
+  private buildRedisKey(key: string, scope?: string): string {
+    return scope
+      ? `${IDEMPOTENCY_KEY_PREFIX}${scope}:${key}`
+      : `${IDEMPOTENCY_KEY_PREFIX}${key}`;
+  }
+
   /**
    * Evaluates or acquires the idempotency key lock.
    * Fail-closed: Throws ServiceUnavailableException if Redis is down.
    */
-  async acquire(key: string, body: unknown): Promise<AcquireResult> {
+  async acquire(
+    key: string,
+    body: unknown,
+    scope?: string,
+  ): Promise<AcquireResult> {
     if (!UUID_V4_OR_V7_REGEX.test(key)) {
-      throw new BadRequestException(
-        "Định dạng Idempotency-Key không hợp lệ, yêu cầu định dạng UUID",
-      );
+      throw new BadRequestException({
+        code: API_ERROR_CODES.VALIDATION_FAILED,
+        detail: "Invalid Idempotency-Key format; a valid UUID is required.",
+      });
     }
 
     const payloadHash = sha256(canonicalJson(body));
-    const redisKey = `${IDEMPOTENCY_KEY_PREFIX}${key}`;
+    const redisKey = this.buildRedisKey(key, scope);
     const client = this.redisService.getClient();
 
     const initialRecord: StoredIdempotencyRecord = {
@@ -78,9 +90,10 @@ export class IdempotencyService {
         `Redis failure acquiring idempotency lock: ${key}`,
         error,
       );
-      throw new ServiceUnavailableException(
-        "Dịch vụ Idempotency tạm thời không khả dụng, vui lòng thử lại",
-      );
+      throw new ServiceUnavailableException({
+        code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+        detail: "Idempotency service is temporarily unavailable.",
+      });
     }
 
     // If NX succeeded, key was completely new: lock acquired in 1 round trip
@@ -97,37 +110,45 @@ export class IdempotencyService {
         `Redis failure checking idempotency key: ${key}`,
         error,
       );
-      throw new ServiceUnavailableException(
-        "Dịch vụ Idempotency tạm thời không khả dụng, vui lòng thử lại",
-      );
+      throw new ServiceUnavailableException({
+        code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+        detail: "Idempotency service is temporarily unavailable.",
+      });
     }
 
     if (!rawRecord) {
       // In case the key expired between SET NX and GET, treat as concurrent contention
-      throw new ConflictException(
-        "Yêu cầu với khóa định danh này đang được xử lý, vui lòng thử lại sau",
-      );
+      throw new ConflictException({
+        code: API_ERROR_CODES.CONFLICT,
+        detail:
+          "A request with this Idempotency-Key is currently being processed.",
+      });
     }
 
     let stored: StoredIdempotencyRecord;
     try {
       stored = JSON.parse(rawRecord) as StoredIdempotencyRecord;
     } catch {
-      throw new ServiceUnavailableException(
-        "Dữ liệu Idempotency không hợp lệ, vui lòng thử lại",
-      );
+      throw new ServiceUnavailableException({
+        code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+        detail: "Idempotency record is invalid; please retry.",
+      });
     }
 
     if (stored.payloadHash !== payloadHash) {
-      throw new UnprocessableEntityException(
-        "Khóa Idempotency-Key đã được sử dụng với nội dung yêu cầu khác",
-      );
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.UNPROCESSABLE_ENTITY,
+        detail:
+          "Idempotency-Key was already used with a different request payload.",
+      });
     }
 
     if (stored.status === IDEMPOTENCY_STATUS.PROCESSING) {
-      throw new ConflictException(
-        "Yêu cầu với khóa định danh này đang được xử lý, vui lòng thử lại sau",
-      );
+      throw new ConflictException({
+        code: API_ERROR_CODES.CONFLICT,
+        detail:
+          "A request with this Idempotency-Key is currently being processed.",
+      });
     }
 
     return {
@@ -148,8 +169,9 @@ export class IdempotencyService {
     body: unknown,
     ttlSeconds = COMPLETED_CACHE_TTL_SECONDS,
     requestPayload?: unknown,
+    scope?: string,
   ): Promise<void> {
-    const redisKey = `${IDEMPOTENCY_KEY_PREFIX}${key}`;
+    const redisKey = this.buildRedisKey(key, scope);
     const client = this.redisService.getClient();
 
     try {
@@ -198,8 +220,8 @@ export class IdempotencyService {
   /**
    * Releases/deletes the idempotency record if the domain transaction or controller failed.
    */
-  async release(key: string): Promise<void> {
-    const redisKey = `${IDEMPOTENCY_KEY_PREFIX}${key}`;
+  async release(key: string, scope?: string): Promise<void> {
+    const redisKey = this.buildRedisKey(key, scope);
     const client = this.redisService.getClient();
 
     try {

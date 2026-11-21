@@ -5,6 +5,8 @@ import type { StaffAuditAction, StaffAuditSnapshot } from "@greenroots/shared";
  */
 export interface ResolvedQuoteAddress {
   readonly id: string;
+  readonly receiverName: string;
+  readonly phoneNumber: string;
   readonly formattedAddress: string;
   readonly districtCode: string;
   readonly district: string;

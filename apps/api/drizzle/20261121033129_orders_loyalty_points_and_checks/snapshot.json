@@ -1,0 +1,113 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "229dc9be-9b68-44a4-bb98-bbc2fa7c43f5",
+  "prevIds": ["ecf432bb-e19a-4505-91d9-78cf9f6652da"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "orders", "loyalty_points_used"],
+      "writes": [
+        "s|col|public.orders.loyalty_points_used",
+        "n|col|public.orders.loyalty_points_used",
+        "e|col|public.orders.loyalty_points_used"
+      ],
+      "reads": ["n|tbl|public.orders", "n|sch|public"]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "users"],
+      "writes": [
+        "s|ck|public.users.users_reward_points_non_negative",
+        "n|ck|public.users.users_reward_points_non_negative",
+        "e|ck|public.users.users_reward_points_non_negative",
+        "n|con|public.users.users_reward_points_non_negative"
+      ],
+      "reads": [
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.users.reward_points"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "orders"],
+      "writes": [
+        "s|ck|public.orders.orders_loyalty_points_used_non_negative",
+        "n|ck|public.orders.orders_loyalty_points_used_non_negative",
+        "e|ck|public.orders.orders_loyalty_points_used_non_negative",
+        "n|con|public.orders.orders_loyalty_points_used_non_negative"
+      ],
+      "reads": [
+        "n|tbl|public.orders",
+        "n|sch|public",
+        "n|col|public.orders.loyalty_points_used"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "orders"],
+      "writes": [
+        "s|ck|public.orders.orders_discount_lte_subtotal",
+        "n|ck|public.orders.orders_discount_lte_subtotal",
+        "e|ck|public.orders.orders_discount_lte_subtotal",
+        "n|con|public.orders.orders_discount_lte_subtotal"
+      ],
+      "reads": [
+        "n|tbl|public.orders",
+        "n|sch|public",
+        "n|col|public.orders.discount_amount",
+        "n|col|public.orders.subtotal"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "orders",
+        "name": "loyalty_points_used",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "users",
+        "name": "users_reward_points_non_negative",
+        "value": "\"reward_points\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "orders",
+        "name": "orders_loyalty_points_used_non_negative",
+        "value": "\"loyalty_points_used\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "orders",
+        "name": "orders_discount_lte_subtotal",
+        "value": "\"discount_amount\" <= \"subtotal\"",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

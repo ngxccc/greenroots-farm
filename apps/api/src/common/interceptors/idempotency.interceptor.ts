@@ -9,11 +9,17 @@ import {
 import { Reflector } from "@nestjs/core";
 import { from, of, switchMap, tap, type Observable } from "rxjs";
 import type { Request, Response } from "express";
+import { API_ERROR_CODES } from "@greenroots/shared";
 import { IdempotencyService } from "@/common/services/idempotency.service";
 import {
   IDEMPOTENT_METADATA_KEY,
   type IdempotentOptions,
 } from "@/common/decorators/idempotent.decorator";
+import type { JwtPayload } from "@/common/decorators/current-user.decorator";
+
+interface ScopedRequest extends Request {
+  user?: JwtPayload;
+}
 
 @Injectable()
 export class IdempotencyInterceptor implements NestInterceptor {
@@ -22,9 +28,15 @@ export class IdempotencyInterceptor implements NestInterceptor {
     @Optional() private readonly reflector?: Reflector,
   ) {}
 
+  private buildScope(request: ScopedRequest): string {
+    // Scope by authenticated subject and concrete request path so parameterized routes isolate per resource ID.
+    const subject = request.user?.sub ?? "anonymous";
+    return `${subject}:${request.method.toUpperCase()}:${request.path}`;
+  }
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const http = context.switchToHttp();
-    const request = http.getRequest<Request>();
+    const request = http.getRequest<ScopedRequest>();
     const response = http.getResponse<Response>();
 
     const options = this.reflector?.getAllAndOverride<IdempotentOptions>(
@@ -38,14 +50,17 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
     if (!key) {
       if (options?.required) {
-        throw new BadRequestException(
-          "Thiếu header Idempotency-Key bắt buộc cho yêu cầu này",
-        );
+        throw new BadRequestException({
+          code: API_ERROR_CODES.VALIDATION_FAILED,
+          detail: "Idempotency-Key UUID header is required for this request.",
+        });
       }
       return next.handle();
     }
 
-    return from(this.idempotencyService.acquire(key, request.body)).pipe(
+    const scope = this.buildScope(request);
+
+    return from(this.idempotencyService.acquire(key, request.body, scope)).pipe(
       switchMap((result) => {
         if (!result.isNew && result.cached) {
           response.status(result.cached.statusCode);
@@ -61,10 +76,11 @@ export class IdempotencyInterceptor implements NestInterceptor {
                 body,
                 options?.ttlSeconds,
                 request.body,
+                scope,
               );
             },
             error: () => {
-              void this.idempotencyService.release(key);
+              void this.idempotencyService.release(key, scope);
             },
           }),
         );

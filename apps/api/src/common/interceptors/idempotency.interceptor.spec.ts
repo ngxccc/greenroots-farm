@@ -23,12 +23,18 @@ class TestContextController {
 function createMockContext(
   headers: Record<string, string>,
   body: unknown = {},
+  userSub?: string,
+  path = "/api/v1/orders/checkout",
 ) {
   const request = {
     headers,
     body,
     method: "POST",
-    url: "/api/v1/orders/checkout",
+    baseUrl: "",
+    path,
+    url: path,
+    route: { path: "/api/v1/orders/:id/cancel" },
+    user: userSub ? { sub: userSub } : undefined,
   } as unknown as Request;
 
   const response: MockResponse = {
@@ -54,19 +60,37 @@ function createMockContext(
 describe("IdempotencyInterceptor", () => {
   let completedKeys: string[];
   let releasedKeys: string[];
+  let acquiredScopes: (string | undefined)[];
+  let completedScopes: (string | undefined)[];
+  let releasedScopes: (string | undefined)[];
   let mockService: IdempotencyService;
 
   beforeEach(() => {
     completedKeys = [];
     releasedKeys = [];
+    acquiredScopes = [];
+    completedScopes = [];
+    releasedScopes = [];
     mockService = {
-      acquire: (_key: string) => Promise.resolve({ isNew: true, cached: null }),
-      complete: (key: string) => {
+      acquire: (_key: string, _body: unknown, scope?: string) => {
+        acquiredScopes.push(scope);
+        return Promise.resolve({ isNew: true, cached: null });
+      },
+      complete: (
+        key: string,
+        _status: number,
+        _body: unknown,
+        _ttl?: number,
+        _payload?: unknown,
+        scope?: string,
+      ) => {
         completedKeys.push(key);
+        completedScopes.push(scope);
         return Promise.resolve();
       },
-      release: (key: string) => {
+      release: (key: string, scope?: string) => {
         releasedKeys.push(key);
+        releasedScopes.push(scope);
         return Promise.resolve();
       },
     } as unknown as IdempotencyService;
@@ -96,10 +120,52 @@ describe("IdempotencyInterceptor", () => {
 
         expect(handlerCalls).toBe(1);
         expect(completedKeys).toContain(validKey);
+        expect(acquiredScopes).toEqual([
+          "anonymous:POST:/api/v1/orders/checkout",
+        ]);
+        expect(completedScopes).toEqual([
+          "anonymous:POST:/api/v1/orders/checkout",
+        ]);
         expect(result).toEqual({
           success: true,
           data: { orderId: "order-123" },
         });
+      });
+
+      it("should scope idempotency keys by authenticated userId and concrete request path", async () => {
+        const interceptor = new IdempotencyInterceptor(mockService);
+        const { context: ctx1 } = createMockContext(
+          { "idempotency-key": validKey },
+          {},
+          "user-uuid-123",
+          "/api/v1/orders/ord-1/cancel",
+        );
+        const { context: ctx2 } = createMockContext(
+          { "idempotency-key": validKey },
+          {},
+          "user-uuid-123",
+          "/api/v1/orders/ord-2/cancel",
+        );
+
+        await firstValueFrom(
+          interceptor.intercept(ctx1, {
+            handle: () => of({ success: true }),
+          }),
+        );
+        await firstValueFrom(
+          interceptor.intercept(ctx2, {
+            handle: () => of({ success: true }),
+          }),
+        );
+
+        expect(acquiredScopes).toEqual([
+          "user-uuid-123:POST:/api/v1/orders/ord-1/cancel",
+          "user-uuid-123:POST:/api/v1/orders/ord-2/cancel",
+        ]);
+        expect(completedScopes).toEqual([
+          "user-uuid-123:POST:/api/v1/orders/ord-1/cancel",
+          "user-uuid-123:POST:/api/v1/orders/ord-2/cancel",
+        ]);
       });
 
       it("should return cached response and skip handler execution when request is replayed", async () => {

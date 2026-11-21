@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -51,6 +52,7 @@ export const users = snakeCase.table(
     index("users_status_idx").on(table.status),
     index("users_verification_token_idx").on(table.verificationToken),
     index("users_reset_password_token_idx").on(table.resetPasswordToken),
+    check("users_reward_points_non_negative", sql`${table.rewardPoints} >= 0`),
   ],
 );
 

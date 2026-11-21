@@ -351,13 +351,29 @@ export class AddressService {
     });
   }
 
+  private toResolvedQuoteAddress(row: AddressRow): ResolvedQuoteAddress {
+    const district = this.resolveDistrictOrThrow(row.districtCode);
+
+    return {
+      id: row.id,
+      receiverName: row.receiverName,
+      phoneNumber: row.phoneNumber,
+      formattedAddress: `${row.streetAddress}, ${district.name}, ${BUSINESS_RULES.DEFAULT_DELIVERY_CITY}`,
+      districtCode: district.code,
+      district: district.name,
+      city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
+      latitude: district.latitude,
+      longitude: district.longitude,
+    };
+  }
+
   /**
    * Resolves an owned address (or the account's default address) with authoritative centroid coordinates
    * from `HCMC_DISTRICTS` for downstream checkout and subscription fee estimation.
    *
    * @param sub Authenticated user ID from JWT `sub`.
    * @param addressId Optional address UUIDv7; falls back to the account's default address when omitted.
-   * @returns Formatted shipping address snapshot and authoritative `HCMC_DISTRICTS` centroid coordinates.
+   * @returns Formatted shipping address snapshot, recipient contact details, and authoritative `HCMC_DISTRICTS` centroid coordinates.
    */
   async resolveAddressForQuote(
     sub: string,
@@ -379,16 +395,28 @@ export class AddressService {
       throw this.addressNotFound();
     }
 
-    const district = this.resolveDistrictOrThrow(row.districtCode);
+    return this.toResolvedQuoteAddress(row);
+  }
 
-    return {
-      id: row.id,
-      formattedAddress: `${row.streetAddress}, ${district.name}, ${BUSINESS_RULES.DEFAULT_DELIVERY_CITY}`,
-      districtCode: district.code,
-      district: district.name,
-      city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
-      latitude: district.latitude,
-      longitude: district.longitude,
-    };
+  /**
+   * Resolves the account's default saved address when present, returning `null` if no address exists yet.
+   *
+   * @param sub Authenticated user ID from JWT `sub`.
+   * @returns Default `ResolvedQuoteAddress` or `null` when the customer has no saved addresses.
+   */
+  async resolveOptionalDefaultAddressForQuote(
+    sub: string,
+  ): Promise<ResolvedQuoteAddress | null> {
+    await this.ensureLiveUser(this.db, sub, false);
+
+    const [row] = await this.db
+      .select(ADDRESS_COLUMNS)
+      .from(userAddresses)
+      .where(
+        and(eq(userAddresses.userId, sub), eq(userAddresses.isDefault, true)),
+      )
+      .limit(1);
+
+    return row ? this.toResolvedQuoteAddress(row) : null;
   }
 }
