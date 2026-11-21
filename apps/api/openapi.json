@@ -13996,6 +13996,12 @@
               "refunded"
             ]
           },
+          "receiverName": {
+            "type": "string"
+          },
+          "receiverPhone": {
+            "type": "string"
+          },
           "shippingAddress": {
             "type": "string"
           },
@@ -14096,6 +14102,8 @@
           "orderStatus",
           "paymentMethod",
           "paymentStatus",
+          "receiverName",
+          "receiverPhone",
           "shippingAddress",
           "shippingDistanceKm",
           "shippingFeeVnd",

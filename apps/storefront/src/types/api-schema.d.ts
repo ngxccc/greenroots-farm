@@ -1944,6 +1944,8 @@ export interface components {
             paymentMethod: "cod" | "payos" | "subscription";
             /** @enum {string} */
             paymentStatus: "pending" | "paid" | "failed" | "refunded";
+            receiverName: string;
+            receiverPhone: string;
             shippingAddress: string;
             shippingDistanceKm: number;
             shippingFeeVnd: number;
