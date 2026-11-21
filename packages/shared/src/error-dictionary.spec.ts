@@ -62,6 +62,24 @@ describe("resolveSharedApiErrorMessage", () => {
     ).toBe(
       API_ERROR_DICTIONARY[API_ERROR_CODES.ORDER_ACTIVE_ALLOCATIONS_MISSING],
     );
+    expect(
+      resolveSharedApiErrorMessage(
+        API_ERROR_CODES.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID,
+      ),
+    ).toBe(
+      API_ERROR_DICTIONARY[
+        API_ERROR_CODES.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID
+      ],
+    );
+    expect(
+      resolveSharedApiErrorMessage(
+        API_ERROR_CODES.FARM_SHIPPING_FREE_THRESHOLD_INVALID,
+      ),
+    ).toBe(
+      API_ERROR_DICTIONARY[
+        API_ERROR_CODES.FARM_SHIPPING_FREE_THRESHOLD_INVALID
+      ],
+    );
   });
 
   it("interpolates minimum constraints for TOO_SMALL across string, number, and array origins", () => {

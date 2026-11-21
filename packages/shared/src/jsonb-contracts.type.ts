@@ -35,8 +35,8 @@ export interface FarmShippingConfig {
   freeKmThreshold: number;
   perKmRateVnd: number;
   detourFactor: number;
-  maxRadiusKm?: number;
-  subscriptionFreeRadiusKm?: number;
+  maxRadiusKm: number;
+  subscriptionFreeRadiusKm: number;
 }
 
 export interface FarmFlashSaleConfig {

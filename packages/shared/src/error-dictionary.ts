@@ -67,6 +67,9 @@ export const API_ERROR_CODES = {
   FARM_NOT_FOUND: "FARM_NOT_FOUND",
   FARM_PAYMENT_METHOD_REQUIRED: "FARM_PAYMENT_METHOD_REQUIRED",
   FARM_FLASH_SALE_CONFIG_INVALID: "FARM_FLASH_SALE_CONFIG_INVALID",
+  FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID:
+    "FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID",
+  FARM_SHIPPING_FREE_THRESHOLD_INVALID: "FARM_SHIPPING_FREE_THRESHOLD_INVALID",
   PLOT_NOT_FOUND: "PLOT_NOT_FOUND",
   PLOT_CODE_ALREADY_EXISTS: "PLOT_CODE_ALREADY_EXISTS",
   PLOT_HAS_ACTIVE_SEASONS: "PLOT_HAS_ACTIVE_SEASONS",
@@ -210,6 +213,10 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Phải bật ít nhất một phương thức thanh toán (PayOS hoặc COD).",
   [API_ERROR_CODES.FARM_FLASH_SALE_CONFIG_INVALID]:
     "Cấu hình ngưỡng giờ flash sale của nông trại không hợp lệ.",
+  [API_ERROR_CODES.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID]:
+    "Bán kính miễn phí giao hàng định kỳ không được vượt quá bán kính giao hàng tối đa.",
+  [API_ERROR_CODES.FARM_SHIPPING_FREE_THRESHOLD_INVALID]:
+    "Ngưỡng km miễn phí giao hàng không được vượt quá bán kính giao hàng tối đa.",
   [API_ERROR_CODES.PLOT_NOT_FOUND]: "Không tìm thấy lô đất yêu cầu.",
   [API_ERROR_CODES.PLOT_CODE_ALREADY_EXISTS]:
     "Mã lô đất này đã tồn tại trên một lô đất đang hoạt động.",

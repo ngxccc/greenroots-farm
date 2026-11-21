@@ -238,11 +238,7 @@ export function calculateDeliveryQuote(
   config: ShippingQuoteConfig,
   options: DeliveryQuoteOptions = {},
 ): DeliveryQuote {
-  const maxRadiusKm =
-    config.maxRadiusKm ?? BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM;
-  const subscriptionFreeRadiusKm =
-    config.subscriptionFreeRadiusKm ??
-    BUSINESS_RULES.SHIPPING.SUBSCRIPTION_FREE_RADIUS_KM;
+  const { maxRadiusKm, subscriptionFreeRadiusKm } = config;
 
   const straightLineKm = calculateHaversineDistanceKm(
     origin.latitude,
