@@ -139,8 +139,10 @@ describe("OrdersService", () => {
                   orderStatus: OrderStatus.PENDING_CONFIRMATION,
                   paymentMethod: PaymentMethod.COD,
                   paymentStatus: PaymentStatus.PENDING,
+                  receiverName: "Nguyen Van An",
+                  receiverPhone: "0912345678",
                   shippingAddress:
-                    "Nguyen Van An (0912345678) - 12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+                    "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
                   shippingFee: 65_000,
                   subtotal: 160_000,
                   discountAmount: 50_000,
@@ -556,7 +558,11 @@ describe("OrdersService", () => {
       expect(result.orderStatus).toBe(OrderStatus.PENDING_CONFIRMATION);
       expect(result.paymentMethod).toBe(PaymentMethod.COD);
       expect(result.paymentStatus).toBe(PaymentStatus.PENDING);
-      expect(result.shippingAddress).toContain("Nguyen Van An (0912345678)");
+      expect(result.receiverName).toBe("Nguyen Van An");
+      expect(result.receiverPhone).toBe("0912345678");
+      expect(result.shippingAddress).toBe(
+        "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+      );
       expect(result.subtotalVnd).toBe(160_000);
       expect(result.loyaltyPointsUsed).toBe(50_000);
       expect(result.totalAmountVnd).toBe(175_000);

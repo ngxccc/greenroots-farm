@@ -26,6 +26,8 @@ export const orderSchema = z.object({
   orderStatus: z.enum(OrderStatus),
   paymentMethod: z.enum(PaymentMethod),
   paymentStatus: z.enum(PaymentStatus),
+  receiverName: z.string(),
+  receiverPhone: z.string(),
   shippingAddress: z.string(),
   shippingDistanceKm: z.number().nonnegative(),
   shippingFeeVnd: z.number().int().nonnegative(),

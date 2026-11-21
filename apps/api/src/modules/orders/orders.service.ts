@@ -39,7 +39,6 @@ import {
 import { LIVE_AVAILABLE_QUANTITY_EXPR } from "@/modules/catalog/products.service";
 import { FarmSettingsService } from "@/modules/farms/farm-settings.service";
 import { AddressService } from "@/modules/users/address.service";
-import type { ResolvedQuoteAddress } from "@/modules/users/users.interface";
 import type {
   CheckoutRequestInput,
   OrderProjection,
@@ -236,7 +235,6 @@ export class OrdersService {
     }
 
     const shippingFeeVnd = shippingQuote.feeVnd;
-    const shippingAddressSnapshot = this.formatAddressSnapshot(resolvedAddress);
     const shippingDistanceKmStr = shippingQuote.roadDistanceKm.toFixed(2);
     const yyyymmdd = this.formatCalendarDateVn(new Date()).replaceAll("-", "");
 
@@ -249,7 +247,9 @@ export class OrdersService {
         return await this.executeCheckoutTransaction(sub, input, {
           normalizedItems,
           shippingFeeVnd,
-          shippingAddressSnapshot,
+          receiverName: resolvedAddress.receiverName,
+          receiverPhone: resolvedAddress.phoneNumber,
+          shippingAddress: resolvedAddress.formattedAddress,
           shippingDistanceKm: shippingQuote.roadDistanceKm,
           shippingDistanceKmStr,
           yyyymmdd,
@@ -274,7 +274,9 @@ export class OrdersService {
     params: {
       readonly normalizedItems: readonly NormalizedCartItem[];
       readonly shippingFeeVnd: number;
-      readonly shippingAddressSnapshot: string;
+      readonly receiverName: string;
+      readonly receiverPhone: string;
+      readonly shippingAddress: string;
       readonly shippingDistanceKm: number;
       readonly shippingDistanceKmStr: string;
       readonly yyyymmdd: string;
@@ -334,7 +336,9 @@ export class OrdersService {
         customerId: sub,
         evaluated,
         totals,
-        shippingAddressSnapshot: params.shippingAddressSnapshot,
+        receiverName: params.receiverName,
+        receiverPhone: params.receiverPhone,
+        shippingAddress: params.shippingAddress,
         shippingDistanceKm: params.shippingDistanceKm,
         shippingDistanceKmStr: params.shippingDistanceKmStr,
         shippingFeeVnd: params.shippingFeeVnd,
@@ -453,7 +457,9 @@ export class OrdersService {
       readonly customerId: string;
       readonly evaluated: readonly EvaluatedCartItem[];
       readonly totals: ComputedOrderTotals;
-      readonly shippingAddressSnapshot: string;
+      readonly receiverName: string;
+      readonly receiverPhone: string;
+      readonly shippingAddress: string;
       readonly shippingDistanceKm: number;
       readonly shippingDistanceKmStr: string;
       readonly shippingFeeVnd: number;
@@ -466,7 +472,9 @@ export class OrdersService {
       .values({
         orderCode,
         customerId: params.customerId,
-        shippingAddress: params.shippingAddressSnapshot,
+        receiverName: params.receiverName,
+        receiverPhone: params.receiverPhone,
+        shippingAddress: params.shippingAddress,
         shippingDistanceKm: params.shippingDistanceKmStr,
         shippingFee: params.shippingFeeVnd,
         subtotal: params.totals.subtotalVnd,
@@ -483,6 +491,8 @@ export class OrdersService {
         orderStatus: orders.orderStatus,
         paymentMethod: orders.paymentMethod,
         paymentStatus: orders.paymentStatus,
+        receiverName: orders.receiverName,
+        receiverPhone: orders.receiverPhone,
         shippingAddress: orders.shippingAddress,
         shippingFee: orders.shippingFee,
         subtotal: orders.subtotal,
@@ -530,6 +540,8 @@ export class OrdersService {
       orderStatus: createdOrder.orderStatus,
       paymentMethod: createdOrder.paymentMethod,
       paymentStatus: createdOrder.paymentStatus,
+      receiverName: createdOrder.receiverName,
+      receiverPhone: createdOrder.receiverPhone,
       shippingAddress: createdOrder.shippingAddress,
       shippingDistanceKm: params.shippingDistanceKm,
       shippingFeeVnd: createdOrder.shippingFee,
@@ -720,10 +732,6 @@ export class OrdersService {
       suffix += CROCKFORD_BASE32_ALPHABET[byte % 32];
     }
     return suffix;
-  }
-
-  private formatAddressSnapshot(address: ResolvedQuoteAddress): string {
-    return `${address.receiverName} (${address.phoneNumber}) - ${address.formattedAddress}`;
   }
 
   private formatCalendarDateVn(date: Date): string {
