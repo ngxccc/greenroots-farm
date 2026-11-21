@@ -11,4 +11,5 @@ export const ORDERS_ROUTES = Object.freeze({
   BY_ID: ":id",
   CONFIRM: ":id/confirm",
   STATUS: ":id/status",
+  PICK_LIST: ":id/pick-list",
 } as const);

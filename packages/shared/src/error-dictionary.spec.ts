@@ -48,6 +48,20 @@ describe("resolveSharedApiErrorMessage", () => {
     expect(resolveSharedApiErrorMessage(API_ERROR_CODES.ORDER_NOT_FOUND)).toBe(
       API_ERROR_DICTIONARY[API_ERROR_CODES.ORDER_NOT_FOUND],
     );
+    expect(
+      resolveSharedApiErrorMessage(
+        API_ERROR_CODES.ORDER_PICK_LIST_STATUS_INVALID,
+      ),
+    ).toBe(
+      API_ERROR_DICTIONARY[API_ERROR_CODES.ORDER_PICK_LIST_STATUS_INVALID],
+    );
+    expect(
+      resolveSharedApiErrorMessage(
+        API_ERROR_CODES.ORDER_ACTIVE_ALLOCATIONS_MISSING,
+      ),
+    ).toBe(
+      API_ERROR_DICTIONARY[API_ERROR_CODES.ORDER_ACTIVE_ALLOCATIONS_MISSING],
+    );
   });
 
   it("interpolates minimum constraints for TOO_SMALL across string, number, and array origins", () => {

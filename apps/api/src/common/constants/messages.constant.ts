@@ -205,6 +205,10 @@ export const MESSAGES = {
       "Current order status does not allow this transition.",
     PAID_CANCELLATION_FORBIDDEN:
       "Paid or non-COD orders cannot be cancelled directly via status transition.",
+    PICK_LIST_STATUS_INVALID:
+      "Pick list is only available for confirmed, packing, or shipping orders.",
+    ACTIVE_ALLOCATIONS_MISSING:
+      "Order has no active batch allocations available for picking.",
   },
   ADDRESS: {
     NOT_FOUND: "Address not found.",
