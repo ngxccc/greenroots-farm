@@ -432,6 +432,9 @@ describe("Orders Checkout Integration", () => {
         195_000 - 50_000 + created.shippingFeeVnd,
       );
       expect(created.items).toHaveLength(2);
+      expect(created.items[0]?.productImageUrl).toMatch(
+        /^https:\/\/res\.cloudinary\.com\//,
+      );
 
       // Verify customer rewardPoints decremented
       const [userRow] = await setup.db
