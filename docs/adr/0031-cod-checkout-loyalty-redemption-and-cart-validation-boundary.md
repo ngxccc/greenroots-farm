@@ -37,7 +37,7 @@ Issue `#84` (split from `#26`, parent epic `#10`, storefront consumer `#50`) imp
   - Define `BUSINESS_RULES.MIN_ORDER_VALUE_VND = 150_000` in `packages/shared/src/business.constants.ts`, evaluated strictly against pre-discount, pre-shipping `subtotal`. Checkout rejects violations with `422 ORDER_BELOW_MINIMUM_VALUE` (attaching `minOrderValueVnd` and `currentSubtotalVnd` in `invalidParams[].params`).
   - Expose `POST /api/v1/orders/validate-cart` (`@HttpCode(HttpStatus.OK)`) returning a `200 OK` diagnostic payload (`isValid`, `meetsMinOrderValue`, normalized `items[]` with availability & per-item issues, optional `shipping`, `loyalty`, and `totalVnd`) for `#50`, while rejecting only malformed DTOs (`400`), missing/foreign `addressId` (`404`), unknown `districtCode` (`422`), or missing `farms` (`404`).
 - **Complete delivery contact snapshot and `orderCode` generation**:
-  - Extend `ResolvedQuoteAddress` (`AddressService.resolveAddressForQuote`) to include `receiverName` and `phoneNumber`, persisting `"${receiverName} (${phoneNumber}) - ${formattedAddress}"` into `orders.shippingAddress`.
+  - Extend `ResolvedQuoteAddress` (`AddressService.resolveAddressForQuote`) to include `receiverName` and `phoneNumber`, and persist dedicated `orders.receiver_name` (`varchar(255) NOT NULL`) and `orders.receiver_phone` (`varchar(20) NOT NULL`) columns alongside `orders.shipping_address` (`"${streetAddress}, ${district}, ${city}"`) so recipient details remain structured for 3PL dispatch, `#85` order detail reads, and `#86` packing labels even if the customer later edits or deletes their saved address.
   - Generate `orders.orderCode` server-side as `ORD-<YYYYMMDD>-<RAND6>` (Crockford Base32, `Asia/Ho_Chi_Minh` calendar date) with up to 5 retries on `23505` (`orders_order_code_uidx`).
 - **User- and route-scoped Redis idempotency keys (amending `ADR-0008`)**:
   - Namespace `IdempotencyService` Redis keys by authenticated caller identity and HTTP target (`idempotency:${scope}:${key}`, where `scope` combines `userId` when authenticated plus `${method}:${path}`), preserving all five `ADR-0008` invariants while eliminating cross-user order/PII replay and key-collision DoS.
@@ -48,20 +48,20 @@ Issue `#84` (split from `#26`, parent epic `#10`, storefront consumer `#50`) imp
 - Protects farm cash flow from 3PL shipping subsidies while guaranteeing unambiguous loyalty-point auditability and refund accounting via `orders.loyalty_points_used`.
 - Prevents concurrent double-spending of `users.rewardPoints` via `SELECT ... FOR UPDATE` + DB `CHECK (reward_points >= 0)` without introducing premature stock locks that conflict with `#86`.
 - Prevents cross-user PII leakage or payload-mismatch griefing on `Idempotency-Key` collisions across different customer accounts or endpoints.
-- Preserves recipient contact details inside `orders.shippingAddress` even after a customer edits or deletes a saved `user_addresses` row.
+- Preserves structured recipient contact details (`orders.receiver_name`, `orders.receiver_phone`) and `orders.shipping_address` independently even after a customer edits or deletes a saved `user_addresses` row, without brittle string parsing.
 
 ## Negative Consequences / Risks
 
 - Leaving stock unreserved until `#86` confirmation means two concurrent customers placing separate orders for the last units of a SKU can both succeed at checkout; the second order fails later with `409 INSUFFICIENT_STOCK` during sales confirmation (`#86`).
 - Scoping `IdempotencyService` by `userId` + route requires updating `IdempotencyInterceptor` and its unit tests (`idempotency.interceptor.spec.ts` / `idempotency.service.spec.ts`), and changes the Redis key format from `idempotency:<uuid>` to `idempotency:<scope>:<uuid>`.
-- Adding `orders.loyalty_points_used` and `users_reward_points_non_negative` requires running `drizzle-kit generate` and applying a forward-only schema migration before `#84` integration tests run.
-- Embedding `receiverName` and `phoneNumber` in `orders.shippingAddress` remains a single formatted text field rather than structured recipient columns, so downstream invoice or shipping-label rendering parses or displays it as one string.
+- Adding `orders.loyalty_points_used`, `orders.receiver_name`, `orders.receiver_phone`, and `users_reward_points_non_negative` requires running `drizzle-kit generate` and applying forward-only schema migrations before `#84` integration tests run, as well as populating `receiverName` and `receiverPhone` in order seeders and fixtures.
 
 ## Explicit Tradeoffs
 
 - **`OrderStatus.PENDING_CONFIRMATION` + atomic `payments` row over adding `PLACED` enum**: preserves `pgEnum` SSOT (`ADR-0002`), existing seed data, and `#29` payment ledger readiness over matching stale wording in `#84`.
 - **`1 point = 1 VND` capped at `subtotal` over `1,000 VND` or shipping-inclusive deduction**: avoids integer-division loss on 1% earning and prevents subsidizing 3PL shipping cash outlays with loyalty points, at the cost of larger integer point balances.
 - **Dedicated `orders.loyalty_points_used` + `CHECK` migration over overloading `discountAmount`**: keeps loyalty refund accounting clean when `#29` cancels unpaid/expired orders or future vouchers share `discountAmount`, at the cost of one small forward-only migration.
+- **Dedicated `orders.receiver_name` and `orders.receiver_phone` columns over concatenating into `orders.shipping_address`**: keeps recipient phone/name structured for 3PL integrations, backoffice packing slips, and `#85` order views without parsing a single text string, at the cost of updating seeders/fixtures with non-null recipient fields.
 - **Catalog-only `COALESCE(salePrice, basePrice)` over pre-allocation Flash Sale inference**: prevents `#84` from promising a 50% near-expiry discount that `#86` may not fulfill, deferring batch-level pricing to `#34`.
 - **`200 OK` diagnostic `validate-cart` over fail-fast `422`/`409`**: matches `ADR-0030` (`POST /shipping/quote`) so `#50` renders stock, MOV, and delivery-radius warnings simultaneously, while keeping `checkout` strictly transactional and fail-closed.
 - **User + route namespaced Redis idempotency keys over global `idempotency:<uuid>`**: closes cross-user PII replay and collision vectors while remaining a backward-compatible in-Redis key change before production traffic.
