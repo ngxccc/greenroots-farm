@@ -53,6 +53,17 @@ export const orders = snakeCase.table(
   (table) => [
     uniqueIndex("orders_order_code_uidx").on(table.orderCode),
     index("orders_customer_id_idx").on(table.customerId),
+    index("orders_customer_created_at_idx").on(
+      table.customerId,
+      table.createdAt,
+      table.id,
+    ),
+    index("orders_customer_status_created_at_idx").on(
+      table.customerId,
+      table.orderStatus,
+      table.createdAt,
+      table.id,
+    ),
     index("orders_subscription_id_idx").on(table.subscriptionId),
     index("orders_status_created_at_idx").on(
       table.orderStatus,

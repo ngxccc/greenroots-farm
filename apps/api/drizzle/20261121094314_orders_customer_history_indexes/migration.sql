@@ -1,0 +1,2 @@
+CREATE INDEX "orders_customer_created_at_idx" ON "orders" ("customer_id","created_at","id");--> statement-breakpoint
+CREATE INDEX "orders_customer_status_created_at_idx" ON "orders" ("customer_id","order_status","created_at","id");
