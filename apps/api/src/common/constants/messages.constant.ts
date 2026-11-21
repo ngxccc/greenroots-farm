@@ -19,6 +19,17 @@ export const MESSAGES = {
     GATEWAY_TIMEOUT: "The gateway timed out waiting for upstream services.",
     HEALTHY: "System is healthy.",
   },
+  IDEMPOTENCY: {
+    KEY_REQUIRED: "Idempotency-Key UUID header is required for this request.",
+    KEY_INVALID_UUID:
+      "Invalid Idempotency-Key format; a valid UUID is required.",
+    SERVICE_UNAVAILABLE: "Idempotency service is temporarily unavailable.",
+    RECORD_INVALID: "Idempotency record is invalid; please retry.",
+    KEY_IN_PROGRESS:
+      "A request with this Idempotency-Key is currently being processed.",
+    PAYLOAD_MISMATCH:
+      "Idempotency-Key was already used with a different request payload.",
+  },
   AUTH: {
     TOKEN_MISSING: "Access token is missing from authorization header.",
     TOKEN_INVALID_OR_EXPIRED: "Access token is invalid or expired.",

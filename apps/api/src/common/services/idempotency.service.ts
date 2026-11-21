@@ -7,6 +7,7 @@ import {
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { API_ERROR_CODES } from "@greenroots/shared";
+import { MESSAGES } from "@/common/constants/messages.constant";
 import { RedisService } from "./redis.service";
 import { canonicalJson } from "@/common/utils/canonical-json.util";
 import { sha256 } from "@/common/utils/crypto.util";
@@ -62,7 +63,7 @@ export class IdempotencyService {
     if (!UUID_V4_OR_V7_REGEX.test(key)) {
       throw new BadRequestException({
         code: API_ERROR_CODES.VALIDATION_FAILED,
-        detail: "Invalid Idempotency-Key format; a valid UUID is required.",
+        detail: MESSAGES.IDEMPOTENCY.KEY_INVALID_UUID,
       });
     }
 
@@ -92,7 +93,7 @@ export class IdempotencyService {
       );
       throw new ServiceUnavailableException({
         code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
-        detail: "Idempotency service is temporarily unavailable.",
+        detail: MESSAGES.IDEMPOTENCY.SERVICE_UNAVAILABLE,
       });
     }
 
@@ -112,7 +113,7 @@ export class IdempotencyService {
       );
       throw new ServiceUnavailableException({
         code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
-        detail: "Idempotency service is temporarily unavailable.",
+        detail: MESSAGES.IDEMPOTENCY.SERVICE_UNAVAILABLE,
       });
     }
 
@@ -120,8 +121,7 @@ export class IdempotencyService {
       // In case the key expired between SET NX and GET, treat as concurrent contention
       throw new ConflictException({
         code: API_ERROR_CODES.CONFLICT,
-        detail:
-          "A request with this Idempotency-Key is currently being processed.",
+        detail: MESSAGES.IDEMPOTENCY.KEY_IN_PROGRESS,
       });
     }
 
@@ -131,23 +131,21 @@ export class IdempotencyService {
     } catch {
       throw new ServiceUnavailableException({
         code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
-        detail: "Idempotency record is invalid; please retry.",
+        detail: MESSAGES.IDEMPOTENCY.RECORD_INVALID,
       });
     }
 
     if (stored.payloadHash !== payloadHash) {
       throw new UnprocessableEntityException({
         code: API_ERROR_CODES.UNPROCESSABLE_ENTITY,
-        detail:
-          "Idempotency-Key was already used with a different request payload.",
+        detail: MESSAGES.IDEMPOTENCY.PAYLOAD_MISMATCH,
       });
     }
 
     if (stored.status === IDEMPOTENCY_STATUS.PROCESSING) {
       throw new ConflictException({
         code: API_ERROR_CODES.CONFLICT,
-        detail:
-          "A request with this Idempotency-Key is currently being processed.",
+        detail: MESSAGES.IDEMPOTENCY.KEY_IN_PROGRESS,
       });
     }
 

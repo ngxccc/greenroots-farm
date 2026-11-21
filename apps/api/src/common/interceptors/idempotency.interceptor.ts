@@ -10,6 +10,7 @@ import { Reflector } from "@nestjs/core";
 import { from, of, switchMap, tap, type Observable } from "rxjs";
 import type { Request, Response } from "express";
 import { API_ERROR_CODES } from "@greenroots/shared";
+import { MESSAGES } from "@/common/constants/messages.constant";
 import { IdempotencyService } from "@/common/services/idempotency.service";
 import {
   IDEMPOTENT_METADATA_KEY,
@@ -52,7 +53,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
       if (options?.required) {
         throw new BadRequestException({
           code: API_ERROR_CODES.VALIDATION_FAILED,
-          detail: "Idempotency-Key UUID header is required for this request.",
+          detail: MESSAGES.IDEMPOTENCY.KEY_REQUIRED,
         });
       }
       return next.handle();
