@@ -20,7 +20,14 @@ const sampleTomato: StorefrontProduct = {
 
 describe("useCartStore", () => {
   beforeEach(() => {
-    useCartStore.setState({ items: [] });
+    useCartStore.setState({
+      items: [],
+      selectedAddressId: null,
+      selectedDistrictCode: "760",
+      streetAddress: "",
+      receiverName: undefined,
+      phoneNumber: undefined,
+    });
   });
 
   test("adds item using sale price when rescue deal is active", () => {
@@ -45,5 +52,36 @@ describe("useCartStore", () => {
     useCartStore.getState().addItem(sampleTomato, 1);
     useCartStore.getState().decrementItem(sampleTomato.id);
     expect(useCartStore.getState().items).toHaveLength(0);
+  });
+
+  test("updates delivery address and retains saved addressId", () => {
+    useCartStore.getState().setDeliveryAddress({
+      addressId: "addr-01",
+      districtCode: "769",
+      streetAddress: "123 Nguyễn Huệ, P. Bến Nghé",
+      receiverName: "Nguyễn Văn A",
+      phoneNumber: "0901234567",
+    });
+
+    const state = useCartStore.getState();
+    expect(state.selectedAddressId).toBe("addr-01");
+    expect(state.selectedDistrictCode).toBe("769");
+    expect(state.streetAddress).toBe("123 Nguyễn Huệ, P. Bến Nghé");
+    expect(state.receiverName).toBe("Nguyễn Văn A");
+    expect(state.phoneNumber).toBe("0901234567");
+  });
+
+  test("resets selectedAddressId to null when setting manual district", () => {
+    useCartStore.getState().setDeliveryAddress({
+      addressId: "addr-01",
+      districtCode: "769",
+      streetAddress: "123 Nguyễn Huệ",
+    });
+
+    useCartStore.getState().setDeliveryDistrict("760", "456 Lê Lợi");
+    const state = useCartStore.getState();
+    expect(state.selectedAddressId).toBeNull();
+    expect(state.selectedDistrictCode).toBe("760");
+    expect(state.streetAddress).toBe("456 Lê Lợi");
   });
 });

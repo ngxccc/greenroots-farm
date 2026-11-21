@@ -2,10 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type SubmitEvent } from "react";
+import { useEffect, useState, type SubmitEvent } from "react";
 import { HCMC_DISTRICTS } from "@greenroots/shared";
-import { Leaf, MapPin, Search, ShoppingCart, User } from "lucide-react";
+import {
+  Leaf,
+  MapPin,
+  Search,
+  ShoppingCart,
+  Sparkles,
+  User,
+} from "lucide-react";
 import { estimateDistrictPreviewQuote } from "@/lib/shipping";
+import {
+  fetchCurrentUserProfile,
+  type UserProfile,
+} from "@/services/user.service";
 import { useCartStore } from "@/stores/cart.store";
 import { AddressDialog } from "./address-dialog";
 import { CartDrawer } from "./cart-drawer";
@@ -15,11 +26,14 @@ export function StorefrontHeader() {
   const [searchQuery, setSearchQuery] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   const items = useCartStore((state) => state.items);
   const selectedDistrictCode = useCartStore(
     (state) => state.selectedDistrictCode,
   );
+  const selectedAddressId = useCartStore((state) => state.selectedAddressId);
+  const streetAddress = useCartStore((state) => state.streetAddress);
 
   const totalCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -27,6 +41,27 @@ export function StorefrontHeader() {
     HCMC_DISTRICTS.find((item) => item.code === selectedDistrictCode) ??
     HCMC_DISTRICTS[0];
   const deliveryQuote = estimateDistrictPreviewQuote(activeDistrict);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSession() {
+      try {
+        const profile = await fetchCurrentUserProfile();
+        if (isMounted) {
+          setUserProfile(profile);
+        }
+      } catch {
+        // Guest mode fallback
+      }
+    }
+
+    void loadSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   function handleSearchSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,13 +102,30 @@ export function StorefrontHeader() {
                 </span>
               </button>
 
-              <Link
-                href="/checkout"
-                className="flex items-center gap-1 rounded-lg px-2 py-1.5 transition hover:bg-white/10 hover:text-green-100"
-              >
-                <User className="size-4 shrink-0" />
-                <span className="hidden sm:inline">Tài khoản</span>
-              </Link>
+              {userProfile ? (
+                <Link
+                  href="/checkout"
+                  className="flex items-center gap-2 rounded-lg bg-white/10 px-2.5 py-1 text-xs transition hover:bg-white/20"
+                >
+                  <div className="flex flex-col text-left">
+                    <span className="max-w-[120px] truncate font-bold text-white">
+                      {userProfile.fullName}
+                    </span>
+                    <span className="flex items-center gap-1 text-[11px] font-medium text-amber-300">
+                      <Sparkles className="size-3" />
+                      {userProfile.rewardPoints.toLocaleString("vi-VN")} điểm
+                    </span>
+                  </div>
+                </Link>
+              ) : (
+                <Link
+                  href="/checkout"
+                  className="flex items-center gap-1 rounded-lg px-2 py-1.5 transition hover:bg-white/10 hover:text-green-100"
+                >
+                  <User className="size-4 shrink-0" />
+                  <span className="hidden sm:inline">Tài khoản</span>
+                </Link>
+              )}
             </div>
 
             <div className="order-3 w-full lg:order-2 lg:w-auto lg:flex-1">
@@ -108,8 +160,10 @@ export function StorefrontHeader() {
               <MapPin className="size-4 shrink-0 text-brand-forest" />
               <span className="hidden text-gray-500 sm:inline">Giao đến:</span>
               <span className="truncate font-bold text-gray-900">
-                {activeDistrict.name}, TP.HCM (~{deliveryQuote.roadDistanceKm}{" "}
-                km)
+                {selectedAddressId && streetAddress
+                  ? `${streetAddress}, ${activeDistrict.name}`
+                  : `${activeDistrict.name}, TP.HCM`}{" "}
+                (~{deliveryQuote.roadDistanceKm} km)
               </span>
               <button
                 type="button"
