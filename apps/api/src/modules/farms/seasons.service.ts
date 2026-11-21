@@ -37,7 +37,7 @@ import type {
 import {
   SEASON_ALLOWED_TRANSITIONS,
   type SeasonSortOption,
-} from "./farms.interface";
+} from "./farms.constant";
 import { escapeLikePattern } from "./farms.utils";
 import { TraceCacheService } from "./trace-cache.service";
 

@@ -10,7 +10,7 @@ import {
   WASTE_LOG_MAX_MEDIA_ITEMS,
   WASTE_LOG_MIN_MEDIA_ITEMS,
   WASTE_LOG_REASON_MAX_LENGTH,
-} from "../inventory.interface";
+} from "../inventory.constant";
 import { zInventoryQuantity } from "./inventory-zod.util";
 
 /**

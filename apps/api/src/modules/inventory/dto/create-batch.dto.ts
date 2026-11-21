@@ -2,7 +2,7 @@ import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { zUuidV7 } from "@/common/schemas/zod-primitives";
-import { BATCH_MAX_SHELF_LIFE_DAYS } from "../inventory.interface";
+import { BATCH_MAX_SHELF_LIFE_DAYS } from "../inventory.constant";
 import { zInventoryQuantity } from "./inventory-zod.util";
 
 /**

@@ -8,7 +8,7 @@ import {
   MAX_CART_LINE_ITEMS,
   ORDER_ITEM_MAX_QUANTITY,
   ORDER_ITEM_MIN_QUANTITY,
-} from "../orders.interface";
+} from "../orders.constant";
 
 /**
  * Reusable line-item schema for cart validation and checkout requests.

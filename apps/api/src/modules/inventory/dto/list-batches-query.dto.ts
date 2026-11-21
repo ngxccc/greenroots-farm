@@ -6,7 +6,7 @@ import {
   zSanitizedString,
   zUuidV7,
 } from "@/common/schemas/zod-primitives";
-import { BATCH_SORT_OPTIONS } from "../inventory.interface";
+import { BATCH_SORT_OPTIONS } from "../inventory.constant";
 
 /**
  * Zod schema for paginated inventory batch listing (`GET /api/v1/batches`).

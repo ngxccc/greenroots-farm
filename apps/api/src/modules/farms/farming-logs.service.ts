@@ -28,7 +28,7 @@ import type {
 import {
   SEASON_ALLOWED_FARMING_ACTIONS,
   type FarmingLogSortOption,
-} from "./farms.interface";
+} from "./farms.constant";
 import { TraceCacheService } from "./trace-cache.service";
 
 const FARMING_LOG_COLUMNS = {

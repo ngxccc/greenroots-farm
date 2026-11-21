@@ -6,7 +6,7 @@ import {
   zSanitizedString,
   zUuidV7,
 } from "@/common/schemas/zod-primitives";
-import { WASTE_LOG_SORT_OPTIONS } from "../inventory.interface";
+import { WASTE_LOG_SORT_OPTIONS } from "../inventory.constant";
 
 /**
  * Zod schema for paginated waste log listing (`GET /api/v1/waste-logs`).

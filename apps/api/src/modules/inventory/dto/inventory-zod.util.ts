@@ -1,5 +1,5 @@
 import { zDecimalQuantity } from "@/common/schemas/zod-primitives";
-import { BATCH_MAX_QUANTITY, BATCH_MIN_QUANTITY } from "../inventory.interface";
+import { BATCH_MAX_QUANTITY, BATCH_MIN_QUANTITY } from "../inventory.constant";
 
 /**
  * Builds a bounded positive inventory quantity schema enforcing `numeric(10, 2)` precision.

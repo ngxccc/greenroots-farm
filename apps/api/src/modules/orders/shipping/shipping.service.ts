@@ -13,10 +13,8 @@ import { MESSAGES } from "@/common/constants/messages.constant";
 import { FarmSettingsService } from "@/modules/farms/farm-settings.service";
 import { AddressService } from "@/modules/users/address.service";
 import type { ShippingQuote, ShippingQuoteRequestInput } from "./dto";
-import {
-  SHIPPING_DRIVER_TOKEN,
-  type ShippingDriver,
-} from "./shipping.interface";
+import { SHIPPING_DRIVER_TOKEN } from "./shipping.constant";
+import type { ShippingDriver } from "./shipping.interface";
 
 /**
  * Orchestrates server-authoritative delivery distance and fee quotes from

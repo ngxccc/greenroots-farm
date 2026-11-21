@@ -33,7 +33,7 @@ import type {
   PlotProjection,
   UpdatePlotInput,
 } from "./dto";
-import type { PlotSortOption } from "./farms.interface";
+import type { PlotSortOption } from "./farms.constant";
 import { escapeLikePattern } from "./farms.utils";
 import { TraceCacheService } from "./trace-cache.service";
 

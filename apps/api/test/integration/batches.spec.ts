@@ -16,7 +16,7 @@ import { API_ERROR_CODES, BatchStatus, UserRole } from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { IDEMPOTENCY_HEADER_NAME } from "@/common/constants/idempotency.constant";
-import { TIME_IN_MS } from "@/common/constants/time.constant";
+import { TIME_IN_MS, VIETNAM_TIMEZONE } from "@/common/constants/time.constant";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
 import { RedisService } from "@/common/services/redis.service";
 import type { ApiResponse } from "@/common/utils/api-response.util";
@@ -30,7 +30,7 @@ import {
   TRACE_FARM_VERSION_KEY,
   TRACE_INVALIDATED_AT_PREFIX,
   TRACE_MISS_CACHE_PREFIX,
-} from "@/modules/farms/farms.interface";
+} from "@/modules/farms/farms.constant";
 import {
   BatchMother,
   createBatch,
@@ -62,7 +62,7 @@ const UNKNOWN_UUID_V7 = "019fa8bc-8f4d-7000-b366-e691f45cffff";
 
 function formatVnDate(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: VIETNAM_TIMEZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

@@ -21,7 +21,7 @@ import type {
   TraceLogTargetSummary,
   TraceRecordProjection,
 } from "./dto";
-import { TRACE_MAX_FARMING_LOGS } from "./farms.interface";
+import { TRACE_MAX_FARMING_LOGS } from "./farms.constant";
 import { TraceCacheService } from "./trace-cache.service";
 
 const TRACE_BATCH_COLUMNS = {

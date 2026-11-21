@@ -16,7 +16,7 @@ import {
   TRACE_INVALIDATION_MARKER_TTL_SECONDS,
   TRACE_MISS_CACHE_PREFIX,
   TRACE_MISS_TTL_SECONDS,
-} from "./farms.interface";
+} from "./farms.constant";
 
 // Backfill only if farm_ver matches the read snapshot, the cached entry does not
 // already carry that farm_ver prefix, and no batch invalidation raced past readStartedAtMs.

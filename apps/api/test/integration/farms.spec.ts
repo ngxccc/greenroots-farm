@@ -29,7 +29,7 @@ import {
   FARM_SETTINGS_CACHE_KEY,
   FARM_SETTINGS_CACHE_TTL_SECONDS,
   FARM_SETTINGS_INVALIDATED_AT_KEY,
-} from "@/modules/farms/farms.interface";
+} from "@/modules/farms/farms.constant";
 import { createFarm, createPlot, createSeason, PlotMother } from "../factories";
 import type { components } from "../generated/api-schema";
 import {

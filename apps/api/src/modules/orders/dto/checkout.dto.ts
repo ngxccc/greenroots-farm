@@ -2,7 +2,7 @@ import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { zUuidV7 } from "@/common/schemas/zod-primitives";
-import { MAX_CART_LINE_ITEMS } from "../orders.interface";
+import { MAX_CART_LINE_ITEMS } from "../orders.constant";
 import { cartLineItemInputSchema } from "./validate-cart.dto";
 
 /**

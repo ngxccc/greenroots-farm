@@ -2,7 +2,7 @@ import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { FarmingActionType } from "@greenroots/shared";
 import { zNumericString } from "@/common/schemas/zod-primitives";
-import { FARMING_LOG_SORT_OPTIONS } from "../farms.interface";
+import { FARMING_LOG_SORT_OPTIONS } from "../farms.constant";
 
 /**
  * Zod schema for paginated farming log listing query parameters (`GET /api/v1/seasons/:id/logs`).

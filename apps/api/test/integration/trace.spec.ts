@@ -30,7 +30,7 @@ import {
   TRACE_FARM_VERSION_KEY,
   TRACE_INVALIDATED_AT_PREFIX,
   TRACE_MISS_CACHE_PREFIX,
-} from "@/modules/farms/farms.interface";
+} from "@/modules/farms/farms.constant";
 import { TraceCacheService } from "@/modules/farms/trace-cache.service";
 import {
   BatchMother,

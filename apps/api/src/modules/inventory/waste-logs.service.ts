@@ -35,7 +35,7 @@ import type {
 import {
   ELIGIBLE_WASTE_BATCH_STATUSES,
   type WasteLogSortOption,
-} from "./inventory.interface";
+} from "./inventory.constant";
 
 const reporterUsers = alias(users, "waste_log_reporter");
 const reviewerUsers = alias(users, "waste_log_reviewer");

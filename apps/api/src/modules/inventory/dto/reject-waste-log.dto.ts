@@ -1,7 +1,7 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { zSanitizedString } from "@/common/schemas/zod-primitives";
-import { WASTE_LOG_REJECTION_REASON_MAX_LENGTH } from "../inventory.interface";
+import { WASTE_LOG_REJECTION_REASON_MAX_LENGTH } from "../inventory.constant";
 
 /**
  * Zod schema for rejecting a pending waste write-off proposal (`POST /api/v1/waste-logs/:id/reject`).

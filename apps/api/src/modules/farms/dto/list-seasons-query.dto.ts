@@ -6,7 +6,7 @@ import {
   zSanitizedString,
   zUuidV7,
 } from "@/common/schemas/zod-primitives";
-import { SEASON_SORT_OPTIONS } from "../farms.interface";
+import { SEASON_SORT_OPTIONS } from "../farms.constant";
 
 /**
  * Zod schema for paginated season listing filters and sorting (`GET /api/v1/seasons`).

@@ -16,7 +16,7 @@ import {
   TRACE_INVALIDATION_MARKER_TTL_SECONDS,
   TRACE_MISS_CACHE_PREFIX,
   TRACE_MISS_TTL_SECONDS,
-} from "./farms.interface";
+} from "./farms.constant";
 import { TraceCacheService } from "./trace-cache.service";
 
 type MockDb = ReturnType<typeof createMockDb> & {

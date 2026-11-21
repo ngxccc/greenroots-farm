@@ -12,7 +12,7 @@ import {
   FARM_SETTINGS_CACHE_KEY,
   FARM_SETTINGS_CACHE_TTL_SECONDS,
   FARM_SETTINGS_INVALIDATED_AT_KEY,
-} from "./farms.interface";
+} from "./farms.constant";
 import { FarmSettingsService } from "./farm-settings.service";
 import type { TraceCacheService } from "./trace-cache.service";
 

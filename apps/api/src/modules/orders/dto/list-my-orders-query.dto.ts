@@ -2,7 +2,7 @@ import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { OrderStatus } from "@greenroots/shared";
 import { zNumericString } from "@/common/schemas/zod-primitives";
-import { ORDER_SORT_OPTIONS } from "../orders.interface";
+import { ORDER_SORT_OPTIONS } from "../orders.constant";
 
 /**
  * Zod schema for paginated customer order history (`GET /api/v1/orders/me`).

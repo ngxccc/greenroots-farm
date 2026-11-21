@@ -2,7 +2,7 @@ import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { BatchStatus } from "@greenroots/shared";
 import { zUuidV7 } from "@/common/schemas/zod-primitives";
-import { PICK_LIST_ALLOWED_STATUSES } from "../orders.interface";
+import { PICK_LIST_ALLOWED_STATUSES } from "../orders.constant";
 
 /**
  * Zod schema for a single batch-grouped pick-list entry (`#87`).

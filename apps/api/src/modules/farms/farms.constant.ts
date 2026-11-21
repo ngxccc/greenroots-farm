@@ -1,8 +1,7 @@
 import { FarmingActionType, SeasonStatus } from "@greenroots/shared";
 
 /**
- * Compile-time constants and types for the Farms Module.
- * Runtime Zod schemas live in `dto/` per ADR-0011.
+ * Runtime constants and derived sort unions for the Farms Module (`ADR-0035`).
  */
 
 /** Redis cache key storing the serialized singleton farm settings payload. */

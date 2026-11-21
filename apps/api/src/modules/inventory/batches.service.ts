@@ -45,14 +45,14 @@ import type {
   CreateBatchInput,
   ListBatchesQuery,
 } from "./dto";
+import { CROCKFORD_BASE32_ALPHABET } from "@/common/constants/encoding.constant";
+import { VIETNAM_TIMEZONE } from "@/common/constants/time.constant";
 import {
   ALLOWED_BATCH_INTAKE_SEASON_STATUSES,
   BATCH_CODE_MAX_GENERATION_ATTEMPTS,
   BATCH_CODE_RANDOM_LENGTH,
-  CROCKFORD_BASE32_ALPHABET,
-  VIETNAM_TIMEZONE,
   type BatchSortOption,
-} from "./inventory.interface";
+} from "./inventory.constant";
 
 const BATCH_COLUMNS = {
   id: batches.id,

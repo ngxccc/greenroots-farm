@@ -38,7 +38,7 @@ import {
 import {
   FARM_SETTINGS_CACHE_KEY,
   FARM_SETTINGS_INVALIDATED_AT_KEY,
-} from "@/modules/farms/farms.interface";
+} from "@/modules/farms/farms.constant";
 import {
   BatchMother,
   createBatch,

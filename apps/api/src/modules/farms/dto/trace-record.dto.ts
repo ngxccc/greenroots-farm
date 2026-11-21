@@ -7,7 +7,7 @@ import {
 } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { zIsoDate, zUuidV7 } from "@/common/schemas/zod-primitives";
-import { BATCH_CODE_REGEX } from "../farms.interface";
+import { BATCH_CODE_REGEX } from "../farms.constant";
 import { soilTestResultSchema, waterTestResultSchema } from "./plot.dto";
 
 /**

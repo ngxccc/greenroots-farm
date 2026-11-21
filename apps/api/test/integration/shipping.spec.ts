@@ -23,7 +23,7 @@ import { farms, userAddresses, users } from "@/database/schemas";
 import {
   FARM_SETTINGS_CACHE_KEY,
   FARM_SETTINGS_INVALIDATED_AT_KEY,
-} from "@/modules/farms/farms.interface";
+} from "@/modules/farms/farms.constant";
 import { createFarm } from "../factories";
 import type { components } from "../generated/api-schema";
 import {

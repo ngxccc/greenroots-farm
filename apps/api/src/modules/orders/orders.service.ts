@@ -73,21 +73,21 @@ import type {
   ValidateCartResponse,
   ValidatedCartItem,
 } from "./dto";
+import { CROCKFORD_BASE32_ALPHABET } from "@/common/constants/encoding.constant";
+import { VIETNAM_TIMEZONE } from "@/common/constants/time.constant";
 import {
   ALLOCATED_CANCELLABLE_STATUSES,
-  CROCKFORD_BASE32_ALPHABET,
   ORDER_CODE_MAX_GENERATION_ATTEMPTS,
   ORDER_CODE_PREFIX,
   ORDER_CODE_RANDOM_LENGTH,
   ORDER_ITEM_MAX_QUANTITY,
   ORDER_STATUS_TRANSITIONS,
   PICK_LIST_ALLOWED_STATUSES,
-  VIETNAM_TIMEZONE,
   type CartItemIssue,
-  type NormalizedCartItem,
   type OrderSortOption,
   type PickListOrderStatus,
-} from "./orders.interface";
+} from "./orders.constant";
+import type { NormalizedCartItem } from "./orders.interface";
 import type { ShippingQuote } from "./shipping/dto";
 import { ShippingService } from "./shipping/shipping.service";
 

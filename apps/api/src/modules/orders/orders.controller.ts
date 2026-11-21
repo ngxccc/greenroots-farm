@@ -49,7 +49,7 @@ import {
   type ValidateCartResponse,
 } from "./dto";
 import { ORDERS_ROUTES } from "./orders.routes";
-import { FULFILLMENT_ALLOWED_ROLES } from "./orders.interface";
+import { FULFILLMENT_ALLOWED_ROLES } from "./orders.constant";
 import { OrdersService } from "./orders.service";
 
 /**

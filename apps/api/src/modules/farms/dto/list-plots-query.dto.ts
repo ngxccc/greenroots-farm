@@ -4,7 +4,7 @@ import {
   zNumericString,
   zSanitizedString,
 } from "@/common/schemas/zod-primitives";
-import { PLOT_SORT_OPTIONS } from "../farms.interface";
+import { PLOT_SORT_OPTIONS } from "../farms.constant";
 
 /**
  * Zod schema for paginated plot listing filters and sorting (`GET /api/v1/plots`).

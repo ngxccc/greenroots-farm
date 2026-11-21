@@ -4,7 +4,7 @@ import { FarmsModule } from "@/modules/farms/farms.module";
 import { UsersModule } from "@/modules/users/users.module";
 import { HaversineShippingDriver } from "./drivers/haversine-shipping.driver";
 import { ShippingController } from "./shipping.controller";
-import { SHIPPING_DRIVER_TOKEN } from "./shipping.interface";
+import { SHIPPING_DRIVER_TOKEN } from "./shipping.constant";
 import { ShippingService } from "./shipping.service";
 
 /**
