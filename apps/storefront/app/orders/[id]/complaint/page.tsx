@@ -1,6 +1,5 @@
 import { Suspense } from "react";
-import { Card, CardContent } from "@greenroots/ui";
-import { FARM_METADATA } from "@/constants/farm-metadata.constant";
+import { ComplaintView } from "@/features/orders/components/complaint-view";
 
 async function ComplaintContent({
   params,
@@ -8,23 +7,7 @@ async function ComplaintContent({
   readonly params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
-  return (
-    <div className="mx-auto max-w-xl px-3 pt-[152px] pb-12 lg:px-4 lg:pt-[124px]">
-      <Card className="border-border-subtle bg-white">
-        <CardContent className="space-y-2 p-6">
-          <h1 className="text-lg font-extrabold text-red-600">
-            Khiếu nại đơn hàng trong {FARM_METADATA.complaintWindowHours}h
-            (SF-05)
-          </h1>
-          <p className="text-xs text-gray-600">
-            Mã đơn hàng: <strong>{id}</strong>. Yêu cầu tải 1–5 ảnh bằng chứng
-            nông sản dập nát trước khi gửi về bộ phận CSKH.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  return <ComplaintView orderId={id} />;
 }
 
 export default function OrderComplaintPage({
