@@ -17,10 +17,21 @@ export interface CartItem {
   readonly quantity: number;
 }
 
+export interface SelectedDeliveryAddress {
+  readonly addressId?: string | null;
+  readonly districtCode: string;
+  readonly streetAddress: string;
+  readonly receiverName?: string;
+  readonly phoneNumber?: string;
+}
+
 interface CartState {
   items: CartItem[];
+  selectedAddressId?: string | null;
   selectedDistrictCode: string;
   streetAddress: string;
+  receiverName?: string;
+  phoneNumber?: string;
   addItem: (product: StorefrontProduct, quantity?: number) => void;
   setQuantity: (productId: string, quantity: number) => void;
   incrementItem: (productId: string) => void;
@@ -28,6 +39,7 @@ interface CartState {
   removeItem: (productId: string) => void;
   clearCart: () => void;
   setDeliveryDistrict: (districtCode: string, streetAddress?: string) => void;
+  setDeliveryAddress: (address: SelectedDeliveryAddress) => void;
 }
 
 const DEFAULT_DISTRICT_CODE = HCMC_DISTRICTS[0].code;
@@ -41,8 +53,11 @@ export const useCartStore = create<CartState>()(
   persist(
     (set) => ({
       items: [],
+      selectedAddressId: null,
       selectedDistrictCode: DEFAULT_DISTRICT_CODE,
       streetAddress: "",
+      receiverName: undefined,
+      phoneNumber: undefined,
 
       addItem: (product, quantity = 1) =>
         set((state) => {
@@ -147,8 +162,21 @@ export const useCartStore = create<CartState>()(
 
       setDeliveryDistrict: (districtCode, streetAddress) =>
         set((state) => ({
+          selectedAddressId: null,
           selectedDistrictCode: districtCode,
           streetAddress: streetAddress ?? state.streetAddress,
+        })),
+
+      setDeliveryAddress: (address) =>
+        set((state) => ({
+          selectedAddressId:
+            address.addressId !== undefined
+              ? address.addressId
+              : state.selectedAddressId,
+          selectedDistrictCode: address.districtCode,
+          streetAddress: address.streetAddress,
+          receiverName: address.receiverName ?? state.receiverName,
+          phoneNumber: address.phoneNumber ?? state.phoneNumber,
         })),
     }),
     {
