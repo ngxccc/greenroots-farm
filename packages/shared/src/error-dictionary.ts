@@ -49,6 +49,8 @@ export const API_ERROR_CODES = {
   ORDER_BELOW_MINIMUM_VALUE: "ORDER_BELOW_MINIMUM_VALUE",
   ORDER_COD_DISABLED: "ORDER_COD_DISABLED",
   ORDER_NOT_FOUND: "ORDER_NOT_FOUND",
+  ORDER_INVALID_STATUS_TRANSITION: "ORDER_INVALID_STATUS_TRANSITION",
+  ORDER_PAID_CANCELLATION_FORBIDDEN: "ORDER_PAID_CANCELLATION_FORBIDDEN",
   FARMING_LOG_IMMUTABLE: "FARMING_LOG_IMMUTABLE",
   FARMING_LOG_CORRECTION_TARGET_INVALID:
     "FARMING_LOG_CORRECTION_TARGET_INVALID",
@@ -173,6 +175,10 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
   [API_ERROR_CODES.ORDER_COD_DISABLED]:
     "Phương thức thanh toán khi nhận hàng (COD) hiện đang tạm ngưng.",
   [API_ERROR_CODES.ORDER_NOT_FOUND]: "Không tìm thấy đơn hàng yêu cầu.",
+  [API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION]:
+    "Trạng thái hiện tại của đơn hàng không cho phép thực hiện chuyển đổi này.",
+  [API_ERROR_CODES.ORDER_PAID_CANCELLATION_FORBIDDEN]:
+    "Đơn hàng đã thanh toán hoặc không phải COD không thể hủy trực tiếp; vui lòng xử lý qua quy trình hoàn tiền.",
   [API_ERROR_CODES.FARMING_LOG_IMMUTABLE]:
     "Nhật ký canh tác đã khóa bất biến, không thể chỉnh sửa hoặc xóa.",
   [API_ERROR_CODES.FARMING_LOG_CORRECTION_TARGET_INVALID]:

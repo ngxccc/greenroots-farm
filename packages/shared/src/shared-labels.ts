@@ -19,6 +19,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   [OrderStatus.PENDING_PAYMENT]: "Chờ thanh toán",
   [OrderStatus.PENDING_CONFIRMATION]: "Chờ xác nhận",
+  [OrderStatus.CONFIRMED]: "Đã xác nhận",
   [OrderStatus.PACKING]: "Đang đóng gói",
   [OrderStatus.SHIPPING]: "Đang giao hỏa tốc",
   [OrderStatus.DELIVERED]: "Đã giao thành công",

@@ -65,6 +65,7 @@ export type BatchStatus = (typeof BatchStatus)[keyof typeof BatchStatus];
 export const OrderStatus = {
   PENDING_PAYMENT: "pending_payment",
   PENDING_CONFIRMATION: "pending_confirmation",
+  CONFIRMED: "confirmed",
   PACKING: "packing",
   SHIPPING: "shipping",
   DELIVERED: "delivered",
@@ -84,6 +85,7 @@ export const PaymentStatus = {
   PENDING: "pending",
   PAID: "paid",
   FAILED: "failed",
+  CANCELLED: "cancelled",
   REFUNDED: "refunded",
 } as const;
 export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus];

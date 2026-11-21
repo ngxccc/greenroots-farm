@@ -1,14 +1,24 @@
 import { describe, expect, it } from "bun:test";
 import { BUSINESS_RULES } from "./business.constants";
+import { OrderStatus, PaymentStatus } from "./domain.enums";
 import {
   API_ERROR_CODES,
   API_ERROR_DICTIONARY,
   resolveSharedApiErrorMessage,
 } from "./error-dictionary";
+import { ORDER_STATUS_LABELS } from "./shared-labels";
 
 describe("BUSINESS_RULES", () => {
   it("defines the 150,000 VND minimum order value constant", () => {
     expect(BUSINESS_RULES.MIN_ORDER_VALUE_VND).toBe(150_000);
+  });
+});
+
+describe("OrderStatus & PaymentStatus", () => {
+  it("exposes confirmed order status with Vietnamese label and cancelled payment status", () => {
+    expect(OrderStatus.CONFIRMED).toBe("confirmed");
+    expect(ORDER_STATUS_LABELS[OrderStatus.CONFIRMED]).toBe("Đã xác nhận");
+    expect(PaymentStatus.CANCELLED).toBe("cancelled");
   });
 });
 
