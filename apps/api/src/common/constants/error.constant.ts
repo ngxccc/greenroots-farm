@@ -11,16 +11,3 @@ export const PG_ERROR_CODE = {
   DEADLOCK_DETECTED: "40P01",
   QUERY_CANCELED: "57014",
 } as const;
-
-/**
- * PostgreSQL error signature used by Drizzle's wrapped query errors.
- */
-export interface DatabaseErrorDetails {
-  isDatabaseError: boolean;
-  code?: string;
-  message?: string;
-  detail?: string;
-  table?: string;
-  column?: string;
-  constraint?: string;
-}

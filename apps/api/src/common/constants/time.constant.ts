@@ -17,3 +17,6 @@ export const TIME_IN_MS = {
   DAY: 24 * 60 * 60 * 1_000,
   WEEK: 7 * 24 * 60 * 60 * 1_000,
 } as const;
+
+/** Canonical farm timezone for calendar-date comparisons and order/batch code dates. */
+export const VIETNAM_TIMEZONE = "Asia/Ho_Chi_Minh";

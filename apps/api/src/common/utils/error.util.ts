@@ -1,4 +1,15 @@
-import type { DatabaseErrorDetails } from "@/common/constants/error.constant";
+/**
+ * PostgreSQL error signature used by Drizzle's wrapped query errors.
+ */
+export interface DatabaseErrorDetails {
+  isDatabaseError: boolean;
+  code?: string;
+  message?: string;
+  detail?: string;
+  table?: string;
+  column?: string;
+  constraint?: string;
+}
 
 const POSTGRES_SQLSTATE_PATTERN = /^[0-9A-Z]{5}$/;
 
