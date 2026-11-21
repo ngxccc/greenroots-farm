@@ -77,6 +77,13 @@ export interface FormattedZodIssue {
   params?: Record<string, unknown>;
 }
 
+const VALIDATION_CODE_REASONS: Partial<Record<string, string>> = {
+  [API_ERROR_CODES.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID]:
+    MESSAGES.VALIDATION.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID,
+  [API_ERROR_CODES.FARM_SHIPPING_FREE_THRESHOLD_INVALID]:
+    MESSAGES.VALIDATION.FARM_SHIPPING_FREE_THRESHOLD_INVALID,
+};
+
 /**
  * Maps a Zod issue into a standardized machine error code, English developer reason,
  * and dynamic constraint metadata for client-side interpolation.
@@ -93,7 +100,9 @@ export function formatZodIssue(issue: ZodIssue): FormattedZodIssue {
       code: isExplicitCode
         ? issue.message
         : API_ERROR_CODES.CUSTOM_VALIDATION_ERROR,
-      reason: issue.message,
+      reason: isExplicitCode
+        ? (VALIDATION_CODE_REASONS[issue.message] ?? issue.message)
+        : issue.message,
     };
   }
 

@@ -109,6 +109,10 @@ export const MESSAGES = {
     INVALID_QUANTITY_PRECISION: "Quantity may have at most 2 decimal places.",
     SHIPPING_QUOTE_TARGET_XOR:
       "Provide either addressId or districtCode, not both.",
+    FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID:
+      "subscriptionFreeRadiusKm must be less than or equal to maxRadiusKm.",
+    FARM_SHIPPING_FREE_THRESHOLD_INVALID:
+      "freeKmThreshold must be less than or equal to maxRadiusKm.",
   },
   FARMS: {
     NOT_FOUND: "Farm settings record not found.",

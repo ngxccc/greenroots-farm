@@ -19,7 +19,7 @@ import {
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
 import { RedisService } from "@/common/services/redis.service";
 import type { ApiResponse } from "@/common/utils/api-response.util";
-import { userAddresses, users } from "@/database/schemas";
+import { farms, userAddresses, users } from "@/database/schemas";
 import {
   FARM_SETTINGS_CACHE_KEY,
   FARM_SETTINGS_INVALIDATED_AT_KEY,
@@ -282,12 +282,12 @@ describe("Shipping Integration", () => {
 
     // Invariant: INV-SHIP-2, INV-SHIP-3
     it("reflects dynamic FarmSettings updates immediately and guards against subscriptionFreeRadiusKm exceeding maxRadiusKm", async () => {
-      await createFarm(setup.db);
+      const farm = await createFarm(setup.db);
 
-      await request(app.getHttpServer())
-        .patch("/api/v1/farms/settings")
-        .set(superAdminHeader)
-        .send({
+      // Seed misconfigured radii directly in PostgreSQL since PATCH enforces subscriptionFreeRadiusKm <= maxRadiusKm.
+      await setup.db
+        .update(farms)
+        .set({
           shippingConfig: {
             baseFeeVnd: 30000,
             freeKmThreshold: 5,
@@ -297,7 +297,8 @@ describe("Shipping Integration", () => {
             subscriptionFreeRadiusKm: 150,
           },
         })
-        .expect(200);
+        .where(eq(farms.id, farm.id));
+      await appRedisClient.unlink(FARM_SETTINGS_CACHE_KEY);
 
       const canGioRes = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")

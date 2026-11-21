@@ -73,6 +73,9 @@ export async function createFarm(
         freeKmThreshold: BUSINESS_RULES.SHIPPING.FREE_KM_THRESHOLD,
         perKmRateVnd: BUSINESS_RULES.SHIPPING.PER_KM_RATE_VND,
         detourFactor: BUSINESS_RULES.SHIPPING.DETOUR_FACTOR,
+        maxRadiusKm: BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM,
+        subscriptionFreeRadiusKm:
+          BUSINESS_RULES.SHIPPING.SUBSCRIPTION_FREE_RADIUS_KM,
       },
       flashSaleConfig: {
         hoursThreshold: BUSINESS_RULES.FLASH_SALE_HOURS_THRESHOLD,

@@ -155,4 +155,44 @@ describe("ZodValidationPipe", () => {
     );
     expect(formatZodIssuePath([])).toBe("");
   });
+
+  it("maps explicit domain validation code messages to the error code and English reason", () => {
+    const shippingPipe = new ZodValidationPipe(
+      z
+        .object({
+          maxRadiusKm: z.number(),
+          subscriptionFreeRadiusKm: z.number(),
+        })
+        .superRefine((data, ctx) => {
+          if (data.subscriptionFreeRadiusKm > data.maxRadiusKm) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["subscriptionFreeRadiusKm"],
+              message:
+                API_ERROR_CODES.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID,
+            });
+          }
+        }),
+    );
+
+    try {
+      shippingPipe.transform({ maxRadiusKm: 20, subscriptionFreeRadiusKm: 25 });
+      expect().fail("Should have thrown BadRequestException");
+    } catch (error) {
+      expect(error).toBeInstanceOf(BadRequestException);
+      const res = (error as BadRequestException).getResponse() as {
+        code: string;
+        invalidParams: InvalidParam[];
+      };
+      expect(res.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+      expect(res.invalidParams).toEqual([
+        {
+          name: "subscriptionFreeRadiusKm",
+          code: API_ERROR_CODES.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID,
+          reason: MESSAGES.VALIDATION.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID,
+          params: undefined,
+        },
+      ]);
+    }
+  });
 });

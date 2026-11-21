@@ -51,6 +51,8 @@ describe("FarmSettingsService", () => {
       freeKmThreshold: 3,
       perKmRateVnd: 5000,
       detourFactor: 1.3,
+      maxRadiusKm: 25,
+      subscriptionFreeRadiusKm: 20,
     },
     flashSaleConfig: {
       hoursThreshold: 48,
@@ -163,6 +165,30 @@ describe("FarmSettingsService", () => {
 
       const secondResult = await service.getSettings();
       expect(secondResult.id).toBe(sampleFarmRow.id);
+
+      const legacyCachedPayload = {
+        ...sampleFarmRow,
+        latitude: 11.0067,
+        longitude: 106.5132,
+        shippingConfig: {
+          baseFeeVnd: 15000,
+          freeKmThreshold: 3,
+          perKmRateVnd: 5000,
+          detourFactor: 1.3,
+        },
+        createdAt: timestamp.toISOString(),
+        updatedAt: timestamp.toISOString(),
+      };
+      mockRedisClient.get.mockResolvedValueOnce(
+        JSON.stringify(legacyCachedPayload),
+      );
+      mockDb.setSelectResultsQueue([[sampleFarmRow]]);
+      mockRedisClient.eval.mockClear();
+
+      const thirdResult = await service.getSettings();
+      expect(thirdResult.shippingConfig.maxRadiusKm).toBe(25);
+      expect(thirdResult.shippingConfig.subscriptionFreeRadiusKm).toBe(20);
+      expect(mockRedisClient.eval).toHaveBeenCalledTimes(1);
     });
 
     it("throws NotFoundException when the farms table has no singleton row", async () => {

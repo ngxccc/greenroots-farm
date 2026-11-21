@@ -40,6 +40,9 @@ describe("ShippingService", () => {
       freeKmThreshold: 3,
       perKmRateVnd: 5000,
       detourFactor: 1.3,
+      maxRadiusKm: BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM,
+      subscriptionFreeRadiusKm:
+        BUSINESS_RULES.SHIPPING.SUBSCRIPTION_FREE_RADIUS_KM,
     },
     flashSaleConfig: {
       hoursThreshold: 48,
@@ -86,7 +89,7 @@ describe("ShippingService", () => {
   });
 
   // Invariant: INV-SHIP-1, INV-SHIP-2, INV-SHIP-7
-  it("resolves districtCode from HCMC_DISTRICTS and applies BUSINESS_RULES fallback only for omitted optional radii", async () => {
+  it("resolves districtCode from HCMC_DISTRICTS using FarmSettings shippingConfig radii", async () => {
     const result = await service.quoteForCustomer("user-1", {
       districtCode: hocMon.code,
       isSubscription: false,

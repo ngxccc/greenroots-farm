@@ -62,6 +62,8 @@ describe("OrdersService", () => {
       freeKmThreshold: 3,
       perKmRateVnd: 5000,
       detourFactor: 1.3,
+      maxRadiusKm: 25,
+      subscriptionFreeRadiusKm: 20,
     },
     flashSaleConfig: {
       hoursThreshold: 48,

@@ -6,7 +6,6 @@ import {
 } from "@nestjs/common";
 import {
   API_ERROR_CODES,
-  BUSINESS_RULES,
   findHcmcDistrictByCode,
   type GeoCoordinate,
 } from "@greenroots/shared";
@@ -63,12 +62,7 @@ export class ShippingService {
     options: { isSubscription?: boolean } = {},
   ): Promise<ShippingQuote> {
     const settings = await this.farmSettingsService.getSettings();
-    const maxRadiusKm =
-      settings.shippingConfig.maxRadiusKm ??
-      BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM;
-    const subscriptionFreeRadiusKm =
-      settings.shippingConfig.subscriptionFreeRadiusKm ??
-      BUSINESS_RULES.SHIPPING.SUBSCRIPTION_FREE_RADIUS_KM;
+    const { maxRadiusKm, subscriptionFreeRadiusKm } = settings.shippingConfig;
 
     const quote = await this.shippingDriver.calculateQuote({
       origin: {
@@ -76,11 +70,7 @@ export class ShippingService {
         longitude: settings.longitude,
       },
       destination,
-      config: {
-        ...settings.shippingConfig,
-        maxRadiusKm,
-        subscriptionFreeRadiusKm,
-      },
+      config: settings.shippingConfig,
       isSubscription: options.isSubscription ?? false,
     });
 

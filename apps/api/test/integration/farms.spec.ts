@@ -11,7 +11,12 @@ import request from "supertest";
 import { type INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { eq, sql } from "drizzle-orm";
-import { API_ERROR_CODES, SeasonStatus, UserRole } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  BUSINESS_RULES,
+  SeasonStatus,
+  UserRole,
+} from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
@@ -19,6 +24,7 @@ import { RedisService } from "@/common/services/redis.service";
 import type { ApiResponse } from "@/common/utils/api-response.util";
 import { extractDatabaseErrorDetails } from "@/common/utils/error.util";
 import { farms, plots } from "@/database/schemas";
+import { seedTier1Reference } from "@/database/seeds/tiers/tier1-reference.seeder";
 import {
   FARM_SETTINGS_CACHE_KEY,
   FARM_SETTINGS_CACHE_TTL_SECONDS,
@@ -343,6 +349,8 @@ describe("Farms Integration", () => {
             freeKmThreshold: 3,
             perKmRateVnd: 5000,
             detourFactor: 1.3,
+            maxRadiusKm: 25,
+            subscriptionFreeRadiusKm: 20,
           },
         })
         .expect(400);
@@ -352,6 +360,151 @@ describe("Farms Integration", () => {
         .set(superAdminHeader)
         .send({
           certificationUrl: "https://evil.example.com/cert.png",
+        })
+        .expect(400);
+    });
+
+    // Invariant: INV-FARM-5, INV-FARM-6
+    it("rejects missing shipping radii and cross-field radius violations at the DTO boundary", async () => {
+      await createFarm(setup.db);
+
+      const missingRadiiRes = await request(app.getHttpServer())
+        .patch("/api/v1/farms/settings")
+        .set(superAdminHeader)
+        .send({
+          shippingConfig: {
+            baseFeeVnd: 15000,
+            freeKmThreshold: 3,
+            perKmRateVnd: 5000,
+            detourFactor: 1.3,
+          },
+        })
+        .expect(400);
+      expect(
+        (missingRadiiRes.body as Rfc9457ProblemDetails).invalidParams,
+      ).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "shippingConfig.maxRadiusKm",
+            code: API_ERROR_CODES.REQUIRED,
+          }),
+          expect.objectContaining({
+            name: "shippingConfig.subscriptionFreeRadiusKm",
+            code: API_ERROR_CODES.REQUIRED,
+          }),
+        ]),
+      );
+
+      const subExceedsRes = await request(app.getHttpServer())
+        .patch("/api/v1/farms/settings")
+        .set(superAdminHeader)
+        .send({
+          shippingConfig: {
+            baseFeeVnd: 15000,
+            freeKmThreshold: 3,
+            perKmRateVnd: 5000,
+            detourFactor: 1.3,
+            maxRadiusKm: 20,
+            subscriptionFreeRadiusKm: 25,
+          },
+        })
+        .expect(400);
+      expect(
+        (subExceedsRes.body as Rfc9457ProblemDetails).invalidParams,
+      ).toEqual([
+        expect.objectContaining({
+          name: "shippingConfig.subscriptionFreeRadiusKm",
+          code: API_ERROR_CODES.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID,
+        }),
+      ]);
+
+      const freeExceedsRes = await request(app.getHttpServer())
+        .patch("/api/v1/farms/settings")
+        .set(superAdminHeader)
+        .send({
+          shippingConfig: {
+            baseFeeVnd: 15000,
+            freeKmThreshold: 30,
+            perKmRateVnd: 5000,
+            detourFactor: 1.3,
+            maxRadiusKm: 25,
+            subscriptionFreeRadiusKm: 20,
+          },
+        })
+        .expect(400);
+      expect(
+        (freeExceedsRes.body as Rfc9457ProblemDetails).invalidParams,
+      ).toEqual([
+        expect.objectContaining({
+          name: "shippingConfig.freeKmThreshold",
+          code: API_ERROR_CODES.FARM_SHIPPING_FREE_THRESHOLD_INVALID,
+        }),
+      ]);
+
+      const dualExceedsRes = await request(app.getHttpServer())
+        .patch("/api/v1/farms/settings")
+        .set(superAdminHeader)
+        .send({
+          shippingConfig: {
+            baseFeeVnd: 15000,
+            freeKmThreshold: 30,
+            perKmRateVnd: 5000,
+            detourFactor: 1.3,
+            maxRadiusKm: 25,
+            subscriptionFreeRadiusKm: 28,
+          },
+        })
+        .expect(400);
+      expect(
+        (dualExceedsRes.body as Rfc9457ProblemDetails).invalidParams,
+      ).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "shippingConfig.subscriptionFreeRadiusKm",
+            code: API_ERROR_CODES.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID,
+          }),
+          expect.objectContaining({
+            name: "shippingConfig.freeKmThreshold",
+            code: API_ERROR_CODES.FARM_SHIPPING_FREE_THRESHOLD_INVALID,
+          }),
+        ]),
+      );
+
+      const equalBoundaryRes = await request(app.getHttpServer())
+        .patch("/api/v1/farms/settings")
+        .set(superAdminHeader)
+        .send({
+          shippingConfig: {
+            baseFeeVnd: 15000,
+            freeKmThreshold: 25,
+            perKmRateVnd: 5000,
+            detourFactor: 1.3,
+            maxRadiusKm: 25,
+            subscriptionFreeRadiusKm: 25,
+          },
+        })
+        .expect(200);
+      expect(
+        (equalBoundaryRes.body as ApiResponse<FarmSettingsSchema>).data
+          .shippingConfig,
+      ).toMatchObject({
+        freeKmThreshold: 25,
+        maxRadiusKm: 25,
+        subscriptionFreeRadiusKm: 25,
+      });
+
+      await request(app.getHttpServer())
+        .patch("/api/v1/farms/settings")
+        .set(superAdminHeader)
+        .send({
+          shippingConfig: {
+            baseFeeVnd: 15000,
+            freeKmThreshold: 3,
+            perKmRateVnd: 5000,
+            detourFactor: 1.3,
+            maxRadiusKm: 0,
+            subscriptionFreeRadiusKm: -5,
+          },
         })
         .expect(400);
     });
@@ -389,6 +542,26 @@ describe("Farms Integration", () => {
         .expect(200);
       const data = (persisted.body as ApiResponse<FarmSettingsSchema>).data;
       expect(data.isPayosEnabled || data.isCodEnabled).toBe(true);
+    });
+  });
+
+  describe("seedTier1Reference", () => {
+    // Invariant: INV-FARM-5
+    it("populates explicit maxRadiusKm and subscriptionFreeRadiusKm on the singleton farm row", async () => {
+      await setup.db.execute(sql`TRUNCATE TABLE "farms", "users" CASCADE;`);
+
+      await seedTier1Reference(setup.db);
+
+      const [seededFarm] = await setup.db.select().from(farms).limit(1);
+      expect(seededFarm?.shippingConfig).toEqual({
+        baseFeeVnd: BUSINESS_RULES.SHIPPING.BASE_FEE_VND,
+        freeKmThreshold: BUSINESS_RULES.SHIPPING.FREE_KM_THRESHOLD,
+        perKmRateVnd: BUSINESS_RULES.SHIPPING.PER_KM_RATE_VND,
+        detourFactor: BUSINESS_RULES.SHIPPING.DETOUR_FACTOR,
+        maxRadiusKm: BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM,
+        subscriptionFreeRadiusKm:
+          BUSINESS_RULES.SHIPPING.SUBSCRIPTION_FREE_RADIUS_KM,
+      });
     });
   });
 

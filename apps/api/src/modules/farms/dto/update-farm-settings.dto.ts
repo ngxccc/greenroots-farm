@@ -1,3 +1,4 @@
+import { API_ERROR_CODES } from "@greenroots/shared";
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { MESSAGES } from "@/common/constants/messages.constant";
@@ -43,10 +44,26 @@ const updateFarmShippingConfigSchema = z
     freeKmThreshold: z.number().min(0),
     perKmRateVnd: z.number().int().min(0),
     detourFactor: z.number().min(1),
-    maxRadiusKm: z.number().positive().optional(),
-    subscriptionFreeRadiusKm: z.number().positive().optional(),
+    maxRadiusKm: z.number().positive(),
+    subscriptionFreeRadiusKm: z.number().positive(),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.subscriptionFreeRadiusKm > data.maxRadiusKm) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["subscriptionFreeRadiusKm"],
+        message: API_ERROR_CODES.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID,
+      });
+    }
+    if (data.freeKmThreshold > data.maxRadiusKm) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["freeKmThreshold"],
+        message: API_ERROR_CODES.FARM_SHIPPING_FREE_THRESHOLD_INVALID,
+      });
+    }
+  });
 
 const updateFarmFlashSaleConfigSchema = z
   .object({

@@ -43,8 +43,8 @@ export const farmShippingConfigSchema = z.object({
   freeKmThreshold: z.number(),
   perKmRateVnd: z.number().int(),
   detourFactor: z.number(),
-  maxRadiusKm: z.number().optional(),
-  subscriptionFreeRadiusKm: z.number().optional(),
+  maxRadiusKm: z.number().positive(),
+  subscriptionFreeRadiusKm: z.number().positive(),
 });
 
 /**
