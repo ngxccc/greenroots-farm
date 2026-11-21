@@ -44,6 +44,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0027-live-product-stock-aggregation-and-sellable-batch-index.md` — Live uncached product `availableQuantity` scalar subquery aggregation, unified `ProductDto`, and `batches_sellable_stock_idx` partial index.
 - `docs/adr/0028-batch-qr-label-origin-and-payload-contract.md` — Fail-closed `STOREFRONT_URL` origin normalization, dynamic `traceUrl` construction, deterministic `labelPayload` contract, lifecycle-agnostic label read, and deprecation/removal of `batches.qrCodeUrl` (`#102`).
 - `docs/adr/0029-two-step-waste-write-off-and-review-boundary.md` — `waste_logs` as SSOT for discarded stock, `reviewed_by` + `reviewed_at` + `rejection_reason` schema evolution, 4-eyes non-self-review RBAC, pending-quota `FOR UPDATE` locking, and image-only `waste_logs` media boundary.
+- `docs/adr/0030-shipping-driver-seam-and-quote-boundary.md` — `ShippingDriver` async adapter seam, `FarmSettingsService`-backed `HaversineShippingDriver`, XOR `addressId | districtCode` quote boundary, `200` undeliverable quote projection (`feeVnd: null`), and paid `(20 km, 25 km]` subscription delivery rule.
 
 ### Context-Scoped Decisions
 
