@@ -63,7 +63,6 @@ const BATCH_COLUMNS = {
   expirationDate: batches.expirationDate,
   initialQuantity: batches.initialQuantity,
   availableQuantity: batches.availableQuantity,
-  qrCodeUrl: batches.qrCodeUrl,
   status: batches.status,
   createdAt: batches.createdAt,
   updatedAt: batches.updatedAt,
@@ -233,7 +232,6 @@ export class BatchesService {
               expirationDate,
               initialQuantity: quantityValue,
               availableQuantity: quantityValue,
-              qrCodeUrl: null,
               status: initialStatus,
             })
             .returning(BATCH_COLUMNS);
@@ -512,7 +510,6 @@ export class BatchesService {
       expirationDate: row.batch.expirationDate.toISOString(),
       initialQuantity: Number(row.batch.initialQuantity),
       availableQuantity: Number(row.batch.availableQuantity),
-      qrCodeUrl: row.batch.qrCodeUrl,
       status: row.batch.status,
       createdAt: row.batch.createdAt.toISOString(),
       updatedAt: row.batch.updatedAt.toISOString(),

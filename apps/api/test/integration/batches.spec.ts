@@ -241,7 +241,7 @@ describe("Batches Integration", () => {
 
   describe("POST /api/v1/batches", () => {
     it("creates an in_stock batch with server-generated code, computed expirationDate, and equal stock", async () => {
-      // Invariant: INV-BATCH-1, INV-BATCH-2, INV-BATCH-4
+      // Invariant: INV-BATCH-1, INV-BATCH-2, INV-BATCH-4, INV-BATCH-DROP-1
       const farm = await createFarm(setup.db);
       const plot = await createPlot(setup.db, { farmId: farm.id });
       const season = await createSeason(
@@ -280,7 +280,7 @@ describe("Batches Integration", () => {
       );
       expect(body.data.initialQuantity).toBe(35.75);
       expect(body.data.availableQuantity).toBe(35.75);
-      expect(body.data.qrCodeUrl).toBeNull();
+      expect("qrCodeUrl" in body.data).toBe(false);
       expect(body.data.status).toBe(BatchStatus.IN_STOCK);
       expect(body.data.product).toEqual({
         id: product.id,
@@ -535,8 +535,8 @@ describe("Batches Integration", () => {
       }
     });
 
-    it("rejects client-supplied batchCode, availableQuantity, missing timezone offset, and invalid quantities", async () => {
-      // Invariant: INV-BATCH-1, INV-BATCH-4
+    it("rejects client-supplied batchCode, qrCodeUrl, availableQuantity, missing timezone offset, and invalid quantities", async () => {
+      // Invariant: INV-BATCH-1, INV-BATCH-4, INV-BATCH-DROP-2
       const farm = await createFarm(setup.db);
       const plot = await createPlot(setup.db, { farmId: farm.id });
       const season = await createSeason(
@@ -562,6 +562,29 @@ describe("Batches Integration", () => {
       expect((customCodeRes.body as Rfc9457ProblemDetails).code).toBe(
         API_ERROR_CODES.VALIDATION_FAILED,
       );
+
+      for (const badQrUrl of [null, "https://evil.example/trace/CUSTOM"]) {
+        const clientQrUrlRes = await request(app.getHttpServer())
+          .post("/api/v1/batches")
+          .set(farmStaffHeader)
+          .set(IDEMPOTENCY_HEADER_NAME, randomUUID())
+          .send({
+            productId: product.id,
+            seasonId: season.id,
+            harvestDate: harvestIso,
+            shelfLifeDays: 3,
+            initialQuantity: 10,
+            qrCodeUrl: badQrUrl,
+          })
+          .expect(400);
+        const qrUrlProblem = clientQrUrlRes.body as Rfc9457ProblemDetails;
+        expect(qrUrlProblem.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+        expect(
+          qrUrlProblem.invalidParams.some(
+            (param) => param.code === API_ERROR_CODES.UNRECOGNIZED_KEYS,
+          ),
+        ).toBe(true);
+      }
 
       for (const badQuantity of [0, -5, 10.123]) {
         await request(app.getHttpServer())
@@ -745,6 +768,7 @@ describe("Batches Integration", () => {
 
   describe("GET /api/v1/batches", () => {
     it("supports productId, seasonId, status, search filters, sort, pagination metadata, and strict query validation", async () => {
+      // Invariant: INV-BATCH-DROP-1
       const farm = await createFarm(setup.db);
       const plot1 = await createPlot(setup.db, { farmId: farm.id });
       const plot2 = await createPlot(setup.db, { farmId: farm.id });
@@ -794,7 +818,12 @@ describe("Batches Integration", () => {
         PaginationMetaSchema
       >;
       expect(byProductBody.data).toHaveLength(1);
-      expect(byProductBody.data[0]?.id).toBe(b1.id);
+      const [firstBatch] = byProductBody.data;
+      if (!firstBatch) {
+        throw new Error("Expected filtered batch item");
+      }
+      expect(firstBatch.id).toBe(b1.id);
+      expect("qrCodeUrl" in firstBatch).toBe(false);
       expect(byProductBody.meta).toEqual({
         page: 1,
         limit: 20,
@@ -879,6 +908,7 @@ describe("Batches Integration", () => {
 
   describe("GET /api/v1/batches/:id", () => {
     it("returns batch detail even after product soft-delete and returns 404 for missing ID", async () => {
+      // Invariant: INV-BATCH-DROP-1
       const product = await createProduct(setup.db);
       const batch = await createBatch(setup.db, { productId: product.id });
 
@@ -891,9 +921,9 @@ describe("Batches Integration", () => {
         .get(`/api/v1/batches/${batch.id}`)
         .set(farmStaffHeader)
         .expect(200);
-      expect((detailRes.body as ApiResponse<BatchSchema>).data.product.id).toBe(
-        product.id,
-      );
+      const detailBody = detailRes.body as ApiResponse<BatchSchema>;
+      expect(detailBody.data.product.id).toBe(product.id);
+      expect("qrCodeUrl" in detailBody.data).toBe(false);
 
       const missingRes = await request(app.getHttpServer())
         .get(`/api/v1/batches/${UNKNOWN_UUID_V7}`)
@@ -906,15 +936,14 @@ describe("Batches Integration", () => {
   });
 
   describe("GET /api/v1/batches/:id/qr-label", () => {
-    it("returns deterministic QR label payload built from configured public origin while ignoring legacy qrCodeUrl", async () => {
-      // Invariant: INV-QR-LABEL-2, INV-QR-LABEL-4
+    it("returns deterministic QR label payload built dynamically from configured public origin", async () => {
+      // Invariant: INV-QR-LABEL-2, INV-QR-LABEL-4, INV-BATCH-DROP-3
       const product = await createProduct(setup.db, {
         name: "Rau cải ngọt hữu cơ",
         unit: "500g",
       });
       const batch = await createBatch(setup.db, {
         productId: product.id,
-        qrCodeUrl: "https://legacy.example.com/trace/OLD-CODE",
       });
 
       const originalStorefrontUrl = env.STOREFRONT_URL;
@@ -957,6 +986,17 @@ describe("Batches Integration", () => {
           "labelPayload",
           "traceUrl",
         ]);
+
+        (env as { STOREFRONT_URL: string }).STOREFRONT_URL =
+          "https://staging.greenroots.farm";
+        const stagingRes = await request(app.getHttpServer())
+          .get(`/api/v1/batches/${batch.id}/qr-label`)
+          .set(farmStaffHeader)
+          .expect(200);
+        const stagingBody = stagingRes.body as ApiResponse<BatchQrLabelSchema>;
+        const expectedStagingUrl = `https://staging.greenroots.farm/trace/${encodeURIComponent(batch.batchCode)}`;
+        expect(stagingBody.data.traceUrl).toBe(expectedStagingUrl);
+        expect(stagingBody.data.labelPayload.qrValue).toBe(expectedStagingUrl);
       } finally {
         (env as { STOREFRONT_URL: string }).STOREFRONT_URL =
           originalStorefrontUrl;

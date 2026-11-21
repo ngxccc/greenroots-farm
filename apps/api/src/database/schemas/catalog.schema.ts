@@ -107,7 +107,6 @@ export const batches = snakeCase.table(
     expirationDate: timestamp({ withTimezone: true, mode: "date" }).notNull(),
     initialQuantity: numeric({ precision: 10, scale: 2 }).notNull(),
     availableQuantity: numeric({ precision: 10, scale: 2 }).notNull(),
-    qrCodeUrl: text(),
     status: batchStatusEnum().default(BatchStatus.IN_STOCK).notNull(),
   },
   (table) => [

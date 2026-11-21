@@ -91,7 +91,7 @@ describe("BatchesService", () => {
 
   describe("createBatch", () => {
     it("computes expirationDate as harvestDate plus shelfLifeDays * 24h and classifies in_stock when remaining >= threshold", async () => {
-      // Invariant: INV-BATCH-2, INV-BATCH-3
+      // Invariant: INV-BATCH-2, INV-BATCH-3, INV-BATCH-DROP-1
       const nowMs = Date.now();
       const harvest = new Date(nowMs - 2 * TIME_IN_MS.HOUR);
       const shelfLifeDays = 3; // 70h remaining >= 48h threshold
@@ -112,7 +112,6 @@ describe("BatchesService", () => {
             expirationDate: expectedExpiration,
             initialQuantity: "25.50",
             availableQuantity: "25.50",
-            qrCodeUrl: null,
             status: BatchStatus.IN_STOCK,
             createdAt: new Date(nowMs),
             updatedAt: new Date(nowMs),
@@ -131,7 +130,7 @@ describe("BatchesService", () => {
       expect(result.status).toBe(BatchStatus.IN_STOCK);
       expect(result.initialQuantity).toBe(25.5);
       expect(result.availableQuantity).toBe(25.5);
-      expect(result.qrCodeUrl).toBeNull();
+      expect("qrCodeUrl" in result).toBe(false);
       expect(result.expirationDate).toBe(expectedExpiration.toISOString());
       expect(mockTraceCacheService.invalidateByBatchCodes).toHaveBeenCalledWith(
         ["BATCH-20261120-CACHUA-7K9M2P"],
@@ -162,7 +161,6 @@ describe("BatchesService", () => {
               expirationDate: exactExpiration,
               initialQuantity: "10.00",
               availableQuantity: "10.00",
-              qrCodeUrl: null,
               status: BatchStatus.IN_STOCK,
               createdAt: fixedNow,
               updatedAt: fixedNow,
@@ -200,7 +198,6 @@ describe("BatchesService", () => {
               expirationDate: underExpiration,
               initialQuantity: "10.00",
               availableQuantity: "10.00",
-              qrCodeUrl: null,
               status: BatchStatus.NEAR_EXPIRY,
               createdAt: fixedNow,
               updatedAt: fixedNow,
@@ -261,7 +258,6 @@ describe("BatchesService", () => {
             expirationDate: expiration,
             initialQuantity: "12.00",
             availableQuantity: "12.00",
-            qrCodeUrl: null,
             status: BatchStatus.NEAR_EXPIRY,
             createdAt: new Date(nowMs),
             updatedAt: new Date(nowMs),
@@ -415,7 +411,6 @@ describe("BatchesService", () => {
             expirationDate: expiration,
             initialQuantity: "15.00",
             availableQuantity: "15.00",
-            qrCodeUrl: null,
             status: BatchStatus.IN_STOCK,
             createdAt: now,
             updatedAt: now,
@@ -465,7 +460,6 @@ describe("BatchesService", () => {
             expirationDate: expiration,
             initialQuantity: "8.00",
             availableQuantity: "8.00",
-            qrCodeUrl: null,
             status: BatchStatus.IN_STOCK,
             createdAt: new Date(nowMs),
             updatedAt: new Date(nowMs),

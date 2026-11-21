@@ -36,7 +36,6 @@ export const batchSchema = z.object({
   expirationDate: z.iso.datetime(),
   initialQuantity: z.number(),
   availableQuantity: z.number(),
-  qrCodeUrl: z.string().nullable(),
   status: z.enum(BatchStatus),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),

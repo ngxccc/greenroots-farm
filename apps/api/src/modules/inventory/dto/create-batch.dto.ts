@@ -7,8 +7,8 @@ import { zInventoryQuantity } from "./inventory-zod.util";
 
 /**
  * Zod schema for creating a harvested inventory batch (`POST /api/v1/batches`).
- * Client-supplied `batchCode`, `availableQuantity`, `expirationDate`, `status`,
- * and `qrCodeUrl` are rejected via `.strict()`.
+ * Server-owned fields (`batchCode`, `availableQuantity`, `expirationDate`, `status`)
+ * and unknown keys (including legacy `qrCodeUrl`) are rejected via `.strict()`.
  */
 export const createBatchSchema = z
   .object({

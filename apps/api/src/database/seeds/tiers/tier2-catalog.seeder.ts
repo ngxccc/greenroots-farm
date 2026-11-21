@@ -197,7 +197,6 @@ export async function seedTier2Catalog(db: DrizzleDB): Promise<Tier2Result> {
         expirationDate: SEED_TIMESTAMPS.tomatoExpiry,
         initialQuantity: "50.00",
         availableQuantity: "45.00",
-        qrCodeUrl: "https://greenroots.farm/trace/BATCH-2026-TOM-01",
         status: BatchStatus.IN_STOCK,
       },
       {
@@ -209,7 +208,6 @@ export async function seedTier2Catalog(db: DrizzleDB): Promise<Tier2Result> {
         expirationDate: SEED_TIMESTAMPS.spinachExpiry,
         initialQuantity: "30.00",
         availableQuantity: "29.00",
-        qrCodeUrl: "https://greenroots.farm/trace/BATCH-2026-SPN-01",
         status: BatchStatus.IN_STOCK,
       },
       {
@@ -221,7 +219,6 @@ export async function seedTier2Catalog(db: DrizzleDB): Promise<Tier2Result> {
         expirationDate: SEED_TIMESTAMPS.lettuceExpiry,
         initialQuantity: "25.00",
         availableQuantity: "25.00",
-        qrCodeUrl: "https://greenroots.farm/trace/BATCH-2026-LET-01",
         status: BatchStatus.IN_STOCK,
       },
     ])

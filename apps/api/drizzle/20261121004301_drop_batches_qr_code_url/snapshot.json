@@ -1,0 +1,25 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ecf432bb-e19a-4505-91d9-78cf9f6652da",
+  "prevIds": ["fae2f0da-4825-429b-bc65-f31969f55294"],
+  "footprints": [
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "batches", "qr_code_url"],
+      "writes": [
+        "s|col|public.batches.qr_code_url",
+        "n|col|public.batches.qr_code_url",
+        "e|col|public.batches.qr_code_url"
+      ],
+      "reads": ["n|tbl|public.batches", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"batches\",\"qr_code_url\"]"
+    }
+  ]
+}
