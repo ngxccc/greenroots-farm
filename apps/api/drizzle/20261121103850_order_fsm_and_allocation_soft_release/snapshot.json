@@ -1,0 +1,154 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "9c8bd825-41f5-4a7a-a515-f11fbea584a0",
+  "prevIds": ["6d58791e-a9fd-44cf-b21d-7137f1d1e237"],
+  "footprints": [
+    {
+      "statementType": "alter_enum",
+      "statementTarget": ["enum", "public", "order_status"],
+      "writes": ["s|enum|public.order_status"],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "alter_enum",
+      "statementTarget": ["enum", "public", "payment_status"],
+      "writes": ["s|enum|public.payment_status"],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "batch_allocations",
+        "released_at"
+      ],
+      "writes": [
+        "s|col|public.batch_allocations.released_at",
+        "n|col|public.batch_allocations.released_at",
+        "e|col|public.batch_allocations.released_at"
+      ],
+      "reads": ["n|tbl|public.batch_allocations", "n|sch|public"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "batch_allocations",
+        "batch_allocations_active_item_batch_uidx"
+      ],
+      "writes": [
+        "s|idx|public.batch_allocations_active_item_batch_uidx",
+        "n|idx|public.batch_allocations_active_item_batch_uidx",
+        "e|idx|public.batch_allocations_active_item_batch_uidx",
+        "n|rel|public.batch_allocations_active_item_batch_uidx"
+      ],
+      "reads": [
+        "n|tbl|public.batch_allocations",
+        "n|sch|public",
+        "n|col|public.batch_allocations.order_item_id",
+        "n|col|public.batch_allocations.batch_id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "batch_allocations"],
+      "writes": [
+        "s|ck|public.batch_allocations.batch_allocations_quantity_positive",
+        "n|ck|public.batch_allocations.batch_allocations_quantity_positive",
+        "e|ck|public.batch_allocations.batch_allocations_quantity_positive",
+        "n|con|public.batch_allocations.batch_allocations_quantity_positive"
+      ],
+      "reads": [
+        "n|tbl|public.batch_allocations",
+        "n|sch|public",
+        "n|col|public.batch_allocations.allocated_quantity"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "batch_allocations",
+        "name": "released_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "batch_allocations",
+        "name": "batch_allocations_active_item_batch_uidx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "order_item_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "batch_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": "\"released_at\" IS NULL",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "batch_allocations",
+        "name": "batch_allocations_quantity_positive",
+        "value": "\"allocated_quantity\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"order_status\"]",
+      "set": {
+        "values": [
+          "pending_payment",
+          "pending_confirmation",
+          "confirmed",
+          "packing",
+          "shipping",
+          "delivered",
+          "completed",
+          "cancelled"
+        ]
+      }
+    },
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"payment_status\"]",
+      "set": {
+        "values": ["pending", "paid", "failed", "cancelled", "refunded"]
+      }
+    }
+  ]
+}

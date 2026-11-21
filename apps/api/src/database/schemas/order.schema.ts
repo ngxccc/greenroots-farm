@@ -122,10 +122,18 @@ export const batchAllocations = snakeCase.table(
     allocatedAt: timestamp({ withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),
+    releasedAt: timestamp({ withTimezone: true, mode: "date" }),
   },
   (table) => [
     index("batch_allocations_order_item_id_idx").on(table.orderItemId),
     index("batch_allocations_batch_id_idx").on(table.batchId),
+    uniqueIndex("batch_allocations_active_item_batch_uidx")
+      .on(table.orderItemId, table.batchId)
+      .where(sql`${table.releasedAt} IS NULL`),
+    check(
+      "batch_allocations_quantity_positive",
+      sql`${table.allocatedQuantity} > 0`,
+    ),
   ],
 );
 
