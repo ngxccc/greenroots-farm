@@ -84,7 +84,7 @@ const SELLABLE_BATCH_STATUS_SQL = sql.raw(
 );
 
 // Qualify products."id" explicitly because Drizzle strips table names from column refs in single-table queries, which would shadow against b.id inside the subquery.
-const LIVE_AVAILABLE_QUANTITY_EXPR = sql<string>`COALESCE((
+export const LIVE_AVAILABLE_QUANTITY_EXPR = sql<string>`COALESCE((
   SELECT SUM(b.available_quantity)
   FROM ${batches} AS b
   WHERE b.product_id = ${products}."id"
