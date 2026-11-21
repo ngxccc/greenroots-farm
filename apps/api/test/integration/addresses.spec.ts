@@ -717,6 +717,8 @@ describe("Addresses Integration", () => {
           orderCode: "ORD-20261119-001",
           customerId: user.id,
           subscriptionId: sub!.id,
+          receiverName: "Trần Thị Khách",
+          receiverPhone: "0912345678",
           shippingAddress: snapshotText,
           shippingDistanceKm: "12.50",
           shippingFee: 76750,

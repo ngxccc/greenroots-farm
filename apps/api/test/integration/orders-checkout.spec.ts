@@ -422,7 +422,8 @@ describe("Orders Checkout Integration", () => {
       expect(created.orderStatus).toBe(OrderStatus.PENDING_CONFIRMATION);
       expect(created.paymentMethod).toBe(PaymentMethod.COD);
       expect(created.paymentStatus).toBe(PaymentStatus.PENDING);
-      expect(created.shippingAddress).toContain("Trần Thị Khách (0912345678)");
+      expect(created.receiverName).toBe("Trần Thị Khách");
+      expect(created.receiverPhone).toBe("0912345678");
       expect(created.shippingAddress).toContain("123 Tỉnh Lộ 8");
       expect(created.subtotalVnd).toBe(195_000);
       expect(created.loyaltyPointsUsed).toBe(50_000);
@@ -633,7 +634,26 @@ describe("Orders Checkout Integration", () => {
 
       const otherOrder = (resOther.body as ApiResponse<OrderResponse>).data;
       expect(otherOrder.id).not.toBe(order1.id);
-      expect(otherOrder.shippingAddress).toContain("Người Dùng Khác");
+      expect(otherOrder.receiverName).toBe("Người Dùng Khác");
+      expect(otherOrder.receiverPhone).toBe("0987654321");
+
+      // Deleting saved address preserves receiver contact and shipping address snapshots on persisted order
+      await request(app.getHttpServer())
+        .delete(`/api/v1/users/me/addresses/${deliverableAddressId}`)
+        .set(customerHeader)
+        .expect(204);
+
+      const [persistedOrder] = await setup.db
+        .select({
+          receiverName: orders.receiverName,
+          receiverPhone: orders.receiverPhone,
+          shippingAddress: orders.shippingAddress,
+        })
+        .from(orders)
+        .where(eq(orders.id, order1.id));
+      expect(persistedOrder?.receiverName).toBe("Trần Thị Khách");
+      expect(persistedOrder?.receiverPhone).toBe("0912345678");
+      expect(persistedOrder?.shippingAddress).toContain("123 Tỉnh Lộ 8");
     });
 
     // Invariant: INV-ORD-6
