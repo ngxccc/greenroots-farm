@@ -1,6 +1,6 @@
-import { cookies } from "next/headers";
 import createClient, { type Middleware } from "openapi-fetch";
 import { env } from "@/env";
+import { readServerAccessToken } from "@/lib/auth/server-token";
 import type { ApiProblemDetails } from "@/types/api";
 import type { paths } from "@/types/api-schema";
 
@@ -47,13 +47,12 @@ const serverCookieBridgeMiddleware: Middleware = {
     }
 
     try {
-      const cookieStore = await cookies();
-      const accessToken = cookieStore.get("accessToken")?.value;
+      const accessToken = await readServerAccessToken();
       if (accessToken && !request.headers.has("Authorization")) {
         request.headers.set("Authorization", `Bearer ${accessToken}`);
       }
     } catch {
-      // Cookies are unavailable outside an active Next.js request scope (e.g. build/tests).
+      // Cookies and headers are unavailable outside an active Next.js request scope (e.g. build/tests).
     }
 
     return request;
