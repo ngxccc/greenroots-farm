@@ -27,8 +27,6 @@ jobs:
       run_all: ${{ steps.scope.outputs.run_all }}
       trivy: ${{ steps.scope.outputs.trivy }}
       bun_audit: ${{ steps.scope.outputs.bun_audit }}
-      codeql_js: ${{ steps.scope.outputs.codeql_js }}
-      codeql_actions: ${{ steps.scope.outputs.codeql_actions }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -97,8 +95,6 @@ jobs:
 
   codeql-js:
     name: CodeQL (javascript-typescript)
-    needs: changes
-    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.codeql_js == 'true') }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -117,8 +113,6 @@ jobs:
 
   codeql-actions:
     name: CodeQL (actions)
-    needs: changes
-    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.codeql_actions == 'true') }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
