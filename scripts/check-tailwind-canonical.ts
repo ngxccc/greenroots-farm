@@ -878,6 +878,17 @@ function buildEffectiveCssVariables(
   return merged;
 }
 
+function sortViolations(
+  violations: readonly CanonicalViolation[],
+): CanonicalViolation[] {
+  return [...violations].sort((a, b) => {
+    const pathDiff = a.filePath.localeCompare(b.filePath);
+    if (pathDiff !== 0) return pathDiff;
+    if (a.line !== b.line) return a.line - b.line;
+    return a.column - b.column;
+  });
+}
+
 /**
  * Scans configured UI workspaces and returns verified non-canonical Tailwind v4
  * utility occurrences sorted deterministically by file path and position.
@@ -891,14 +902,20 @@ export async function checkTailwindCanonical(
   providedTooling?: TailwindTooling,
 ): Promise<CanonicalViolation[]> {
   const tooling = providedTooling ?? (await loadTailwindTooling());
+  const designSystemCache = new Map<string, Promise<TailwindDesignSystem>>();
   const violations: CanonicalViolation[] = [];
 
   for (const workspace of workspaces) {
     const absCss = path.resolve(REPO_ROOT, workspace.cssEntrypoint);
     const cssSource = readFileSync(absCss, "utf8");
-    const ds = await tooling.loadDesignSystem(cssSource, {
-      base: path.dirname(absCss),
-    });
+    const baseDir = path.dirname(absCss);
+    const cacheKey = `${baseDir}\0${cssSource}`;
+    let dsPromise = designSystemCache.get(cacheKey);
+    if (!dsPromise) {
+      dsPromise = tooling.loadDesignSystem(cssSource, { base: baseDir });
+      designSystemCache.set(cacheKey, dsPromise);
+    }
+    const ds = await dsPromise;
     const cssVars = buildEffectiveCssVariables(ds, absCss);
 
     const sources = workspace.scanRoots
@@ -969,29 +986,203 @@ export async function checkTailwindCanonical(
     }
   }
 
-  return violations.sort((a, b) => {
-    const pathDiff = a.filePath.localeCompare(b.filePath);
-    if (pathDiff !== 0) return pathDiff;
-    if (a.line !== b.line) return a.line - b.line;
-    return a.column - b.column;
-  });
+  return sortViolations(violations);
+}
+
+/** Dependencies injectable into `runCheckTailwindCli` for subprocess worker testing. */
+export interface CheckTailwindCliOptions {
+  readonly workspaces?: readonly WorkspaceTarget[];
+  readonly runWorker?: (workspaceName: string) => Promise<CanonicalViolation[]>;
+  readonly checkWorkspaces?: (
+    workspaces: readonly WorkspaceTarget[],
+  ) => Promise<CanonicalViolation[]>;
+  readonly writeStdout?: (text: string) => void;
+  readonly writeStderr?: (text: string) => void;
+}
+
+interface ParsedCliArgs {
+  readonly workspaceName: string | null;
+  readonly json: boolean;
+}
+
+function parseCliArgs(args: readonly string[]): ParsedCliArgs {
+  let workspaceName: string | null = null;
+  let json = false;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--json") {
+      json = true;
+      continue;
+    }
+    if (arg === "--workspace") {
+      const value = args[i + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Missing workspace name after --workspace.");
+      }
+      workspaceName = value;
+      i++;
+      continue;
+    }
+    throw new Error(`Unknown CLI flag: ${arg}`);
+  }
+
+  return { workspaceName, json };
+}
+
+function isCanonicalViolation(value: unknown): value is CanonicalViolation {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record["workspace"] === "string" &&
+    typeof record["filePath"] === "string" &&
+    typeof record["line"] === "number" &&
+    Number.isFinite(record["line"]) &&
+    typeof record["column"] === "number" &&
+    Number.isFinite(record["column"]) &&
+    typeof record["original"] === "string" &&
+    typeof record["canonical"] === "string"
+  );
+}
+
+/**
+ * Parses and validates JSON output emitted by a workspace subprocess worker.
+ *
+ * @param rawStdout Raw stdout text captured from the worker subprocess.
+ * @param workspaceName Workspace identifier used for error attribution.
+ * @returns Validated list of `CanonicalViolation` records.
+ */
+export function parseWorkerViolations(
+  rawStdout: string,
+  workspaceName: string,
+): CanonicalViolation[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawStdout);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Invalid JSON from Tailwind worker for "${workspaceName}": ${detail}`,
+    );
+  }
+
+  if (!Array.isArray(parsed) || !parsed.every(isCanonicalViolation)) {
+    throw new Error(
+      `Malformed violation payload from Tailwind worker for "${workspaceName}".`,
+    );
+  }
+
+  return parsed;
+}
+
+async function spawnWorkspaceWorker(
+  workspaceName: string,
+): Promise<CanonicalViolation[]> {
+  // Isolate each Tailwind workspace in its own OS process so @tailwindcss/oxide avoids worker-thread N-API hazards while overlapping first-call canonicalize builds.
+  const proc = Bun.spawn(
+    [
+      process.execPath,
+      import.meta.path,
+      "--workspace",
+      workspaceName,
+      "--json",
+    ],
+    {
+      cwd: REPO_ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
+
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+
+  if (exitCode !== 0) {
+    const detail = stderr.trim();
+    throw new Error(
+      `Tailwind worker for "${workspaceName}" exited with code ${exitCode}${detail.length > 0 ? `: ${detail}` : ""}`,
+    );
+  }
+
+  return parseWorkerViolations(stdout, workspaceName);
+}
+
+/**
+ * Executes the CLI checker, fanning out multi-workspace runs across isolated subprocesses
+ * and failing closed if any workspace worker crashes or emits invalid output.
+ *
+ * @param args CLI arguments (typically `process.argv.slice(2)`).
+ * @param options Optional overrides for workspaces, worker runner, and output streams.
+ * @returns Exit code (`0` when clean or `--json` worker succeeds, `1` on violations or failure).
+ */
+export async function runCheckTailwindCli(
+  args: readonly string[] = [],
+  options: CheckTailwindCliOptions = {},
+): Promise<number> {
+  const workspaces = options.workspaces ?? UI_WORKSPACES;
+  const runWorker = options.runWorker ?? spawnWorkspaceWorker;
+  const checkWorkspaces = options.checkWorkspaces ?? checkTailwindCanonical;
+  const writeStdout =
+    options.writeStdout ?? ((text: string) => console.log(text));
+  const writeStderr =
+    options.writeStderr ?? ((text: string) => console.error(text));
+
+  try {
+    const parsed = parseCliArgs(args);
+
+    let violations: CanonicalViolation[];
+    if (parsed.workspaceName !== null) {
+      const target = workspaces.find((w) => w.name === parsed.workspaceName);
+      if (!target) {
+        writeStderr(`Unknown workspace "${parsed.workspaceName}".`);
+        return 1;
+      }
+      violations = sortViolations(await checkWorkspaces([target]));
+    } else if (workspaces.length > 1) {
+      const workerResults = await Promise.all(
+        workspaces.map((ws) => runWorker(ws.name)),
+      );
+      violations = sortViolations(workerResults.flat());
+    } else {
+      violations = sortViolations(await checkWorkspaces(workspaces));
+    }
+
+    if (parsed.json) {
+      writeStdout(JSON.stringify(violations));
+      return parsed.workspaceName !== null ? 0 : violations.length > 0 ? 1 : 0;
+    }
+
+    if (violations.length > 0) {
+      writeStderr(
+        `Found ${violations.length} non-canonical Tailwind CSS class(es):`,
+      );
+      for (const v of violations) {
+        const relPath = path.relative(REPO_ROOT, v.filePath);
+        writeStderr(
+          `  ${relPath}:${v.line}:${v.column}  ${v.original} -> ${v.canonical}`,
+        );
+      }
+      return 1;
+    }
+
+    const scannedNames =
+      parsed.workspaceName !== null
+        ? parsed.workspaceName
+        : workspaces.map((w) => w.name).join(", ");
+    writeStdout(`Tailwind canonical check passed across ${scannedNames}.`);
+    return 0;
+  } catch (error) {
+    writeStderr(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
 }
 
 if (import.meta.main) {
-  const violations = await checkTailwindCanonical();
-  if (violations.length > 0) {
-    console.error(
-      `Found ${violations.length} non-canonical Tailwind CSS class(es):`,
-    );
-    for (const v of violations) {
-      const relPath = path.relative(REPO_ROOT, v.filePath);
-      console.error(
-        `  ${relPath}:${v.line}:${v.column}  ${v.original} -> ${v.canonical}`,
-      );
-    }
-    process.exit(1);
+  const exitCode = await runCheckTailwindCli(process.argv.slice(2));
+  if (exitCode !== 0) {
+    process.exit(exitCode);
   }
-  console.log(
-    `Tailwind canonical check passed across ${UI_WORKSPACES.map((w) => w.name).join(", ")}.`,
-  );
 }
