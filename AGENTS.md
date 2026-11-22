@@ -82,6 +82,7 @@ Pull requests use `.github/PULL_REQUEST_TEMPLATE.md`. GitHub automation lives in
 | Change you are about to make               | Read first                                        |
 | :----------------------------------------- | :------------------------------------------------ |
 | A route, DTO, status code, or error shape  | `docs/standards/api-design-and-error-handling.md` |
+| A UI page, component, token, or BFF call   | `docs/standards/ui-and-frontend.md`               |
 | A schema, query, index, or migration       | `docs/standards/database-and-migrations.md`       |
 | A lock, transaction, or retry              | `docs/standards/concurrency-and-locking.md`       |
 | Auth, tokens, hashing, or sanitization     | `docs/standards/security-and-cryptography.md`     |
