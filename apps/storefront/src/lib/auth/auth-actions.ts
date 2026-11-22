@@ -483,7 +483,7 @@ export async function executeForgotPasswordAction(
     fallbackErrorCode: API_ERROR_CODES.BAD_REQUEST,
     instance: "/forgot-password",
     successMessage:
-      "Liên kiết đặt lại mật khẩu sẽ được gửi vào địa chỉ email nếu tồn tại trên hệ thống. Liên kết có hiệu lực trong 15 phút — vui lòng kiểm tra hộp thư đến hoặc Spam.",
+      "Liên kết đặt lại mật khẩu sẽ được gửi vào địa chỉ email nếu tồn tại trên hệ thống. Liên kết có hiệu lực trong 15 phút — vui lòng kiểm tra hộp thư đến hoặc Spam.",
     post: postForgotPassword,
   });
 }
