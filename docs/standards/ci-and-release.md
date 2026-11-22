@@ -33,7 +33,8 @@ Each workflow owns one responsibility. A check runs in one workflow and nowhere 
 | `changes`             | Shallow `git diff` + `bun scripts/ci-scope.ts` computing transitive job and step scope flags                                      |
 | `version-consistency` | `bun run version:check`                                                                                                           |
 | `shared-package`      | `format:check`, `syncpack lint`, `check-types:{shared,scripts,ui}`, `lint:ui`, `check:tailwind`, shared/script tests (step-gated) |
-| `api`                 | `check-types:api`, `lint:api`, `test:api`, and `build` in `apps/api`                                                              |
+| `api-static`          | `check-types:api`, `lint:api`, `test:api`, and `build` in `apps/api` (no service containers)                                      |
+| `api-e2e`             | `test:e2e` in `apps/api` against PostgreSQL 18 + Redis 8 service containers                                                       |
 | `storefront`          | `check-types:storefront`, `lint:storefront`, `test:storefront`, and `build` in `apps/storefront`                                  |
 | `backoffice`          | `check-types:backoffice`, `lint:backoffice`, `test:backoffice`, and `build` in `apps/backoffice`                                  |
 | `database`            | `db:migrate`, `db:generate` drift check, `db:seed --clean` on PostgreSQL 18 + Redis 8                                             |
@@ -49,7 +50,7 @@ Each workflow owns one responsibility. A check runs in one workflow and nowhere 
 
 Branch protection for `main` is repository configuration, not YAML. Require a pull request, require branches to be up to date, require conversation resolution, and leave force pushes and deletions disabled.
 
-- `CI / Quality Gate` is the quality signal. Per-job checks (`CI / API`, `CI / Migrations and Seed`) exist for debugging and stay out of branch protection.
+- `CI / Quality Gate` is the quality signal. Per-job checks (`CI / API Static & Unit`, `CI / API E2E`, `CI / Migrations and Seed`) exist for debugging and stay out of branch protection.
 - A workflow rename invalidates its required check; update branch protection in the same change window.
 - Branch protection needs admin rights, so it cannot ship through a pull request.
 
