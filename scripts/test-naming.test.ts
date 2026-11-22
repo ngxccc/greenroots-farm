@@ -19,23 +19,44 @@ const ERROR_DICTIONARY_PATH = path.join(
   REPO_ROOT,
   "packages/shared/src/error-dictionary.ts",
 );
-const INPUT_ALLOWLIST_FILES = new Set([
-  "packages/shared/src/error-dictionary.spec.ts",
-]);
+const INPUT_ERROR_CODE_ALLOWLIST: Record<string, ReadonlySet<string>> = {
+  "packages/shared/src/error-dictionary.spec.ts": new Set([
+    "TOO_SMALL",
+    "TOO_BIG",
+    "ORDER_BELOW_MINIMUM_VALUE",
+    "NETWORK_ERROR",
+  ]),
+};
 
 const HTTP_STATUS_CODES =
   "(?:200|201|204|400|401|403|404|409|413|415|422|429|500|502|503)";
-const HTTP_STATUS_PHRASES =
-  "(?:Bad Request|Unauthorized|Forbidden|Not Found|Conflict|Unprocessable Entity|Too Many Requests|Service Unavailable)";
+const MULTI_WORD_HTTP_PHRASES =
+  "(?:no content|bad request|payload too large|unsupported media type|too many requests|internal server error|bad gateway|service unavailable)";
+const CAPITALIZED_HTTP_PHRASES =
+  "(?:Unauthorized|Forbidden|Conflict|Not Found|Unprocessable Entity)";
 const HTTP_STATUS_CONTEXT_REGEX = new RegExp(
-  `\\b(?:HTTP|status|with|returns|to)\\s+${HTTP_STATUS_CODES}\\b|\\b${HTTP_STATUS_CODES}\\s+(?:OK|Created|${HTTP_STATUS_PHRASES})\\b|\\b${HTTP_STATUS_PHRASES}\\b`,
+  `\\b(?:http|status|with|returns|throws|rejects|responds|to)\\s+${HTTP_STATUS_CODES}\\b|\\b${HTTP_STATUS_CODES}\\s+(?:ok|created|${MULTI_WORD_HTTP_PHRASES}|not found|unprocessable entity|unauthorized|forbidden|conflict)\\b|\\b${MULTI_WORD_HTTP_PHRASES}\\b`,
+  "i",
 );
+const CAPITALIZED_HTTP_PHRASE_REGEX = new RegExp(
+  `\\b${CAPITALIZED_HTTP_PHRASES}\\b`,
+);
+const STANDALONE_HTTP_CODE_REGEX = new RegExp(`\\b${HTTP_STATUS_CODES}\\b`);
+
 const TEST_ID_REGEX = /\bT\d+-\d+\b|\[[A-Z]+-\d+\]/;
 const INVARIANT_TAG_REGEX = /\bINV-[A-Z0-9-]+\b/i;
-const FORBIDDEN_ADVERB_OR_SHOULD = /^(?:should|silently|atomically|safely)$/i;
+const FORBIDDEN_OPENERS =
+  /^(?:should|silently|atomically|safely|always|never|also|only|quietly|gracefully|correctly|properly|tokens|users|batches|requests|responses|errors|status|access|success|it|this|that)$/i;
 const THIRD_PERSON_VERB_REGEX = /^[a-z]+(?:-[a-z]+)*s$/;
-const INTEGRATION_SUFFIX_REGEX = /\b(?:Module|E2E)\b/;
+const INTEGRATION_SUFFIX_REGEX = /\b(?:Module|E2E)\b/i;
 const DESCRIBE_FORBIDDEN_UNIT_REGEX = /\b(?:Integration|Module|E2E)\b/i;
+const SUITE_MODIFIERS = new Set([
+  "only",
+  "skip",
+  "todo",
+  "concurrent",
+  "serial",
+]);
 
 type SuiteKind = "describe" | "it" | "test";
 
@@ -56,7 +77,10 @@ function collectTestFiles(dir: string): string[] {
 }
 
 /**
- * Extracts all API_ERROR_CODES keys from packages/shared/src/error-dictionary.ts via AST.
+ * Extracts all `API_ERROR_CODES` property keys from the shared error dictionary module via AST.
+ *
+ * @param sourceText Raw TypeScript source of `packages/shared/src/error-dictionary.ts`.
+ * @returns Set of exported error code member names defined in `API_ERROR_CODES`.
  */
 export function extractApiErrorCodeKeys(sourceText: string): Set<string> {
   const sf = ts.createSourceFile(
@@ -84,8 +108,10 @@ export function extractApiErrorCodeKeys(sourceText: string): Set<string> {
       }
       if (ts.isObjectLiteralExpression(expr)) {
         for (const prop of expr.properties) {
-          if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name)) {
-            keys.add(prop.name.text);
+          if (ts.isPropertyAssignment(prop)) {
+            if (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)) {
+              keys.add(prop.name.text);
+            }
           }
         }
       }
@@ -98,34 +124,49 @@ export function extractApiErrorCodeKeys(sourceText: string): Set<string> {
   return keys;
 }
 
-function getSuiteCallKind(expr: ts.Expression): SuiteKind | null {
-  if (
-    ts.isIdentifier(expr) &&
-    (expr.text === "describe" || expr.text === "it" || expr.text === "test")
-  ) {
-    return expr.text;
+function unwrapSuiteCalleeChain(expr: ts.Expression): SuiteKind | null {
+  let current: ts.Expression = expr;
+  while (ts.isPropertyAccessExpression(current)) {
+    if (!SUITE_MODIFIERS.has(current.name.text)) {
+      return null;
+    }
+    current = current.expression;
   }
-
-  // Only match direct describe/it/test modifiers (e.g., it.only, describe.skip),
-  // ignoring arbitrary receiver .test() calls such as SEMVER.test("1.2.3").
   if (
-    ts.isPropertyAccessExpression(expr) &&
-    ts.isIdentifier(expr.expression) &&
-    (expr.expression.text === "describe" ||
-      expr.expression.text === "it" ||
-      expr.expression.text === "test") &&
-    ["only", "skip", "todo", "each", "concurrent", "serial"].includes(
-      expr.name.text,
-    )
+    ts.isIdentifier(current) &&
+    (current.text === "describe" ||
+      current.text === "it" ||
+      current.text === "test")
   ) {
-    return expr.expression.text;
+    return current.text;
+  }
+  return null;
+}
+
+function getSuiteCallKind(expr: ts.Expression): SuiteKind | null {
+  const direct = unwrapSuiteCalleeChain(expr);
+  if (direct) return direct;
+
+  // Handle curried `it.each(cases)("title", fn)` / `describe.each(cases)("title", fn)`
+  // by recognizing the outer CallExpression and ignoring arbitrary `receiver.test()`.
+  if (
+    ts.isCallExpression(expr) &&
+    ts.isPropertyAccessExpression(expr.expression) &&
+    expr.expression.name.text === "each"
+  ) {
+    return unwrapSuiteCalleeChain(expr.expression.expression);
   }
 
   return null;
 }
 
 /**
- * Evaluates a TypeScript test file AST against INV-TEST-1, INV-TEST-2, and INV-TEST-3.
+ * Evaluates a TypeScript test file AST against `INV-TEST-1`, `INV-TEST-2`, and `INV-TEST-3`.
+ *
+ * @param relativePath Repository-relative POSIX or platform path of the test file.
+ * @param sourceText TypeScript source contents of the test file.
+ * @param apiErrorCodes Set of `API_ERROR_CODES` keys extracted from `@greenroots/shared`.
+ * @returns List of human-readable naming violation messages (`file:line ...`).
  */
 export function evaluateTestFileNaming(
   relativePath: string,
@@ -140,7 +181,8 @@ export function evaluateTestFileNaming(
   );
   const normalizedPath = relativePath.replace(/\\/g, "/");
   const isIntegrationSuite = normalizedPath.startsWith("apps/api/test/");
-  const allowInputErrorCodes = INPUT_ALLOWLIST_FILES.has(normalizedPath);
+  const allowedInputErrorCodes =
+    INPUT_ERROR_CODE_ALLOWLIST[normalizedPath] ?? new Set<string>();
   const violations: string[] = [];
 
   function checkForbiddenTokens(line: number, kind: SuiteKind, title: string) {
@@ -154,29 +196,34 @@ export function evaluateTestFileNaming(
         `${normalizedPath}:${line} [${kind}] embeds INV tag in "${title}"`,
       );
     }
-    if (HTTP_STATUS_CONTEXT_REGEX.test(title)) {
+    if (
+      HTTP_STATUS_CONTEXT_REGEX.test(title) ||
+      CAPITALIZED_HTTP_PHRASE_REGEX.test(title) ||
+      (kind === "describe" && STANDALONE_HTTP_CODE_REGEX.test(title))
+    ) {
       violations.push(
         `${normalizedPath}:${line} [${kind}] embeds HTTP status or phrase in "${title}"`,
       );
     }
-    if (!allowInputErrorCodes) {
-      const tokens = title.match(/\b[A-Z][A-Z0-9_]{2,}\b/g) ?? [];
-      for (const token of tokens) {
-        if (apiErrorCodes.has(token)) {
-          violations.push(
-            `${normalizedPath}:${line} [${kind}] embeds outcome error code ${token} in "${title}"`,
-          );
-        }
+    const tokens = title.match(/\b[A-Z][A-Z0-9_]{2,}\b/g) ?? [];
+    for (const token of tokens) {
+      if (apiErrorCodes.has(token) && !allowedInputErrorCodes.has(token)) {
+        violations.push(
+          `${normalizedPath}:${line} [${kind}] embeds outcome error code ${token} in "${title}"`,
+        );
       }
     }
   }
 
   function visit(node: ts.Node, describeDepth: number) {
     let nextDepth = describeDepth;
+    let skipCallee = false;
 
     if (ts.isCallExpression(node)) {
       const kind = getSuiteCallKind(node.expression);
       if (kind && node.arguments.length > 0) {
+        // Prevent visiting the inner `it.each(cases)` CallExpression as a separate test call.
+        skipCallee = ts.isCallExpression(node.expression);
         const firstArg = node.arguments[0];
         const line =
           sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
@@ -215,10 +262,10 @@ export function evaluateTestFileNaming(
               }
               if (
                 level >= 2 &&
-                (/^when\b/i.test(title) || /\(authenticated\)/i.test(title))
+                (/\bwhen\b/i.test(title) || /\([^)]+\)/.test(title))
               ) {
                 violations.push(
-                  `${normalizedPath}:${line} [describe L${level}] must omit when/parenthetical clauses in "${title}"`,
+                  `${normalizedPath}:${line} [describe L${level}] must omit when/parenthetical modifiers in "${title}"`,
                 );
               }
             } else {
@@ -235,7 +282,7 @@ export function evaluateTestFileNaming(
             const rawFirstWord = title.split(/\s+/)[0] ?? "";
             const firstWord = rawFirstWord.replace(/,+$/, "");
             if (
-              FORBIDDEN_ADVERB_OR_SHOULD.test(firstWord) ||
+              FORBIDDEN_OPENERS.test(firstWord) ||
               !THIRD_PERSON_VERB_REGEX.test(firstWord)
             ) {
               violations.push(
@@ -247,7 +294,16 @@ export function evaluateTestFileNaming(
       }
     }
 
-    ts.forEachChild(node, (child) => visit(child, nextDepth));
+    ts.forEachChild(node, (child) => {
+      if (
+        skipCallee &&
+        ts.isCallExpression(node) &&
+        child === node.expression
+      ) {
+        return;
+      }
+      visit(child, nextDepth);
+    });
   }
 
   visit(sf, 0);
@@ -267,6 +323,8 @@ describe("Test Naming Compliance", () => {
           describe("run", () => {
             it("should return ok", () => {});
             it("silently returns ok", () => {});
+            it("always returns ok", () => {});
+            it("tokens match digest", () => {});
             it("token hashes match", () => {});
           });
         });
@@ -276,15 +334,16 @@ describe("Test Naming Compliance", () => {
         sample,
         API_ERROR_CODE_KEYS,
       );
-      expect(issues).toHaveLength(3);
+      expect(issues).toHaveLength(5);
     });
 
-    it("rejects HTTP statuses, status phrases, INV tags, and outcome API error codes", () => {
+    it("rejects HTTP statuses, status phrases, INV tags, and un-allowlisted API error codes", () => {
       // Invariant: INV-TEST-2
       const sample = `
         describe("Sample Integration", () => {
           describe("POST /api/v1/sample", () => {
-            it("rejects with 401 Unauthorized", () => {});
+            it("throws 401 when unauthenticated", () => {});
+            it("returns bad request on invalid input", () => {});
             it("throws ORDER_NOT_FOUND on missing order", () => {});
             it("enforces INV-ORD-1 on checkout", () => {});
           });
@@ -295,16 +354,31 @@ describe("Test Naming Compliance", () => {
         sample,
         API_ERROR_CODE_KEYS,
       );
-      expect(issues).toHaveLength(3);
+      expect(issues).toHaveLength(4);
+
+      const dictionarySample = `
+        describe("resolveSharedApiErrorMessage", () => {
+          it("interpolates TOO_SMALL and throws ORDER_NOT_FOUND", () => {});
+        });
+      `;
+      const dictIssues = evaluateTestFileNaming(
+        "packages/shared/src/error-dictionary.spec.ts",
+        dictionarySample,
+        API_ERROR_CODE_KEYS,
+      );
+      expect(dictIssues).toHaveLength(1);
+      expect(dictIssues[0]).toContain("ORDER_NOT_FOUND");
     });
 
-    it("ignores non-test method calls such as regex.test and fails closed on dynamic titles", () => {
+    it("ignores non-test method calls, supports curried .each calls, and fails closed on dynamic titles", () => {
       // Invariant: INV-TEST-1, INV-TEST-3
       const sample = `
         describe("version scripts", () => {
           it("accepts valid semver", () => {
             expect(/a/.test("1.2.3")).toBe(true);
           });
+          it.each([1, 2])("parses valid input", () => {});
+          it.skip.only("skips safely", () => {});
           it(dynamicTitle, () => {});
         });
       `;
@@ -317,14 +391,20 @@ describe("Test Naming Compliance", () => {
       expect(issues[0]).toContain("non-literal dynamic title");
     });
 
-    it("enforces 3-level describe grammar for integration and unit suites", () => {
+    it("enforces 3-level describe grammar and clean Level 2 titles for integration suites", () => {
       // Invariant: INV-TEST-3
       const integrationBad = `
-        describe("Media Module Integration", () => {
-          describe("POST /media (authenticated)", () => {
+        describe("Media module Integration", () => {
+          describe("POST /media (admin)", () => {
             describe("nested", () => {
               it("rejects payload", () => {});
             });
+          });
+          describe("POST /orders when unauthenticated", () => {
+            it("rejects caller", () => {});
+          });
+          describe("POST /orders - 400", () => {
+            it("rejects payload", () => {});
           });
         });
       `;
@@ -333,7 +413,7 @@ describe("Test Naming Compliance", () => {
         integrationBad,
         API_ERROR_CODE_KEYS,
       );
-      expect(issues).toHaveLength(3);
+      expect(issues).toHaveLength(5);
     });
   });
 
