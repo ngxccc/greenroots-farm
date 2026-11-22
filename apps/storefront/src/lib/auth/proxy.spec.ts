@@ -210,5 +210,58 @@ describe("Storefront Auth Proxy", () => {
       expect(pattern.test("/apple-icon")).toBe(false);
       expect(pattern.test("/logo.svg")).toBe(false);
     });
+
+    it("rewrites page requests to maintenance view and skips token refresh during maintenance mode", async () => {
+      // Invariant: INV-SF-ERR-3
+      let refreshCalls = 0;
+      const req = new NextRequest("http://localhost:3001/orders/123", {
+        headers: {
+          cookie: "refreshToken=r1",
+        },
+      });
+
+      const res = await handleStorefrontProxy(req, {
+        isSecure: false,
+        maintenanceMode: true,
+        refresh: () => {
+          refreshCalls++;
+          return Promise.resolve({ status: "invalid" });
+        },
+      });
+
+      expect(refreshCalls).toBe(0);
+      expect(res.status).toBe(503);
+      expect(res.headers.get("x-middleware-rewrite")).toBe(
+        "http://localhost:3001/maintenance",
+      );
+      expect(res.headers.get("retry-after")).toBe("900");
+      expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    });
+
+    it("returns maintenance problem response for api routes during maintenance mode", async () => {
+      // Invariant: INV-SF-ERR-3
+      const req = new NextRequest("http://localhost:3001/api/auth/logout", {
+        method: "POST",
+      });
+
+      const res = await handleStorefrontProxy(req, {
+        isSecure: false,
+        maintenanceMode: true,
+      });
+
+      expect(res.status).toBe(503);
+      expect(res.headers.get("content-type")).toContain(
+        "application/problem+json",
+      );
+      expect(res.headers.get("retry-after")).toBe("900");
+      const body = (await res.json()) as {
+        status: number;
+        code: string;
+        type: string;
+      };
+      expect(body.status).toBe(503);
+      expect(body.code).toBe("SERVICE_UNAVAILABLE");
+      expect(body.type).toBe("/errors/service-unavailable");
+    });
   });
 });

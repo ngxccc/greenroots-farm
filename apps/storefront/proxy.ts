@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { API_ERROR_CODES } from "@greenroots/shared";
+import { isMaintenanceModeEnabled } from "@/env";
 import {
   ACCESS_TOKEN_COOKIE,
   REFRESHED_ACCESS_TOKEN_HEADER,
@@ -13,6 +15,10 @@ import { refreshSingleFlight } from "@/lib/auth/single-flight-refresh";
 
 const SKIP_REFRESH_PATHS = ["/login", "/register"] as const;
 export const AUTH_DEGRADED_HEADER = "x-gr-auth-degraded";
+const MAINTENANCE_HEADERS = {
+  "Retry-After": "900",
+  "X-Robots-Tag": "noindex, nofollow",
+} as const;
 
 /**
  * Optional dependency overrides for isolated unit testing of `handleStorefrontProxy`.
@@ -20,6 +26,7 @@ export const AUTH_DEGRADED_HEADER = "x-gr-auth-degraded";
 export interface StorefrontProxyDeps {
   readonly refresh?: typeof refreshSingleFlight;
   readonly isSecure?: boolean;
+  readonly maintenanceMode?: boolean;
 }
 
 function buildLoginRedirectResponse(
@@ -74,6 +81,39 @@ export async function handleStorefrontProxy(
   requestHeaders.delete(AUTH_DEGRADED_HEADER);
 
   const pathname = request.nextUrl.pathname;
+  const maintenanceActive = deps?.maintenanceMode ?? isMaintenanceModeEnabled();
+
+  // Short-circuit before proactive refresh so outages never burn refresh tokens.
+  if (maintenanceActive) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        {
+          type: "/errors/service-unavailable",
+          title: "Service Unavailable",
+          status: 503,
+          code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+          detail: "Storefront is currently undergoing scheduled maintenance.",
+          instance: pathname,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          status: 503,
+          headers: {
+            "Content-Type": "application/problem+json",
+            ...MAINTENANCE_HEADERS,
+          },
+        },
+      );
+    }
+
+    const maintenanceUrl = new URL("/maintenance", request.url);
+    return NextResponse.rewrite(maintenanceUrl, {
+      status: 503,
+      headers: MAINTENANCE_HEADERS,
+      request: { headers: requestHeaders },
+    });
+  }
+
   const protectedRoute = isProtectedStorefrontPath(pathname);
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
   const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
