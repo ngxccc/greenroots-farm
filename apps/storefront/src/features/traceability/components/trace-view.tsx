@@ -164,7 +164,7 @@ export function TraceView({ record, batchCode }: TraceViewProps) {
               key={entry.id}
               className="relative space-y-1 border-l-2 border-green-200 pl-5"
             >
-              <span className="absolute top-1 -left-[7px] h-3 w-3 rounded-full border-2 border-white bg-brand-forest" />
+              <span className="absolute top-1 -left-1.75 h-3 w-3 rounded-full border-2 border-white bg-brand-forest" />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-extrabold text-brand-dark">
                   {FARMING_ACTION_LABELS[entry.actionType]}

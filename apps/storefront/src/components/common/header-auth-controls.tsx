@@ -69,7 +69,7 @@ export function HeaderAuthView({
         className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/30 bg-brand-dark/35 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-dark/50 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
       >
         <User className="size-4 shrink-0" aria-hidden="true" />
-        <span className="max-w-[110px] truncate sm:max-w-[140px]">
+        <span className="max-w-27.5 truncate sm:max-w-35">
           {activeUser.fullName}
         </span>
         <ChevronDown className="size-3.5 shrink-0 opacity-80" />
