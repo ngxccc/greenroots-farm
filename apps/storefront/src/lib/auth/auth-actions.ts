@@ -8,19 +8,31 @@ import type { ApiProblemDetails } from "@/types/api";
 import type { components } from "@/types/api-schema";
 import type { StorefrontSessionUser } from "@/types/auth.types";
 import {
+  type ForgotPasswordFormInput,
   type LoginFormInput,
   type RegisterFormValues,
+  type ResetPasswordFormInput,
+  type VerifyEmailInput,
+  forgotPasswordFormSchema,
   loginFormSchema,
   registerFormSchema,
   resendVerificationFormSchema,
+  resetPasswordFormSchema,
+  verifyEmailSchema,
 } from "./auth-validation";
 import type { SessionTokenPair } from "./cookies";
-import { setServerSessionCookies } from "./session.server";
+import {
+  clearServerSessionCookies,
+  setServerSessionCookies,
+} from "./session.server";
 
+type ForgotPasswordDto = components["schemas"]["ForgotPasswordDto"];
 type LoginDto = components["schemas"]["LoginDto"];
 type LoginResponseDto = components["schemas"]["LoginResponseDto"];
 type RegisterDto = components["schemas"]["RegisterDto"];
 type ResendVerificationDto = components["schemas"]["ResendVerificationDto"];
+type ResetPasswordDto = components["schemas"]["ResetPasswordDto"];
+type VerifyEmailDto = components["schemas"]["VerifyEmailDto"];
 
 /**
  * Discriminated result returned by `loginAction`.
@@ -42,11 +54,31 @@ export type RegisterActionResult =
   | { readonly ok: false; readonly code: string; readonly message: string };
 
 /**
- * Discriminated result returned by `resendVerificationAction`.
+ * Shared discriminated result returned by void auth feedback actions.
  */
-export type ResendVerificationActionResult =
+export type AuthFeedbackActionResult =
   | { readonly ok: true; readonly message: string }
   | { readonly ok: false; readonly code: string; readonly message: string };
+
+/**
+ * Discriminated result returned by `resendVerificationAction`.
+ */
+export type ResendVerificationActionResult = AuthFeedbackActionResult;
+
+/**
+ * Discriminated result returned by `verifyEmailAction`.
+ */
+export type VerifyEmailActionResult = AuthFeedbackActionResult;
+
+/**
+ * Discriminated result returned by `forgotPasswordAction`.
+ */
+export type ForgotPasswordActionResult = AuthFeedbackActionResult;
+
+/**
+ * Discriminated result returned by `resetPasswordAction`.
+ */
+export type ResetPasswordActionResult = AuthFeedbackActionResult;
 
 /**
  * Optional dependency overrides for isolated unit testing of `executeLoginAction`.
@@ -81,6 +113,37 @@ export interface ResendVerificationActionDeps {
     data?: unknown;
     error?: unknown;
   }>;
+}
+
+/**
+ * Optional dependency overrides for isolated unit testing of `executeVerifyEmailAction`.
+ */
+export interface VerifyEmailActionDeps {
+  readonly postVerify?: (body: VerifyEmailDto) => Promise<{
+    data?: unknown;
+    error?: unknown;
+  }>;
+}
+
+/**
+ * Optional dependency overrides for isolated unit testing of `executeForgotPasswordAction`.
+ */
+export interface ForgotPasswordActionDeps {
+  readonly postForgotPassword?: (body: ForgotPasswordDto) => Promise<{
+    data?: unknown;
+    error?: unknown;
+  }>;
+}
+
+/**
+ * Optional dependency overrides for isolated unit testing of `executeResetPasswordAction`.
+ */
+export interface ResetPasswordActionDeps {
+  readonly postResetPassword?: (body: ResetPasswordDto) => Promise<{
+    data?: unknown;
+    error?: unknown;
+  }>;
+  readonly clearCookies?: () => Promise<void>;
 }
 
 function buildSyntheticProblem(
@@ -295,48 +358,165 @@ export async function executeRegisterAction(
   }
 }
 
+async function executeValidatedVoidAuthPost<TPayload>(params: {
+  readonly input: unknown;
+  readonly schema: z.ZodType<TPayload>;
+  readonly validationCode: ApiErrorCode;
+  readonly fallbackErrorCode: ApiErrorCode;
+  readonly instance: string;
+  readonly successMessage: string;
+  readonly post: (body: TPayload) => Promise<{
+    data?: unknown;
+    error?: unknown;
+  }>;
+  readonly onSuccess?: () => Promise<void>;
+}): Promise<AuthFeedbackActionResult> {
+  const parsed = params.schema.safeParse(params.input);
+  if (!parsed.success) {
+    return buildValidationFailure(
+      parsed.error,
+      params.validationCode,
+      params.instance,
+    );
+  }
+
+  try {
+    const response = await params.post(parsed.data);
+    if (response.error) {
+      return buildActionFailure(
+        response.error,
+        params.fallbackErrorCode,
+        params.instance,
+      );
+    }
+
+    if (params.onSuccess) {
+      await params.onSuccess();
+    }
+
+    return {
+      ok: true,
+      message: params.successMessage,
+    };
+  } catch {
+    return buildNetworkFailure();
+  }
+}
+
 /**
  * Triggers a fresh activation email via `POST /api/v1/auth/resend-verification`.
+ * Returns neutral anti-enumeration copy matching backend silence for verified or missing accounts.
  *
  * @param input Target account email address.
  * @param deps Optional injectable adapters for isolated unit testing.
- * @returns Success feedback or localized rate-limit/network error.
+ * @returns Neutral confirmation feedback or localized validation/rate-limit error.
  */
 export async function executeResendVerificationAction(
   input: { readonly email: string },
   deps?: ResendVerificationActionDeps,
 ): Promise<ResendVerificationActionResult> {
-  const parsed = resendVerificationFormSchema.safeParse(input);
-  if (!parsed.success) {
-    return buildValidationFailure(
-      parsed.error,
-      API_ERROR_CODES.INVALID_EMAIL,
-      "/resend-verification",
-    );
-  }
-
   const postResend =
     deps?.postResend ??
     ((body: ResendVerificationDto) =>
       api.POST("/api/v1/auth/resend-verification", { body }));
 
-  try {
-    const response = await postResend(parsed.data);
-    if (response.error) {
-      return buildActionFailure(
-        response.error,
-        API_ERROR_CODES.BAD_REQUEST,
-        "/resend-verification",
-      );
-    }
+  return executeValidatedVoidAuthPost({
+    input,
+    schema: resendVerificationFormSchema,
+    validationCode: API_ERROR_CODES.INVALID_EMAIL,
+    fallbackErrorCode: API_ERROR_CODES.BAD_REQUEST,
+    instance: "/resend-verification",
+    successMessage:
+      "Nếu email đã đăng ký và chưa được xác thực, hệ thống đã gửi liên kết kích hoạt mới. Vui lòng kiểm tra hộp thư hoặc thư mục Spam.",
+    post: postResend,
+  });
+}
 
-    return {
-      ok: true,
-      message: `Đã gửi lại liên kết xác thực tới ${parsed.data.email}. Vui lòng kiểm tra hộp thư.`,
-    };
-  } catch {
-    return buildNetworkFailure();
-  }
+/**
+ * Verifies a customer email activation token via `POST /api/v1/auth/verify-email`.
+ *
+ * @param input Verification token payload extracted from `/verify-email?token=...`.
+ * @param deps Optional injectable adapters for isolated unit testing.
+ * @returns Confirmation message or localized token/network error.
+ */
+export async function executeVerifyEmailAction(
+  input: VerifyEmailInput,
+  deps?: VerifyEmailActionDeps,
+): Promise<VerifyEmailActionResult> {
+  const postVerify =
+    deps?.postVerify ??
+    ((body: VerifyEmailDto) => api.POST("/api/v1/auth/verify-email", { body }));
+
+  return executeValidatedVoidAuthPost({
+    input,
+    schema: verifyEmailSchema,
+    validationCode: API_ERROR_CODES.AUTH_VERIFICATION_TOKEN_INVALID,
+    fallbackErrorCode: API_ERROR_CODES.AUTH_VERIFICATION_TOKEN_INVALID,
+    instance: "/verify-email",
+    successMessage:
+      "Xác thực email thành công. Bạn đã có thể đăng nhập vào tài khoản GreenRoots Farm.",
+    post: postVerify,
+  });
+}
+
+/**
+ * Requests a 15-minute password recovery email via `POST /api/v1/auth/forgot-password`
+ * with fixed anti-enumeration confirmation wording.
+ *
+ * @param input Email payload submitted from `/forgot-password`.
+ * @param deps Optional injectable adapters for isolated unit testing.
+ * @returns Neutral anti-enumeration message or localized validation/rate-limit error.
+ */
+export async function executeForgotPasswordAction(
+  input: ForgotPasswordFormInput,
+  deps?: ForgotPasswordActionDeps,
+): Promise<ForgotPasswordActionResult> {
+  const postForgotPassword =
+    deps?.postForgotPassword ??
+    ((body: ForgotPasswordDto) =>
+      api.POST("/api/v1/auth/forgot-password", { body }));
+
+  return executeValidatedVoidAuthPost({
+    input,
+    schema: forgotPasswordFormSchema,
+    validationCode: API_ERROR_CODES.INVALID_EMAIL,
+    fallbackErrorCode: API_ERROR_CODES.BAD_REQUEST,
+    instance: "/forgot-password",
+    successMessage:
+      "Liên kiết đặt lại mật khẩu sẽ được gửi vào địa chỉ email nếu tồn tại trên hệ thống. Liên kết có hiệu lực trong 15 phút — vui lòng kiểm tra hộp thư đến hoặc Spam.",
+    post: postForgotPassword,
+  });
+}
+
+/**
+ * Submits a password reset via `POST /api/v1/auth/reset-password` and clears local Storefront
+ * `httpOnly` session cookies immediately upon success to match backend global revocation.
+ *
+ * @param input Token, password, and password confirmation submitted from `/reset-password`.
+ * @param deps Optional injectable adapters for isolated unit testing.
+ * @returns Success message noting global session revocation or localized error.
+ */
+export async function executeResetPasswordAction(
+  input: ResetPasswordFormInput,
+  deps?: ResetPasswordActionDeps,
+): Promise<ResetPasswordActionResult> {
+  const postResetPassword =
+    deps?.postResetPassword ??
+    ((body: ResetPasswordDto) =>
+      api.POST("/api/v1/auth/reset-password", { body }));
+  const clearCookies = deps?.clearCookies ?? clearServerSessionCookies;
+
+  return executeValidatedVoidAuthPost({
+    input,
+    schema: resetPasswordFormSchema,
+    validationCode: API_ERROR_CODES.VALIDATION_FAILED,
+    fallbackErrorCode: API_ERROR_CODES.AUTH_RESET_TOKEN_INVALID,
+    instance: "/reset-password",
+    successMessage:
+      "Mật khẩu đã được cập nhật thành công. Toàn bộ phiên đăng nhập trước đó trên mọi thiết bị đã được đăng xuất.",
+    post: postResetPassword,
+    onSuccess: clearCookies,
+  });
 }
 
 /**
@@ -358,10 +538,37 @@ export async function registerAction(
 }
 
 /**
- * Next.js Server Action handling verification email resends from `/login` and `/register`.
+ * Next.js Server Action handling verification email resends from `/login`, `/register`, and `/verify-email`.
  */
 export async function resendVerificationAction(input: {
   readonly email: string;
 }): Promise<ResendVerificationActionResult> {
   return executeResendVerificationAction(input);
+}
+
+/**
+ * Next.js Server Action verifying an email activation token from `/verify-email`.
+ */
+export async function verifyEmailAction(
+  input: VerifyEmailInput,
+): Promise<VerifyEmailActionResult> {
+  return executeVerifyEmailAction(input);
+}
+
+/**
+ * Next.js Server Action requesting a password reset email from `/forgot-password`.
+ */
+export async function forgotPasswordAction(
+  input: ForgotPasswordFormInput,
+): Promise<ForgotPasswordActionResult> {
+  return executeForgotPasswordAction(input);
+}
+
+/**
+ * Next.js Server Action updating customer password from `/reset-password` and clearing local cookies.
+ */
+export async function resetPasswordAction(
+  input: ResetPasswordFormInput,
+): Promise<ResetPasswordActionResult> {
+  return executeResetPasswordAction(input);
 }

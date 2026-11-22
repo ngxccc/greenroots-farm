@@ -6,9 +6,17 @@ import { z } from "zod";
 export const VN_PHONE_REGEX = /^(0[35789])\d{8}$/;
 
 /**
- * Cooldown duration in seconds enforced between verification email resend attempts.
+ * Maximum token length matching `apps/api` verification and reset token DTOs.
+ */
+export const RECOVERY_TOKEN_MAX_LENGTH = 64;
+
+/**
+ * Cooldown duration in seconds enforced between verification email resend attempts
+ * and repeated password-reset requests.
  */
 export const RESEND_VERIFICATION_COOLDOWN_SECONDS = 60;
+export const FORGOT_PASSWORD_COOLDOWN_SECONDS =
+  RESEND_VERIFICATION_COOLDOWN_SECONDS;
 
 /**
  * Minimum and maximum password length matching `apps/api` `zPassword()`.
@@ -85,15 +93,59 @@ export function decrementCooldownSeconds(remainingSeconds: number): number {
 }
 
 /**
+ * Formats a localized countdown label shared across cooldown-protected auth buttons.
+ *
+ * @param remainingSeconds Remaining cooldown seconds (`0` when ready).
+ * @param idleLabel Label rendered when no cooldown is active.
+ * @returns Localized active countdown or idle button label.
+ */
+export function formatActionCooldownLabel(
+  remainingSeconds: number,
+  idleLabel: string,
+): string {
+  return remainingSeconds > 0
+    ? `Gửi lại sau ${Math.ceil(remainingSeconds)}s`
+    : idleLabel;
+}
+
+/**
  * Formats the Vietnamese resend verification button label for active or idle cooldown states.
  *
  * @param remainingSeconds Remaining cooldown seconds (`0` when ready).
  * @returns Localized button label.
  */
 export function formatResendCooldownLabel(remainingSeconds: number): string {
-  return remainingSeconds > 0
-    ? `Gửi lại sau ${Math.ceil(remainingSeconds)}s`
-    : "Gửi lại email xác thực";
+  return formatActionCooldownLabel(remainingSeconds, "Gửi lại email xác thực");
+}
+
+/**
+ * Formats the Vietnamese forgot-password submit button label for active or idle cooldown states.
+ *
+ * @param remainingSeconds Remaining cooldown seconds (`0` when ready).
+ * @returns Localized button label.
+ */
+export function formatForgotPasswordCooldownLabel(
+  remainingSeconds: number,
+): string {
+  return formatActionCooldownLabel(
+    remainingSeconds,
+    "Gửi lại liên kết khôi phục",
+  );
+}
+
+/**
+ * Extracts the first string value from a Next.js query parameter (`string | string[] | undefined`).
+ *
+ * @param value Raw query parameter value from Next.js `searchParams`.
+ * @returns First string entry when present, or `undefined`.
+ */
+export function extractFirstQueryValue(
+  value: string | string[] | undefined,
+): string | undefined {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
 }
 
 const emailFieldSchema = z
@@ -101,6 +153,72 @@ const emailFieldSchema = z
   .trim()
   .toLowerCase()
   .pipe(z.email({ message: "Địa chỉ email không đúng định dạng." }));
+
+const recoveryTokenFieldSchema = z
+  .string()
+  .trim()
+  .min(1, { message: "Liên kết xác thực không hợp lệ hoặc bị thiếu." })
+  .max(RECOVERY_TOKEN_MAX_LENGTH, {
+    message: "Mã xác thực không hợp lệ hoặc đã hết hạn.",
+  });
+
+const owaspPasswordSchema = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, {
+    message: `Mật khẩu phải có ít nhất ${PASSWORD_MIN_LENGTH} ký tự.`,
+  })
+  .max(PASSWORD_MAX_LENGTH, {
+    message: `Mật khẩu không được vượt quá ${PASSWORD_MAX_LENGTH} ký tự.`,
+  })
+  .regex(/[A-Z]/, {
+    message: "Mật khẩu phải có ít nhất 1 chữ cái viết hoa.",
+  })
+  .regex(/[0-9]/, {
+    message: "Mật khẩu phải có ít nhất 1 chữ số.",
+  })
+  .regex(/[^a-zA-Z0-9]/, {
+    message: "Mật khẩu phải có ít nhất 1 ký tự đặc biệt.",
+  });
+
+const confirmPasswordFieldSchema = z.string().min(PASSWORD_MIN_LENGTH, {
+  message: `Mật khẩu xác nhận phải có ít nhất ${PASSWORD_MIN_LENGTH} ký tự.`,
+});
+
+/**
+ * Parses a candidate `?token=` query parameter for email verification and password reset pages.
+ *
+ * @param raw Raw `token` query parameter from Next.js `searchParams`.
+ * @returns Trimmed token string when length is within `1..64`, otherwise `null`.
+ */
+export function parseRecoveryTokenParam(
+  raw: string | string[] | undefined,
+): string | null {
+  const candidate = extractFirstQueryValue(raw);
+  if (!candidate) {
+    return null;
+  }
+
+  const parsed = recoveryTokenFieldSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
+/**
+ * Extracts and normalizes an optional `?email=` query parameter for resend prefill convenience.
+ *
+ * @param raw Raw `email` query parameter from Next.js `searchParams`.
+ * @returns Normalized email string when syntactically valid, otherwise empty string.
+ */
+export function parsePrefillEmailParam(
+  raw: string | string[] | undefined,
+): string {
+  const candidate = extractFirstQueryValue(raw);
+  if (!candidate) {
+    return "";
+  }
+
+  const parsed = emailFieldSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : "";
+}
 
 /**
  * Client and Server Action validation schema matching `apps/api` `loginSchema.strict()`.
@@ -145,26 +263,8 @@ export const registerFormSchema = z
         "Số điện thoại không hợp lệ (yêu cầu 10 chữ số bắt đầu bằng 03, 05, 07, 08 hoặc 09).",
       ),
     email: emailFieldSchema,
-    password: z
-      .string()
-      .min(PASSWORD_MIN_LENGTH, {
-        message: `Mật khẩu phải có ít nhất ${PASSWORD_MIN_LENGTH} ký tự.`,
-      })
-      .max(PASSWORD_MAX_LENGTH, {
-        message: `Mật khẩu không được vượt quá ${PASSWORD_MAX_LENGTH} ký tự.`,
-      })
-      .regex(/[A-Z]/, {
-        message: "Mật khẩu phải có ít nhất 1 chữ cái viết hoa.",
-      })
-      .regex(/[0-9]/, {
-        message: "Mật khẩu phải có ít nhất 1 chữ số.",
-      })
-      .regex(/[^a-zA-Z0-9]/, {
-        message: "Mật khẩu phải có ít nhất 1 ký tự đặc biệt.",
-      }),
-    confirmPassword: z.string().min(PASSWORD_MIN_LENGTH, {
-      message: `Mật khẩu xác nhận phải có ít nhất ${PASSWORD_MIN_LENGTH} ký tự.`,
-    }),
+    password: owaspPasswordSchema,
+    confirmPassword: confirmPasswordFieldSchema,
     agreeTerms: z.literal(true, {
       message: "Vui lòng đồng ý với Điều khoản sử dụng và Chính sách bảo mật.",
     }),
@@ -195,3 +295,51 @@ export const resendVerificationFormSchema = z
     email: emailFieldSchema,
   })
   .strict();
+
+/**
+ * Schema validating email verification token submissions matching `verifyEmailSchema.strict()`.
+ */
+export const verifyEmailSchema = z
+  .object({
+    token: recoveryTokenFieldSchema,
+  })
+  .strict();
+
+/**
+ * Validated email verification token payload.
+ */
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+
+/**
+ * Schema validating forgot-password requests matching `forgotPasswordSchema.strict()`.
+ */
+export const forgotPasswordFormSchema = z
+  .object({
+    email: emailFieldSchema,
+  })
+  .strict();
+
+/**
+ * Validated forgot-password form payload.
+ */
+export type ForgotPasswordFormInput = z.infer<typeof forgotPasswordFormSchema>;
+
+/**
+ * Schema validating password reset submissions matching `resetPasswordSchema.strict()`.
+ */
+export const resetPasswordFormSchema = z
+  .object({
+    token: recoveryTokenFieldSchema,
+    password: owaspPasswordSchema,
+    confirmPassword: confirmPasswordFieldSchema,
+  })
+  .strict()
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Mật khẩu xác nhận không khớp.",
+    path: ["confirmPassword"],
+  });
+
+/**
+ * Validated password reset submission payload.
+ */
+export type ResetPasswordFormInput = z.infer<typeof resetPasswordFormSchema>;

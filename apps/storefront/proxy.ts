@@ -13,7 +13,13 @@ import {
 } from "@/lib/auth/cookies";
 import { refreshSingleFlight } from "@/lib/auth/single-flight-refresh";
 
-const SKIP_REFRESH_PATHS = ["/login", "/register"] as const;
+const SKIP_REFRESH_PATHS = [
+  "/login",
+  "/register",
+  "/verify-email",
+  "/forgot-password",
+  "/reset-password",
+] as const;
 export const AUTH_DEGRADED_HEADER = "x-gr-auth-degraded";
 const MAINTENANCE_HEADERS = {
   "Retry-After": "900",
