@@ -22,114 +22,111 @@ export function ProductCard({ product }: ProductCardProps) {
   const effectivePrice = product.salePriceVnd ?? product.basePriceVnd;
 
   return (
-    <Card
-      className={`gap-0 overflow-hidden border bg-white py-0 shadow-sm transition hover:shadow-md ${
-        product.isRescueDeal
-          ? "border-red-100 hover:border-red-200"
-          : "border-border-subtle"
-      }`}
-    >
-      <Link
-        href={`/products/${product.slug}`}
-        className="relative flex h-36 items-center justify-center bg-green-50/60 p-3"
-      >
-        <Leaf className="size-12 text-brand-forest/70" />
-        {product.isRescueDeal && product.hoursRemaining ? (
-          <Badge className="absolute top-2 left-2 border-0 bg-red-600 text-[11px] font-bold text-white">
-            HSD còn {product.hoursRemaining}h
-          </Badge>
-        ) : null}
-      </Link>
-
-      <CardContent className="flex flex-1 flex-col justify-between gap-2.5 p-3">
-        <div>
+    <Card className="h-full gap-0 rounded-xl border-border-subtle bg-white py-0 shadow-none transition-colors hover:border-brand-forest">
+      <CardContent className="flex h-full flex-col justify-between gap-4 p-4">
+        <div className="flex flex-col gap-2">
           <Link
             href={`/products/${product.slug}`}
-            className="line-clamp-1 text-sm font-bold text-gray-900 hover:text-brand-forest"
+            className="relative flex h-36 items-center justify-center overflow-hidden rounded-lg bg-green-50"
           >
-            {product.name}
+            <Leaf className="size-12 text-brand-forest/70" aria-hidden="true" />
+            {product.isRescueDeal && product.hoursRemaining ? (
+              <Badge className="absolute top-2 left-2 rounded-full border-0 bg-status-spoiled px-2.5 py-0.5 text-[11px] font-semibold text-white tabular-nums">
+                HSD còn {product.hoursRemaining}h
+              </Badge>
+            ) : null}
           </Link>
-          <p className="mt-0.5 text-xs text-gray-500">
-            {product.isRescueDeal
-              ? product.unitLabel
-              : `${product.unitLabel} · Còn ${product.availableQuantity} ${product.unit}`}
-          </p>
-        </div>
 
-        <div className="space-y-2">
-          <div className="flex items-baseline gap-1.5">
+          <div className="flex flex-col gap-0.5">
+            <Link
+              href={`/products/${product.slug}`}
+              className="line-clamp-1 text-[15px] font-semibold text-gray-900 hover:text-brand-forest"
+            >
+              {product.name}
+            </Link>
+            <p className="text-xs text-gray-500 tabular-nums">
+              {product.isRescueDeal
+                ? product.unitLabel
+                : `${product.unitLabel}, ${product.badgeText}`}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span
-              className={`text-base font-extrabold ${
-                product.isRescueDeal ? "text-red-600" : "text-brand-forest"
+              className={`text-lg font-bold tabular-nums ${
+                product.isRescueDeal ? "text-status-spoiled" : "text-brand-dark"
               }`}
             >
               {formatVnd(effectivePrice)}
             </span>
             {product.salePriceVnd ? (
-              <span className="text-xs text-gray-400 line-through">
+              <span className="text-xs text-gray-500 tabular-nums line-through">
                 {formatVnd(product.basePriceVnd)}
               </span>
             ) : null}
           </div>
+
           {product.isRescueDeal &&
           product.rescueBatchProgressPct !== undefined ? (
-            <div className="space-y-1">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-red-100">
+            <div className="flex flex-col gap-1.5">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-red-50">
                 <div
-                  className="h-1.5 rounded-full bg-red-500"
+                  className="h-full rounded-full bg-status-spoiled"
                   style={{
                     width: `${Math.min(100, Math.max(0, product.rescueBatchProgressPct))}%`,
                   }}
                 />
               </div>
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="font-bold text-red-600">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[11px] font-semibold text-status-spoiled tabular-nums">
                   Đã xuất {product.rescueBatchProgressPct}%
                 </span>
-                <span className="text-gray-500">
+                <span className="text-xs text-gray-500 tabular-nums">
                   Còn {product.availableQuantity} {product.unit}
                 </span>
               </div>
             </div>
           ) : null}
+        </div>
 
+        <footer>
           {currentQty === 0 ? (
             <Button
               type="button"
               onClick={() => addItem(product, 1)}
-              className="h-10 w-full rounded-xl bg-brand-forest text-xs font-bold text-white hover:bg-brand-dark"
+              className="h-10 w-full rounded-lg bg-brand-forest text-sm font-semibold text-white hover:bg-brand-dark"
             >
               MUA NGAY
             </Button>
           ) : (
-            <div className="flex h-10 items-center justify-between rounded-xl border border-brand-forest bg-green-50/70 px-1.5">
+            <div className="flex h-10 items-center justify-between rounded-lg border border-brand-forest bg-green-50">
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-xs"
-                aria-label={`Giảm ${product.name}`}
+                size="icon"
+                aria-label={`Giảm số lượng ${product.name}`}
                 onClick={() => decrementItem(product.id)}
-                className="text-brand-dark hover:bg-green-100"
+                className="h-10 w-10 rounded-l-lg text-brand-dark hover:bg-green-100"
               >
-                <Minus className="size-4" />
+                <Minus className="size-4" aria-hidden="true" />
               </Button>
-              <span className="text-sm font-extrabold text-brand-dark">
+              <span className="text-[15px] font-semibold text-brand-dark tabular-nums">
                 {currentQty}
               </span>
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-xs"
-                aria-label={`Tăng ${product.name}`}
+                size="icon"
+                aria-label={`Tăng số lượng ${product.name}`}
                 disabled={currentQty >= product.availableQuantity}
                 onClick={() => incrementItem(product.id)}
-                className="text-brand-dark hover:bg-green-100"
+                className="h-10 w-10 rounded-r-lg text-brand-dark hover:bg-green-100"
               >
-                <Plus className="size-4" />
+                <Plus className="size-4" aria-hidden="true" />
               </Button>
             </div>
           )}
-        </div>
+        </footer>
       </CardContent>
     </Card>
   );

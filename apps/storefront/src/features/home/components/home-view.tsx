@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type SubmitEvent } from "react";
+import { useState, type ComponentType, type SubmitEvent } from "react";
 import {
   Badge,
   Button,
@@ -17,6 +17,7 @@ import {
   buttonVariants,
 } from "@greenroots/ui";
 import {
+  ArrowRight,
   Calendar,
   Clock,
   Flame,
@@ -50,6 +51,50 @@ const SHELF_ICONS = {
   calendar: Calendar,
 } as const;
 
+interface ShelfSectionProps {
+  readonly id: string;
+  readonly title: string;
+  readonly icon: ComponentType<{ readonly className?: string }>;
+  readonly actionHref?: string;
+  readonly actionLabel?: string;
+  readonly products: readonly StorefrontProduct[];
+}
+
+function ShelfSection({
+  id,
+  title,
+  icon: Icon,
+  actionHref,
+  actionLabel,
+  products,
+}: ShelfSectionProps) {
+  return (
+    <section id={id} className="flex scroll-mt-24 flex-col gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Icon className="size-5 text-brand-forest" aria-hidden="true" />
+          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+        </div>
+
+        {actionHref && actionLabel ? (
+          <Link
+            href={actionHref}
+            className="text-sm font-semibold text-brand-forest hover:underline focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
+          >
+            {actionLabel}
+          </Link>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 lg:grid-cols-4">
+        {products.map((product) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
   const router = useRouter();
   const [batchCode, setBatchCode] = useState("BATCH-2026-TOM-01");
@@ -74,205 +119,232 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
   }
 
   return (
-    <div className="mx-auto max-w-screen-xl space-y-8 px-3 pt-[148px] pb-12 lg:px-4 lg:pt-[118px]">
-      <section className="rounded-2xl border border-border-subtle bg-white p-4 shadow-sm">
-        <div className="flex justify-between gap-4 overflow-x-auto lg:grid lg:grid-cols-5">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 lg:px-6">
+      <nav
+        aria-label="Danh mục sản phẩm"
+        className="rounded-2xl border border-border-subtle bg-white p-4 shadow-sm"
+      >
+        <div className="grid grid-cols-2 items-stretch gap-4 sm:grid-cols-5">
           {HOME_SHELF_NAV.map((item) => {
             const Icon = SHELF_ICONS[item.iconName];
             const isRescue = item.key === "rescue";
+            const isLast = item.key === "plans";
             return (
               <a
                 key={item.key}
                 href={`#${item.targetId}`}
-                className="flex min-w-[78px] flex-col items-center gap-2 rounded-xl p-2 text-center transition hover:bg-green-50/70"
+                className={`flex flex-col items-center justify-center gap-2 rounded-xl p-2 text-center transition-colors hover:bg-gray-100 ${
+                  isLast ? "col-span-2 sm:col-span-1" : ""
+                }`}
               >
                 <span
-                  className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                  className={`flex size-11 items-center justify-center rounded-full ${
                     isRescue
-                      ? "border border-red-200 bg-red-50 text-red-600"
-                      : "border border-green-200 bg-green-50 text-brand-forest"
+                      ? "bg-red-50 text-status-spoiled"
+                      : "bg-green-50 text-brand-forest"
                   }`}
                 >
-                  <Icon className="size-5" />
+                  <Icon className="size-5" aria-hidden="true" />
                 </span>
-                <span className="text-xs font-bold whitespace-nowrap text-gray-800">
+                <span className="text-sm font-semibold text-gray-900">
                   {item.label}
                 </span>
               </a>
             );
           })}
         </div>
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-10">
-        <div className="relative flex min-h-[210px] flex-col justify-center gap-3 overflow-hidden rounded-2xl bg-brand-forest p-6 text-white md:col-span-7">
-          <Leaf className="absolute -right-6 -bottom-8 h-52 w-52 text-white/10" />
-          <div className="flex items-center gap-2 self-start">
-            <span className="rounded-full bg-brand-dark px-3 py-1 text-xs font-semibold">
-              GreenRoots Củ Chi
-            </span>
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                apiReachable
-                  ? "bg-white/15 text-green-100"
-                  : "bg-red-600/80 text-white"
-              }`}
-            >
-              {apiReachable ? "API Trực tuyến" : "Chế độ Demo"}
-            </span>
-          </div>
-          <h1 className="text-2xl leading-tight font-extrabold lg:text-3xl">
-            Rau hữu cơ cắt lúc {FARM_METADATA.harvestTimeLabel}
-            <br />
-            <span className="text-lg font-semibold text-green-200 lg:text-xl">
-              Minh bạch nhật ký bất biến qua QR
-            </span>
-          </h1>
-          <Button
-            type="button"
-            onClick={() => setCertDialogOpen(true)}
-            className="h-11 self-start rounded-full bg-white px-5 text-sm font-bold text-brand-dark hover:bg-green-50"
-          >
-            <ShieldCheck className="size-5" />
-            Xem chứng chỉ VietGAP
-          </Button>
-        </div>
-
-        <form
-          onSubmit={handleTraceSubmit}
-          className="flex flex-col justify-center gap-3 rounded-2xl border-2 border-brand-forest bg-white p-4 md:col-span-3"
-        >
-          <p className="flex items-center gap-2 text-sm font-bold text-brand-dark">
-            <QrCode className="size-5" />
-            Kiểm tra nguồn gốc nhanh
-          </p>
-          <Input
-            value={batchCode}
-            onChange={(event) => setBatchCode(event.target.value)}
-            placeholder="BATCH-2026-TOM-01"
-            aria-label="Mã lô thu hoạch"
-            className="h-11 text-xs"
-          />
-          <Button
-            type="submit"
-            className="h-11 rounded-lg bg-brand-forest text-sm font-bold text-white hover:bg-brand-dark"
-          >
-            Tra cứu QR
-          </Button>
-        </form>
-      </section>
+      </nav>
 
       <section
-        id="rescue"
-        className="scroll-mt-32 rounded-2xl border border-border-subtle bg-white p-4 shadow-sm lg:p-5"
+        aria-label="Giới thiệu nông trại và kiểm tra nguồn gốc"
+        className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-12"
       >
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-3">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500 font-bold text-white shadow-sm">
-              <Flame className="size-5" />
-            </span>
-            <div>
-              <h2 className="text-base font-extrabold tracking-tight text-gray-900 lg:text-lg">
-                DEAL TƯƠI TRONG NGÀY
-              </h2>
-              <p className="hidden text-xs text-gray-500 sm:block">
-                {FARM_METADATA.rescueNote}
+        <div className="relative flex flex-col justify-between gap-6 overflow-hidden rounded-2xl bg-brand-forest p-6 text-white md:p-8 lg:col-span-8">
+          <Leaf
+            className="pointer-events-none absolute -right-6 -bottom-8 size-52 text-white/10 select-none"
+            aria-hidden="true"
+          />
+
+          <div className="relative z-10 flex flex-col gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-brand-dark px-3 py-1 text-xs font-semibold text-white">
+                GreenRoots Củ Chi
+              </span>
+              <span className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-brand-dark">
+                Từ Nông Trại Hữu Cơ Đến Bàn Ăn
+              </span>
+              {!apiReachable ? (
+                <span className="inline-flex items-center rounded-full bg-red-600/90 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                  Chế độ Demo
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex max-w-xl flex-col gap-1">
+              <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-balance md:text-4xl">
+                Rau hữu cơ cắt lúc {FARM_METADATA.harvestTimeLabel}
+              </h1>
+              <p className="text-lg font-bold text-pretty text-green-50">
+                Minh bạch nhật ký bất biến qua QR
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700">
-            <Clock className="size-4 text-red-500" />
-            <span>
-              Flash Sale FEFO &lt; {FARM_METADATA.flashSaleHoursThreshold}h
-            </span>
-            <span className="rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white">
-              -{FARM_METADATA.flashSaleDiscountPercent}%
-            </span>
+          <div className="relative z-10">
+            <Button
+              type="button"
+              onClick={() => setCertDialogOpen(true)}
+              className="h-auto rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-brand-dark shadow-none hover:bg-green-50"
+            >
+              <ShieldCheck className="size-5" aria-hidden="true" />
+              Xem chứng chỉ VietGAP
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
-          {rescueDeals.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        <Card className="gap-0 rounded-2xl border-brand-forest bg-white py-0 shadow-sm lg:col-span-4">
+          <CardContent className="flex h-full flex-col gap-4 p-6">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 text-brand-dark">
+                <QrCode className="size-5 shrink-0" aria-hidden="true" />
+                <h2 className="text-[15px] font-semibold">
+                  Kiểm tra nguồn gốc nhanh
+                </h2>
+              </div>
+              <p className="text-[13px] text-gray-500">
+                Nhập mã lô in trên tem bao bì để xem nhật ký thu hoạch.
+              </p>
+            </div>
+
+            <form onSubmit={handleTraceSubmit} className="flex flex-col gap-2">
+              <label className="sr-only" htmlFor="home-qr-input">
+                Mã lô thu hoạch
+              </label>
+              <Input
+                id="home-qr-input"
+                value={batchCode}
+                onChange={(event) => setBatchCode(event.target.value)}
+                placeholder="Nhập mã lô thu hoạch..."
+                className="h-10 rounded-lg border-border-subtle bg-gray-100 px-4 font-mono text-[13px] text-gray-900 focus-visible:border-brand-forest"
+              />
+              <Button
+                type="submit"
+                className="h-10 w-full rounded-lg bg-brand-forest text-sm font-semibold text-white hover:bg-brand-dark"
+              >
+                Tra cứu QR
+              </Button>
+            </form>
+
+            <div className="mt-auto flex items-center justify-between gap-2 border-t border-border-subtle pt-3">
+              <span className="text-[11px] font-semibold text-gray-500">
+                Lô mẫu hôm nay
+              </span>
+              <Link
+                href="/trace/BATCH-2026-TOM-01"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-brand-forest hover:underline focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
+              >
+                <span>Xem nhật ký</span>
+                <ArrowRight className="size-3.5" aria-hidden="true" />
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </section>
 
-      <section id="shelf-leaf" className="scroll-mt-32">
-        <div className="mb-3 flex items-center justify-between border-b border-border-subtle pb-2">
-          <h2 className="flex items-center gap-2 text-base font-extrabold text-brand-dark lg:text-lg">
-            <Leaf className="size-5 text-brand-forest" />
-            RAU ĂN LÁ HỮU CƠ
-          </h2>
-          <Link
-            href="/products"
-            className="text-xs font-bold text-brand-forest hover:underline"
-          >
-            Xem tất cả
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {leafProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
+      <Card
+        id="rescue"
+        className="scroll-mt-24 gap-0 rounded-2xl border-border-subtle bg-white py-0 shadow-sm"
+      >
+        <CardContent className="flex flex-col gap-6 p-6">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-4 sm:items-center">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-status-spoiled text-white">
+                <Flame className="size-5" aria-hidden="true" />
+              </span>
+              <div className="flex flex-col gap-0.5">
+                <h2 className="text-lg font-bold text-gray-900">
+                  DEAL TƯƠI TRONG NGÀY
+                </h2>
+                <p className="text-[13px] text-balance text-gray-500">
+                  {FARM_METADATA.rescueNote}
+                </p>
+              </div>
+            </div>
 
-      <section id="shelf-fruit" className="scroll-mt-32">
-        <div className="mb-3 border-b border-border-subtle pb-2">
-          <h2 className="flex items-center gap-2 text-base font-extrabold text-brand-dark lg:text-lg">
-            <Package className="size-5 text-brand-forest" />
-            CỦ &amp; QUẢ TƯƠI SẠCH
-          </h2>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {fruitProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
+            <div className="inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-red-50 px-3 py-1.5 sm:self-center">
+              <Clock className="size-4 text-red-800" aria-hidden="true" />
+              <span className="text-xs font-semibold text-red-800 tabular-nums">
+                Ưu đãi tươi nhanh {FARM_METADATA.flashSaleHoursThreshold}h
+              </span>
+              <span className="inline-flex items-center rounded-full bg-status-spoiled px-2 py-0.5 text-[11px] font-semibold text-white tabular-nums">
+                -{FARM_METADATA.flashSaleDiscountPercent}%
+              </span>
+            </div>
+          </div>
 
-      <section id="shelf-spice" className="scroll-mt-32">
-        <div className="mb-3 border-b border-border-subtle pb-2">
-          <h2 className="flex items-center gap-2 text-base font-extrabold text-brand-dark lg:text-lg">
-            <Sprout className="size-5 text-brand-forest" />
-            RAU GIA VỊ &amp; NẤM
-          </h2>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {spiceProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
+          <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 lg:grid-cols-4">
+            {rescueDeals.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      <section id="plans" className="scroll-mt-32">
-        <div className="mb-3 flex items-center justify-between border-b border-border-subtle pb-2">
-          <h2 className="flex items-center gap-2 text-base font-extrabold text-brand-dark lg:text-lg">
-            <Calendar className="size-5 text-brand-forest" />
-            GÓI RAU ĐỊNH KỲ GIA ĐÌNH
-          </h2>
+      <ShelfSection
+        id="shelf-leaf"
+        title="RAU ĂN LÁ HỮU CƠ"
+        icon={Leaf}
+        actionHref="/products"
+        actionLabel="Xem tất cả"
+        products={leafProducts}
+      />
+
+      <ShelfSection
+        id="shelf-fruit"
+        title="CỦ & QUẢ TƯƠI SẠCH"
+        icon={Package}
+        actionHref="/products"
+        actionLabel="Xem tất cả"
+        products={fruitProducts}
+      />
+
+      <ShelfSection
+        id="shelf-spice"
+        title="RAU GIA VỊ & NẤM"
+        icon={Sprout}
+        actionHref="/products"
+        actionLabel="Xem tất cả"
+        products={spiceProducts}
+      />
+
+      <section id="plans" className="flex scroll-mt-24 flex-col gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="size-5 text-brand-forest" aria-hidden="true" />
+            <h2 className="text-lg font-bold text-gray-900">
+              GÓI RAU ĐỊNH KỲ GIA ĐÌNH
+            </h2>
+          </div>
           <Link
             href="/subscriptions"
-            className="text-xs font-bold text-brand-forest hover:underline"
+            className="text-sm font-semibold text-brand-forest hover:underline"
           >
             Đăng ký lịch giao
           </Link>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           {plans.map((plan) => (
             <Card
               key={plan.id}
-              className="border-border-subtle bg-white shadow-sm"
+              className="gap-0 rounded-2xl border-border-subtle bg-white py-0 shadow-sm"
             >
-              <CardContent className="flex flex-col justify-between gap-4 p-5">
+              <CardContent className="flex h-full flex-col justify-between gap-4 p-5">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-base font-extrabold text-gray-900">
+                    <h3 className="text-base font-bold text-gray-900">
                       {plan.name}
                     </h3>
-                    <Badge className="border-0 bg-green-100 text-brand-dark">
+                    <Badge className="rounded-full border-0 bg-green-100 text-brand-dark">
                       {plan.totalDeliveries} lần giao / tháng
                     </Badge>
                   </div>
@@ -286,9 +358,9 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between border-t border-border-subtle pt-2">
+                <div className="flex items-center justify-between border-t border-border-subtle pt-3">
                   <div>
-                    <span className="text-lg font-extrabold text-brand-forest">
+                    <span className="text-lg font-bold text-brand-forest tabular-nums">
                       {formatVnd(plan.priceVnd)}
                     </span>
                     <span className="text-xs text-gray-500">
@@ -300,7 +372,7 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
                     href="/subscriptions"
                     className={buttonVariants({
                       className:
-                        "bg-brand-forest hover:bg-brand-dark text-white font-bold rounded-xl",
+                        "rounded-lg bg-brand-forest font-semibold text-white hover:bg-brand-dark",
                     })}
                   >
                     Chọn gói

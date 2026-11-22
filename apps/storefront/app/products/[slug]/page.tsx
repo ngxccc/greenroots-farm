@@ -15,7 +15,7 @@ async function CachedProductDetail({ slug }: { readonly slug: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-3 pt-[152px] pb-12 lg:px-4 lg:pt-[124px]">
+    <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 lg:px-6">
       <Link
         href="/products"
         className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-forest hover:underline"
@@ -74,7 +74,7 @@ export default function ProductDetailPage({
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-3xl px-4 pt-[152px] pb-12 text-sm text-gray-500">
+        <div className="mx-auto max-w-3xl px-4 py-8 text-sm text-gray-500">
           Đang tải chi tiết nông sản...
         </div>
       }

@@ -10,7 +10,7 @@ async function ComplaintContent({
   const { id } = await params;
 
   return (
-    <div className="mx-auto max-w-xl px-3 pt-[152px] pb-12 lg:px-4 lg:pt-[124px]">
+    <div className="mx-auto max-w-xl px-4 py-8 lg:px-6">
       <Card className="border-border-subtle bg-white">
         <CardContent className="space-y-2 p-6">
           <h1 className="text-lg font-extrabold text-red-600">
@@ -35,7 +35,7 @@ export default function OrderComplaintPage({
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-xl px-4 pt-[152px] pb-12 text-sm text-gray-500">
+        <div className="mx-auto max-w-xl px-4 py-8 text-sm text-gray-500">
           Đang tải biểu mẫu khiếu nại...
         </div>
       }

@@ -25,7 +25,7 @@ export default function TracePage({
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-2xl px-4 pt-[152px] pb-12 text-sm text-gray-500">
+        <div className="mx-auto max-w-2xl px-4 py-8 text-sm text-gray-500">
           Đang tải hồ sơ truy xuất nguồn gốc...
         </div>
       }

@@ -9,7 +9,7 @@ export default function SubscriptionsPage() {
   const { plans } = getShowcaseCatalog();
 
   return (
-    <div className="mx-auto max-w-screen-xl space-y-6 px-3 pt-[152px] pb-12 lg:px-4 lg:pt-[124px]">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 lg:px-6">
       <div className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-extrabold text-brand-dark">
           <Calendar className="size-5 text-brand-forest" />

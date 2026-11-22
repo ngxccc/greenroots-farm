@@ -32,7 +32,7 @@ interface TraceViewProps {
 export function TraceView({ record, batchCode }: TraceViewProps) {
   if (!record) {
     return (
-      <div className="mx-auto max-w-lg px-4 pt-[156px] pb-16 lg:pt-[128px]">
+      <div className="mx-auto max-w-lg px-4 py-10">
         <Card className="border-red-200 bg-white">
           <CardContent className="space-y-3 p-6 text-center">
             <p className="text-base font-extrabold text-red-600">
@@ -59,7 +59,7 @@ export function TraceView({ record, batchCode }: TraceViewProps) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 px-3 pt-[152px] pb-16 lg:px-4 lg:pt-[124px]">
+    <div className="mx-auto max-w-2xl space-y-4 px-4 py-8 lg:px-6">
       <Link
         href="/"
         className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-forest hover:underline"

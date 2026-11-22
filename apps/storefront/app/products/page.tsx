@@ -16,7 +16,7 @@ async function ProductsList({
     : products;
 
   return (
-    <div className="mx-auto max-w-screen-xl space-y-5 px-3 pt-[152px] pb-12 lg:px-4 lg:pt-[124px]">
+    <div className="mx-auto max-w-6xl space-y-5 px-4 py-8 lg:px-6">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-3">
         <div>
           <h1 className="text-xl font-extrabold text-brand-dark">
@@ -54,7 +54,7 @@ export default function ProductsPage({
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-screen-xl px-4 pt-[152px] pb-12 text-sm text-gray-500">
+        <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-gray-500 lg:px-6">
           Đang tải danh mục nông sản...
         </div>
       }

@@ -4,7 +4,7 @@ import { ShoppingBag } from "lucide-react";
 
 export default function CheckoutPage() {
   return (
-    <div className="mx-auto max-w-2xl px-3 pt-[152px] pb-12 lg:px-4 lg:pt-[124px]">
+    <div className="mx-auto max-w-2xl px-4 py-8 lg:px-6">
       <Card className="border-border-subtle bg-white">
         <CardContent className="space-y-3 p-6">
           <h1 className="flex items-center gap-2 text-lg font-extrabold text-brand-dark">
