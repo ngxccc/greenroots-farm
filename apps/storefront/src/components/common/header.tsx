@@ -6,6 +6,7 @@ import { useState, type ReactNode, type SubmitEvent } from "react";
 import { HCMC_DISTRICTS } from "@greenroots/shared";
 import { Button } from "@greenroots/ui";
 import { MapPin, Search, ShoppingCart } from "lucide-react";
+import { buildProductSearchHref } from "@/lib/navigation";
 import { estimateDistrictPreviewQuote } from "@/lib/shipping";
 import { useCartStore } from "@/stores/cart.store";
 import { AddressDialog } from "./address-dialog";
@@ -37,10 +38,7 @@ export function StorefrontHeader({ authSlot }: StorefrontHeaderProps) {
 
   function handleSearchSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    const trimmed = searchQuery.trim();
-    router.push(
-      trimmed ? `/products?q=${encodeURIComponent(trimmed)}` : "/products",
-    );
+    router.push(buildProductSearchHref(searchQuery));
   }
 
   return (

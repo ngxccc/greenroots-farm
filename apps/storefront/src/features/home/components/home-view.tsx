@@ -31,6 +31,7 @@ import { DELIVERY_DAY_LABELS } from "@/constants/domain-labels.constant";
 import { FARM_METADATA } from "@/constants/farm-metadata.constant";
 import { HOME_SHELF_NAV } from "@/constants/navigation.constant";
 import { formatVnd } from "@/lib/format";
+import { buildTraceDetailHref } from "@/lib/navigation";
 import type {
   StorefrontProduct,
   StorefrontSubscriptionPlan,
@@ -113,9 +114,9 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
 
   function handleTraceSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    const cleaned = batchCode.trim().toUpperCase();
-    if (!cleaned) return;
-    router.push(`/trace/${encodeURIComponent(cleaned)}`);
+    const targetHref = buildTraceDetailHref(batchCode);
+    if (!targetHref) return;
+    router.push(targetHref);
   }
 
   return (
