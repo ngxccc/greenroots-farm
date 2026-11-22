@@ -13,8 +13,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect Scope
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      run_all: ${{ steps.scope.outputs.run_all }}
+      version_consistency: ${{ steps.scope.outputs.version_consistency }}
+      shared_package: ${{ steps.scope.outputs.shared_package }}
+      format_check: ${{ steps.scope.outputs.format_check }}
+      syncpack: ${{ steps.scope.outputs.syncpack }}
+      shared_checks: ${{ steps.scope.outputs.shared_checks }}
+      ui_checks: ${{ steps.scope.outputs.ui_checks }}
+      scripts_checks: ${{ steps.scope.outputs.scripts_checks }}
+      tailwind: ${{ steps.scope.outputs.tailwind }}
+      api: ${{ steps.scope.outputs.api }}
+      database: ${{ steps.scope.outputs.database }}
+      storefront: ${{ steps.scope.outputs.storefront }}
+      backoffice: ${{ steps.scope.outputs.backoffice }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          cache: "false"
+
+      - name: Compute CI scope
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${BASE_SHA}" ]; then
+            git fetch --no-tags --depth=1 origin "${BASE_SHA}"
+            bun scripts/ci-scope.ts --base "${BASE_SHA}" --head HEAD >> "${GITHUB_OUTPUT}"
+          else
+            bun scripts/ci-scope.ts --all >> "${GITHUB_OUTPUT}"
+          fi
+
   version-consistency:
     name: Version Consistency
+    needs: changes
+    if: needs.changes.outputs.version_consistency == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
@@ -29,6 +71,8 @@ jobs:
 
   shared-package:
     name: Shared and Tooling
+    needs: changes
+    if: needs.changes.outputs.shared_package == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
@@ -41,34 +85,45 @@ jobs:
           install: "true"
 
       - name: Check formatting
+        if: needs.changes.outputs.format_check == 'true'
         run: bun run format:check
 
       - name: Check package manifests
+        if: needs.changes.outputs.syncpack == 'true'
         run: bunx syncpack lint
 
       - name: Type check shared contracts
+        if: needs.changes.outputs.shared_checks == 'true'
         run: bun run check-types:shared
 
       - name: Type check repository scripts
+        if: needs.changes.outputs.scripts_checks == 'true'
         run: bun run check-types:scripts
 
       - name: Type check shared UI
+        if: needs.changes.outputs.ui_checks == 'true'
         run: bun run check-types:ui
 
       - name: Lint shared UI
+        if: needs.changes.outputs.ui_checks == 'true'
         run: bun run lint:ui
 
       - name: Check Tailwind CSS v4 canonical classes
+        if: needs.changes.outputs.tailwind == 'true'
         run: bun run check:tailwind
 
       - name: Test shared contracts
+        if: needs.changes.outputs.shared_checks == 'true'
         run: bun run test:shared
 
       - name: Test repository scripts
+        if: needs.changes.outputs.scripts_checks == 'true'
         run: bun run test:scripts
 
   database:
     name: Migrations and Seed
+    needs: changes
+    if: needs.changes.outputs.database == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     services: &services-db-redis
@@ -127,6 +182,8 @@ jobs:
 
   api:
     name: API
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     services: *services-db-redis
@@ -155,6 +212,8 @@ jobs:
 
   storefront:
     name: Storefront
+    needs: changes
+    if: needs.changes.outputs.storefront == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     env:
@@ -184,6 +243,8 @@ jobs:
 
   backoffice:
     name: Backoffice
+    needs: changes
+    if: needs.changes.outputs.backoffice == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
@@ -212,6 +273,7 @@ jobs:
     name: Quality Gate
     needs:
       [
+        changes,
         version-consistency,
         shared-package,
         api,
@@ -225,6 +287,7 @@ jobs:
     steps:
       - name: Confirm every gate passed
         env:
+          CHANGES: ${{ needs.changes.result }}
           VERSION: ${{ needs.version-consistency.result }}
           SHARED: ${{ needs.shared-package.result }}
           API: ${{ needs.api.result }}
@@ -233,11 +296,16 @@ jobs:
           DATABASE: ${{ needs.database.result }}
         run: |
           failed=0
+          echo "changes: ${CHANGES}"
+          if [ "${CHANGES}" != "success" ]; then
+            echo "::error::changes did not succeed (${CHANGES})"
+            failed=1
+          fi
           for entry in "version-consistency:$VERSION" "shared-package:$SHARED" "api:$API" "storefront:$STOREFRONT" "backoffice:$BACKOFFICE" "database:$DATABASE"; do
             name="${entry%%:*}"
             result="${entry#*:}"
             echo "${name}: ${result}"
-            if [ "${result}" != "success" ]; then
+            if [ "${result}" != "success" ] && [ "${result}" != "skipped" ]; then
               echo "::error::${name} did not succeed (${result})"
               failed=1
             fi

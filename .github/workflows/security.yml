@@ -19,6 +19,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect Scope
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      run_all: ${{ steps.scope.outputs.run_all }}
+      trivy: ${{ steps.scope.outputs.trivy }}
+      bun_audit: ${{ steps.scope.outputs.bun_audit }}
+      codeql_js: ${{ steps.scope.outputs.codeql_js }}
+      codeql_actions: ${{ steps.scope.outputs.codeql_actions }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          cache: "false"
+
+      - name: Compute security scan scope
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${BASE_SHA}" ]; then
+            git fetch --no-tags --depth=1 origin "${BASE_SHA}"
+            bun scripts/ci-scope.ts --base "${BASE_SHA}" --head HEAD >> "${GITHUB_OUTPUT}"
+          else
+            bun scripts/ci-scope.ts --all >> "${GITHUB_OUTPUT}"
+          fi
+
   trivy:
     name: Trivy
     runs-on: ubuntu-22.04
@@ -48,6 +80,8 @@ jobs:
 
   audit:
     name: Bun Audit
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.bun_audit == 'true') }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -61,13 +95,11 @@ jobs:
       - name: Audit dependencies
         run: bun audit --audit-level=high --ignore GHSA-fc5q-39xc-vjpf
 
-  codeql:
-    name: CodeQL
+  codeql-js:
+    name: CodeQL (javascript-typescript)
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.codeql_js == 'true') }}
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ["javascript-typescript", "actions"]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -75,10 +107,30 @@ jobs:
       - name: Init
         uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
-          languages: ${{ matrix.language }}
+          languages: javascript-typescript
           queries: security-extended,security-and-quality
 
       - name: Analyze
         uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
-          category: "/language:${{matrix.language}}"
+          category: "/language:javascript-typescript"
+
+  codeql-actions:
+    name: CodeQL (actions)
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.codeql_actions == 'true') }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Init
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: actions
+          queries: security-extended,security-and-quality
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: "/language:actions"

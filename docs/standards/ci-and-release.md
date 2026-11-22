@@ -4,12 +4,12 @@
 
 Each workflow owns one responsibility. A check runs in one workflow and nowhere else; other workflows consume its result.
 
-| File           | Owns                                                          |
-| :------------- | :------------------------------------------------------------ |
-| `ci.yml`       | Version consistency, shared/tooling, API, and database gates. |
-| `security.yml` | Trivy, `bun audit`, and CodeQL.                               |
-| `release.yml`  | Version check, tag detection, and GitHub Release publishing.  |
-| `labels.yml`   | `area:*` and `type:*` labels on pull requests.                |
+| File           | Owns                                                                                  |
+| :------------- | :------------------------------------------------------------------------------------ |
+| `ci.yml`       | Version consistency, shared/tooling, API, storefront, backoffice, and database gates. |
+| `security.yml` | Trivy, `bun audit`, and CodeQL.                                                       |
+| `release.yml`  | Version check, tag detection, and GitHub Release publishing.                          |
+| `labels.yml`   | `area:*` and `type:*` labels on pull requests.                                        |
 
 - Do not re-run commands another workflow already owns. Reuse the job or rely on the required check.
 - A `workflow_call` file needs two or more callers; a single caller inlines the jobs.
@@ -28,17 +28,22 @@ Each workflow owns one responsibility. A check runs in one workflow and nowhere 
 
 `ci.yml` runs on every pull request to `main` and is the only place that runs the quality commands.
 
-| Job                   | Commands                                                                                                     |
-| :-------------------- | :----------------------------------------------------------------------------------------------------------- |
-| `version-consistency` | `bun run version:check`                                                                                      |
-| `shared-package`      | `format:check`, `syncpack lint`, `check-types:shared`, `check-types:scripts`, `check:tailwind`, shared tests |
-| `api`                 | `check-types:api`, `lint:api`, `test:api`, and `build` in `apps/api`                                         |
-| `database`            | `db:migrate`, `db:generate` drift check, `db:seed --clean` on PostgreSQL 18 + Redis 8                        |
-| `quality-gate`        | Aggregates the four jobs; fails unless every dependency succeeded                                            |
+| Job                   | Commands                                                                                                                          |
+| :-------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
+| `changes`             | Shallow `git diff` + `bun scripts/ci-scope.ts` computing transitive job and step scope flags                                      |
+| `version-consistency` | `bun run version:check`                                                                                                           |
+| `shared-package`      | `format:check`, `syncpack lint`, `check-types:{shared,scripts,ui}`, `lint:ui`, `check:tailwind`, shared/script tests (step-gated) |
+| `api`                 | `check-types:api`, `lint:api`, `test:api`, and `build` in `apps/api`                                                              |
+| `storefront`          | `check-types:storefront`, `lint:storefront`, `test:storefront`, and `build` in `apps/storefront`                                  |
+| `backoffice`          | `check-types:backoffice`, `lint:backoffice`, `test:backoffice`, and `build` in `apps/backoffice`                                  |
+| `database`            | `db:migrate`, `db:generate` drift check, `db:seed --clean` on PostgreSQL 18 + Redis 8                                             |
+| `quality-gate`        | Requires `changes == success` and `{success, skipped}` across all downstream jobs                                                 |
 
 - CI does not run on `push` to `main`; `main` moves only through pull requests that passed.
-- Required workflows carry no `paths` or `paths-ignore` filters, because a skipped workflow never reports a status and blocks the pull request forever.
-- `quality-gate` uses `if: always()`; it is the single pass/fail signal.
+- Required workflows carry no top-level `on.pull_request.paths` or `paths-ignore` filters, because a skipped workflow never reports a status and blocks the pull request forever. Path filtering lives in `changes` + job/step `if:` conditionals (`scripts/ci-scope.ts`), emitting explicit `skipped` conclusions accepted by GitHub branch protection.
+- On non-PR events (`push`, `schedule`, `workflow_dispatch`), empty diffs, or git failures, `scripts/ci-scope.ts` fails closed to running all checks (`run_all=true`).
+- `quality-gate` uses `if: always()`; it asserts `changes == success` before accepting `{success, skipped}` downstream so an infra failure in scope detection cannot produce a false green gate.
+- `security.yml` runs `Trivy` independently of `changes` on every run (preserving secret scans on docs/templates), splits `CodeQL` into explicit `CodeQL (javascript-typescript)` and `CodeQL (actions)` jobs, and falls back to running `audit` and `CodeQL` if `changes != success` so scope errors fail closed.
 
 ## 4. Required Checks
 
