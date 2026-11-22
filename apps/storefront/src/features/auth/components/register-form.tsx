@@ -154,9 +154,9 @@ export function RegisterForm({ redirectTo = "/" }: RegisterFormProps) {
         </span>
 
         <div className="flex flex-col gap-2">
-          <h2 className="text-[22px] leading-7.5 font-bold tracking-tight text-gray-900 md:text-[28px] md:leading-9">
+          <h1 className="text-[22px] leading-7.5 font-bold tracking-tight text-gray-900 md:text-[28px] md:leading-9">
             Xác thực địa chỉ email
-          </h2>
+          </h1>
           <p className="text-[13px] leading-4.5 text-balance text-gray-500">
             Chúng tôi đã gửi liên kết kích hoạt tài khoản tới địa chỉ:
           </p>
@@ -205,9 +205,9 @@ export function RegisterForm({ redirectTo = "/" }: RegisterFormProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-[22px] leading-7.5 font-bold tracking-tight text-gray-900 md:text-[28px] md:leading-9">
+        <h1 className="text-[22px] leading-7.5 font-bold tracking-tight text-gray-900 md:text-[28px] md:leading-9">
           Đăng ký tài khoản
-        </h2>
+        </h1>
         <p className="text-[13px] leading-4.5 text-balance text-gray-500">
           Nhận ưu đãi đơn đầu tiên và theo dõi độ tươi rau củ mỗi ngày.
         </p>
@@ -238,10 +238,16 @@ export function RegisterForm({ redirectTo = "/" }: RegisterFormProps) {
             autoComplete="name"
             disabled={isPending}
             aria-invalid={Boolean(fieldErrors.fullName)}
+            aria-describedby={
+              fieldErrors.fullName ? "register-fullname-error" : undefined
+            }
             className={AUTH_INPUT_CLASS}
           />
           {fieldErrors.fullName ? (
-            <p className="text-xs text-status-spoiled">
+            <p
+              id="register-fullname-error"
+              className="text-xs text-status-spoiled"
+            >
               {fieldErrors.fullName}
             </p>
           ) : null}
@@ -268,10 +274,18 @@ export function RegisterForm({ redirectTo = "/" }: RegisterFormProps) {
               autoComplete="tel"
               disabled={isPending}
               aria-invalid={Boolean(fieldErrors.phone)}
+              aria-describedby={
+                fieldErrors.phone ? "register-phone-error" : undefined
+              }
               className={`${AUTH_INPUT_CLASS} tabular-nums`}
             />
             {fieldErrors.phone ? (
-              <p className="text-xs text-status-spoiled">{fieldErrors.phone}</p>
+              <p
+                id="register-phone-error"
+                className="text-xs text-status-spoiled"
+              >
+                {fieldErrors.phone}
+              </p>
             ) : null}
           </div>
 
@@ -291,10 +305,18 @@ export function RegisterForm({ redirectTo = "/" }: RegisterFormProps) {
               autoComplete="email"
               disabled={isPending}
               aria-invalid={Boolean(fieldErrors.email)}
+              aria-describedby={
+                fieldErrors.email ? "register-email-error" : undefined
+              }
               className={AUTH_INPUT_CLASS}
             />
             {fieldErrors.email ? (
-              <p className="text-xs text-status-spoiled">{fieldErrors.email}</p>
+              <p
+                id="register-email-error"
+                className="text-xs text-status-spoiled"
+              >
+                {fieldErrors.email}
+              </p>
             ) : null}
           </div>
         </div>
@@ -369,6 +391,11 @@ export function RegisterForm({ redirectTo = "/" }: RegisterFormProps) {
               }}
               disabled={isPending}
               aria-invalid={Boolean(fieldErrors.agreeTerms)}
+              aria-describedby={
+                fieldErrors.agreeTerms
+                  ? "register-agree-terms-error"
+                  : undefined
+              }
               className="mt-0.5"
             />
             <span className="text-xs leading-4.5 text-gray-600">
@@ -377,7 +404,10 @@ export function RegisterForm({ redirectTo = "/" }: RegisterFormProps) {
             </span>
           </Label>
           {fieldErrors.agreeTerms ? (
-            <p className="text-xs text-status-spoiled">
+            <p
+              id="register-agree-terms-error"
+              className="text-xs text-status-spoiled"
+            >
               {fieldErrors.agreeTerms}
             </p>
           ) : null}

@@ -97,9 +97,9 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h2 className="text-[22px] leading-7.5 font-bold tracking-tight text-gray-900 md:text-[28px] md:leading-9">
+        <h1 className="text-[22px] leading-7.5 font-bold tracking-tight text-gray-900 md:text-[28px] md:leading-9">
           Đăng nhập tài khoản
-        </h2>
+        </h1>
         <p className="text-[13px] leading-4.5 text-pretty text-gray-500">
           Chào mừng bạn trở lại. Đăng nhập để đặt rau nhanh và theo dõi đơn
           hàng.

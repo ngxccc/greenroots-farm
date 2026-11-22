@@ -56,6 +56,7 @@ export function PasswordField({
           autoComplete={autoComplete}
           disabled={disabled}
           aria-invalid={invalid || Boolean(errorMessage)}
+          aria-describedby={errorMessage ? `${id}-error` : undefined}
           className={`${AUTH_INPUT_CLASS} pr-11`}
         />
         <Button
@@ -75,7 +76,9 @@ export function PasswordField({
         </Button>
       </div>
       {errorMessage ? (
-        <p className="text-xs text-status-spoiled">{errorMessage}</p>
+        <p id={`${id}-error`} className="text-xs text-status-spoiled">
+          {errorMessage}
+        </p>
       ) : null}
     </div>
   );

@@ -67,9 +67,9 @@ export default function AuthSplitLayout({ children }: AuthSplitLayoutProps) {
             <span className="inline-flex self-start rounded-full bg-brand-dark px-3 py-1 text-xs font-semibold text-white">
               Từ Nông Trại Hữu Cơ Đến Bàn Ăn
             </span>
-            <h1 className="text-[26px] leading-8.5 font-extrabold tracking-tight text-balance md:text-[36px] md:leading-11">
+            <p className="text-[26px] leading-8.5 font-extrabold tracking-tight text-balance md:text-[36px] md:leading-11">
               Rau củ hữu cơ tươi cắt mỗi sáng
-            </h1>
+            </p>
           </div>
         </div>
 

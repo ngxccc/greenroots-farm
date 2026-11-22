@@ -28,6 +28,9 @@ export interface AuthRedirectGateDeps {
 
 /**
  * Extracts a single candidate redirect value from Next.js `searchParams`.
+ *
+ * @param param Raw `redirect` query parameter value or array.
+ * @returns First redirect candidate string, or `undefined` when absent.
  */
 export function resolveRedirectCandidate(
   param: string | string[] | undefined,
@@ -41,6 +44,11 @@ export function resolveRedirectCandidate(
 /**
  * Evaluates session state and sanitized redirect target for auth pages.
  * Exposed for unit testing; auth page components render `<AuthRedirectGate>` inside `<Suspense>`.
+ *
+ * @param searchParams Async Next.js `searchParams` promise from the page route.
+ * @param renderForm Callback rendering the auth form with the sanitized redirect path.
+ * @param deps Optional injectable session reader and redirect handler for tests.
+ * @returns Rendered form node for guests or invokes `redirect` for authenticated sessions.
  */
 export async function resolveAuthRedirectGate(
   searchParams: Promise<AuthSearchParams>,
