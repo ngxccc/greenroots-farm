@@ -114,7 +114,8 @@ export async function createWorkerTestDatabase(
 
     const pool = createTestPool({
       options: `-c search_path="${schemaName}",public`,
-      max: 10,
+      // Keep per-worker connections bounded so parallel E2E workers stay within Docker PostgreSQL max_connections.
+      max: 4,
     });
     const db = createDrizzleClient(pool);
 

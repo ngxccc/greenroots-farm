@@ -20,8 +20,8 @@
     "openapi:generate": "bun scripts/generate-openapi.ts",
     "start": "bun dist/main.js",
     "test": "bun test src/",
-    "test:all": "bun test src/ && bun test test/",
-    "test:e2e": "bun test test/"
+    "test:all": "bun run test && bun run test:e2e",
+    "test:e2e": "bun test/helpers/run-e2e.ts"
   },
   "dependencies": {
     "@greenroots/shared": "workspace:*",

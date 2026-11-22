@@ -81,6 +81,11 @@ export async function setupGlobalTestEnvironment(): Promise<void> {
 
   isGlobalEnvInitialized = true;
 
+  // Parallel E2E orchestrator already probed services, migrated test_template, and swept orphans once up front.
+  if (process.env["E2E_PREWARMED"] === "1") {
+    return;
+  }
+
   // Layer 1: Fail-fast infrastructure probe
   const infra = await probeInfrastructure(500);
   if (!infra.isReady) {
