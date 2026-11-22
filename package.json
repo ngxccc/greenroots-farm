@@ -55,7 +55,7 @@
     "lint:ui": "cd packages/ui && bun run lint",
     "prepare": "husky",
     "release": "bun scripts/release.ts",
-    "test": "bun run test:shared && bun run test:api && bun run test:storefront && bun run test:backoffice",
+    "test": "bun run test:shared && bun run test:api && bun run test:storefront && bun run test:backoffice && bun run test:scripts",
     "test:all": "bun run test && bun run test:e2e",
     "test:api": "cd apps/api && bun run test",
     "test:backoffice": "cd apps/backoffice && bun run test",
