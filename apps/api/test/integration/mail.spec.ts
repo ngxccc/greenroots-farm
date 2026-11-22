@@ -10,7 +10,7 @@ import { MailProcessor } from "@/modules/mail/mail.processor";
 import { MockMailDriver } from "@/modules/mail/drivers/mock-mail.driver";
 import { SEND_MAIL_JOB } from "@/modules/mail/mail.constant";
 import type { Job } from "bullmq";
-describe("Mail Queue BullMQ E2E Integration", () => {
+describe("Mail Integration", () => {
   let setup: TestAppSetup;
   let app: INestApplication;
   let mailService: MailService;
@@ -30,7 +30,7 @@ describe("Mail Queue BullMQ E2E Integration", () => {
   });
 
   describe("Job Enqueueing & Delivery", () => {
-    it("should enqueue verification email and dispatch via mail processor worker", async () => {
+    it("enqueues verification email and dispatches via mail processor worker", async () => {
       mockDriver.clear();
 
       await mailService.sendVerificationEmail(
@@ -61,7 +61,7 @@ describe("Mail Queue BullMQ E2E Integration", () => {
       expect(email?.html).toContain("test-verification-token-12345");
     });
 
-    it("should enqueue password reset email and deliver via mail processor worker", async () => {
+    it("enqueues password reset email and delivers via mail processor worker", async () => {
       mockDriver.clear();
 
       await mailService.sendPasswordResetEmail(

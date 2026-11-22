@@ -50,7 +50,7 @@ class TestIdempotentController {
   }
 }
 
-describe("Idempotency Interceptor E2E Integration", () => {
+describe("Idempotency Integration", () => {
   let setup: TestAppSetup;
   let app: INestApplication;
 
@@ -95,6 +95,7 @@ describe("Idempotency Interceptor E2E Integration", () => {
 
   describe("Cache Replay Consistency within 24h", () => {
     it("processes initial request and returns identical cached response on replay without re-executing", async () => {
+      // Invariant: INV-IDEMP-1
       const key = randomUUID();
       const payload = {
         action: "create_order",
@@ -126,6 +127,7 @@ describe("Idempotency Interceptor E2E Integration", () => {
 
   describe("Payload Mismatch Detection", () => {
     it("rejects request when same key is reused with a different body", async () => {
+      // Invariant: INV-IDEMP-2
       const key = randomUUID();
 
       await request(app.getHttpServer())
@@ -150,6 +152,7 @@ describe("Idempotency Interceptor E2E Integration", () => {
 
   describe("Error Rollback and Key Release", () => {
     it("releases idempotency key when request fails so subsequent retry succeeds", async () => {
+      // Invariant: INV-IDEMP-5
       const key = randomUUID();
       const payload = { test: "rollback", simulateError: true };
 

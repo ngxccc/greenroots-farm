@@ -614,7 +614,7 @@ describe("Waste Logs Integration", () => {
 
   describe("POST /api/v1/waste-logs/:id/approve", () => {
     // Invariant: INV-WASTE-2
-    it("atomically deducts available quantity and transitions depleted in_stock and near_expiry batches to sold_out", async () => {
+    it("deducts available quantity atomically and transitions depleted in_stock and near_expiry batches to sold_out", async () => {
       for (const batchPreset of [
         BatchMother.inStock({
           initialQuantity: "5.00",

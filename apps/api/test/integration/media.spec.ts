@@ -21,7 +21,7 @@ import type { ApiResponse } from "@/common/utils/api-response.util";
 import { MEDIA_CONSTRAINTS } from "@/modules/media/media.constant";
 import type { CloudinarySignatureResult } from "@/modules/media/media.interface";
 
-describe("Media Module Integration", () => {
+describe("Media Integration", () => {
   let setup: TestAppSetup;
   let app: INestApplication;
   let customerHeader: { Authorization: string };
@@ -42,8 +42,8 @@ describe("Media Module Integration", () => {
     await teardownTestApp(setup);
   });
 
-  describe("POST /api/v1/media/upload-signature (authenticated)", () => {
-    it("should reject with 401 Unauthorized when request is unauthenticated", async () => {
+  describe("POST /api/v1/media/upload-signature", () => {
+    it("rejects unauthenticated request", async () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/media/upload-signature")
         .send({
@@ -62,7 +62,7 @@ describe("Media Module Integration", () => {
       expect(body.instance).toBe("/api/v1/media/upload-signature");
     });
 
-    it("should reject with 403 Forbidden when CUSTOMER requests signature for farming_logs", async () => {
+    it("rejects request when CUSTOMER requests signature for farming_logs", async () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/media/upload-signature")
         .set(customerHeader)
@@ -84,7 +84,7 @@ describe("Media Module Integration", () => {
       expect(body.detail).toBe(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED);
     });
 
-    it("should reject with 403 Forbidden when CUSTOMER requests signature for products", async () => {
+    it("rejects request when CUSTOMER requests signature for products", async () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/media/upload-signature")
         .set(customerHeader)
@@ -106,7 +106,7 @@ describe("Media Module Integration", () => {
       expect(body.detail).toBe(MESSAGES.MEDIA.FOLDER_ACCESS_DENIED);
     });
 
-    it("should generate valid signed upload parameters when admin requests farming_logs under 5MB limit", async () => {
+    it("generates valid signed upload parameters when admin requests farming_logs under 5MB limit", async () => {
       const validImageBytes = MEDIA_CONSTRAINTS.IMAGE.MAX_BYTES - 1024 * 512;
 
       const res = await request(app.getHttpServer())
@@ -131,7 +131,7 @@ describe("Media Module Integration", () => {
       expect(body.data.maxBytes).toBe(MEDIA_CONSTRAINTS.IMAGE.MAX_BYTES);
     });
 
-    it("should generate valid signed upload parameters when admin requests products folder", async () => {
+    it("generates valid signed upload parameters when admin requests products folder", async () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/media/upload-signature")
         .set(adminHeader)
@@ -230,7 +230,7 @@ describe("Media Module Integration", () => {
         .expect(400);
     });
 
-    it("should reject with 422 Unprocessable Entity when image exceeds 5MB", async () => {
+    it("rejects request when image exceeds 5MB", async () => {
       const oversizedImageBytes = MEDIA_CONSTRAINTS.IMAGE.MAX_BYTES + 1;
 
       const res = await request(app.getHttpServer())
@@ -254,7 +254,7 @@ describe("Media Module Integration", () => {
       expect(body.detail).toContain("5MB");
     });
 
-    it("should generate valid signed upload parameters when customer uploads to complaints under 15MB limit", async () => {
+    it("generates valid signed upload parameters when customer uploads to complaints under 15MB limit", async () => {
       const validVideoBytes = MEDIA_CONSTRAINTS.VIDEO.MAX_BYTES - 1024 * 1024;
 
       const res = await request(app.getHttpServer())
@@ -277,7 +277,7 @@ describe("Media Module Integration", () => {
       expect(body.data.maxBytes).toBe(MEDIA_CONSTRAINTS.VIDEO.MAX_BYTES);
     });
 
-    it("should reject with 422 Unprocessable Entity when video exceeds 15MB", async () => {
+    it("rejects request when video exceeds 15MB", async () => {
       const oversizedVideoBytes = MEDIA_CONSTRAINTS.VIDEO.MAX_BYTES + 1;
 
       const res = await request(app.getHttpServer())
@@ -301,7 +301,7 @@ describe("Media Module Integration", () => {
       expect(body.detail).toContain("15MB");
     });
 
-    it("should return 400 Bad Request when folder is not in whitelist", async () => {
+    it("rejects request when folder is not in whitelist", async () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/media/upload-signature")
         .set(customerHeader)
@@ -325,7 +325,7 @@ describe("Media Module Integration", () => {
       ).toBe(true);
     });
 
-    it("should return 400 Bad Request when resourceType is not supported", async () => {
+    it("rejects request when resourceType is not supported", async () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/media/upload-signature")
         .set(adminHeader)
@@ -349,7 +349,7 @@ describe("Media Module Integration", () => {
       ).toBe(true);
     });
 
-    it("should return 400 Bad Request when fileSizeBytes is zero or negative", async () => {
+    it("rejects request when fileSizeBytes is zero or negative", async () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/media/upload-signature")
         .set(adminHeader)

@@ -907,7 +907,7 @@ describe("Batches Integration", () => {
   });
 
   describe("GET /api/v1/batches/:id", () => {
-    it("returns batch detail even after product soft-delete and returns 404 for missing ID", async () => {
+    it("returns batch detail even after product soft-delete and rejects missing ID", async () => {
       // Invariant: INV-BATCH-DROP-1
       const product = await createProduct(setup.db);
       const batch = await createBatch(setup.db, { productId: product.id });

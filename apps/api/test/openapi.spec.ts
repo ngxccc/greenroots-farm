@@ -9,7 +9,7 @@ import {
 } from "./helpers/app.helper";
 import { setupOpenApiAndScalar } from "@/common/config/openapi.config";
 
-describe("OpenAPI Specification & Documentation E2E", () => {
+describe("OpenAPI Integration", () => {
   let setup: TestAppSetup;
   let app: INestApplication;
 
@@ -27,7 +27,7 @@ describe("OpenAPI Specification & Documentation E2E", () => {
   });
 
   describe("GET /openapi.json", () => {
-    it("should return valid OpenAPI 3.1.0 specification with metadata and security schemes", async () => {
+    it("returns valid OpenAPI 3.1.0 specification with metadata and security schemes", async () => {
       const res = await request(app.getHttpServer())
         .get("/openapi.json")
         .expect(200);
@@ -45,7 +45,7 @@ describe("OpenAPI Specification & Documentation E2E", () => {
   });
 
   describe("GET /api/docs", () => {
-    it("should serve Scalar interactive documentation UI", async () => {
+    it("serves Scalar interactive documentation UI", async () => {
       const res = await request(app.getHttpServer())
         .get("/api/docs")
         .expect(200);

@@ -9,7 +9,7 @@ import {
 } from "./helpers/app.helper";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
 
-describe("GlobalExceptionFilter Pipeline E2E", () => {
+describe("GlobalExceptionFilter Integration", () => {
   let setup: TestAppSetup;
   let app: INestApplication;
   const getHttpServer = (): Server => app.getHttpServer() as Server;
@@ -23,8 +23,8 @@ describe("GlobalExceptionFilter Pipeline E2E", () => {
     await teardownTestApp(setup);
   });
 
-  describe("when handling DTO validation failures", () => {
-    it("should return RFC 9457 formatted 400 Bad Request with application/problem+json on invalid media upload payload", async () => {
+  describe("Validation Failures", () => {
+    it("returns RFC 9457 problem response with application/problem+json on invalid media upload payload", async () => {
       const res = await request(getHttpServer())
         .post("/api/v1/media/upload-signature")
         .send({
@@ -48,8 +48,8 @@ describe("GlobalExceptionFilter Pipeline E2E", () => {
     });
   });
 
-  describe("when handling 404 Not Found routes", () => {
-    it("should return RFC 9457 formatted 404 Not Found with application/problem+json", async () => {
+  describe("Unknown Routes", () => {
+    it("returns RFC 9457 problem response with application/problem+json", async () => {
       const res = await request(getHttpServer())
         .get("/api/v1/non-existent-route-xyz")
         .expect(404);
@@ -64,8 +64,8 @@ describe("GlobalExceptionFilter Pipeline E2E", () => {
     });
   });
 
-  describe("when handling health endpoint", () => {
-    it("should return 200 OK with apiSuccess envelope", async () => {
+  describe("Health Endpoint", () => {
+    it("returns apiSuccess envelope when service is healthy", async () => {
       const res = await request(getHttpServer())
         .get("/api/v1/health")
         .expect(200);
