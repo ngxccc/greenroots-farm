@@ -28,13 +28,13 @@ Each workflow owns one responsibility. A check runs in one workflow and nowhere 
 
 `ci.yml` runs on every pull request to `main` and is the only place that runs the quality commands.
 
-| Job                   | Commands                                                                                   |
-| :-------------------- | :----------------------------------------------------------------------------------------- |
-| `version-consistency` | `bun run version:check`                                                                    |
-| `shared-package`      | `format:check`, `syncpack lint`, `check-types:shared`, `check-types:scripts`, shared tests |
-| `api`                 | `check-types:api`, `lint:api`, `test:api`, and `build` in `apps/api`                       |
-| `database`            | `db:migrate`, `db:generate` drift check, `db:seed --clean` on PostgreSQL 18 + Redis 8      |
-| `quality-gate`        | Aggregates the four jobs; fails unless every dependency succeeded                          |
+| Job                   | Commands                                                                                                     |
+| :-------------------- | :----------------------------------------------------------------------------------------------------------- |
+| `version-consistency` | `bun run version:check`                                                                                      |
+| `shared-package`      | `format:check`, `syncpack lint`, `check-types:shared`, `check-types:scripts`, `check:tailwind`, shared tests |
+| `api`                 | `check-types:api`, `lint:api`, `test:api`, and `build` in `apps/api`                                         |
+| `database`            | `db:migrate`, `db:generate` drift check, `db:seed --clean` on PostgreSQL 18 + Redis 8                        |
+| `quality-gate`        | Aggregates the four jobs; fails unless every dependency succeeded                                            |
 
 - CI does not run on `push` to `main`; `main` moves only through pull requests that passed.
 - Required workflows carry no `paths` or `paths-ignore` filters, because a skipped workflow never reports a status and blocks the pull request forever.
@@ -74,4 +74,4 @@ Required checks:
 
 ## 7. Local Checks
 
-`bun run check` covers type checks and lint; `bun run format:check` and `bunx syncpack lint` cover formatting and workspace manifests. Database commands need `bun run docker:up` first. Run the pipeline locally before opening a pull request and never bypass the pre-commit hook.
+`bun run check` covers type checks, lint, and Tailwind canonical classes; `bun run format:check` and `bunx syncpack lint` cover formatting and workspace manifests. Database commands need `bun run docker:up` first. Run the pipeline locally before opening a pull request and never bypass the pre-commit hook.

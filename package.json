@@ -20,7 +20,8 @@
   },
   "scripts": {
     "actions:pin": "bun scripts/pin-actions.ts",
-    "check": "bun run check-types && bun run lint",
+    "check": "bun run check-types && bun run lint && bun run check:tailwind",
+    "check:tailwind": "bun scripts/check-tailwind-canonical.ts",
     "check-types": "bun run check-types:shared && bun run check-types:ui && bun run check-types:api && bun run check-types:storefront && bun run check-types:backoffice && bun run check-types:scripts",
     "check-types:api": "cd apps/api && bun run check-types",
     "check-types:backoffice": "cd apps/backoffice && bun run check-types",
@@ -68,6 +69,8 @@
     "version:check": "bun scripts/version.ts check"
   },
   "devDependencies": {
+    "@tailwindcss/node": "^4.3.5",
+    "@tailwindcss/oxide": "^4.3.5",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
     "eslint-plugin-oxlint": "1.94.0",

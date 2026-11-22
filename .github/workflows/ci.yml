@@ -58,6 +58,9 @@ jobs:
       - name: Lint shared UI
         run: bun run lint:ui
 
+      - name: Check Tailwind CSS v4 canonical classes
+        run: bun run check:tailwind
+
       - name: Test shared contracts
         run: bun run test:shared
 

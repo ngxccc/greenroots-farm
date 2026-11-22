@@ -5,6 +5,8 @@
     "": {
       "name": "greenroots-farm",
       "devDependencies": {
+        "@tailwindcss/node": "^4.3.5",
+        "@tailwindcss/oxide": "^4.3.5",
         "@types/bun": "catalog:",
         "@types/node": "catalog:",
         "eslint-plugin-oxlint": "1.94.0",
