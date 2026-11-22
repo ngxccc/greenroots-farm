@@ -2,9 +2,12 @@ import { describe, expect, it } from "bun:test";
 import { API_ERROR_CODES, API_ERROR_DICTIONARY } from "@greenroots/shared";
 import type { StorefrontSessionUser } from "@/types/auth.types";
 import {
+  executeForgotPasswordAction,
   executeLoginAction,
   executeRegisterAction,
   executeResendVerificationAction,
+  executeResetPasswordAction,
+  executeVerifyEmailAction,
   type RegisterActionDeps,
 } from "./auth-actions";
 import type { SessionTokenPair } from "./cookies";
@@ -364,11 +367,177 @@ describe("Storefront Auth Actions", () => {
       }
       expect(sentEmails).toEqual(["minhanh@email.com"]);
       expect(okResult.ok).toBe(true);
+      if (okResult.ok) {
+        expect(okResult.message).not.toContain("minhanh@email.com");
+      }
       expect(rateLimited).toEqual({
         ok: false,
         code: API_ERROR_CODES.TOO_MANY_REQUESTS,
         message: API_ERROR_DICTIONARY[API_ERROR_CODES.TOO_MANY_REQUESTS],
       });
+    });
+  });
+
+  describe("executeVerifyEmailAction", () => {
+    it("verifies valid tokens and maps invalid-token problems cleanly", async () => {
+      // Invariant: INV-SF-REC-UI-1
+      const sentTokens: string[] = [];
+
+      const blankResult = await executeVerifyEmailAction(
+        { token: "   " },
+        {
+          postVerify: (body) => {
+            sentTokens.push(body.token);
+            return Promise.resolve({ data: { data: null } });
+          },
+        },
+      );
+      const okResult = await executeVerifyEmailAction(
+        { token: "  valid-token-hex  " },
+        {
+          postVerify: (body) => {
+            sentTokens.push(body.token);
+            return Promise.resolve({ data: { data: null } });
+          },
+        },
+      );
+      const expiredResult = await executeVerifyEmailAction(
+        { token: "expired-token" },
+        {
+          postVerify: () =>
+            Promise.resolve({
+              error: {
+                status: 400,
+                code: API_ERROR_CODES.AUTH_VERIFICATION_TOKEN_INVALID,
+                detail: "Token invalid",
+              },
+            }),
+        },
+      );
+
+      expect(blankResult.ok).toBe(false);
+      expect(sentTokens).toEqual(["valid-token-hex"]);
+      expect(okResult.ok).toBe(true);
+      expect(expiredResult).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.AUTH_VERIFICATION_TOKEN_INVALID,
+        message:
+          API_ERROR_DICTIONARY[API_ERROR_CODES.AUTH_VERIFICATION_TOKEN_INVALID],
+      });
+    });
+  });
+
+  describe("executeForgotPasswordAction", () => {
+    it("rejects phone numbers and surfaces fixed anti-enumeration feedback on success", async () => {
+      // Invariant: INV-SF-REC-UI-2
+      const submittedEmails: string[] = [];
+
+      const phoneBlocked = await executeForgotPasswordAction(
+        { email: "0908412679" },
+        {
+          postForgotPassword: (body) => {
+            submittedEmails.push(body.email);
+            return Promise.resolve({ data: { data: null } });
+          },
+        },
+      );
+      const okResult = await executeForgotPasswordAction(
+        { email: "  MinhAnh@Email.com " },
+        {
+          postForgotPassword: (body) => {
+            submittedEmails.push(body.email);
+            return Promise.resolve({ data: { data: null } });
+          },
+        },
+      );
+      const rateLimited = await executeForgotPasswordAction(
+        { email: "minhanh@email.com" },
+        {
+          postForgotPassword: () =>
+            Promise.resolve({
+              error: {
+                status: 429,
+                code: API_ERROR_CODES.TOO_MANY_REQUESTS,
+                detail: "Too many requests",
+              },
+            }),
+        },
+      );
+      const networkFailure = await executeForgotPasswordAction(
+        { email: "minhanh@email.com" },
+        {
+          postForgotPassword: () => Promise.reject(new Error("ECONNRESET")),
+        },
+      );
+
+      expect(phoneBlocked.ok).toBe(false);
+      expect(submittedEmails).toEqual(["minhanh@email.com"]);
+      expect(okResult.ok).toBe(true);
+      if (okResult.ok) {
+        expect(okResult.message).toContain("15 phút");
+        expect(okResult.message).not.toContain("minhanh@email.com");
+      }
+      expect(rateLimited).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.TOO_MANY_REQUESTS,
+        message: API_ERROR_DICTIONARY[API_ERROR_CODES.TOO_MANY_REQUESTS],
+      });
+      expect(networkFailure.ok).toBe(false);
+      if (!networkFailure.ok) {
+        expect(networkFailure.code).toBe(API_ERROR_CODES.NETWORK_ERROR);
+      }
+    });
+  });
+
+  describe("executeResetPasswordAction", () => {
+    it("clears Storefront session cookies on reset success and preserves cookies on error", async () => {
+      // Invariant: INV-SF-REC-UI-4
+      let cookieClears = 0;
+
+      const failedReset = await executeResetPasswordAction(
+        {
+          token: "invalid-token",
+          password: "NewPassword@1",
+          confirmPassword: "NewPassword@1",
+        },
+        {
+          postResetPassword: () =>
+            Promise.resolve({
+              error: {
+                status: 400,
+                code: API_ERROR_CODES.AUTH_RESET_TOKEN_INVALID,
+                detail: "Reset token invalid",
+              },
+            }),
+          clearCookies: () => {
+            cookieClears++;
+            return Promise.resolve();
+          },
+        },
+      );
+
+      const okReset = await executeResetPasswordAction(
+        {
+          token: "valid-reset-token",
+          password: "NewPassword@1",
+          confirmPassword: "NewPassword@1",
+        },
+        {
+          postResetPassword: () => Promise.resolve({ data: { data: null } }),
+          clearCookies: () => {
+            cookieClears++;
+            return Promise.resolve();
+          },
+        },
+      );
+
+      expect(failedReset).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.AUTH_RESET_TOKEN_INVALID,
+        message: API_ERROR_DICTIONARY[API_ERROR_CODES.AUTH_RESET_TOKEN_INVALID],
+      });
+      expect(okReset.ok).toBe(true);
+      expect(cookieClears).toBe(1);
     });
   });
 });

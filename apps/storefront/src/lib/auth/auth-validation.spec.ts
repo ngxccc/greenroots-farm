@@ -3,11 +3,17 @@ import {
   PASSWORD_MAX_LENGTH,
   decrementCooldownSeconds,
   evaluatePasswordRules,
+  forgotPasswordFormSchema,
+  formatForgotPasswordCooldownLabel,
   formatResendCooldownLabel,
   loginFormSchema,
   normalizeOptionalPhone,
+  parsePrefillEmailParam,
+  parseRecoveryTokenParam,
   registerFormSchema,
   resendVerificationFormSchema,
+  resetPasswordFormSchema,
+  verifyEmailSchema,
 } from "./auth-validation";
 
 describe("Storefront Auth Validation", () => {
@@ -209,6 +215,94 @@ describe("Storefront Auth Validation", () => {
 
       expect(formatResendCooldownLabel(0)).toBe("Gửi lại email xác thực");
       expect(formatResendCooldownLabel(12)).toBe("Gửi lại sau 12s");
+      expect(formatForgotPasswordCooldownLabel(0)).toBe(
+        "Gửi lại liên kết khôi phục",
+      );
+      expect(formatForgotPasswordCooldownLabel(15)).toBe("Gửi lại sau 15s");
+    });
+  });
+
+  describe("recovery query parameter helpers", () => {
+    it("parses valid verification and reset token params and rejects empty or oversized values", () => {
+      // Invariant: INV-SF-REC-UI-6
+      expect(parseRecoveryTokenParam("  valid-token-123  ")).toBe(
+        "valid-token-123",
+      );
+      expect(parseRecoveryTokenParam(["first-token", "second-token"])).toBe(
+        "first-token",
+      );
+      expect(parseRecoveryTokenParam(undefined)).toBeNull();
+      expect(parseRecoveryTokenParam("   ")).toBeNull();
+      expect(parseRecoveryTokenParam("a".repeat(65))).toBeNull();
+    });
+
+    it("normalizes optional prefill emails and drops malformed query strings", () => {
+      // Invariant: INV-SF-REC-UI-3
+      expect(parsePrefillEmailParam("  MinhAnh@Email.com ")).toBe(
+        "minhanh@email.com",
+      );
+      expect(parsePrefillEmailParam("not-an-email")).toBe("");
+      expect(parsePrefillEmailParam(undefined)).toBe("");
+    });
+  });
+
+  describe("recovery form schemas", () => {
+    it("validates email verification tokens strictly within maximum length", () => {
+      // Invariant: INV-SF-REC-UI-3
+      expect(verifyEmailSchema.safeParse({ token: "  abc123  " }).success).toBe(
+        true,
+      );
+      expect(verifyEmailSchema.safeParse({ token: "" }).success).toBe(false);
+      expect(
+        verifyEmailSchema.safeParse({ token: "a".repeat(65) }).success,
+      ).toBe(false);
+      expect(
+        verifyEmailSchema.safeParse({ token: "abc123", extra: true }).success,
+      ).toBe(false);
+    });
+
+    it("restricts forgot-password input to normalized email addresses", () => {
+      // Invariant: INV-SF-REC-UI-3
+      const valid = forgotPasswordFormSchema.safeParse({
+        email: "  Customer@Farm.vn ",
+      });
+      const phoneRejected = forgotPasswordFormSchema.safeParse({
+        email: "0908412679",
+      });
+      const extraField = forgotPasswordFormSchema.safeParse({
+        email: "customer@farm.vn",
+        phone: "0908412679",
+      });
+
+      expect(valid.success).toBe(true);
+      if (valid.success) {
+        expect(valid.data.email).toBe("customer@farm.vn");
+      }
+      expect(phoneRejected.success).toBe(false);
+      expect(extraField.success).toBe(false);
+    });
+
+    it("enforces full password complexity and confirmation matching on password reset", () => {
+      // Invariant: INV-SF-REC-UI-3
+      const valid = resetPasswordFormSchema.safeParse({
+        token: "token-64-chars",
+        password: "NewPassword@1",
+        confirmPassword: "NewPassword@1",
+      });
+      const missingSpecial = resetPasswordFormSchema.safeParse({
+        token: "token-64-chars",
+        password: "NewPassword1",
+        confirmPassword: "NewPassword1",
+      });
+      const mismatch = resetPasswordFormSchema.safeParse({
+        token: "token-64-chars",
+        password: "NewPassword@1",
+        confirmPassword: "OtherPassword@1",
+      });
+
+      expect(valid.success).toBe(true);
+      expect(missingSpecial.success).toBe(false);
+      expect(mismatch.success).toBe(false);
     });
   });
 });

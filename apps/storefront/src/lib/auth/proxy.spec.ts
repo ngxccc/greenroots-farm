@@ -35,6 +35,24 @@ describe("Storefront Auth Proxy", () => {
           cookie: "refreshToken=r1",
         },
       });
+      const verifyReq = new NextRequest("http://localhost:3001/verify-email", {
+        headers: {
+          cookie: "refreshToken=r1",
+        },
+      });
+      const forgotReq = new NextRequest(
+        "http://localhost:3001/forgot-password",
+        {
+          headers: {
+            cookie: "refreshToken=r1",
+          },
+        },
+      );
+      const resetReq = new NextRequest("http://localhost:3001/reset-password", {
+        headers: {
+          cookie: "refreshToken=r1",
+        },
+      });
 
       const refresh = () => {
         refreshCalls++;
@@ -43,6 +61,9 @@ describe("Storefront Auth Proxy", () => {
 
       await handleStorefrontProxy(prefetchReq, { refresh, isSecure: false });
       await handleStorefrontProxy(loginReq, { refresh, isSecure: false });
+      await handleStorefrontProxy(verifyReq, { refresh, isSecure: false });
+      await handleStorefrontProxy(forgotReq, { refresh, isSecure: false });
+      await handleStorefrontProxy(resetReq, { refresh, isSecure: false });
 
       expect(refreshCalls).toBe(0);
     });
