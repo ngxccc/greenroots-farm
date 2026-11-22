@@ -1,22 +1,30 @@
 import { describe, expect, it, beforeAll, afterAll } from "bun:test";
 import request from "supertest";
 import { type INestApplication } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import type { Server } from "node:http";
 import {
   createTestApp,
   teardownTestApp,
   type TestAppSetup,
 } from "./helpers/app.helper";
+import { createAuthenticatedAdmin } from "./helpers/auth.helper";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
 
 describe("GlobalExceptionFilter Integration", () => {
   let setup: TestAppSetup;
   let app: INestApplication;
+  let adminHeader: { Authorization: string };
   const getHttpServer = (): Server => app.getHttpServer() as Server;
 
   beforeAll(async () => {
     setup = await createTestApp();
     app = setup.app;
+    const adminSession = await createAuthenticatedAdmin(
+      setup.db,
+      app.get(JwtService),
+    );
+    adminHeader = adminSession.authHeader;
   }, 30000);
 
   afterAll(async () => {
@@ -27,6 +35,7 @@ describe("GlobalExceptionFilter Integration", () => {
     it("returns RFC 9457 problem response with application/problem+json on invalid media upload payload", async () => {
       const res = await request(getHttpServer())
         .post("/api/v1/media/upload-signature")
+        .set(adminHeader)
         .send({
           folder: "invalid_unknown_folder",
           resourceType: "unsupported_type",
