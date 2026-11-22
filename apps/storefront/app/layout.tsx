@@ -13,7 +13,10 @@ const beVietnamPro = Be_Vietnam_Pro({
 });
 
 export const metadata: Metadata = {
-  title: `${FARM_METADATA.brandName} – Siêu thị Nông sản Sạch`,
+  title: {
+    default: `${FARM_METADATA.brandName} – Siêu thị Nông sản Sạch`,
+    template: `%s - ${FARM_METADATA.brandName}`,
+  },
   description: `Nông sản hữu cơ thu hoạch lúc ${FARM_METADATA.harvestTimeLabel} tại ${FARM_METADATA.locationShort}, minh bạch nhật ký canh tác bất biến qua QR và giao hỏa tốc ${FARM_METADATA.expressDeliveryLabel}.`,
 };
 

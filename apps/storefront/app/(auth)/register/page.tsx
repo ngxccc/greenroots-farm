@@ -8,7 +8,7 @@ import {
 import { RegisterForm } from "@/features/auth/components/register-form";
 
 export const metadata: Metadata = {
-  title: "Đăng ký tài khoản — GreenRoots Farm",
+  title: "Đăng ký tài khoản",
   description:
     "Tạo tài khoản khách hàng GreenRoots Farm để tích điểm thành viên và đặt rau củ hữu cơ giao trong ngày.",
 };

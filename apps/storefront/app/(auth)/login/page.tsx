@@ -8,7 +8,7 @@ import {
 import { LoginForm } from "@/features/auth/components/login-form";
 
 export const metadata: Metadata = {
-  title: "Đăng nhập — GreenRoots Farm",
+  title: "Đăng nhập",
   description:
     "Đăng nhập tài khoản GreenRoots Farm để đặt rau củ hữu cơ thu hoạch sáng và theo dõi đơn hàng.",
 };
