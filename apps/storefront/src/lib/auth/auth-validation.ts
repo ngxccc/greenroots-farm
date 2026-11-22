@@ -1,0 +1,197 @@
+import { z } from "zod";
+
+/**
+ * Vietnamese 10-digit mobile phone pattern matching `apps/api` `VN_PHONE_REGEX`.
+ */
+export const VN_PHONE_REGEX = /^(0[35789])\d{8}$/;
+
+/**
+ * Cooldown duration in seconds enforced between verification email resend attempts.
+ */
+export const RESEND_VERIFICATION_COOLDOWN_SECONDS = 60;
+
+/**
+ * Minimum and maximum password length matching `apps/api` `zPassword()`.
+ */
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 128;
+
+/**
+ * Evaluation breakdown of the backend OWASP password complexity policy.
+ */
+export interface PasswordRuleEvaluation {
+  readonly minLength: boolean;
+  readonly maxLength: boolean;
+  readonly hasUppercase: boolean;
+  readonly hasNumber: boolean;
+  readonly hasSpecial: boolean;
+  readonly isValid: boolean;
+}
+
+/**
+ * Strips whitespace from an optional phone input and returns `undefined` when blank
+ * so `RegisterDto.phone` is omitted rather than transmitted as an empty string.
+ *
+ * @param raw Optional phone input string from form state.
+ * @returns Normalized phone digits without whitespace, or `undefined` if empty.
+ */
+export function normalizeOptionalPhone(
+  raw: string | null | undefined,
+): string | undefined {
+  if (!raw) {
+    return undefined;
+  }
+
+  const stripped = raw.replace(/\s+/g, "").trim();
+  return stripped.length > 0 ? stripped : undefined;
+}
+
+/**
+ * Evaluates a candidate password against every criterion enforced by `apps/api` `zPassword()`.
+ *
+ * @param password Candidate password string.
+ * @returns Boolean status flags per policy criterion and overall validity.
+ */
+export function evaluatePasswordRules(
+  password: string,
+): PasswordRuleEvaluation {
+  const minLength = password.length >= PASSWORD_MIN_LENGTH;
+  const maxLength = password.length <= PASSWORD_MAX_LENGTH;
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^a-zA-Z0-9]/.test(password);
+
+  return {
+    minLength,
+    maxLength,
+    hasUppercase,
+    hasNumber,
+    hasSpecial,
+    isValid: minLength && maxLength && hasUppercase && hasNumber && hasSpecial,
+  };
+}
+
+/**
+ * Advances the resend-verification cooldown timer by one second, clamping at zero.
+ *
+ * @param remainingSeconds Current cooldown counter in seconds.
+ * @returns Next cooldown value in seconds (`>= 0`).
+ */
+export function decrementCooldownSeconds(remainingSeconds: number): number {
+  if (!Number.isFinite(remainingSeconds) || remainingSeconds <= 1) {
+    return 0;
+  }
+  return Math.floor(remainingSeconds) - 1;
+}
+
+/**
+ * Formats the Vietnamese resend verification button label for active or idle cooldown states.
+ *
+ * @param remainingSeconds Remaining cooldown seconds (`0` when ready).
+ * @returns Localized button label.
+ */
+export function formatResendCooldownLabel(remainingSeconds: number): string {
+  return remainingSeconds > 0
+    ? `Gửi lại sau ${Math.ceil(remainingSeconds)}s`
+    : "Gửi lại email xác thực";
+}
+
+const emailFieldSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.email({ message: "Địa chỉ email không đúng định dạng." }));
+
+/**
+ * Client and Server Action validation schema matching `apps/api` `loginSchema.strict()`.
+ */
+export const loginFormSchema = z
+  .object({
+    email: emailFieldSchema,
+    password: z
+      .string()
+      .min(1, { message: "Vui lòng nhập mật khẩu." })
+      .max(PASSWORD_MAX_LENGTH, {
+        message: `Mật khẩu không được vượt quá ${PASSWORD_MAX_LENGTH} ký tự.`,
+      }),
+  })
+  .strict();
+
+/**
+ * Validated login form payload.
+ */
+export type LoginFormInput = z.infer<typeof loginFormSchema>;
+
+/**
+ * Client and Server Action validation schema matching `apps/api` `registerSchema.strict()`.
+ */
+export const registerFormSchema = z
+  .object({
+    fullName: z
+      .string()
+      .transform((value) => value.replace(/\s+/g, " ").trim())
+      .refine((value) => value.length >= 1, {
+        message: "Vui lòng nhập họ và tên.",
+      })
+      .refine((value) => value.length <= 100, {
+        message: "Họ và tên không được vượt quá 100 ký tự.",
+      }),
+    phone: z
+      .string()
+      .optional()
+      .transform((value) => normalizeOptionalPhone(value))
+      .refine(
+        (value) => value === undefined || VN_PHONE_REGEX.test(value),
+        "Số điện thoại không hợp lệ (yêu cầu 10 chữ số bắt đầu bằng 03, 05, 07, 08 hoặc 09).",
+      ),
+    email: emailFieldSchema,
+    password: z
+      .string()
+      .min(PASSWORD_MIN_LENGTH, {
+        message: `Mật khẩu phải có ít nhất ${PASSWORD_MIN_LENGTH} ký tự.`,
+      })
+      .max(PASSWORD_MAX_LENGTH, {
+        message: `Mật khẩu không được vượt quá ${PASSWORD_MAX_LENGTH} ký tự.`,
+      })
+      .regex(/[A-Z]/, {
+        message: "Mật khẩu phải có ít nhất 1 chữ cái viết hoa.",
+      })
+      .regex(/[0-9]/, {
+        message: "Mật khẩu phải có ít nhất 1 chữ số.",
+      })
+      .regex(/[^a-zA-Z0-9]/, {
+        message: "Mật khẩu phải có ít nhất 1 ký tự đặc biệt.",
+      }),
+    confirmPassword: z.string().min(PASSWORD_MIN_LENGTH, {
+      message: `Mật khẩu xác nhận phải có ít nhất ${PASSWORD_MIN_LENGTH} ký tự.`,
+    }),
+    agreeTerms: z.literal(true, {
+      message: "Vui lòng đồng ý với Điều khoản sử dụng và Chính sách bảo mật.",
+    }),
+  })
+  .strict()
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Mật khẩu xác nhận không khớp.",
+    path: ["confirmPassword"],
+  });
+
+/**
+ * Raw registration form input before normalization.
+ */
+export interface RegisterFormValues {
+  readonly fullName: string;
+  readonly phone?: string;
+  readonly email: string;
+  readonly password: string;
+  readonly confirmPassword: string;
+  readonly agreeTerms: boolean;
+}
+
+/**
+ * Schema validating verification email resend requests matching `resendVerificationSchema.strict()`.
+ */
+export const resendVerificationFormSchema = z
+  .object({
+    email: emailFieldSchema,
+  })
+  .strict();
