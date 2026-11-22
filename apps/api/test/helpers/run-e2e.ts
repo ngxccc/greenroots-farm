@@ -28,8 +28,8 @@ const IGNORED_TEST_DIRS = new Set([
 /** Highest logical Redis database reserved for isolated parallel E2E workers (`1..15`). */
 export const MAX_REDIS_WORKER_DB = 15;
 
-/** Default bounded concurrency matching local Docker Compose `cpus: "0.50"` Postgres limit. */
-export const DEFAULT_E2E_CONCURRENCY = 3;
+/** Default bounded concurrency matching local Docker Compose `cpus: "2.00"` Postgres limit. */
+export const DEFAULT_E2E_CONCURRENCY = 4;
 
 /** Result captured for a single E2E test file execution. */
 export interface E2eFileResult {
