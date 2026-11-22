@@ -1,6 +1,6 @@
 ## Summary
 
-<!-- Concise explanation of what this PR changes and the technical rationale -->
+<!-- Concise explanation of what this PR changes and why -->
 
 ## Context
 
@@ -8,10 +8,16 @@
 - Relates to: # <!-- If referencing an issue without closing -->
 - None <!-- If standalone change -->
 
-## Verification & Evidence
+## Changes
 
-- **Commands run** (for the affected workspaces):
-  - `bun run check` / `bun run test` / `bun run format:check` <!-- Replace or extend with exact build/lint/test commands run -->
+- <!-- Key code, config, or contract changes introduced by this PR -->
+
+## Evidence
+
+- **Before:** <!-- Previous behavior, screenshot, or failing check -->
+- **After:** <!-- Verified behavior, screenshot, or passing output -->
+- **Commands run**:
+  - `bun run check` / `bun run test` / `bun run format:check` <!-- Exact commands run -->
 - **Database / migration**:
   - [ ] No schema change
   - [ ] Migration included and backward-compatible (expand/contract)
@@ -19,13 +25,21 @@
 - **UI changes**:
   - [ ] No UI change (`N/A`)
   - [ ] Desktop & mobile screenshots attached below for all UI changes
-- **Evidence**:
-  - Output / screenshots / test logs: <!-- Attach desktop & mobile screenshots when UI changed, or paste test output -->
+
+## Risk
+
+- **Door:** <!-- two-way door (low risk, cheap to roll back) | one-way door (high friction/irreversible) -->
+- **Blast Radius:** <!-- Affected workspaces, modules, routes, or runtime services -->
+- **Rollback:** <!-- Revert commit / down migration / feature flag -->
+
+## Notes
+
+- None <!-- Tradeoffs, preserved constraints, or follow-up items -->
 
 ## Checklist
 
 - [ ] Tests pass locally.
-- [ ] Any UI changes include desktop & mobile screenshots under Verification & Evidence (or `No UI change` checked above).
+- [ ] Any UI changes include desktop & mobile screenshots under `## Evidence` (or `No UI change` checked above).
 - [ ] No `.env` files, secrets, PayOS keys, customer PII, or generated artifacts are committed.
 - [ ] I read the relevant standards under `docs/standards/` before changing related code or tests.
 - [ ] New behavior has tests; bug fixes include a regression test.
