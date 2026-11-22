@@ -10,6 +10,9 @@ import {
   evaluateCssLength,
   loadTailwindTooling,
   offsetToLineColumn,
+  parseWorkerViolations,
+  runCheckTailwindCli,
+  type CanonicalViolation,
   type TailwindTooling,
   UI_WORKSPACES,
 } from "./check-tailwind-canonical";
@@ -129,7 +132,25 @@ describe("check-tailwind-canonical", () => {
     let sharedTooling: TailwindTooling;
 
     beforeAll(async () => {
-      sharedTooling = await loadTailwindTooling();
+      const baseTooling = await loadTailwindTooling();
+      const designSystemCache = new Map<
+        string,
+        ReturnType<TailwindTooling["loadDesignSystem"]>
+      >();
+
+      sharedTooling = {
+        createScanner: baseTooling.createScanner,
+        loadDesignSystem: (css, opts) => {
+          // Reuse loaded DesignSystem instances across tests so Tailwind builds its canonicalize lookup map once.
+          const key = `${opts.base}\0${css}`;
+          let cached = designSystemCache.get(key);
+          if (!cached) {
+            cached = baseTooling.loadDesignSystem(css, opts);
+            designSystemCache.set(key, cached);
+          }
+          return cached;
+        },
+      };
     });
 
     it("accepts CSS hex-escaped selectors for digit-prefixed utilities and suppresses root radius false positives", async () => {
@@ -240,6 +261,182 @@ describe("check-tailwind-canonical", () => {
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
+    });
+  });
+
+  describe("parseWorkerViolations", () => {
+    it("parses valid worker JSON violation arrays", () => {
+      const payload: CanonicalViolation[] = [
+        {
+          workspace: "apps/storefront",
+          filePath: "/repo/apps/storefront/src/a.tsx",
+          line: 4,
+          column: 12,
+          original: "p-[4px]",
+          canonical: "p-1",
+        },
+      ];
+
+      expect(
+        parseWorkerViolations(JSON.stringify(payload), "apps/storefront"),
+      ).toEqual(payload);
+    });
+
+    it("rejects malformed JSON and non-violation worker payloads", () => {
+      expect(() => parseWorkerViolations("{broken", "packages/ui")).toThrow(
+        'Invalid JSON from Tailwind worker for "packages/ui"',
+      );
+      expect(() =>
+        parseWorkerViolations(
+          JSON.stringify([{ workspace: "packages/ui", line: "bad" }]),
+          "packages/ui",
+        ),
+      ).toThrow(
+        'Malformed violation payload from Tailwind worker for "packages/ui".',
+      );
+    });
+  });
+
+  describe("runCheckTailwindCli", () => {
+    it("merges and sorts violations deterministically across parallel workspace workers", async () => {
+      const stdout: string[] = [];
+      const stderr: string[] = [];
+      const invoked: string[] = [];
+
+      const exitCode = await runCheckTailwindCli([], {
+        runWorker: async (workspaceName) => {
+          invoked.push(workspaceName);
+          if (workspaceName === "apps/backoffice") {
+            return [
+              {
+                workspace: "apps/backoffice",
+                filePath: path.join(REPO_ROOT, "apps/backoffice/src/b.tsx"),
+                line: 2,
+                column: 5,
+                original: "m-[4px]",
+                canonical: "m-1",
+              },
+            ];
+          }
+          if (workspaceName === "packages/ui") {
+            return [
+              {
+                workspace: "packages/ui",
+                filePath: path.join(REPO_ROOT, "packages/ui/src/a.tsx"),
+                line: 10,
+                column: 3,
+                original: "p-[4px]",
+                canonical: "p-1",
+              },
+              {
+                workspace: "packages/ui",
+                filePath: path.join(REPO_ROOT, "packages/ui/src/a.tsx"),
+                line: 1,
+                column: 8,
+                original: "gap-[8px]",
+                canonical: "gap-2",
+              },
+            ];
+          }
+          return [];
+        },
+        writeStdout: (line) => stdout.push(line),
+        writeStderr: (line) => stderr.push(line),
+      });
+
+      expect(exitCode).toBe(1);
+      expect(invoked).toEqual(UI_WORKSPACES.map((w) => w.name));
+      expect(stdout).toEqual([]);
+      expect(stderr).toEqual([
+        "Found 3 non-canonical Tailwind CSS class(es):",
+        "  apps/backoffice/src/b.tsx:2:5  m-[4px] -> m-1",
+        "  packages/ui/src/a.tsx:1:8  gap-[8px] -> gap-2",
+        "  packages/ui/src/a.tsx:10:3  p-[4px] -> p-1",
+      ]);
+    });
+
+    it("aborts with failure status when a workspace worker throws", async () => {
+      const stdout: string[] = [];
+      const stderr: string[] = [];
+
+      const exitCode = await runCheckTailwindCli([], {
+        runWorker: async (workspaceName) => {
+          if (workspaceName === "apps/storefront") {
+            throw new Error(
+              'Tailwind worker for "apps/storefront" exited with code 1: boom',
+            );
+          }
+          return [];
+        },
+        writeStdout: (line) => stdout.push(line),
+        writeStderr: (line) => stderr.push(line),
+      });
+
+      expect(exitCode).toBe(1);
+      expect(stdout).toEqual([]);
+      expect(stderr).toEqual([
+        'Tailwind worker for "apps/storefront" exited with code 1: boom',
+      ]);
+    });
+
+    it("runs a single workspace in-process and serializes JSON output when requested", async () => {
+      const stdout: string[] = [];
+      const stderr: string[] = [];
+      const checked: string[] = [];
+
+      const exitCode = await runCheckTailwindCli(
+        ["--workspace", "packages/ui", "--json"],
+        {
+          checkWorkspaces: async (targets) => {
+            checked.push(...targets.map((t) => t.name));
+            return [
+              {
+                workspace: "packages/ui",
+                filePath: "/repo/packages/ui/src/button.tsx",
+                line: 3,
+                column: 9,
+                original: "p-[4px]",
+                canonical: "p-1",
+              },
+            ];
+          },
+          runWorker: async () => {
+            throw new Error("worker should not be spawned in --workspace mode");
+          },
+          writeStdout: (line) => stdout.push(line),
+          writeStderr: (line) => stderr.push(line),
+        },
+      );
+
+      expect(exitCode).toBe(0);
+      expect(checked).toEqual(["packages/ui"]);
+      expect(stderr).toEqual([]);
+      expect(JSON.parse(stdout[0] ?? "null")).toEqual([
+        {
+          workspace: "packages/ui",
+          filePath: "/repo/packages/ui/src/button.tsx",
+          line: 3,
+          column: 9,
+          original: "p-[4px]",
+          canonical: "p-1",
+        },
+      ]);
+    });
+
+    it("rejects unknown workspace targets and unknown CLI flags", async () => {
+      const stderrUnknownWs: string[] = [];
+      const codeWs = await runCheckTailwindCli(["--workspace", "apps/nope"], {
+        writeStderr: (line) => stderrUnknownWs.push(line),
+      });
+      expect(codeWs).toBe(1);
+      expect(stderrUnknownWs).toEqual(['Unknown workspace "apps/nope".']);
+
+      const stderrUnknownFlag: string[] = [];
+      const codeFlag = await runCheckTailwindCli(["--bogus"], {
+        writeStderr: (line) => stderrUnknownFlag.push(line),
+      });
+      expect(codeFlag).toBe(1);
+      expect(stderrUnknownFlag).toEqual(["Unknown CLI flag: --bogus"]);
     });
   });
 });
