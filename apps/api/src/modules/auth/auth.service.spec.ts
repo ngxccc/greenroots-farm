@@ -36,6 +36,16 @@ type MockDb = ReturnType<typeof createMockDb> & {
 describe("AuthService", () => {
   let service: AuthService;
   let mockDb: MockDb;
+  const cachedPasswordHashes = new Map<string, Promise<string>>();
+
+  function getCachedPasswordHash(password: string): Promise<string> {
+    let cached = cachedPasswordHashes.get(password);
+    if (!cached) {
+      cached = hashPassword(password);
+      cachedPasswordHashes.set(password, cached);
+    }
+    return cached;
+  }
 
   const mockJwtService = {
     signAsync: mock(() => Promise.resolve("mock_jwt_access_token")),
@@ -348,7 +358,7 @@ describe("AuthService", () => {
     };
 
     it("authenticates valid verified user and issues tokens", async () => {
-      const hashedPassword = await hashPassword("Password123!");
+      const hashedPassword = await getCachedPasswordHash("Password123!");
       mockDb.setSelectResult([
         {
           id: "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f",
@@ -385,7 +395,9 @@ describe("AuthService", () => {
     });
 
     it("throws UnauthorizedException when password does not match", async () => {
-      const hashedPassword = await hashPassword("DifferentPassword123!");
+      const hashedPassword = await getCachedPasswordHash(
+        "DifferentPassword123!",
+      );
       mockDb.setSelectResult([
         {
           id: "user-id",
@@ -402,7 +414,7 @@ describe("AuthService", () => {
     });
 
     it("throws ForbiddenException when emailVerified is false", async () => {
-      const hashedPassword = await hashPassword("Password123!");
+      const hashedPassword = await getCachedPasswordHash("Password123!");
       mockDb.setSelectResult([
         {
           id: "user-id",
@@ -428,7 +440,7 @@ describe("AuthService", () => {
     });
 
     it("throws ForbiddenException when account is suspended", async () => {
-      const hashedPassword = await hashPassword("Password123!");
+      const hashedPassword = await getCachedPasswordHash("Password123!");
       mockDb.setSelectResult([
         {
           id: "user-id",

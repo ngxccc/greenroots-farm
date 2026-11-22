@@ -100,13 +100,24 @@ describe("Authentication Integration", () => {
     }
   }, 15000);
 
+  const passwordHashCache = new Map<string, Promise<string>>();
+
+  function getCachedPasswordHash(password: string): Promise<string> {
+    let cached = passwordHashCache.get(password);
+    if (!cached) {
+      cached = hashPassword(password);
+      passwordHashCache.set(password, cached);
+    }
+    return cached;
+  }
+
   // Helper function to seed an active, email-verified user
   async function seedVerifiedUser(
     email: string,
     password = "Password123!",
     overrides: Partial<typeof users.$inferInsert> = {},
   ): Promise<User> {
-    const hashedPassword = await hashPassword(password);
+    const hashedPassword = await getCachedPasswordHash(password);
     const [user] = await db
       .insert(users)
       .values({
@@ -130,7 +141,7 @@ describe("Authentication Integration", () => {
     password = "Password123!",
     rawVerificationToken?: string,
   ): Promise<{ user: User; rawToken: string }> {
-    const hashedPassword = await hashPassword(password);
+    const hashedPassword = await getCachedPasswordHash(password);
     const rawToken = rawVerificationToken ?? randomBytes(32).toString("hex");
     const [user] = await db
       .insert(users)
