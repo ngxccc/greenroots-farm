@@ -65,7 +65,6 @@ const FULL_CI_EXACT_FILES = new Set([
 const FULL_CI_PREFIXES = [".github/actions/", ".husky/", "packages/shared/"];
 const ROOT_TSCONFIG_PATTERN = /^tsconfig[^/]*\.json$/;
 const CI_SCOPE_SCRIPT_PATTERN = /^scripts\/ci-scope\.(?:ts|test\.ts)$/;
-const JS_TS_EXTENSION_PATTERN = /\.(?:[cm]?[jt]sx?)$/i;
 const TEST_FILE_PATTERN = /\.(?:spec|e2e-spec|test)\.tsx?$/;
 const IGNORED_OXFMT_PATTERNS = [
   /^CHANGELOG\.md$/,
@@ -140,8 +139,6 @@ export function classifyChangedPaths(paths: readonly string[]): CiScope {
   let storefront = false;
   let backoffice = false;
   let bunAudit = false;
-  let codeqlJs = false;
-  let codeqlActions = false;
 
   for (const filePath of paths) {
     if (isOxfmtTarget(filePath)) {
@@ -153,7 +150,6 @@ export function classifyChangedPaths(paths: readonly string[]): CiScope {
       syncpack = true;
       scriptsChecks = true;
       bunAudit = true;
-      codeqlJs = true;
     }
 
     if (filePath.startsWith("scripts/version.")) {
@@ -194,19 +190,8 @@ export function classifyChangedPaths(paths: readonly string[]): CiScope {
       tailwind = true;
     }
 
-    if (
-      JS_TS_EXTENSION_PATTERN.test(filePath) ||
-      filePath === ".github/workflows/security.yml"
-    ) {
-      codeqlJs = true;
-    }
-
     if (filePath === ".github/workflows/security.yml") {
       bunAudit = true;
-    }
-
-    if (isGithubWorkflowOrAction(filePath)) {
-      codeqlActions = true;
     }
   }
 
@@ -228,11 +213,11 @@ export function classifyChangedPaths(paths: readonly string[]): CiScope {
     database,
     storefront,
     backoffice,
-    // Trivy secret/config scanning stays active on every PR including docs-only diffs.
+    // Trivy and both CodeQL languages always run to preserve PR SARIF baseline parity with main.
     trivy: true,
     bun_audit: bunAudit,
-    codeql_js: codeqlJs,
-    codeql_actions: codeqlActions,
+    codeql_js: true,
+    codeql_actions: true,
   };
 }
 

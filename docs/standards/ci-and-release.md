@@ -43,7 +43,7 @@ Each workflow owns one responsibility. A check runs in one workflow and nowhere 
 - Required workflows carry no top-level `on.pull_request.paths` or `paths-ignore` filters, because a skipped workflow never reports a status and blocks the pull request forever. Path filtering lives in `changes` + job/step `if:` conditionals (`scripts/ci-scope.ts`), emitting explicit `skipped` conclusions accepted by GitHub branch protection.
 - On non-PR events (`push`, `schedule`, `workflow_dispatch`), empty diffs, or git failures, `scripts/ci-scope.ts` fails closed to running all checks (`run_all=true`).
 - `quality-gate` uses `if: always()`; it asserts `changes == success` before accepting `{success, skipped}` downstream so an infra failure in scope detection cannot produce a false green gate.
-- `security.yml` runs `Trivy` independently of `changes` on every run (preserving secret scans on docs/templates), splits `CodeQL` into explicit `CodeQL (javascript-typescript)` and `CodeQL (actions)` jobs, and falls back to running `audit` and `CodeQL` if `changes != success` so scope errors fail closed.
+- `security.yml` runs `Trivy`, `CodeQL (javascript-typescript)`, and `CodeQL (actions)` unconditionally on every run (preserving secret scans on docs/templates and keeping PR CodeQL SARIF configurations aligned with `refs/heads/main` instead of triggering `NEUTRAL` missing-configuration warnings), while `audit` stays scope-gated via `changes` with fail-closed fallback (`changes != success`).
 
 ## 4. Required Checks
 

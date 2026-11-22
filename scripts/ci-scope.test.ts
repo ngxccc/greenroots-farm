@@ -66,8 +66,8 @@ describe("ci-scope", () => {
       expect(scope.backoffice).toBe(false);
       expect(scope.trivy).toBe(true);
       expect(scope.bun_audit).toBe(false);
-      expect(scope.codeql_js).toBe(false);
-      expect(scope.codeql_actions).toBe(false);
+      expect(scope.codeql_js).toBe(true);
+      expect(scope.codeql_actions).toBe(true);
     });
 
     it("enables scripts test-naming checks when any workspace test file changes", () => {
@@ -81,7 +81,7 @@ describe("ci-scope", () => {
       expect(scope.tailwind).toBe(true);
       expect(scope.api).toBe(false);
       expect(scope.codeql_js).toBe(true);
-      expect(scope.codeql_actions).toBe(false);
+      expect(scope.codeql_actions).toBe(true);
     });
 
     it("triggers UI dependents and tailwind checks when packages/ui changes", () => {
@@ -121,10 +121,11 @@ describe("ci-scope", () => {
       expect(scope.format_check).toBe(false);
       expect(scope.shared_package).toBe(false);
       expect(scope.trivy).toBe(true);
-      expect(scope.codeql_js).toBe(false);
+      expect(scope.codeql_js).toBe(true);
+      expect(scope.codeql_actions).toBe(true);
     });
 
-    it("triggers CodeQL actions without JS analysis on non-security workflow changes", () => {
+    it("keeps CodeQL checks enabled while skipping app builds on non-security workflow changes", () => {
       const scope = classifyChangedPaths([".github/workflows/labels.yml"]);
 
       expect(scope.run_all).toBe(false);
@@ -132,7 +133,7 @@ describe("ci-scope", () => {
       expect(scope.format_check).toBe(true);
       expect(scope.scripts_checks).toBe(true);
       expect(scope.codeql_actions).toBe(true);
-      expect(scope.codeql_js).toBe(false);
+      expect(scope.codeql_js).toBe(true);
       expect(scope.api).toBe(false);
       expect(scope.storefront).toBe(false);
     });
