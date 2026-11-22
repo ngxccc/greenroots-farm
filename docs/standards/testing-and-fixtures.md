@@ -44,7 +44,7 @@ Each parallel worker owns a dynamically provisioned schema (`test_<timestamp>_<u
 
 - Keep shared extensions, functions, and public catalogs resolvable in the hierarchy.
 - Reset hooks truncate only tables in the worker's `current_schema()`, with driver-escaped identifiers.
-- Prefix every Redis key, mutex, and queue name with the worker ID.
+- Scope each parallel E2E worker to a dedicated PostgreSQL schema (`test_<timestamp>_<uuid>`) and a dedicated Redis logical database (`/1..15` parsed from `REDIS_URL`), isolating `RedisService`, `BullModule`, Lua scripts, and rate limiters without `ioredis` `keyPrefix` conflicts.
 - Suppress cron schedulers and asynchronous consumers during standard integration runs.
 - Teardown runs `DROP SCHEMA IF EXISTS <worker_schema> CASCADE` and closes broker and database connections.
 
