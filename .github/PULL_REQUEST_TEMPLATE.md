@@ -16,12 +16,16 @@
   - [ ] No schema change
   - [ ] Migration included and backward-compatible (expand/contract)
   - [ ] `bun run db:migrate` and `bun run db:seed --clean` verified locally
+- **UI changes**:
+  - [ ] No UI change (`N/A`)
+  - [ ] Desktop & mobile screenshots attached below for all UI changes
 - **Evidence**:
-  - Output / screenshots / test logs: <!-- Attach screenshots for UI changes, or paste test output -->
+  - Output / screenshots / test logs: <!-- Attach desktop & mobile screenshots when UI changed, or paste test output -->
 
 ## Checklist
 
 - [ ] Tests pass locally.
+- [ ] Any UI changes include desktop & mobile screenshots under Verification & Evidence (or `No UI change` checked above).
 - [ ] No `.env` files, secrets, PayOS keys, customer PII, or generated artifacts are committed.
 - [ ] I read the relevant standards under `docs/standards/` before changing related code or tests.
 - [ ] New behavior has tests; bug fixes include a regression test.
