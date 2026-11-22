@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type ComponentType, type SubmitEvent } from "react";
+import { useId, useState, type ComponentType, type SubmitEvent } from "react";
 import {
   Badge,
   Button,
@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Label,
   buttonVariants,
 } from "@greenroots/ui";
 import {
@@ -98,6 +99,7 @@ function ShelfSection({
 
 export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
   const router = useRouter();
+  const qrInputId = useId();
   const [batchCode, setBatchCode] = useState("BATCH-2026-TOM-01");
   const [certDialogOpen, setCertDialogOpen] = useState(false);
 
@@ -218,11 +220,11 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
             </div>
 
             <form onSubmit={handleTraceSubmit} className="flex flex-col gap-2">
-              <label className="sr-only" htmlFor="home-qr-input">
+              <Label className="sr-only" htmlFor={qrInputId}>
                 Mã lô thu hoạch
-              </label>
+              </Label>
               <Input
-                id="home-qr-input"
+                id={qrInputId}
                 value={batchCode}
                 onChange={(event) => setBatchCode(event.target.value)}
                 placeholder="Nhập mã lô thu hoạch..."

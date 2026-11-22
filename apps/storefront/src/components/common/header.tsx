@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode, type SubmitEvent } from "react";
+import { useId, useState, type ReactNode, type SubmitEvent } from "react";
 import { HCMC_DISTRICTS } from "@greenroots/shared";
-import { Button } from "@greenroots/ui";
+import { Button, Input, Label } from "@greenroots/ui";
 import { MapPin, Search, ShoppingCart } from "lucide-react";
 import { buildProductSearchHref } from "@/lib/navigation";
 import { estimateDistrictPreviewQuote } from "@/lib/shipping";
@@ -13,6 +13,55 @@ import { AddressDialog } from "./address-dialog";
 import { BrandLogo } from "./brand-logo";
 import { CartDrawer } from "./cart-drawer";
 import { HeaderAuthControls } from "./header-auth-controls";
+
+interface StorefrontHeaderSearchFormProps {
+  readonly query: string;
+  readonly onQueryChange?: (value: string) => void;
+  readonly onSubmit?: (event: SubmitEvent<HTMLFormElement>) => void;
+}
+
+/**
+ * Pure presentational header product search form decoupled from Next.js router hooks.
+ *
+ * @param props Controlled search query and form interaction handlers.
+ * @returns Controlled product search form wired to the supplied handlers.
+ */
+export function StorefrontHeaderSearchForm({
+  query,
+  onQueryChange,
+  onSubmit,
+}: StorefrontHeaderSearchFormProps) {
+  const searchInputId = useId();
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="order-3 w-full md:order-2 md:max-w-xl md:flex-1"
+    >
+      <div className="flex items-center gap-2 rounded-full border border-border-subtle bg-white py-1 pr-1.5 pl-4 focus-within:ring-2 focus-within:ring-green-200">
+        <Label htmlFor={searchInputId} className="sr-only">
+          Tìm kiếm nông sản
+        </Label>
+        <Search className="size-4 shrink-0 text-gray-500" aria-hidden="true" />
+        <Input
+          id={searchInputId}
+          type="search"
+          value={query}
+          onChange={(event) => onQueryChange?.(event.target.value)}
+          placeholder="Tìm rau củ hữu cơ tươi ngon..."
+          className="h-auto border-0 bg-transparent p-0 text-xs text-gray-900 shadow-none placeholder:text-gray-500 focus-visible:ring-0 sm:text-sm"
+        />
+        <Button
+          type="submit"
+          size="sm"
+          className="h-auto shrink-0 rounded-full bg-green-50 px-4 py-1.5 text-xs font-semibold text-brand-dark shadow-none hover:bg-green-100"
+        >
+          Tìm
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 interface StorefrontHeaderProps {
   readonly authSlot?: ReactNode;
@@ -52,32 +101,11 @@ export function StorefrontHeader({ authSlot }: StorefrontHeaderProps) {
             <BrandLogo variant="on-dark" size="md" />
           </Link>
 
-          <form
+          <StorefrontHeaderSearchForm
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
             onSubmit={handleSearchSubmit}
-            className="order-3 w-full md:order-2 md:max-w-xl md:flex-1"
-          >
-            <label className="flex items-center gap-2 rounded-full border border-border-subtle bg-white py-1 pr-1.5 pl-4 focus-within:ring-2 focus-within:ring-green-200">
-              <Search
-                className="size-4 shrink-0 text-gray-500"
-                aria-hidden="true"
-              />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Tìm rau củ hữu cơ tươi ngon..."
-                aria-label="Tìm kiếm nông sản"
-                className="w-full border-none bg-transparent p-0 text-xs text-gray-900 placeholder:text-gray-500 focus:ring-0 focus:outline-none sm:text-sm"
-              />
-              <Button
-                type="submit"
-                size="sm"
-                className="h-auto shrink-0 rounded-full bg-green-50 px-4 py-1.5 text-xs font-semibold text-brand-dark shadow-none hover:bg-green-100"
-              >
-                Tìm
-              </Button>
-            </label>
-          </form>
+          />
 
           <div className="order-2 flex shrink-0 items-center gap-4 md:order-3">
             <button

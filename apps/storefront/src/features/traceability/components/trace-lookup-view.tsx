@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type SubmitEvent } from "react";
+import { useId, useState, type SubmitEvent } from "react";
 import {
   Badge,
   Button,
   Card,
   CardContent,
   Input,
+  Label,
   buttonVariants,
 } from "@greenroots/ui";
 import {
@@ -47,6 +48,7 @@ export function TraceLookupContent({
   onSelectSample,
   onSubmit,
 }: TraceLookupContentProps) {
+  const batchCodeInputId = useId();
   const previewRecord =
     records.find((item) => item.batchCode === previewCode) ?? records.at(0);
 
@@ -89,13 +91,16 @@ export function TraceLookupContent({
                 onSubmit={onSubmit}
                 className="flex flex-col gap-2 sm:flex-row"
               >
-                <label className="flex flex-1 items-center gap-2 rounded-lg border border-border-subtle bg-surface-warm px-4 py-2 focus-within:border-brand-forest focus-within:ring-1 focus-within:ring-brand-forest">
+                <div className="flex flex-1 items-center gap-2 rounded-lg border border-border-subtle bg-surface-warm px-4 py-2 focus-within:border-brand-forest focus-within:ring-1 focus-within:ring-brand-forest">
                   <QrCode
                     className="size-5 shrink-0 text-brand-forest"
                     aria-hidden="true"
                   />
-                  <span className="sr-only">Mã lô thu hoạch</span>
+                  <Label htmlFor={batchCodeInputId} className="sr-only">
+                    Mã lô thu hoạch
+                  </Label>
                   <Input
+                    id={batchCodeInputId}
                     type="text"
                     value={batchCode}
                     onChange={(event) =>
@@ -104,7 +109,7 @@ export function TraceLookupContent({
                     placeholder="Ví dụ: BATCH-2026-TOM-01"
                     className="h-auto border-0 bg-transparent p-0 text-[13px] font-semibold tracking-wide text-gray-900 tabular-nums shadow-none placeholder:text-gray-500 focus-visible:ring-0"
                   />
-                </label>
+                </div>
 
                 <Button
                   type="submit"

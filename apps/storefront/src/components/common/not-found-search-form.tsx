@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type SubmitEvent } from "react";
-import { Button, Input } from "@greenroots/ui";
+import { useId, useState, type SubmitEvent } from "react";
+import { Button, Input, Label } from "@greenroots/ui";
 import { Search } from "lucide-react";
 import { buildProductSearchHref } from "@/lib/navigation";
 
@@ -23,6 +23,8 @@ export function NotFoundSearchFormView({
   onQueryChange,
   onSubmit,
 }: NotFoundSearchFormViewProps) {
+  const searchInputId = useId();
+
   return (
     <form
       action="/products"
@@ -30,15 +32,18 @@ export function NotFoundSearchFormView({
       onSubmit={onSubmit}
       className="w-full max-w-md"
     >
-      <label className="flex items-center gap-2 rounded-full border border-border-subtle bg-surface-warm py-1.5 pr-1.5 pl-4 focus-within:ring-2 focus-within:ring-brand-forest">
+      <div className="flex items-center gap-2 rounded-full border border-border-subtle bg-surface-warm py-1.5 pr-1.5 pl-4 focus-within:ring-2 focus-within:ring-brand-forest">
+        <Label htmlFor={searchInputId} className="sr-only">
+          Tìm kiếm sản phẩm trên trang không tìm thấy
+        </Label>
         <Search className="size-4 shrink-0 text-gray-500" aria-hidden="true" />
         <Input
+          id={searchInputId}
           type="search"
           name="q"
           value={query}
           onChange={(event) => onQueryChange?.(event.target.value)}
           placeholder="Tìm xà lách, cà chua bi, gói rau..."
-          aria-label="Tìm kiếm sản phẩm trên trang không tìm thấy"
           className="h-auto border-0 bg-transparent p-0 text-[13px] text-gray-900 shadow-none placeholder:text-gray-500 focus-visible:ring-0"
         />
         <Button
@@ -48,7 +53,7 @@ export function NotFoundSearchFormView({
         >
           Tìm ngay
         </Button>
-      </label>
+      </div>
     </form>
   );
 }

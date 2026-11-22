@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -67,12 +68,12 @@ export function AddressDialog({ open, onOpenChange }: AddressDialogProps) {
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label
+            <Label
               htmlFor="district-select"
               className="text-xs font-semibold text-gray-700"
             >
               Quận / Huyện / TP. Thủ Đức
-            </label>
+            </Label>
             <Select
               value={draftDistrictCode}
               onValueChange={(value) => {
@@ -93,12 +94,12 @@ export function AddressDialog({ open, onOpenChange }: AddressDialogProps) {
           </div>
 
           <div className="space-y-1.5">
-            <label
+            <Label
               htmlFor="street-address-input"
               className="text-xs font-semibold text-gray-700"
             >
               Số nhà, tên đường (tùy chọn)
-            </label>
+            </Label>
             <Input
               id="street-address-input"
               value={draftStreet}
