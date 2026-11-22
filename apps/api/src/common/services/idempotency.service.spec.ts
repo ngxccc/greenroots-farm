@@ -81,7 +81,7 @@ describe("IdempotencyService", () => {
   });
 
   describe("acquire", () => {
-    it("should acquire lock with PROCESSING status when called with a new key", async () => {
+    it("acquires lock with PROCESSING status when called with a new key", async () => {
       const result = await service.acquire(validKey, defaultPayload);
 
       expect(result.isNew).toBe(true);
@@ -95,7 +95,8 @@ describe("IdempotencyService", () => {
       expect(stored.payloadHash).toBeDefined();
     });
 
-    it("should fail-closed with 503 when stored Redis record is corrupted JSON", () => {
+    it("fails closed when stored Redis record is corrupted JSON", () => {
+      // Invariant: INV-IDEMP-4
       mockRedis.store.set(`${IDEMPOTENCY_KEY_PREFIX}${validKey}`, {
         value: "not-valid-json",
       });
@@ -104,7 +105,8 @@ describe("IdempotencyService", () => {
       );
     });
 
-    it("should return cached response when replayed with identical payload", async () => {
+    it("returns cached response when replayed with identical payload", async () => {
+      // Invariant: INV-IDEMP-1
       const canonicalPayload = { items: [{ id: "prod-1", quantity: 2 }] };
       const reorderedPayload = { items: [{ quantity: 2, id: "prod-1" }] };
 
@@ -121,7 +123,8 @@ describe("IdempotencyService", () => {
       });
     });
 
-    it("should reject with 422 Unprocessable Entity when payload differs from original request", async () => {
+    it("rejects request when payload differs from original request", async () => {
+      // Invariant: INV-IDEMP-2
       await service.acquire(validKey, { amount: 1000 });
       await service.complete(validKey, 200, { success: true });
 
@@ -130,7 +133,8 @@ describe("IdempotencyService", () => {
       );
     });
 
-    it("should reject with 409 Conflict when concurrent request is still PROCESSING", () => {
+    it("rejects concurrent request when existing key is still PROCESSING", () => {
+      // Invariant: INV-IDEMP-3
       void service.acquire(validKey, defaultPayload);
 
       expect(service.acquire(validKey, defaultPayload)).rejects.toThrow(
@@ -138,7 +142,8 @@ describe("IdempotencyService", () => {
       );
     });
 
-    it("should reject with 409 Conflict on SET NX race condition", () => {
+    it("rejects request on SET NX race condition", () => {
+      // Invariant: INV-IDEMP-3
       mockRedis.setForceNxNull(true);
 
       expect(service.acquire(validKey, defaultPayload)).rejects.toThrow(
@@ -146,7 +151,8 @@ describe("IdempotencyService", () => {
       );
     });
 
-    it("should fail closed with 503 when Redis GET fails while checking existing record", () => {
+    it("fails closed when Redis GET fails while checking existing record", () => {
+      // Invariant: INV-IDEMP-4
       mockRedis.setForceNxNull(true);
       mockRedis.setThrowOnGet(true);
 
@@ -155,7 +161,8 @@ describe("IdempotencyService", () => {
       );
     });
 
-    it("should fail closed with 503 Service Unavailable when Redis connection is lost", () => {
+    it("fails closed when Redis connection is lost", () => {
+      // Invariant: INV-IDEMP-4
       mockRedis.setThrow(true);
 
       expect(service.acquire(validKey, defaultPayload)).rejects.toThrow(
@@ -163,13 +170,13 @@ describe("IdempotencyService", () => {
       );
     });
 
-    it("should reject with 400 Bad Request when Idempotency-Key is not a valid UUID", () => {
+    it("rejects request when Idempotency-Key is not a valid UUID", () => {
       expect(
         service.acquire("invalid-not-a-uuid", defaultPayload),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("should handle undefined request body on acquire and replay", async () => {
+    it("handles undefined request body on acquire and replay", async () => {
       const newResult = await service.acquire(validKey, undefined);
       expect(newResult.isNew).toBe(true);
       expect(newResult.cached).toBeNull();
@@ -184,7 +191,7 @@ describe("IdempotencyService", () => {
       });
     });
 
-    it("should isolate identical keys across distinct caller/route scopes", async () => {
+    it("isolates identical keys across distinct caller/route scopes", async () => {
       const scopeA = "user-a:POST:/api/v1/orders/checkout";
       const scopeB = "user-b:POST:/api/v1/orders/checkout";
 
@@ -218,7 +225,7 @@ describe("IdempotencyService", () => {
   });
 
   describe("complete", () => {
-    it("should record COMPLETED status and cache response body when mutation finishes", async () => {
+    it("records COMPLETED status and caches response body when mutation finishes", async () => {
       await service.acquire(validKey, defaultPayload);
       await service.complete(validKey, 200, { result: "done" });
 
@@ -232,7 +239,7 @@ describe("IdempotencyService", () => {
       expect(stored.body).toEqual({ result: "done" });
     });
 
-    it("should store custom ttlSeconds when completing a request", async () => {
+    it("stores custom ttlSeconds when completing a request", async () => {
       const customTtl = 3600;
       await service.acquire(validKey, defaultPayload);
       await service.complete(validKey, 200, { result: "done" }, customTtl);
@@ -243,7 +250,7 @@ describe("IdempotencyService", () => {
       expect(storedItem?.ttl).toBe(customTtl);
     });
 
-    it("should compute payloadHash directly when requestPayload is supplied to complete()", async () => {
+    it("computes payloadHash directly when requestPayload is supplied to complete", async () => {
       const explicitPayload = { orderId: "ord-999" };
       await service.complete(
         validKey,
@@ -263,7 +270,7 @@ describe("IdempotencyService", () => {
       expect(stored.payloadHash.length).toBe(64);
     });
 
-    it("should fallback gracefully when existing Redis record has corrupted JSON during complete()", async () => {
+    it("falls back gracefully when existing Redis record has corrupted JSON during complete", async () => {
       mockRedis.store.set(`${IDEMPOTENCY_KEY_PREFIX}${validKey}`, {
         value: "corrupted-json-data",
       });
@@ -281,7 +288,8 @@ describe("IdempotencyService", () => {
   });
 
   describe("release", () => {
-    it("should delete record from Redis when called so client can retry", async () => {
+    it("deletes record from Redis so client can retry", async () => {
+      // Invariant: INV-IDEMP-5
       await service.acquire(validKey, defaultPayload);
       expect(mockRedis.store.has(`${IDEMPOTENCY_KEY_PREFIX}${validKey}`)).toBe(
         true,
@@ -293,7 +301,7 @@ describe("IdempotencyService", () => {
       );
     });
 
-    it("should not throw on complete() or release() when Redis is down", async () => {
+    it("suppresses Redis errors on complete and release when Redis is down", async () => {
       mockRedis.setThrow(true);
 
       await service.complete(validKey, 200, { result: "ok" });

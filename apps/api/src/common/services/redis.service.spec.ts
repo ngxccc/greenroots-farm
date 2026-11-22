@@ -149,7 +149,7 @@ describe("RedisService", () => {
   });
 
   describe("revokeToken", () => {
-    it("is a no-op when ttlSeconds is zero or negative", async () => {
+    it("skips Redis write when ttlSeconds is zero or negative", async () => {
       const client = service.getClient();
       const setSpy = spyOn(client, "set").mockResolvedValue("OK");
 
@@ -239,7 +239,7 @@ describe("RedisService", () => {
   });
 
   describe("deprecated aliases", () => {
-    it("isAccessTokenRevoked forwards to isRevoked", async () => {
+    it("forwards isAccessTokenRevoked to isRevoked", async () => {
       const isRevokedSpy = spyOn(service, "isRevoked").mockResolvedValue(true);
 
       interface LegacyService {
@@ -253,7 +253,7 @@ describe("RedisService", () => {
       expect(isRevokedSpy).toHaveBeenCalledWith("user-1");
     });
 
-    it("revokeAccessToken forwards to revokeUser", async () => {
+    it("forwards revokeAccessToken to revokeUser", async () => {
       const revokeUserSpy = spyOn(service, "revokeUser").mockResolvedValue();
 
       interface LegacyService {

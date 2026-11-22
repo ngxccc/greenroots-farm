@@ -429,7 +429,7 @@ describe("BatchesService", () => {
       expect(result.batchCode).toBe("BATCH-20261120-CACHUA-VN04AM");
     });
 
-    it("falls back to BUSINESS_RULES threshold in test/dev on FARM_NOT_FOUND but fails closed in production", async () => {
+    it("falls back to BUSINESS_RULES threshold in test/dev when farm settings are missing but fails closed in production", async () => {
       // Invariant: INV-BATCH-3
       mockFarmSettingsService.getSettings.mockImplementation(() =>
         Promise.reject(

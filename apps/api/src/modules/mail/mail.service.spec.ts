@@ -6,7 +6,7 @@ import { MAIL_QUEUE_NAME, SEND_MAIL_JOB } from "./mail.constant";
 import type { SendEmailPayload } from "./mail.interface";
 import type { Job, Queue } from "bullmq";
 
-describe("Mail Module Integration", () => {
+describe("Mail", () => {
   let mockDriver: MockMailDriver;
   let addedJobs: {
     name: string;
@@ -37,8 +37,8 @@ describe("Mail Module Integration", () => {
     processor = new MailProcessor(mockDriver);
   });
 
-  describe("MailService Producer", () => {
-    it("should enqueue a generic mail job with retry configuration", async () => {
+  describe("MailService", () => {
+    it("enqueues a generic mail job with retry configuration", async () => {
       const payload: SendEmailPayload = {
         to: "customer@greenroots.farm",
         subject: "Order Confirmation",
@@ -57,7 +57,7 @@ describe("Mail Module Integration", () => {
       });
     });
 
-    it("should enqueue verification email with confirmation link", async () => {
+    it("enqueues verification email with confirmation link", async () => {
       await mailService.sendVerificationEmail(
         "ngoc@greenroots.farm",
         "Ngoc Tran",
@@ -71,7 +71,7 @@ describe("Mail Module Integration", () => {
       expect(job?.data.html).toContain("verify-token-123");
     });
 
-    it("should enqueue password reset email with recovery link", async () => {
+    it("enqueues password reset email with recovery link", async () => {
       await mailService.sendPasswordResetEmail(
         "admin@greenroots.farm",
         "Admin",
@@ -120,8 +120,8 @@ describe("Mail Module Integration", () => {
     });
   });
 
-  describe("MailProcessor and MockMailDriver Consumer", () => {
-    it("should process mail job and capture payload into MockMailDriver", async () => {
+  describe("MailProcessor", () => {
+    it("processes mail job and captures payload into MockMailDriver", async () => {
       const payload: SendEmailPayload = {
         to: "recipient@example.com",
         subject: "Test email",
@@ -143,7 +143,7 @@ describe("Mail Module Integration", () => {
       expect(mockDriver.sentEmails[0]?.subject).toBe("Test email");
     });
 
-    it("should ignore unknown job names without processing", async () => {
+    it("ignores unknown job names without processing", async () => {
       const fakeJob = {
         id: "job-100",
         name: "unknown-job-type",

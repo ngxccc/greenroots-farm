@@ -80,7 +80,7 @@ describe("SeasonsService", () => {
   });
 
   describe("createSeason", () => {
-    it("maps PostgreSQL 23514 check violation on seasons_date_range_valid_chk to 422", async () => {
+    it("maps PostgreSQL 23514 check violation on seasons_date_range_valid_chk", async () => {
       mockDb.setSelectResultsQueue([[samplePlotSummary]]);
       mockDb.mockInsertValues.mockImplementationOnce(() => ({
         returning: () =>
@@ -113,7 +113,7 @@ describe("SeasonsService", () => {
   });
 
   describe("updateSeason", () => {
-    it("rejects same-status harvested updates with 422 without updating DB", async () => {
+    it("rejects same-status harvested updates without updating DB", async () => {
       mockDb.setSelectResultsQueue([
         [{ ...sampleSeasonRow, status: SeasonStatus.HARVESTED }],
       ]);
@@ -152,7 +152,7 @@ describe("SeasonsService", () => {
       }
     });
 
-    it("maps PostgreSQL 23505 on seasons_one_active_per_plot_uidx to 409", async () => {
+    it("maps PostgreSQL 23505 on seasons_one_active_per_plot_uidx to conflict exception", async () => {
       mockDb.setSelectResultsQueue([
         [sampleSeasonRow],
         [{ id: plotId }],

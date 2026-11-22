@@ -46,7 +46,7 @@ function createMockHost(url = "/api/v1/test") {
 describe("GlobalExceptionFilter RFC 9457", () => {
   const filter = new GlobalExceptionFilter();
 
-  test("maps PostgreSQL P0001 trigger rejection to HTTP 403", () => {
+  test("maps PostgreSQL P0001 trigger rejection to forbidden problem response", () => {
     const { response, host } = createMockHost();
     const dbError = Object.assign(new Error("FARMING_LOG_IMMUTABLE"), {
       code: "P0001",
@@ -82,7 +82,7 @@ describe("GlobalExceptionFilter RFC 9457", () => {
     );
   });
 
-  test("maps PostgreSQL 23503 foreign key violation to HTTP 409", () => {
+  test("maps PostgreSQL 23503 foreign key violation to conflict problem response", () => {
     const { response, host } = createMockHost();
     const dbError = Object.assign(new Error("foreign key"), {
       code: "23503",
@@ -99,7 +99,7 @@ describe("GlobalExceptionFilter RFC 9457", () => {
     );
   });
 
-  test("maps PostgreSQL 23514 check violation to HTTP 422", () => {
+  test("maps PostgreSQL 23514 check violation to unprocessable problem response", () => {
     const { response, host } = createMockHost();
     const dbError = Object.assign(new Error("check constraint"), {
       code: "23514",

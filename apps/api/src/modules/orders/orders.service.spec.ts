@@ -923,7 +923,7 @@ describe("OrdersService", () => {
 
   describe("getMyOrderById", () => {
     // Invariant: INV-ORD-7
-    it("throws ORDER_NOT_FOUND when the order is missing or owned by another customer", async () => {
+    it("throws not-found exception when the order is missing or owned by another customer", async () => {
       mockDb.setSelectResultsQueue([
         [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
         [],

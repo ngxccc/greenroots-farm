@@ -3,7 +3,7 @@ import { apiSuccess, buildPaginationMeta } from "./api-response.util";
 
 describe("API Response Utilities", () => {
   describe("apiSuccess", () => {
-    it("should construct a standard success envelope without meta", () => {
+    it("constructs a standard success envelope without meta", () => {
       const response = apiSuccess({ id: "user-1", name: "Farm Worker" });
       expect(response).toEqual({
         success: true,
@@ -12,7 +12,7 @@ describe("API Response Utilities", () => {
       expect(response.meta).toBeUndefined();
     });
 
-    it("should construct a standard success envelope with root-level meta", () => {
+    it("constructs a standard success envelope with root-level meta", () => {
       const meta = { total: 42, cached: true };
       const response = apiSuccess(["item1", "item2"], meta);
       expect(response).toEqual({
@@ -24,7 +24,7 @@ describe("API Response Utilities", () => {
   });
 
   describe("buildPaginationMeta", () => {
-    it("should compute pagination metadata correctly for the first page", () => {
+    it("computes pagination metadata for the first page", () => {
       const meta = buildPaginationMeta(100, 1, 20);
       expect(meta).toEqual({
         page: 1,
@@ -36,7 +36,7 @@ describe("API Response Utilities", () => {
       });
     });
 
-    it("should compute pagination metadata correctly for a middle page", () => {
+    it("computes pagination metadata for a middle page", () => {
       const meta = buildPaginationMeta(100, 3, 20);
       expect(meta).toEqual({
         page: 3,
@@ -48,7 +48,7 @@ describe("API Response Utilities", () => {
       });
     });
 
-    it("should compute pagination metadata correctly for the last page", () => {
+    it("computes pagination metadata for the last page", () => {
       const meta = buildPaginationMeta(100, 5, 20);
       expect(meta).toEqual({
         page: 5,
@@ -60,7 +60,7 @@ describe("API Response Utilities", () => {
       });
     });
 
-    it("should handle empty results gracefully by defaulting totalPages to 1", () => {
+    it("defaults totalPages to 1 when results are empty", () => {
       const meta = buildPaginationMeta(0, 1, 20);
       expect(meta).toEqual({
         page: 1,
@@ -72,7 +72,7 @@ describe("API Response Utilities", () => {
       });
     });
 
-    it("should handle non-exact division by rounding up totalPages", () => {
+    it("rounds up totalPages on non-exact division", () => {
       const meta = buildPaginationMeta(25, 2, 10);
       expect(meta).toEqual({
         page: 2,

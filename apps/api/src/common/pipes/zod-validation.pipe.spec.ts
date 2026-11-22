@@ -20,7 +20,7 @@ describe("ZodValidationPipe", () => {
 
   const pipe = new ZodValidationPipe(testSchema);
 
-  it("should pass through valid payloads", () => {
+  it("passes through valid payloads", () => {
     const validData = {
       name: "Ngoc",
       age: 25,
@@ -33,7 +33,7 @@ describe("ZodValidationPipe", () => {
     expect(result).toEqual(validData);
   });
 
-  it("should format missing required fields with code REQUIRED and English reason", () => {
+  it("formats missing required fields with English reason", () => {
     try {
       pipe.transform({});
       expect().fail("Should have thrown BadRequestException");
@@ -54,7 +54,7 @@ describe("ZodValidationPipe", () => {
     }
   });
 
-  it("should format invalid enum values with code INVALID_VALUE and dynamic params", () => {
+  it("formats invalid enum values with dynamic params", () => {
     try {
       pipe.transform({
         name: "Ngoc",
@@ -78,7 +78,7 @@ describe("ZodValidationPipe", () => {
     }
   });
 
-  it("should format invalid email format with code INVALID_EMAIL", () => {
+  it("formats invalid email format", () => {
     try {
       pipe.transform({
         name: "Ngoc",
@@ -99,7 +99,7 @@ describe("ZodValidationPipe", () => {
     }
   });
 
-  it("should format number boundaries with code TOO_SMALL and bounds metadata", () => {
+  it("formats number boundaries with bounds metadata", () => {
     try {
       pipe.transform({
         name: "Ngoc",
@@ -125,7 +125,7 @@ describe("ZodValidationPipe", () => {
     }
   });
 
-  it("should preserve developer-supplied custom messages on schema fields", () => {
+  it("preserves developer-supplied custom messages on schema fields", () => {
     try {
       pipe.transform({
         name: "Ngoc",
@@ -148,7 +148,7 @@ describe("ZodValidationPipe", () => {
     }
   });
 
-  it("should format nested issue paths correctly", () => {
+  it("formats nested issue paths correctly", () => {
     expect(formatZodIssuePath(["items", 0, "price"])).toBe("items[0].price");
     expect(formatZodIssuePath(["user", "address", "city"])).toBe(
       "user.address.city",

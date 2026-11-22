@@ -31,12 +31,12 @@ describe("password hashing with scrypt", () => {
 });
 
 describe("token hashing", () => {
-  test("sha256 returns a deterministic 64-char digest", () => {
+  test("returns a deterministic 64-char digest for sha256", () => {
     expect(sha256("greenroots")).toBe(sha256("greenroots"));
     expect(sha256("greenroots")).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  test("refresh tokens are opaque 256-bit hex values", () => {
+  test("generates opaque 256-bit hex refresh tokens", () => {
     const token = generateRefreshToken();
 
     expect(token).toMatch(/^[0-9a-f]{64}$/);

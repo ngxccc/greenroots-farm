@@ -101,7 +101,7 @@ describe("AuthService", () => {
     );
   });
 
-  it("should be defined", () => {
+  it("initializes AuthService", () => {
     expect(service).toBeDefined();
   });
 
@@ -118,7 +118,7 @@ describe("AuthService", () => {
       agreeTerms: true,
     };
 
-    it("should successfully register an unverified customer and dispatch verification email", async () => {
+    it("registers an unverified customer and dispatches verification email", async () => {
       mockDb.setSelectResult([]);
 
       await service.register(registerDto);
@@ -144,7 +144,7 @@ describe("AuthService", () => {
       );
     });
 
-    it("should throw ConflictException (AUTH_EMAIL_ALREADY_EXISTS) when email already exists", async () => {
+    it("throws ConflictException when email already exists", async () => {
       mockDb.setSelectResult([{ id: "existing-user-id" }]);
 
       expect(service.register(registerDto)).rejects.toThrow(ConflictException);
@@ -159,7 +159,7 @@ describe("AuthService", () => {
       }
     });
 
-    it("should catch database unique violation (23505) and rethrow ConflictException", () => {
+    it("catches database unique violation (23505) and rethrows ConflictException", () => {
       mockDb.setSelectResult([]);
       mockDb.insert = mock(() => ({
         values: mock(() => {
@@ -178,7 +178,7 @@ describe("AuthService", () => {
   // 2. verifyEmail
   // =========================================================================
   describe("verifyEmail", () => {
-    it("should successfully activate account and clear verification tokens", async () => {
+    it("activates account and clears verification tokens", async () => {
       mockDb.setSelectResult([
         {
           id: "unverified-user-id",
@@ -198,7 +198,7 @@ describe("AuthService", () => {
       );
     });
 
-    it("should throw BadRequestException (AUTH_VERIFICATION_TOKEN_INVALID) when token not found", async () => {
+    it("throws BadRequestException when verification token is not found", async () => {
       mockDb.setSelectResult([]);
 
       expect(service.verifyEmail("unknown_token")).rejects.toThrow(
@@ -215,7 +215,7 @@ describe("AuthService", () => {
       }
     });
 
-    it("should throw BadRequestException when token is expired", () => {
+    it("throws BadRequestException when verification token is expired", () => {
       mockDb.setSelectResult([
         {
           id: "unverified-user-id",
@@ -235,7 +235,7 @@ describe("AuthService", () => {
   describe("resendVerificationEmail", () => {
     const dto: ResendVerificationDto = { email: "customer@greenroots.farm" };
 
-    it("should return cleanly without sending email if user not found (anti-enumeration)", async () => {
+    it("returns cleanly without sending email when user is not found", async () => {
       mockDb.setSelectResult([]);
 
       await service.resendVerificationEmail(dto);
@@ -244,7 +244,7 @@ describe("AuthService", () => {
       expect(mockDb.update).not.toHaveBeenCalled();
     });
 
-    it("should return cleanly without sending email if user is already verified", async () => {
+    it("returns cleanly without sending email when user is already verified", async () => {
       mockDb.setSelectResult([
         {
           id: "user-id",
@@ -260,7 +260,7 @@ describe("AuthService", () => {
       expect(mockMailService.sendVerificationEmail).not.toHaveBeenCalled();
     });
 
-    it("should return cleanly without sending email if account is suspended", async () => {
+    it("returns cleanly without sending email when account is suspended", async () => {
       mockDb.setSelectResult([
         {
           id: "user-id",
@@ -276,7 +276,7 @@ describe("AuthService", () => {
       expect(mockMailService.sendVerificationEmail).not.toHaveBeenCalled();
     });
 
-    it("should return cleanly without sending email if account is inactive", async () => {
+    it("returns cleanly without sending email when account is inactive", async () => {
       mockDb.setSelectResult([
         {
           id: "user-id",
@@ -292,7 +292,7 @@ describe("AuthService", () => {
       expect(mockMailService.sendVerificationEmail).not.toHaveBeenCalled();
     });
 
-    it("should return cleanly without sending email if Redis cooldown key is active", async () => {
+    it("returns cleanly without sending email when Redis cooldown key is active", async () => {
       mockDb.setSelectResult([
         {
           id: "user-id",
@@ -310,7 +310,7 @@ describe("AuthService", () => {
       expect(mockDb.update).not.toHaveBeenCalled();
     });
 
-    it("should regenerate token, update DB, send email, and set Redis cooldown when eligible", async () => {
+    it("regenerates token, updates DB, sends email, and sets Redis cooldown when eligible", async () => {
       mockDb.setSelectResult([
         {
           id: "user-id",
@@ -347,7 +347,7 @@ describe("AuthService", () => {
       password: "Password123!",
     };
 
-    it("should successfully authenticate valid verified user and issue tokens", async () => {
+    it("authenticates valid verified user and issues tokens", async () => {
       const hashedPassword = await hashPassword("Password123!");
       mockDb.setSelectResult([
         {
@@ -378,13 +378,13 @@ describe("AuthService", () => {
       expect(mockDb.insert).toHaveBeenCalled();
     });
 
-    it("should throw UnauthorizedException (AUTH_INVALID_CREDENTIALS) when user does not exist", () => {
+    it("throws UnauthorizedException when user does not exist", () => {
       mockDb.setSelectResult([]);
 
       expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
     });
 
-    it("should throw UnauthorizedException when password does not match", async () => {
+    it("throws UnauthorizedException when password does not match", async () => {
       const hashedPassword = await hashPassword("DifferentPassword123!");
       mockDb.setSelectResult([
         {
@@ -401,7 +401,7 @@ describe("AuthService", () => {
       expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
     });
 
-    it("should throw ForbiddenException (AUTH_EMAIL_NOT_VERIFIED) when emailVerified is false", async () => {
+    it("throws ForbiddenException when emailVerified is false", async () => {
       const hashedPassword = await hashPassword("Password123!");
       mockDb.setSelectResult([
         {
@@ -427,7 +427,7 @@ describe("AuthService", () => {
       }
     });
 
-    it("should throw ForbiddenException (AUTH_ACCOUNT_SUSPENDED) when account is suspended", async () => {
+    it("throws ForbiddenException when account is suspended", async () => {
       const hashedPassword = await hashPassword("Password123!");
       mockDb.setSelectResult([
         {
@@ -462,7 +462,7 @@ describe("AuthService", () => {
       refreshToken: "a".repeat(64),
     };
 
-    it("should rotate refresh token atomically and return fresh pair", async () => {
+    it("rotates refresh token atomically and returns fresh pair", async () => {
       mockDb.setSelectResultsQueue([
         [
           {
@@ -488,7 +488,7 @@ describe("AuthService", () => {
       expect(result.refreshToken).toMatch(/^[0-9a-f]{64}$/);
     });
 
-    it("should throw UnauthorizedException when refresh token was already rotated or invalid", () => {
+    it("throws UnauthorizedException when refresh token was already rotated or invalid", () => {
       mockDb.setSelectResultsQueue([[]]);
 
       expect(service.refreshToken(refreshDto)).rejects.toThrow(
@@ -496,7 +496,7 @@ describe("AuthService", () => {
       );
     });
 
-    it("should throw UnauthorizedException when refresh token is expired", () => {
+    it("throws UnauthorizedException when refresh token is expired", () => {
       mockDb.setSelectResultsQueue([
         [
           {
@@ -512,7 +512,7 @@ describe("AuthService", () => {
       );
     });
 
-    it("should throw UnauthorizedException (AUTH_ACCOUNT_SUSPENDED) when user is suspended", () => {
+    it("throws UnauthorizedException when user is suspended", () => {
       mockDb.setSelectResultsQueue([
         [
           {
@@ -541,7 +541,7 @@ describe("AuthService", () => {
   // 6. logout
   // =========================================================================
   describe("logout", () => {
-    it("should delete refresh token from DB and blacklist active Bearer token in Redis", async () => {
+    it("deletes refresh token from DB and blacklists active Bearer token in Redis", async () => {
       await service.logout("refresh_token_to_purge", "bearer_access_token");
 
       expect(mockDb.delete).toHaveBeenCalled();
@@ -551,14 +551,14 @@ describe("AuthService", () => {
       );
     });
 
-    it("should succeed gracefully when Authorization header is omitted", async () => {
+    it("succeeds gracefully when Authorization header is omitted", async () => {
       await service.logout("refresh_token_to_purge", undefined);
 
       expect(mockDb.delete).toHaveBeenCalled();
       expect(mockRedisService.revokeToken).not.toHaveBeenCalled();
     });
 
-    it("should skip Redis revocation when Bearer token is already expired", async () => {
+    it("skips Redis revocation when Bearer token is already expired", async () => {
       mockJwtService.decode.mockImplementationOnce(() => ({
         jti: "expired-jti",
         exp: Math.floor(Date.now() / 1000) - 10,
@@ -575,7 +575,7 @@ describe("AuthService", () => {
   // 7. logoutAll
   // =========================================================================
   describe("logoutAll", () => {
-    it("should purge all DB refresh tokens for user and blacklist user in Redis for 15m", async () => {
+    it("purges all DB refresh tokens for user and blacklists user in Redis for 15m", async () => {
       await service.logoutAll("019315bc-user-id");
 
       expect(mockDb.delete).toHaveBeenCalled();
@@ -585,7 +585,7 @@ describe("AuthService", () => {
       );
     });
 
-    it("should throw UnauthorizedException when userId is missing", () => {
+    it("throws UnauthorizedException when userId is missing", () => {
       expect(service.logoutAll("")).rejects.toThrow(UnauthorizedException);
     });
   });
@@ -596,7 +596,7 @@ describe("AuthService", () => {
   describe("forgotPassword", () => {
     const dto: ForgotPasswordDto = { email: "customer@greenroots.farm" };
 
-    it("should return silently without sending email when account does not exist (anti-enumeration)", async () => {
+    it("returns silently without sending email when account does not exist", async () => {
       mockDb.setSelectResult([]);
 
       await service.forgotPassword(dto);
@@ -622,7 +622,7 @@ describe("AuthService", () => {
       expect(mockDb.update).not.toHaveBeenCalled();
     });
 
-    it("should store 15m reset token hash and dispatch password reset email for active user", async () => {
+    it("stores 15m reset token hash and dispatches password reset email for active user", async () => {
       mockDb.setSelectResult([
         {
           id: "user-id",
@@ -706,7 +706,7 @@ describe("AuthService", () => {
       expect(mockDb.update).not.toHaveBeenCalled();
     });
 
-    it("should throw BadRequestException (AUTH_RESET_TOKEN_INVALID) when reset token not found", () => {
+    it("throws BadRequestException when reset token is not found", () => {
       mockDb.setSelectResult([]);
 
       expect(service.resetPassword(resetDto)).rejects.toThrow(
@@ -714,7 +714,7 @@ describe("AuthService", () => {
       );
     });
 
-    it("should throw BadRequestException when reset token is expired", () => {
+    it("throws BadRequestException when reset token is expired", () => {
       mockDb.setSelectResult([
         {
           id: "user-id",

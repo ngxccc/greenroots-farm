@@ -12,11 +12,11 @@ describe("TokenCleanupService", () => {
   });
 
   describe("Lifecycle Hooks", () => {
-    it("should instantiate TokenCleanupService correctly", () => {
+    it("instantiates TokenCleanupService", () => {
       expect(service).toBeDefined();
     });
 
-    it("should register interval timer and trigger initial cleanup when onApplicationBootstrap is called", () => {
+    it("registers interval timer and triggers initial cleanup when onApplicationBootstrap is called", () => {
       const originalSetInterval = globalThis.setInterval;
       const setIntervalMock = mock((cb: () => void) => {
         cb();
@@ -40,7 +40,7 @@ describe("TokenCleanupService", () => {
       }
     });
 
-    it("should clear active interval timer when onApplicationShutdown is called", () => {
+    it("clears active interval timer when onApplicationShutdown is called", () => {
       const originalClearInterval = globalThis.clearInterval;
       const clearIntervalMock = mock(() => undefined);
       globalThis.clearInterval = clearIntervalMock;
@@ -60,12 +60,12 @@ describe("TokenCleanupService", () => {
   });
 
   describe("cleanupTokens", () => {
-    it("should execute database delete with expiration filter", async () => {
+    it("executes database delete with expiration filter", async () => {
       await service.cleanupTokens();
       expect(mockDb.delete).toHaveBeenCalledTimes(1);
     });
 
-    it("should catch and log database errors gracefully without throwing", async () => {
+    it("catches and logs database errors without throwing", async () => {
       const errorMock = mock(() => undefined);
       (
         service as unknown as { logger: { error: typeof errorMock } }

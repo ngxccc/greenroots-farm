@@ -34,7 +34,7 @@ describe("CustomThrottlerGuard", () => {
   });
 
   describe("canActivate", () => {
-    it("should allow request immediately in non-production environments", async () => {
+    it("allows request immediately in non-production environments", async () => {
       const originalEnv = env.NODE_ENV;
       (env as { NODE_ENV: string }).NODE_ENV = "development";
 
@@ -46,7 +46,7 @@ describe("CustomThrottlerGuard", () => {
       (env as { NODE_ENV: string }).NODE_ENV = originalEnv;
     });
 
-    it("should execute rate limit check and return true in production environment when under limit", async () => {
+    it("executes rate limit check and returns true in production environment when under limit", async () => {
       const originalEnv = env.NODE_ENV;
       (env as { NODE_ENV: string }).NODE_ENV = "production";
 
@@ -64,7 +64,7 @@ describe("CustomThrottlerGuard", () => {
       (env as { NODE_ENV: string }).NODE_ENV = originalEnv;
     });
 
-    it("should re-throw HttpException when rate limit is exceeded in production", () => {
+    it("re-throws HttpException when rate limit is exceeded in production", () => {
       const originalEnv = env.NODE_ENV;
       (env as { NODE_ENV: string }).NODE_ENV = "production";
 
@@ -86,7 +86,7 @@ describe("CustomThrottlerGuard", () => {
       (env as { NODE_ENV: string }).NODE_ENV = originalEnv;
     });
 
-    it("should fail-open and return true when Redis storage throws unexpected error in production", async () => {
+    it("fails open and returns true when Redis storage throws unexpected error in production", async () => {
       const originalEnv = env.NODE_ENV;
       (env as { NODE_ENV: string }).NODE_ENV = "production";
 
@@ -104,7 +104,7 @@ describe("CustomThrottlerGuard", () => {
       (env as { NODE_ENV: string }).NODE_ENV = originalEnv;
     });
 
-    it("should fail-open and return true when rate limit check times out after 2 seconds in production", async () => {
+    it("fails open and returns true when rate limit check times out after 2 seconds in production", async () => {
       const originalEnv = env.NODE_ENV;
       (env as { NODE_ENV: string }).NODE_ENV = "production";
 
@@ -134,7 +134,7 @@ describe("CustomThrottlerGuard", () => {
   });
 
   describe("throwThrottlingException", () => {
-    it("should throw HttpException with status 429 and centralized detail message", () => {
+    it("throws throttling HttpException with centralized detail message", () => {
       const mockContext = {} as ExecutionContext;
       const mockLimitDetail: ThrottlerLimitDetail = {
         limit: 5,

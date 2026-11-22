@@ -78,7 +78,7 @@ describe("CloudinaryService", () => {
   });
 
   describe("createUploadSignature", () => {
-    it("should generate signed upload signature when image file size is within 5MB limit", () => {
+    it("generates signed upload signature when image file size is within 5MB limit", () => {
       const result = service.createUploadSignature({
         resourceType: "image",
         fileSizeBytes: MEDIA_CONSTRAINTS.IMAGE.MAX_BYTES,
@@ -96,7 +96,7 @@ describe("CloudinaryService", () => {
       });
     });
 
-    it("should generate signed upload signature when video file size is within 15MB limit", () => {
+    it("generates signed upload signature when video file size is within 15MB limit", () => {
       const result = service.createUploadSignature({
         resourceType: "video",
         fileSizeBytes: MEDIA_CONSTRAINTS.VIDEO.MAX_BYTES,
@@ -114,7 +114,7 @@ describe("CloudinaryService", () => {
       });
     });
 
-    it("should reject with 422 Unprocessable Entity when image exceeds 5MB", () => {
+    it("rejects request when image exceeds 5MB", () => {
       const oversizedImageBytes = MEDIA_CONSTRAINTS.IMAGE.MAX_BYTES + 1;
 
       expect(() =>
@@ -126,7 +126,7 @@ describe("CloudinaryService", () => {
       ).toThrow(UnprocessableEntityException);
     });
 
-    it("should reject with 422 Unprocessable Entity when video exceeds 15MB", () => {
+    it("rejects request when video exceeds 15MB", () => {
       const oversizedVideoBytes = MEDIA_CONSTRAINTS.VIDEO.MAX_BYTES + 1;
 
       expect(() =>
@@ -138,7 +138,7 @@ describe("CloudinaryService", () => {
       ).toThrow(UnprocessableEntityException);
     });
 
-    it("should generate mock signature when API secret is not configured", () => {
+    it("generates mock signature when API secret is not configured", () => {
       (env as Record<string, unknown>)["CLOUDINARY_API_SECRET"] = undefined;
 
       const result = service.createUploadSignature({
@@ -157,183 +157,183 @@ describe("CloudinaryService", () => {
         maxBytes: 5 * 1024 * 1024,
       });
     });
+  });
 
-    describe("folder-to-role permissions", () => {
-      it("should permit CUSTOMER to request signature for complaints folder", () => {
-        const result = service.createUploadSignature(
-          {
-            resourceType: "image",
-            fileSizeBytes: 1024,
-            folder: "complaints",
-          },
-          UserRole.CUSTOMER,
-        );
+  describe("folder-to-role permissions", () => {
+    it("permits CUSTOMER to request signature for complaints folder", () => {
+      const result = service.createUploadSignature(
+        {
+          resourceType: "image",
+          fileSizeBytes: 1024,
+          folder: "complaints",
+        },
+        UserRole.CUSTOMER,
+      );
 
-        expect(result.folder).toBe("complaints");
-      });
+      expect(result.folder).toBe("complaints");
+    });
 
-      it("should forbid CUSTOMER from requesting signature for products folder", () => {
-        expect(() =>
-          service.createUploadSignature(
-            {
-              resourceType: "image",
-              fileSizeBytes: 1024,
-              folder: "products",
-            },
-            UserRole.CUSTOMER,
-          ),
-        ).toThrow(
-          new ForbiddenException({
-            code: API_ERROR_CODES.FORBIDDEN,
-            detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
-          }),
-        );
-      });
-
-      it("should forbid CUSTOMER from requesting signature for farming_logs folder", () => {
-        expect(() =>
-          service.createUploadSignature(
-            {
-              resourceType: "image",
-              fileSizeBytes: 1024,
-              folder: "farming_logs",
-            },
-            UserRole.CUSTOMER,
-          ),
-        ).toThrow(
-          new ForbiddenException({
-            code: API_ERROR_CODES.FORBIDDEN,
-            detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
-          }),
-        );
-      });
-
-      it("should permit FARM_STAFF for farming_logs and waste_logs, but forbid products", () => {
-        const farmResult = service.createUploadSignature(
-          {
-            resourceType: "image",
-            fileSizeBytes: 1024,
-            folder: "farming_logs",
-          },
-          UserRole.FARM_STAFF,
-        );
-        expect(farmResult.folder).toBe("farming_logs");
-
-        const wasteResult = service.createUploadSignature(
-          {
-            resourceType: "image",
-            fileSizeBytes: 1024,
-            folder: "waste_logs",
-          },
-          UserRole.FARM_STAFF,
-        );
-        expect(wasteResult.folder).toBe("waste_logs");
-
-        expect(() =>
-          service.createUploadSignature(
-            {
-              resourceType: "image",
-              fileSizeBytes: 1024,
-              folder: "products",
-            },
-            UserRole.FARM_STAFF,
-          ),
-        ).toThrow(
-          new ForbiddenException({
-            code: API_ERROR_CODES.FORBIDDEN,
-            detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
-          }),
-        );
-
-        const plotsResult = service.createUploadSignature(
-          {
-            resourceType: "image",
-            fileSizeBytes: 1024,
-            folder: "plots",
-          },
-          UserRole.FARM_STAFF,
-        );
-        expect(plotsResult.folder).toBe("plots");
-
-        expect(() =>
-          service.createUploadSignature(
-            {
-              resourceType: "image",
-              fileSizeBytes: 1024,
-              folder: "farms",
-            },
-            UserRole.FARM_STAFF,
-          ),
-        ).toThrow(
-          new ForbiddenException({
-            code: API_ERROR_CODES.FORBIDDEN,
-            detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
-          }),
-        );
-      });
-
-      it("should permit SALES for products, but forbid farming_logs", () => {
-        const result = service.createUploadSignature(
+    it("forbids CUSTOMER from requesting signature for products folder", () => {
+      expect(() =>
+        service.createUploadSignature(
           {
             resourceType: "image",
             fileSizeBytes: 1024,
             folder: "products",
           },
-          UserRole.SALES,
-        );
-        expect(result.folder).toBe("products");
+          UserRole.CUSTOMER,
+        ),
+      ).toThrow(
+        new ForbiddenException({
+          code: API_ERROR_CODES.FORBIDDEN,
+          detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+        }),
+      );
+    });
 
-        expect(() =>
-          service.createUploadSignature(
-            {
-              resourceType: "image",
-              fileSizeBytes: 1024,
-              folder: "farming_logs",
-            },
-            UserRole.SALES,
-          ),
-        ).toThrow(
-          new ForbiddenException({
-            code: API_ERROR_CODES.FORBIDDEN,
-            detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
-          }),
-        );
-      });
+    it("forbids CUSTOMER from requesting signature for farming_logs folder", () => {
+      expect(() =>
+        service.createUploadSignature(
+          {
+            resourceType: "image",
+            fileSizeBytes: 1024,
+            folder: "farming_logs",
+          },
+          UserRole.CUSTOMER,
+        ),
+      ).toThrow(
+        new ForbiddenException({
+          code: API_ERROR_CODES.FORBIDDEN,
+          detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+        }),
+      );
+    });
 
-      it("should permit ADMIN and SUPER_ADMIN for all folders", () => {
-        const folders = [
-          "farming_logs",
-          "complaints",
-          "products",
-          "waste_logs",
-          "plots",
-          "farms",
-        ] as const;
+    it("permits FARM_STAFF for farming_logs and waste_logs, and forbids products", () => {
+      const farmResult = service.createUploadSignature(
+        {
+          resourceType: "image",
+          fileSizeBytes: 1024,
+          folder: "farming_logs",
+        },
+        UserRole.FARM_STAFF,
+      );
+      expect(farmResult.folder).toBe("farming_logs");
 
-        for (const folder of folders) {
-          const adminResult = service.createUploadSignature(
-            { resourceType: "image", fileSizeBytes: 1024, folder },
-            UserRole.ADMIN,
-          );
-          expect(adminResult.folder).toBe(folder);
-
-          const superAdminResult = service.createUploadSignature(
-            { resourceType: "image", fileSizeBytes: 1024, folder },
-            UserRole.SUPER_ADMIN,
-          );
-          expect(superAdminResult.folder).toBe(folder);
-        }
-      });
-
-      it("rejects video uploads for image-only waste_logs folder via signedUploadSchema", () => {
-        const result = signedUploadSchema.safeParse({
-          resourceType: "video",
+      const wasteResult = service.createUploadSignature(
+        {
+          resourceType: "image",
           fileSizeBytes: 1024,
           folder: "waste_logs",
-        });
+        },
+        UserRole.FARM_STAFF,
+      );
+      expect(wasteResult.folder).toBe("waste_logs");
 
-        expect(result.success).toBe(false);
+      expect(() =>
+        service.createUploadSignature(
+          {
+            resourceType: "image",
+            fileSizeBytes: 1024,
+            folder: "products",
+          },
+          UserRole.FARM_STAFF,
+        ),
+      ).toThrow(
+        new ForbiddenException({
+          code: API_ERROR_CODES.FORBIDDEN,
+          detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+        }),
+      );
+
+      const plotsResult = service.createUploadSignature(
+        {
+          resourceType: "image",
+          fileSizeBytes: 1024,
+          folder: "plots",
+        },
+        UserRole.FARM_STAFF,
+      );
+      expect(plotsResult.folder).toBe("plots");
+
+      expect(() =>
+        service.createUploadSignature(
+          {
+            resourceType: "image",
+            fileSizeBytes: 1024,
+            folder: "farms",
+          },
+          UserRole.FARM_STAFF,
+        ),
+      ).toThrow(
+        new ForbiddenException({
+          code: API_ERROR_CODES.FORBIDDEN,
+          detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+        }),
+      );
+    });
+
+    it("permits SALES for products, and forbids farming_logs", () => {
+      const result = service.createUploadSignature(
+        {
+          resourceType: "image",
+          fileSizeBytes: 1024,
+          folder: "products",
+        },
+        UserRole.SALES,
+      );
+      expect(result.folder).toBe("products");
+
+      expect(() =>
+        service.createUploadSignature(
+          {
+            resourceType: "image",
+            fileSizeBytes: 1024,
+            folder: "farming_logs",
+          },
+          UserRole.SALES,
+        ),
+      ).toThrow(
+        new ForbiddenException({
+          code: API_ERROR_CODES.FORBIDDEN,
+          detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+        }),
+      );
+    });
+
+    it("permits ADMIN and SUPER_ADMIN for all folders", () => {
+      const folders = [
+        "farming_logs",
+        "complaints",
+        "products",
+        "waste_logs",
+        "plots",
+        "farms",
+      ] as const;
+
+      for (const folder of folders) {
+        const adminResult = service.createUploadSignature(
+          { resourceType: "image", fileSizeBytes: 1024, folder },
+          UserRole.ADMIN,
+        );
+        expect(adminResult.folder).toBe(folder);
+
+        const superAdminResult = service.createUploadSignature(
+          { resourceType: "image", fileSizeBytes: 1024, folder },
+          UserRole.SUPER_ADMIN,
+        );
+        expect(superAdminResult.folder).toBe(folder);
+      }
+    });
+
+    it("rejects video uploads for image-only waste_logs folder via signedUploadSchema", () => {
+      const result = signedUploadSchema.safeParse({
+        resourceType: "video",
+        fileSizeBytes: 1024,
+        folder: "waste_logs",
       });
+
+      expect(result.success).toBe(false);
     });
   });
 });
