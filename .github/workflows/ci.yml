@@ -180,14 +180,12 @@ jobs:
         working-directory: apps/api
         run: bun run db:seed --clean
 
-  api:
-    name: API
+  api-static:
+    name: API Static & Unit
     needs: changes
     if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
-    services: *services-db-redis
-    env: *env-db-redis
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -203,12 +201,32 @@ jobs:
       - name: Lint the API
         run: bun run lint:api
 
-      - name: Test the API (Unit & E2E)
-        run: bun run test:api && bun run test:e2e
+      - name: Unit test the API
+        run: bun run test:api
 
       - name: Build the API
         working-directory: apps/api
         run: bun run build
+
+  api-e2e:
+    name: API E2E
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    services: *services-db-redis
+    env: *env-db-redis
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          install: "true"
+
+      - name: E2E test the API
+        run: bun run test:e2e
 
   storefront:
     name: Storefront
@@ -276,7 +294,8 @@ jobs:
         changes,
         version-consistency,
         shared-package,
-        api,
+        api-static,
+        api-e2e,
         storefront,
         backoffice,
         database,
@@ -290,7 +309,8 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           VERSION: ${{ needs.version-consistency.result }}
           SHARED: ${{ needs.shared-package.result }}
-          API: ${{ needs.api.result }}
+          API_STATIC: ${{ needs.api-static.result }}
+          API_E2E: ${{ needs.api-e2e.result }}
           STOREFRONT: ${{ needs.storefront.result }}
           BACKOFFICE: ${{ needs.backoffice.result }}
           DATABASE: ${{ needs.database.result }}
@@ -301,7 +321,7 @@ jobs:
             echo "::error::changes did not succeed (${CHANGES})"
             failed=1
           fi
-          for entry in "version-consistency:$VERSION" "shared-package:$SHARED" "api:$API" "storefront:$STOREFRONT" "backoffice:$BACKOFFICE" "database:$DATABASE"; do
+          for entry in "version-consistency:$VERSION" "shared-package:$SHARED" "api-static:$API_STATIC" "api-e2e:$API_E2E" "storefront:$STOREFRONT" "backoffice:$BACKOFFICE" "database:$DATABASE"; do
             name="${entry%%:*}"
             result="${entry#*:}"
             echo "${name}: ${result}"
