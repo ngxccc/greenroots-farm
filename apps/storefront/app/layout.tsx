@@ -1,10 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Toaster } from "@greenroots/ui";
 import { BackToTopButton } from "@/components/common/back-to-top";
 import { StorefrontFooter } from "@/components/common/footer";
 import { StorefrontHeader } from "@/components/common/header";
+import {
+  HeaderAuthSkeleton,
+  HeaderAuthSlot,
+} from "@/components/common/header-auth-slot";
 import { FARM_METADATA } from "@/constants/farm-metadata.constant";
 import "@/styles/globals.css";
 
@@ -38,7 +42,13 @@ export default function RootLayout({
       className={beVietnamPro.variable}
     >
       <body className="flex min-h-screen flex-col bg-surface-warm font-sans text-gray-900 antialiased">
-        <StorefrontHeader />
+        <StorefrontHeader
+          authSlot={
+            <Suspense fallback={<HeaderAuthSkeleton />}>
+              <HeaderAuthSlot />
+            </Suspense>
+          }
+        />
         <main className="flex-1">{children}</main>
         <StorefrontFooter />
         <BackToTopButton />
