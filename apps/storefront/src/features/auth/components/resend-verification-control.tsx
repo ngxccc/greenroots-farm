@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@greenroots/ui";
 import { Loader2, Send } from "lucide-react";
 import { resendVerificationAction } from "@/lib/auth/auth-actions";
 import {
   RESEND_VERIFICATION_COOLDOWN_SECONDS,
-  decrementCooldownSeconds,
   formatResendCooldownLabel,
 } from "@/lib/auth/auth-validation";
 import { AuthAlertBanner } from "./auth-alert-banner";
 import { AUTH_PRIMARY_BUTTON_CLASS } from "./auth-styles";
+import { useCooldown } from "./use-cooldown";
 
 interface ResendVerificationControlProps {
   readonly email: string;
@@ -27,24 +27,14 @@ export function ResendVerificationControl({
   variant = "default",
   initialCooldownSeconds = 0,
 }: ResendVerificationControlProps) {
-  const [cooldown, setCooldown] = useState(initialCooldownSeconds);
+  const { remainingSeconds: cooldown, startCooldown } = useCooldown(
+    initialCooldownSeconds,
+  );
   const [isPending, setIsPending] = useState(false);
   const [feedback, setFeedback] = useState<{
     readonly variant: "error" | "success";
     readonly message: string;
   } | null>(null);
-
-  useEffect(() => {
-    if (cooldown <= 0) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      setCooldown((prev) => decrementCooldownSeconds(prev));
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [cooldown]);
 
   async function handleResend() {
     if (isPending || cooldown > 0) {
@@ -58,7 +48,7 @@ export function ResendVerificationControl({
       const result = await resendVerificationAction({ email });
       if (result.ok) {
         setFeedback({ variant: "success", message: result.message });
-        setCooldown(RESEND_VERIFICATION_COOLDOWN_SECONDS);
+        startCooldown(RESEND_VERIFICATION_COOLDOWN_SECONDS);
       } else {
         setFeedback({ variant: "error", message: result.message });
       }

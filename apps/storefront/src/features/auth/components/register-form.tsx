@@ -3,18 +3,9 @@
 import Link from "next/link";
 import { useState, type ChangeEvent, type SubmitEvent } from "react";
 import { Button, Checkbox, Input, Label } from "@greenroots/ui";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Circle,
-  Loader2,
-  MailCheck,
-} from "lucide-react";
+import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
 import { registerAction } from "@/lib/auth/auth-actions";
-import {
-  evaluatePasswordRules,
-  registerFormSchema,
-} from "@/lib/auth/auth-validation";
+import { registerFormSchema } from "@/lib/auth/auth-validation";
 import { sanitizeRedirectPath } from "@/lib/auth/cookies";
 import { AuthAlertBanner } from "./auth-alert-banner";
 import {
@@ -22,6 +13,7 @@ import {
   AUTH_LABEL_CLASS,
   AUTH_PRIMARY_BUTTON_CLASS,
 } from "./auth-styles";
+import { PasswordChecklist } from "./password-checklist";
 import { PasswordField } from "./password-field";
 import { ResendVerificationControl } from "./resend-verification-control";
 
@@ -62,20 +54,6 @@ export function RegisterForm({ redirectTo = "/" }: RegisterFormProps) {
     safeRedirectTo !== "/"
       ? `/login?redirect=${encodeURIComponent(safeRedirectTo)}`
       : "/login";
-
-  const passwordRules = evaluatePasswordRules(password);
-  const passwordChecklist = [
-    {
-      label: "Từ 8 đến 128 ký tự",
-      met: passwordRules.minLength && passwordRules.maxLength,
-    },
-    {
-      label: "Ít nhất 1 chữ cái viết hoa (A–Z)",
-      met: passwordRules.hasUppercase,
-    },
-    { label: "Ít nhất 1 chữ số (0–9)", met: passwordRules.hasNumber },
-    { label: "Ít nhất 1 ký tự đặc biệt", met: passwordRules.hasSpecial },
-  ] as const;
 
   function clearFieldError(field: RegisterFieldKey) {
     if (fieldErrors[field]) {
@@ -336,29 +314,7 @@ export function RegisterForm({ redirectTo = "/" }: RegisterFormProps) {
           errorMessage={fieldErrors.password}
         />
 
-        <ul
-          aria-label="Yêu cầu mật khẩu"
-          className="grid grid-cols-1 gap-1 rounded-lg border border-border-subtle bg-surface-warm px-3 py-2 sm:grid-cols-2"
-        >
-          {passwordChecklist.map((rule) => (
-            <li
-              key={rule.label}
-              className={`flex items-center gap-1.5 text-[11px] leading-4 ${
-                rule.met ? "font-medium text-status-fresh" : "text-gray-500"
-              }`}
-            >
-              {rule.met ? (
-                <CheckCircle2
-                  className="size-3.5 shrink-0"
-                  aria-hidden="true"
-                />
-              ) : (
-                <Circle className="size-3.5 shrink-0" aria-hidden="true" />
-              )}
-              <span>{rule.label}</span>
-            </li>
-          ))}
-        </ul>
+        <PasswordChecklist password={password} />
 
         <PasswordField
           id="register-confirm-password"
