@@ -1,3 +1,4 @@
+import { Skeleton } from "@greenroots/ui";
 import { getServerSession } from "@/lib/auth/session.server";
 import { HeaderAuthControls } from "./header-auth-controls";
 
@@ -6,10 +7,7 @@ import { HeaderAuthControls } from "./header-auth-controls";
  */
 export function HeaderAuthSkeleton() {
   return (
-    <div
-      aria-hidden="true"
-      className="h-8 w-28 animate-pulse rounded-lg bg-white/15"
-    />
+    <Skeleton aria-hidden="true" className="h-8 w-28 rounded-lg bg-white/15" />
   );
 }
 

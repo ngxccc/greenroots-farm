@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import StorefrontErrorPage from "../../../app/error";
-import { renderMaintenanceRoute } from "../../../app/maintenance/page";
+import { renderMaintenanceRoute } from "../../../app/(main)/maintenance/page";
 import { classifyClientIncident } from "./system-incident-view";
 
 describe("Storefront Error Boundaries", () => {
