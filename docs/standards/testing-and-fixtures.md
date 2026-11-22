@@ -5,17 +5,26 @@
 Three levels, in this order:
 
 ```ts
+// Integration suite
 describe("Orders Integration", () => {
   describe("POST /api/v1/orders/checkout", () => {
     it("reserves batch stock when every line item is available", async () => {});
     it("rejects request when requested quantity exceeds available stock", async () => {});
   });
 });
+
+// Unit suite
+describe("SeasonsService", () => {
+  describe("createSeason", () => {
+    it("maps PostgreSQL 23514 check violation on seasons_date_range_valid_chk", async () => {});
+  });
+});
 ```
 
-- Level 2 is `"<METHOD> <route>"` or a feature group. Level 3 is `"<active verb> <behavior> [when <condition>]"`.
-- Start `it()` with a third-person verb (`reserves`, `rejects`, `rotates`), never `should`.
-- Keep test IDs, HTTP statuses, and error codes out of titles; assert them in the body.
+- Integration Level 1 is `"<Domain> Integration"` (no `Module` or `E2E` suffixes); Level 2 is `"<METHOD> <route>"` or `"<Feature Group>"` (no `when ...` or parenthetical modifiers).
+- Unit Level 1 is `"<Subject>"`; Level 2 is `"<method>"` or `"<Feature Group>"` (fold `when <condition>` into Level 3 instead of nesting `describe("when ...")`).
+- Level 3 is `"<active verb> <behavior> [when <condition>]"`. Start `it()`/`test()` with a third-person singular verb (`reserves`, `rejects`, `rotates`; hyphenated verbs such as `short-circuits` are allowed), never `should`, leading adverbs (`silently`, `atomically`), or noun subjects.
+- Keep test IDs, HTTP statuses/phrases, and expected outcome error codes (`AUTH_*`, `ORDER_NOT_FOUND`) out of titles; assert them in the body. Input/subject constants (PG SQLSTATE codes such as `23505`/`P0001`, tested dictionary keys in `error-dictionary.spec.ts`, and domain/env constants) remain allowed only when naming the tested input.
 - Cite invariants as comments (`// Invariant: INV-AUTH-1`), not in the title.
 
 ## 2. Factories and Mothers
