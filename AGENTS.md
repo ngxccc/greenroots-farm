@@ -106,6 +106,6 @@ This file is loaded automatically at the start of every OpenCode session, and th
 ## Conventions
 
 - Code, comments, commit messages, and engineering docs are written in English. Vietnamese is reserved for user-facing copy.
-- Use `@greenroots/shared` as the SSOT for enums, business constants, JSONB contracts, shared Vietnamese order/payment/delivery labels, and the RFC 9457 error dictionary. Do not duplicate these values in app code. Keep surface-specific labels (customer vs staff batch statuses) in each app.
+- Use `@greenroots/shared` as the SSOT for enums, business constants, JSONB contracts, shared Vietnamese order/payment/delivery labels, and the RFC 9457 error dictionary. Reference `@greenroots/shared` directly (`BUSINESS_RULES.*`, enums, error codes); do not duplicate, re-export, or create local/renamed alias constants (`const X = BUSINESS_RULES.Y`, `export const X = ...`) for shared values in app code. Keep surface-specific labels (customer vs staff batch statuses) in each app.
 - Manage shared dependency versions via root `package.json` `catalog:` (`react`, `react-dom`, `@types/react*`, `lucide-react`, `tailwindcss`, `zod`, `typescript`).
 - Secrets come from Doppler, not from committed files. Run local commands as `doppler run -- <command>` and see `docs/standards/security-and-cryptography.md`.
