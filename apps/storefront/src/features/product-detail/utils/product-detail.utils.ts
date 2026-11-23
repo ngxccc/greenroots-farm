@@ -1,3 +1,4 @@
+import { APPROVED_REMOTE_IMAGE_HOST_SET } from "@/constants/image-hosts.constant";
 import { ORDER_QUANTITY_MIN, roundQuantity } from "@/lib/format";
 
 /** Minimum purchasable quantity matching backend `ORDER_ITEM_MIN_QUANTITY` (`numeric(10, 2)`). */
@@ -5,12 +6,6 @@ export const PRODUCT_QUANTITY_MIN = ORDER_QUANTITY_MIN;
 
 /** Standard stepper increment when clicking `-` / `+` buttons. */
 export const PRODUCT_QUANTITY_STEP = 1;
-
-const APPROVED_REMOTE_IMAGE_HOSTS = new Set([
-  "res.cloudinary.com",
-  "placehold.co",
-  "img.vietqr.io",
-]);
 
 /**
  * Computes remaining stock headroom that can still be added to the customer's cart.
@@ -114,7 +109,7 @@ export function isApprovedStorefrontImageUrl(rawUrl: string): boolean {
     const parsed = new URL(trimmed);
     return (
       parsed.protocol === "https:" &&
-      APPROVED_REMOTE_IMAGE_HOSTS.has(parsed.hostname)
+      APPROVED_REMOTE_IMAGE_HOST_SET.has(parsed.hostname)
     );
   } catch {
     return false;

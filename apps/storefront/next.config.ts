@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { NextConfig } from "next";
+import { APPROVED_REMOTE_IMAGE_HOSTS } from "./src/constants/image-hosts.constant";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@greenroots/shared", "@greenroots/ui"],
@@ -7,11 +8,10 @@ const nextConfig: NextConfig = {
     root: path.resolve(import.meta.dirname, "../.."),
   },
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "res.cloudinary.com" },
-      { protocol: "https", hostname: "placehold.co" },
-      { protocol: "https", hostname: "img.vietqr.io" },
-    ],
+    remotePatterns: APPROVED_REMOTE_IMAGE_HOSTS.map((hostname) => ({
+      protocol: "https" as const,
+      hostname,
+    })),
   },
   reactCompiler: true,
   cacheComponents: true,
