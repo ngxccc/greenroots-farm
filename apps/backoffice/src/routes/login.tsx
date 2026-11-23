@@ -1,5 +1,7 @@
 import type { UserRole } from "@greenroots/shared";
 import {
+  Alert,
+  AlertDescription,
   Button,
   Card,
   CardContent,
@@ -7,10 +9,9 @@ import {
   CardHeader,
   CardTitle,
   Input,
-  toast,
 } from "@greenroots/ui";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Leaf } from "lucide-react";
+import { AlertCircle, Leaf } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { getDefaultRouteForRole, useAuthStore } from "@/stores/auth.store";
 
@@ -21,18 +22,18 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [formNotice, setFormNotice] = useState<string | null>(null);
   const loginDemoRole = useAuthStore((state) => state.loginDemoRole);
   const navigate = useNavigate();
 
   function handleQuickLogin(role: UserRole) {
     loginDemoRole(role);
-    toast.success(`Đã đăng nhập vai trò ${role}`);
     void navigate({ to: getDefaultRouteForRole(role) });
   }
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    toast.info(
+    setFormNotice(
       "API /auth/login sẽ nối ở bước tiếp theo; dùng nút Demo bên dưới.",
     );
   }
@@ -54,6 +55,17 @@ function LoginPage() {
 
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-3">
+            {formNotice ? (
+              <Alert className="border-border-subtle bg-surface-warm text-gray-800">
+                <AlertCircle
+                  className="size-4 text-gray-500"
+                  aria-hidden="true"
+                />
+                <AlertDescription className="text-xs">
+                  {formNotice}
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <Input
               type="email"
               placeholder="Email nội bộ (@greenroots.vn)"

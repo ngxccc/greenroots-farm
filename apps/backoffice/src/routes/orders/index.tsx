@@ -5,6 +5,8 @@ import {
   type PaymentMethod,
 } from "@greenroots/shared";
 import {
+  Alert,
+  AlertDescription,
   Badge,
   Button,
   Card,
@@ -15,7 +17,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  toast,
 } from "@greenroots/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -24,7 +25,8 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Printer, Zap } from "lucide-react";
+import { CheckCircle2, Printer, Zap } from "lucide-react";
+import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/orders/")({
   component: OrdersFefoPage,
@@ -69,87 +71,102 @@ const DEMO_ORDERS: readonly DemoOrderRow[] = [
 
 const columnHelper = createColumnHelper<DemoOrderRow>();
 
-const columns = [
-  columnHelper.accessor("orderCode", {
-    header: "Mã đơn",
-    cell: (info) => (
-      <span className="font-bold text-gray-900 tabular-nums">
-        {info.getValue()}
-      </span>
-    ),
-  }),
-  columnHelper.accessor("customerName", {
-    header: "Khách hàng",
-  }),
-  columnHelper.accessor("fefoBatch", {
-    header: "Lô đề xuất (FEFO)",
-    cell: (info) => (
-      <span className="text-xs font-semibold text-brand-forest tabular-nums">
-        {info.getValue()}
-      </span>
-    ),
-  }),
-  columnHelper.accessor("paymentMethod", {
-    header: "Thanh toán / COD",
-    cell: (info) => {
-      const row = info.row.original;
-      return (
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-600">
-            {PAYMENT_METHOD_LABELS[info.getValue()]}
-          </span>
-          {row.isSubscription ? (
-            <Badge variant="secondary" className="text-[11px]">
-              Gói định kỳ · COD 0đ
-            </Badge>
-          ) : null}
-        </div>
-      );
-    },
-  }),
-  columnHelper.accessor("status", {
-    header: "Trạng thái",
-    cell: (info) => (
-      <Badge variant="outline">{ORDER_STATUS_LABELS[info.getValue()]}</Badge>
-    ),
-  }),
-  columnHelper.display({
-    id: "actions",
-    header: "Thao tác",
-    cell: (info) => {
-      const row = info.row.original;
-      return (
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            size="xs"
-            onClick={() =>
-              toast.success(
-                `Đã phân bổ FEFO (${row.fefoBatch}) cho ${row.orderCode}`,
-              )
-            }
-            className="gap-1"
-          >
-            <Zap className="size-3.5" aria-hidden="true" />
-            <span>Phân bổ FEFO</span>
-          </Button>
-          <Button
-            type="button"
-            size="xs"
-            variant="outline"
-            onClick={() => toast.info(`In phiếu giao hàng ${row.orderCode}`)}
-            className="gap-1"
-          >
-            <Printer className="size-3.5" aria-hidden="true" />
-            <span>In phiếu</span>
-          </Button>
-        </div>
-      );
-    },
-  }),
-];
+function createOrderColumns(handlers: {
+  readonly onAllocate: (row: DemoOrderRow) => void;
+  readonly onPrint: (row: DemoOrderRow) => void;
+}) {
+  return [
+    columnHelper.accessor("orderCode", {
+      header: "Mã đơn",
+      cell: (info) => (
+        <span className="font-bold text-gray-900 tabular-nums">
+          {info.getValue()}
+        </span>
+      ),
+    }),
+    columnHelper.accessor("customerName", {
+      header: "Khách hàng",
+    }),
+    columnHelper.accessor("fefoBatch", {
+      header: "Lô đề xuất (FEFO)",
+      cell: (info) => (
+        <span className="text-xs font-semibold text-brand-forest tabular-nums">
+          {info.getValue()}
+        </span>
+      ),
+    }),
+    columnHelper.accessor("paymentMethod", {
+      header: "Thanh toán / COD",
+      cell: (info) => {
+        const row = info.row.original;
+        return (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-600">
+              {PAYMENT_METHOD_LABELS[info.getValue()]}
+            </span>
+            {row.isSubscription ? (
+              <Badge variant="secondary" className="text-[11px]">
+                Gói định kỳ · COD 0đ
+              </Badge>
+            ) : null}
+          </div>
+        );
+      },
+    }),
+    columnHelper.accessor("status", {
+      header: "Trạng thái",
+      cell: (info) => (
+        <Badge variant="outline">{ORDER_STATUS_LABELS[info.getValue()]}</Badge>
+      ),
+    }),
+    columnHelper.display({
+      id: "actions",
+      header: "Thao tác",
+      cell: (info) => {
+        const row = info.row.original;
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="xs"
+              onClick={() => handlers.onAllocate(row)}
+              className="gap-1"
+            >
+              <Zap className="size-3.5" aria-hidden="true" />
+              <span>Phân bổ FEFO</span>
+            </Button>
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              onClick={() => handlers.onPrint(row)}
+              className="gap-1"
+            >
+              <Printer className="size-3.5" aria-hidden="true" />
+              <span>In phiếu</span>
+            </Button>
+          </div>
+        );
+      },
+    }),
+  ];
+}
 
 function OrdersFefoPage() {
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const columns = useMemo(
+    () =>
+      createOrderColumns({
+        onAllocate: (row) =>
+          setActionNotice(
+            `Đã phân bổ FEFO (${row.fefoBatch}) cho ${row.orderCode}`,
+          ),
+        onPrint: (row) =>
+          setActionNotice(`In phiếu giao hàng ${row.orderCode}`),
+      }),
+    [],
+  );
+
   // oxlint-disable-next-line react/incompatible-library
   const table = useReactTable({
     data: [...DEMO_ORDERS],
@@ -170,6 +187,13 @@ function OrdersFefoPage() {
         </div>
         <Badge variant="secondary">TanStack Table</Badge>
       </div>
+
+      {actionNotice ? (
+        <Alert variant="success">
+          <CheckCircle2 className="size-4" aria-hidden="true" />
+          <AlertDescription>{actionNotice}</AlertDescription>
+        </Alert>
+      ) : null}
 
       <Card className="border-border-subtle bg-surface-card shadow-sm">
         <CardContent className="p-0">

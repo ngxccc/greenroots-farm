@@ -1,5 +1,7 @@
 import type { FarmingActionType } from "@greenroots/shared";
 import {
+  Alert,
+  AlertDescription,
   Badge,
   Button,
   Card,
@@ -14,12 +16,13 @@ import {
   SelectValue,
   Textarea,
   cn,
-  toast,
 } from "@greenroots/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  AlertCircle,
   Bug,
   Camera,
+  CheckCircle2,
   Droplets,
   FlaskConical,
   PenLine,
@@ -84,13 +87,23 @@ function FarmingLogsPage() {
   const [season, setSeason] = useState("SEASON-2026-A1");
   const [action, setAction] = useState<FarmingActionType>("watering");
   const [note, setNote] = useState("");
+  const [feedback, setFeedback] = useState<{
+    readonly variant: "destructive" | "success" | "default";
+    readonly message: string;
+  } | null>(null);
 
   function handleSave() {
     if (!note.trim()) {
-      toast.error("Vui lòng nhập mô tả ngắn trước khi ghi nhật ký.");
+      setFeedback({
+        variant: "destructive",
+        message: "Vui lòng nhập mô tả ngắn trước khi ghi nhật ký.",
+      });
       return;
     }
-    toast.success(`Đã ghi nhật ký [${action}] cho ${season} (Append-only)`);
+    setFeedback({
+      variant: "success",
+      message: `Đã ghi nhật ký [${action}] cho ${season} (Append-only)`,
+    });
     setNote("");
   }
 
@@ -183,15 +196,35 @@ function FarmingLogsPage() {
             id="farming-log-note"
             rows={3}
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={(e) => {
+              setNote(e.target.value);
+              if (feedback) {
+                setFeedback(null);
+              }
+            }}
             placeholder="Ví dụ: Tưới nhỏ giọt lúc 5h sáng, độ ẩm đất đạt chuẩn..."
             className="min-h-20 rounded-xl border-border-subtle bg-surface-card p-3 text-sm"
           />
+          {feedback ? (
+            <Alert variant={feedback.variant}>
+              {feedback.variant === "success" ? (
+                <CheckCircle2 className="size-4" aria-hidden="true" />
+              ) : (
+                <AlertCircle className="size-4" aria-hidden="true" />
+              )}
+              <AlertDescription className="text-xs">
+                {feedback.message}
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <Button
             type="button"
             variant="outline"
             onClick={() =>
-              toast.info("Upload ảnh Cloudinary sẽ nối ở bước API.")
+              setFeedback({
+                variant: "default",
+                message: "Upload ảnh Cloudinary sẽ nối ở bước API.",
+              })
             }
             className="min-h-12 w-full gap-2"
           >
