@@ -55,9 +55,10 @@ jobs:
             const pr = context.payload.pull_request;
             const current = pr.labels.map((label) => label.name);
 
-            // Keep exactly one primary type label in sync with the PR title.
-            const match = /^(\w+)(?:\([^)]*\))?!?:/.exec(pr.title);
+            // Keep exactly one primary type label in sync with the PR title, and apply breaking-change on `!:`.
+            const match = /^(\w+)(?:\([^)]*\))?(!?):/.exec(pr.title);
             const wanted = match && PREFIX_TO_LABEL[match[1].toLowerCase()];
+            const isBreaking = Boolean(match?.[2]);
 
             if (!wanted) {
               core.info(`"${pr.title}" has no conventional prefix; leaving type labels alone.`);
@@ -79,12 +80,18 @@ jobs:
               }
             }
 
-            if (!current.includes(wanted)) {
+            const toAdd = [];
+            if (!current.includes(wanted)) toAdd.push(wanted);
+            if (isBreaking && !current.includes("breaking-change")) {
+              toAdd.push("breaking-change");
+            }
+
+            if (toAdd.length > 0) {
               await github.rest.issues.addLabels({
                 owner,
                 repo,
                 issue_number: pr.number,
-                labels: [wanted],
+                labels: toAdd,
               });
-              core.info(`Added ${wanted}`);
+              core.info(`Added ${toAdd.join(", ")}`);
             }

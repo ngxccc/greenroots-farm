@@ -4,6 +4,9 @@ changelog:
       - dependencies
       - github_actions
   categories:
+    - title: Breaking Changes
+      labels:
+        - breaking-change
     - title: Features
       labels:
         - type:feat
