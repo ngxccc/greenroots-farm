@@ -85,7 +85,7 @@ async function ProductDetailContent({ slug }: { readonly slug: string }) {
   const { product, dto } = result;
 
   return (
-    <div className="w-full flex-1 bg-surface-card">
+    <div className="w-full flex-1 bg-surface-card pb-16 lg:pb-0">
       <div className="mx-auto flex w-full max-w-6xl flex-col lg:gap-5 lg:px-6 lg:pt-5 lg:pb-10">
         <div className="hidden lg:block">
           <Link

@@ -1,10 +1,13 @@
-import { describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { Window } from "happy-dom";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   mapProductDtoToStorefront,
   type ProductDto,
 } from "@/services/storefront.service";
+import { useCartStore } from "@/stores/cart.store";
+import { ProductDetailActions } from "./product-detail-actions";
 import { ProductDetailHero } from "./product-detail-hero";
 
 const MOCK_PRODUCT_DTO: ProductDto = {
@@ -33,9 +36,55 @@ const MOCK_PRODUCT_DTO: ProductDto = {
   updatedAt: "2026-11-20T00:00:00.000Z",
 };
 
+const DOM_GLOBAL_KEYS = [
+  "window",
+  "document",
+  "HTMLElement",
+  "Element",
+  "Node",
+  "Event",
+  "KeyboardEvent",
+  "MouseEvent",
+  "PointerEvent",
+  "MutationObserver",
+  "ResizeObserver",
+  "getComputedStyle",
+  "requestAnimationFrame",
+  "cancelAnimationFrame",
+] as const;
+
+async function withHappyDom(fn: (win: Window) => Promise<void>): Promise<void> {
+  const win = new Window({ url: "http://localhost:3001/products/xa-lach" });
+  const prev = new Map<string, PropertyDescriptor | undefined>();
+  const target = globalThis as Record<string, unknown>;
+
+  for (const key of DOM_GLOBAL_KEYS) {
+    prev.set(key, Object.getOwnPropertyDescriptor(target, key));
+    target[key] = (win as unknown as Record<string, unknown>)[key];
+  }
+
+  try {
+    await fn(win);
+  } finally {
+    win.close();
+    for (const key of DOM_GLOBAL_KEYS) {
+      const descriptor = prev.get(key);
+      if (descriptor) {
+        Object.defineProperty(target, key, descriptor);
+      } else {
+        delete target[key];
+      }
+    }
+  }
+}
+
 describe("ProductDetailHero", () => {
+  beforeEach(() => {
+    useCartStore.setState({ items: [] });
+  });
+
   describe("live stock and API-backed projection rendering", () => {
-    it("renders live catalog attributes and defaults picker to 1 without unbacked batch tabs", () => {
+    it("renders single add-to-cart CTA initially without quantity stepper or unbacked batch tabs", () => {
       const html = renderToStaticMarkup(
         createElement(ProductDetailHero, {
           product: mapProductDtoToStorefront(MOCK_PRODUCT_DTO),
@@ -45,8 +94,8 @@ describe("ProductDetailHero", () => {
 
       expect(html).toContain("-50%");
       expect(html).toContain("VietGAP &amp; USDA Organic");
-      expect(html).toContain('value="1"');
-      expect(html).toContain("focus-within:ring-2");
+      expect(html).toContain("THÊM VÀO GIỎ HÀNG");
+      expect(html).not.toContain('id="product-detail-qty"');
       expect(html).not.toContain("Mã lô truy xuất QR");
       expect(html).not.toContain("Nhật ký canh tác");
       expect(html).not.toContain("Đã xuất 75%");
@@ -69,21 +118,6 @@ describe("ProductDetailHero", () => {
       expect(html).not.toContain("<img");
     });
 
-    it("defaults quantity picker to remaining fractional stock when below one unit", () => {
-      const fractionalDto: ProductDto = {
-        ...MOCK_PRODUCT_DTO,
-        availableQuantity: 0.5,
-      };
-      const html = renderToStaticMarkup(
-        createElement(ProductDetailHero, {
-          product: mapProductDtoToStorefront(fractionalDto),
-          dto: fractionalDto,
-        }),
-      );
-
-      expect(html).toContain('value="0.5"');
-    });
-
     it("renders accessible out-of-stock alert when availableQuantity is zero", () => {
       const emptyDto: ProductDto = {
         ...MOCK_PRODUCT_DTO,
@@ -98,6 +132,71 @@ describe("ProductDetailHero", () => {
 
       expect(html).toContain('role="alert"');
       expect(html).not.toContain("THÊM VÀO GIỎ HÀNG");
+    });
+  });
+
+  describe("ProductDetailActions", () => {
+    it("switches from single CTA to live cart stepper on add and reverts when decremented to zero", async () => {
+      const product = mapProductDtoToStorefront(MOCK_PRODUCT_DTO);
+
+      await withHappyDom(async (win) => {
+        const { act } = await import("react");
+        const { createRoot } = await import("react-dom/client");
+        const container = win.document.createElement("div");
+        win.document.body.appendChild(container);
+        const root = createRoot(container as unknown as Element);
+
+        await act(async () => {
+          root.render(createElement(ProductDetailActions, { product }));
+          await Promise.resolve();
+        });
+
+        const addButton = Array.from(
+          win.document.querySelectorAll("button"),
+        ).find((btn) =>
+          btn.textContent.includes("THÊM VÀO GIỎ HÀNG"),
+        ) as unknown as HTMLElement | undefined;
+        expect(addButton).toBeDefined();
+        expect(win.document.querySelector("#product-detail-qty")).toBeNull();
+
+        await act(async () => {
+          addButton?.click();
+          await Promise.resolve();
+        });
+
+        expect(useCartStore.getState().items[0]?.quantity).toBe(1);
+        const qtyInput = win.document.querySelector(
+          "#product-detail-qty",
+        ) as unknown as { value: string } | null;
+        expect(qtyInput?.value).toBe("1");
+
+        const plusButton = win.document.querySelector(
+          `button[aria-label="Tăng số lượng ${product.name}"]`,
+        ) as unknown as HTMLElement | null;
+        const minusButton = win.document.querySelector(
+          `button[aria-label="Giảm số lượng ${product.name}"]`,
+        ) as unknown as HTMLElement | null;
+
+        await act(async () => {
+          plusButton?.click();
+          await Promise.resolve();
+        });
+        expect(useCartStore.getState().items[0]?.quantity).toBe(2);
+
+        await act(async () => {
+          minusButton?.click();
+          minusButton?.click();
+          await Promise.resolve();
+        });
+
+        expect(useCartStore.getState().items).toHaveLength(0);
+        expect(win.document.body.textContent).toContain("THÊM VÀO GIỎ HÀNG");
+
+        await act(async () => {
+          root.unmount();
+          await Promise.resolve();
+        });
+      });
     });
   });
 });
