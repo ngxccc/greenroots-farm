@@ -87,7 +87,7 @@ async function ProductDetailContent({ slug }: { readonly slug: string }) {
   return (
     <div className="w-full flex-1 bg-surface-card">
       <div className="mx-auto flex w-full max-w-6xl flex-col lg:gap-5 lg:px-6 lg:pt-5 lg:pb-10">
-        <div className="px-4 py-2.5 lg:px-0 lg:py-0">
+        <div className="hidden lg:block">
           <Link
             href="/products"
             className="inline-flex w-fit items-center gap-1.5 rounded text-xs font-semibold text-brand-forest hover:underline focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
@@ -127,7 +127,7 @@ export default function ProductDetailPage({
       fallback={
         <div aria-hidden="true" className="w-full flex-1 bg-surface-card">
           <div className="mx-auto flex w-full max-w-6xl flex-col lg:gap-5 lg:px-6 lg:pt-5 lg:pb-10">
-            <div className="px-4 py-2.5 lg:px-0 lg:py-0">
+            <div className="hidden lg:block">
               <Skeleton className="h-4 w-32 bg-gray-200" />
             </div>
             <div className="grid grid-cols-1 items-start lg:grid-cols-12 lg:gap-8">

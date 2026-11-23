@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
-import { Leaf } from "lucide-react";
+import { ArrowLeft, Leaf } from "lucide-react";
 import { Button } from "@greenroots/ui";
 
 interface ProductImageGalleryProps {
@@ -35,6 +36,13 @@ export function ProductImageGallery({
   return (
     <div className="flex flex-col">
       <div className="relative aspect-4/3 overflow-hidden border-y border-border-subtle bg-green-50 lg:rounded-xl lg:border">
+        <Link
+          href="/products"
+          aria-label="Quay lại danh mục"
+          className="absolute top-3 left-3 z-10 inline-flex size-9 items-center justify-center rounded-full border border-border-subtle bg-white/90 text-gray-900 shadow-sm backdrop-blur-xs transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none lg:hidden"
+        >
+          <ArrowLeft className="size-5" aria-hidden="true" />
+        </Link>
         {activeImageUrl ? (
           <Image
             src={activeImageUrl}
