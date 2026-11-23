@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, type ComponentType, type SubmitEvent } from "react";
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
   Badge,
   Button,
   Card,
@@ -18,6 +21,7 @@ import {
   buttonVariants,
 } from "@greenroots/ui";
 import {
+  AlertCircle,
   ArrowRight,
   Calendar,
   Clock,
@@ -30,28 +34,34 @@ import {
 } from "lucide-react";
 import { DELIVERY_DAY_LABELS } from "@/constants/domain-labels.constant";
 import { FARM_METADATA } from "@/constants/farm-metadata.constant";
-import { HOME_SHELF_NAV } from "@/constants/navigation.constant";
 import { formatVnd } from "@/lib/format";
 import { buildTraceDetailHref } from "@/lib/navigation";
 import type {
+  HomeCategoryShelf,
   StorefrontProduct,
   StorefrontSubscriptionPlan,
 } from "@/types/storefront.types";
 import { ProductCard } from "./product-card";
 
 interface HomeViewProps {
-  readonly products: readonly StorefrontProduct[];
-  readonly plans: readonly StorefrontSubscriptionPlan[];
+  readonly shelves: readonly HomeCategoryShelf[];
+  readonly rescueDeals?: readonly StorefrontProduct[];
+  readonly plans?: readonly StorefrontSubscriptionPlan[];
   readonly apiReachable: boolean;
 }
 
-const SHELF_ICONS = {
-  flame: Flame,
-  leaf: Leaf,
-  package: Package,
-  sprout: Sprout,
-  calendar: Calendar,
-} as const;
+type ShelfIconComponent = ComponentType<{ readonly className?: string }>;
+
+function resolveCategoryIcon(slug: string): ShelfIconComponent {
+  const normalized = slug.toLowerCase();
+  if (/(?:^|-)nam(?:$|-)|gia-vi|herb|spice|mushroom/.test(normalized)) {
+    return Sprout;
+  }
+  if (/(?:^|-)qua(?:$|-)|(?:^|-)cu(?:$|-)|trai|fruit/.test(normalized)) {
+    return Package;
+  }
+  return Leaf;
+}
 
 interface ShelfSectionProps {
   readonly id: string;
@@ -97,66 +107,109 @@ function ShelfSection({
   );
 }
 
-export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
-  const router = useRouter();
+interface HomeViewContentProps extends HomeViewProps {
+  readonly onTraceNavigate?: (href: string) => void;
+}
+
+/**
+ * Pure presentational home showcase view decoupled from Next.js router hooks
+ * for deterministic unit testing and SSR rendering.
+ *
+ * @param props Catalog items, subscription plans, API status, and navigation handler.
+ * @returns SF-01 home showcase layout.
+ */
+interface QuickNavItem {
+  readonly key: string;
+  readonly label: string;
+  readonly targetId: string;
+  readonly icon: ShelfIconComponent;
+  readonly isRescue: boolean;
+}
+
+export function HomeViewContent({
+  shelves,
+  rescueDeals = [],
+  plans = [],
+  apiReachable,
+  onTraceNavigate,
+}: HomeViewContentProps) {
   const qrInputId = useId();
-  const [batchCode, setBatchCode] = useState("BATCH-2026-TOM-01");
+  const [batchCode, setBatchCode] = useState("");
   const [certDialogOpen, setCertDialogOpen] = useState(false);
 
-  const rescueDeals = products.filter((item) => item.isRescueDeal);
-  const leafProducts = products.filter(
-    (item) => !item.isRescueDeal && item.categoryKey === "leaf",
-  );
-  const fruitProducts = products.filter(
-    (item) => !item.isRescueDeal && item.categoryKey === "fruit",
-  );
-  const spiceProducts = products.filter(
-    (item) => !item.isRescueDeal && item.categoryKey === "spice",
-  );
+  const visibleShelves = shelves.filter((shelf) => shelf.products.length > 0);
+  const visibleNavItems: QuickNavItem[] = [];
+  if (rescueDeals.length > 0) {
+    visibleNavItems.push({
+      key: "rescue",
+      label: "Deal tươi",
+      targetId: "rescue",
+      icon: Flame,
+      isRescue: true,
+    });
+  }
+  for (const shelf of visibleShelves) {
+    visibleNavItems.push({
+      key: shelf.id,
+      label: shelf.name,
+      targetId: `shelf-${shelf.slug}`,
+      icon: resolveCategoryIcon(shelf.slug),
+      isRescue: false,
+    });
+  }
+  if (plans.length > 0) {
+    visibleNavItems.push({
+      key: "plans",
+      label: "Gói định kỳ",
+      targetId: "plans",
+      icon: Calendar,
+      isRescue: false,
+    });
+  }
+
+  const hasVisibleCatalog = rescueDeals.length > 0 || visibleShelves.length > 0;
 
   function handleTraceSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const targetHref = buildTraceDetailHref(batchCode);
     if (!targetHref) return;
-    router.push(targetHref);
+    onTraceNavigate?.(targetHref);
   }
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 lg:px-6">
-      <nav
-        aria-label="Danh mục sản phẩm"
-        className="rounded-2xl border border-border-subtle bg-white p-4 shadow-sm"
-      >
-        <div className="grid grid-cols-2 items-stretch gap-4 sm:grid-cols-5">
-          {HOME_SHELF_NAV.map((item) => {
-            const Icon = SHELF_ICONS[item.iconName];
-            const isRescue = item.key === "rescue";
-            const isLast = item.key === "plans";
-            return (
-              <a
-                key={item.key}
-                href={`#${item.targetId}`}
-                className={`flex flex-col items-center justify-center gap-2 rounded-xl p-2 text-center transition-colors hover:bg-gray-100 ${
-                  isLast ? "col-span-2 sm:col-span-1" : ""
-                }`}
-              >
-                <span
-                  className={`flex size-11 items-center justify-center rounded-full ${
-                    isRescue
-                      ? "bg-red-50 text-status-spoiled"
-                      : "bg-green-50 text-brand-forest"
-                  }`}
+      {visibleNavItems.length > 0 ? (
+        <nav
+          aria-label="Danh mục sản phẩm"
+          className="rounded-2xl border border-border-subtle bg-white p-4 shadow-sm"
+        >
+          <div className="grid grid-cols-2 items-stretch gap-4 sm:flex sm:flex-wrap sm:justify-around">
+            {visibleNavItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <a
+                  key={item.key}
+                  href={`#${item.targetId}`}
+                  className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl p-2 text-center transition-colors hover:bg-gray-100 sm:min-w-28"
                 >
-                  <Icon className="size-5" aria-hidden="true" />
-                </span>
-                <span className="text-sm font-semibold text-gray-900">
-                  {item.label}
-                </span>
-              </a>
-            );
-          })}
-        </div>
-      </nav>
+                  <span
+                    className={`flex size-11 items-center justify-center rounded-full ${
+                      item.isRescue
+                        ? "bg-red-50 text-status-spoiled"
+                        : "bg-green-50 text-brand-forest"
+                    }`}
+                  >
+                    <Icon className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {item.label}
+                  </span>
+                </a>
+              );
+            })}
+          </div>
+        </nav>
+      ) : null}
 
       <section
         aria-label="Giới thiệu nông trại và kiểm tra nguồn gốc"
@@ -178,7 +231,7 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
               </Badge>
               {!apiReachable ? (
                 <Badge className="h-auto border-0 bg-red-600/90 px-2.5 py-0.5 text-[11px] font-semibold text-white">
-                  Chế độ Demo
+                  Mất kết nối API
                 </Badge>
               ) : null}
             </div>
@@ -240,10 +293,10 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
 
             <div className="mt-auto flex items-center justify-between gap-2 border-t border-border-subtle pt-3">
               <span className="text-[11px] font-semibold text-gray-500">
-                Lô mẫu hôm nay
+                Truy xuất nguồn gốc
               </span>
               <Link
-                href="/trace/BATCH-2026-TOM-01"
+                href="/trace"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-brand-forest hover:underline focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
               >
                 <span>Xem nhật ký</span>
@@ -254,138 +307,149 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
         </Card>
       </section>
 
-      <Card
-        id="rescue"
-        className="scroll-mt-24 gap-0 rounded-2xl border-border-subtle bg-white py-0 shadow-sm"
-      >
-        <CardContent className="flex flex-col gap-6 p-6">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex items-start gap-4 sm:items-center">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-status-spoiled text-white">
-                <Flame className="size-5" aria-hidden="true" />
-              </span>
-              <div className="flex flex-col gap-0.5">
-                <h2 className="text-lg font-bold text-gray-900">
-                  DEAL TƯƠI TRONG NGÀY
-                </h2>
-                <p className="text-[13px] text-balance text-gray-500">
-                  {FARM_METADATA.rescueNote}
-                </p>
+      {!hasVisibleCatalog ? (
+        <Alert
+          variant={apiReachable ? "default" : "destructive"}
+          className="rounded-2xl border-border-subtle bg-white p-5"
+        >
+          <AlertCircle className="size-4" aria-hidden="true" />
+          <AlertTitle className="font-bold text-gray-900">
+            {apiReachable
+              ? "Hiện chưa có nông sản đang mở bán"
+              : "Không thể kết nối tới hệ thống cửa hàng"}
+          </AlertTitle>
+          <AlertDescription className="text-gray-600">
+            {apiReachable
+              ? "Danh mục nông sản hôm nay đang được cập nhật. Bạn có thể tra cứu nhật ký lô hàng bằng mã QR ở trên."
+              : "Dữ liệu nông sản trực tiếp hiện chưa sẵn sàng. Vui lòng thử tải lại trang sau ít phút."}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {rescueDeals.length > 0 ? (
+        <Card
+          id="rescue"
+          className="scroll-mt-24 gap-0 rounded-2xl border-border-subtle bg-white py-0 shadow-sm"
+        >
+          <CardContent className="flex flex-col gap-6 p-6">
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+              <div className="flex items-start gap-4 sm:items-center">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-status-spoiled text-white">
+                  <Flame className="size-5" aria-hidden="true" />
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  <h2 className="text-lg font-bold text-gray-900">
+                    DEAL TƯƠI TRONG NGÀY
+                  </h2>
+                  <p className="text-[13px] text-balance text-gray-500">
+                    {FARM_METADATA.rescueNote}
+                  </p>
+                </div>
+              </div>
+
+              <div className="inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-red-50 px-3 py-1.5 sm:self-center">
+                <Clock className="size-4 text-red-800" aria-hidden="true" />
+                <span className="text-xs font-semibold text-red-800 tabular-nums">
+                  Ưu đãi tươi nhanh {FARM_METADATA.flashSaleHoursThreshold}h
+                </span>
+                <Badge className="h-auto border-0 bg-status-spoiled px-2 py-0.5 text-[11px] font-semibold text-white tabular-nums">
+                  -{FARM_METADATA.flashSaleDiscountPercent}%
+                </Badge>
               </div>
             </div>
 
-            <div className="inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-red-50 px-3 py-1.5 sm:self-center">
-              <Clock className="size-4 text-red-800" aria-hidden="true" />
-              <span className="text-xs font-semibold text-red-800 tabular-nums">
-                Ưu đãi tươi nhanh {FARM_METADATA.flashSaleHoursThreshold}h
-              </span>
-              <Badge className="h-auto border-0 bg-status-spoiled px-2 py-0.5 text-[11px] font-semibold text-white tabular-nums">
-                -{FARM_METADATA.flashSaleDiscountPercent}%
-              </Badge>
+            <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 lg:grid-cols-4">
+              {rescueDeals.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
             </div>
-          </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
-          <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 lg:grid-cols-4">
-            {rescueDeals.map((product) => (
-              <ProductCard key={product.id} product={product} />
+      {visibleShelves.map((shelf) => (
+        <ShelfSection
+          key={shelf.id}
+          id={`shelf-${shelf.slug}`}
+          title={shelf.name.toUpperCase()}
+          icon={resolveCategoryIcon(shelf.slug)}
+          actionHref="/products"
+          actionLabel="Xem tất cả"
+          products={shelf.products}
+        />
+      ))}
+
+      {plans.length > 0 ? (
+        <section id="plans" className="flex scroll-mt-24 flex-col gap-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Calendar
+                className="size-5 text-brand-forest"
+                aria-hidden="true"
+              />
+              <h2 className="text-lg font-bold text-gray-900">
+                GÓI RAU ĐỊNH KỲ GIA ĐÌNH
+              </h2>
+            </div>
+            <Link
+              href="/subscriptions"
+              className="text-sm font-semibold text-brand-forest hover:underline"
+            >
+              Đăng ký lịch giao
+            </Link>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {plans.map((plan) => (
+              <Card
+                key={plan.id}
+                className="gap-0 rounded-2xl border-border-subtle bg-white py-0 shadow-sm"
+              >
+                <CardContent className="flex h-full flex-col justify-between gap-4 p-5">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-base font-bold text-gray-900">
+                        {plan.name}
+                      </h3>
+                      <Badge className="rounded-full border-0 bg-green-100 text-brand-dark">
+                        {plan.totalDeliveries} lần giao / tháng
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-gray-600">{plan.description}</p>
+                    <p className="text-xs font-semibold text-status-fresh">
+                      Miễn phí ship trong bán kính 20 km (
+                      {plan.supportedDeliveryDays
+                        .map((day) => DELIVERY_DAY_LABELS[day])
+                        .join(", ")}
+                      )
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-border-subtle pt-3">
+                    <div>
+                      <span className="text-lg font-bold text-brand-forest tabular-nums">
+                        {formatVnd(plan.priceVnd)}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {" "}
+                        / {plan.weightPerDeliveryKg} kg mỗi chuyến
+                      </span>
+                    </div>
+                    <Link
+                      href="/subscriptions"
+                      className={buttonVariants({
+                        className:
+                          "rounded-lg bg-brand-forest font-semibold text-white hover:bg-brand-dark",
+                      })}
+                    >
+                      Chọn gói
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
-        </CardContent>
-      </Card>
-
-      <ShelfSection
-        id="shelf-leaf"
-        title="RAU ĂN LÁ HỮU CƠ"
-        icon={Leaf}
-        actionHref="/products"
-        actionLabel="Xem tất cả"
-        products={leafProducts}
-      />
-
-      <ShelfSection
-        id="shelf-fruit"
-        title="CỦ & QUẢ TƯƠI SẠCH"
-        icon={Package}
-        actionHref="/products"
-        actionLabel="Xem tất cả"
-        products={fruitProducts}
-      />
-
-      <ShelfSection
-        id="shelf-spice"
-        title="RAU GIA VỊ & NẤM"
-        icon={Sprout}
-        actionHref="/products"
-        actionLabel="Xem tất cả"
-        products={spiceProducts}
-      />
-
-      <section id="plans" className="flex scroll-mt-24 flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="size-5 text-brand-forest" aria-hidden="true" />
-            <h2 className="text-lg font-bold text-gray-900">
-              GÓI RAU ĐỊNH KỲ GIA ĐÌNH
-            </h2>
-          </div>
-          <Link
-            href="/subscriptions"
-            className="text-sm font-semibold text-brand-forest hover:underline"
-          >
-            Đăng ký lịch giao
-          </Link>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {plans.map((plan) => (
-            <Card
-              key={plan.id}
-              className="gap-0 rounded-2xl border-border-subtle bg-white py-0 shadow-sm"
-            >
-              <CardContent className="flex h-full flex-col justify-between gap-4 p-5">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-base font-bold text-gray-900">
-                      {plan.name}
-                    </h3>
-                    <Badge className="rounded-full border-0 bg-green-100 text-brand-dark">
-                      {plan.totalDeliveries} lần giao / tháng
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-gray-600">{plan.description}</p>
-                  <p className="text-xs font-semibold text-status-fresh">
-                    Miễn phí ship trong bán kính 20 km (
-                    {plan.supportedDeliveryDays
-                      .map((day) => DELIVERY_DAY_LABELS[day])
-                      .join(", ")}
-                    )
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between border-t border-border-subtle pt-3">
-                  <div>
-                    <span className="text-lg font-bold text-brand-forest tabular-nums">
-                      {formatVnd(plan.priceVnd)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {" "}
-                      / {plan.weightPerDeliveryKg} kg mỗi chuyến
-                    </span>
-                  </div>
-                  <Link
-                    href="/subscriptions"
-                    className={buttonVariants({
-                      className:
-                        "rounded-lg bg-brand-forest font-semibold text-white hover:bg-brand-dark",
-                    })}
-                  >
-                    Chọn gói
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <Dialog open={certDialogOpen} onOpenChange={setCertDialogOpen}>
         <DialogContent className="bg-white sm:max-w-md">
@@ -415,5 +479,18 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * Interactive SF-01 home showcase view wired to Next.js client navigation.
+ *
+ * @param props Catalog items, subscription plans, and live API reachability status.
+ * @returns SF-01 home showcase layout.
+ */
+export function HomeView(props: HomeViewProps) {
+  const router = useRouter();
+  return (
+    <HomeViewContent {...props} onTraceNavigate={(href) => router.push(href)} />
   );
 }

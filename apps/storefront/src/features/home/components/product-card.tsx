@@ -27,6 +27,10 @@ export function ProductCard({ product }: ProductCardProps) {
   const cartItem = items.find((item) => item.productId === product.id);
   const currentQty = cartItem?.quantity ?? 0;
   const effectivePrice = product.salePriceVnd ?? product.basePriceVnd;
+  const hasMarkdown =
+    product.salePriceVnd !== undefined &&
+    product.salePriceVnd < product.basePriceVnd;
+  const isOutOfStock = product.availableQuantity <= 0;
 
   return (
     <Card className="h-full gap-0 rounded-xl border-border-subtle bg-white py-0 shadow-none transition-colors hover:border-brand-forest">
@@ -52,7 +56,7 @@ export function ProductCard({ product }: ProductCardProps) {
               {product.name}
             </Link>
             <p className="text-xs text-gray-500 tabular-nums">
-              {product.isRescueDeal
+              {product.isRescueDeal || !product.badgeText
                 ? product.unitLabel
                 : `${product.unitLabel}, ${product.badgeText}`}
             </p>
@@ -66,7 +70,7 @@ export function ProductCard({ product }: ProductCardProps) {
             >
               {formatVnd(effectivePrice)}
             </span>
-            {product.salePriceVnd ? (
+            {hasMarkdown ? (
               <span className="text-xs text-gray-500 tabular-nums line-through">
                 {formatVnd(product.basePriceVnd)}
               </span>
@@ -89,7 +93,9 @@ export function ProductCard({ product }: ProductCardProps) {
                   Đã xuất {product.rescueBatchProgressPct}%
                 </span>
                 <span className="text-xs text-gray-500 tabular-nums">
-                  Còn {product.availableQuantity} {product.unit}
+                  {isOutOfStock
+                    ? "Tạm hết hàng"
+                    : `Còn ${product.availableQuantity} ${product.unit}`}
                 </span>
               </div>
             </div>
@@ -100,10 +106,11 @@ export function ProductCard({ product }: ProductCardProps) {
           {currentQty === 0 ? (
             <Button
               type="button"
+              disabled={isOutOfStock}
               onClick={() => addItem(product, 1)}
               className="h-10 w-full rounded-lg bg-brand-forest text-sm font-semibold text-white hover:bg-brand-dark"
             >
-              MUA NGAY
+              {isOutOfStock ? "Tạm hết hàng" : "MUA NGAY"}
             </Button>
           ) : (
             <div className="flex h-10 items-center justify-between rounded-lg border border-brand-forest bg-green-50">

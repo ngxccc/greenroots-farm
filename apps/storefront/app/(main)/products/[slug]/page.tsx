@@ -30,9 +30,11 @@ async function CachedProductDetail({ slug }: { readonly slug: string }) {
             <Leaf className="size-20 text-brand-forest/70" />
           </div>
           <div className="space-y-3">
-            <Badge className="border-0 bg-green-100 font-bold text-brand-dark">
-              {product.badgeText}
-            </Badge>
+            {product.badgeText ? (
+              <Badge className="border-0 bg-green-100 font-bold text-brand-dark">
+                {product.badgeText}
+              </Badge>
+            ) : null}
             <h1 className="text-2xl font-extrabold text-gray-900">
               {product.name}
             </h1>

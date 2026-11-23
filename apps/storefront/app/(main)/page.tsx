@@ -5,19 +5,17 @@ import { HomeView } from "@/features/home/components/home-view";
 import { ProductGridSkeleton } from "@/features/home/components/product-card";
 import {
   fetchApiHealth,
-  getShowcaseCatalog,
+  fetchLiveHomeCatalog,
 } from "@/services/storefront.service";
 
 async function HomeContent() {
   await connection();
-  const [{ reachable }, { products, plans }] = await Promise.all([
+  const [{ reachable }, shelves] = await Promise.all([
     fetchApiHealth(),
-    Promise.resolve(getShowcaseCatalog()),
+    fetchLiveHomeCatalog(),
   ]);
 
-  return (
-    <HomeView products={products} plans={plans} apiReachable={reachable} />
-  );
+  return <HomeView shelves={shelves} apiReachable={reachable} />;
 }
 
 export default function HomePage() {
