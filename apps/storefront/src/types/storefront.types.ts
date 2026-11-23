@@ -7,6 +7,13 @@ import type {
 
 export type CategoryShelfKey = "rescue" | "leaf" | "fruit" | "spice";
 
+export interface HomeCategoryShelf {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly products: readonly StorefrontProduct[];
+}
+
 export interface StorefrontProduct {
   readonly id: string;
   readonly slug: string;
@@ -17,7 +24,7 @@ export interface StorefrontProduct {
   readonly salePriceVnd?: number;
   readonly availableQuantity: number;
   readonly categoryKey: Exclude<CategoryShelfKey, "rescue">;
-  readonly badgeText: string;
+  readonly badgeText?: string;
   readonly imageUrl?: string;
   readonly hoursRemaining?: number;
   readonly isRescueDeal: boolean;

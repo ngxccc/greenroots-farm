@@ -5,11 +5,135 @@ import {
   SeasonStatus,
 } from "@greenroots/shared";
 import { api } from "@/lib/api-client";
+import type { components } from "@/types/api-schema";
 import type {
   BatchTraceRecord,
+  HomeCategoryShelf,
   StorefrontProduct,
   StorefrontSubscriptionPlan,
 } from "@/types/storefront.types";
+
+/** Alias for the generated OpenAPI category DTO. */
+export type CategoryDto = components["schemas"]["CategoryDto"];
+
+/** Alias for the generated OpenAPI product DTO. */
+export type ProductDto = components["schemas"]["ProductDto"];
+
+/** Default number of root category shelves displayed on the SF-01 home page. */
+export const HOME_MAX_SHELVES = 6;
+
+/** Default number of product cards displayed per category shelf (4x2 desktop grid). */
+export const HOME_SHELF_PRODUCTS_LIMIT = 8;
+
+/**
+ * Injectable transport dependencies for `fetchLiveHomeCatalog` so unit specs
+ * remain isolated without mutating Bun's global module registry.
+ */
+export interface HomeCatalogDeps {
+  readonly fetchCategories: (query: {
+    rootOnly: true;
+    limit: number;
+    sort: "sortOrder:asc";
+  }) => Promise<{ data?: { data: readonly CategoryDto[] }; error?: unknown }>;
+  readonly fetchProductsByCategory: (query: {
+    categoryId: string;
+    limit: number;
+    sort: "createdAt:desc";
+  }) => Promise<{ data?: { data: readonly ProductDto[] }; error?: unknown }>;
+}
+
+const defaultHomeCatalogDeps: HomeCatalogDeps = {
+  fetchCategories: (query) =>
+    api.GET("/api/v1/categories", { params: { query } }),
+  fetchProductsByCategory: (query) =>
+    api.GET("/api/v1/products", { params: { query } }),
+};
+
+function matchCategoryShelfSlug(
+  slug: string,
+): "leaf" | "fruit" | "spice" | null {
+  const normalized = slug.trim().toLowerCase();
+  if (/(?:^|-)nam(?:$|-)|gia-vi|herb|spice|mushroom/.test(normalized)) {
+    return "spice";
+  }
+  if (/(?:^|-)qua(?:$|-)|(?:^|-)cu(?:$|-)|trai|fruit/.test(normalized)) {
+    return "fruit";
+  }
+  if (/(?:^|-)rau(?:$|-)|(?:^|-)la(?:$|-)|leaf|leaves/.test(normalized)) {
+    return "leaf";
+  }
+  return null;
+}
+
+/**
+ * Derives a home shelf key from a category slug and optional parent category slug.
+ * Evaluates the child slug first, then its parent slug so two-level child categories
+ * such as `ca-chua` under `rau-cu-qua` inherit their parent shelf cleanly.
+ *
+ * @param categorySlug Slug of the product's assigned category.
+ * @param parentCategorySlug Optional slug of the parent category when two levels deep.
+ * @returns Shelf key (`"leaf" | "fruit" | "spice"`), defaulting to `"leaf"`.
+ */
+export function deriveCategoryKey(
+  categorySlug: string,
+  parentCategorySlug?: string | null,
+): "leaf" | "fruit" | "spice" {
+  const directMatch = matchCategoryShelfSlug(categorySlug);
+  if (directMatch) return directMatch;
+
+  if (parentCategorySlug) {
+    const parentMatch = matchCategoryShelfSlug(parentCategorySlug);
+    if (parentMatch) return parentMatch;
+  }
+
+  return "leaf";
+}
+
+function formatUnitLabel(unit: string): string {
+  const trimmed = unit.trim();
+  if (!trimmed || /\d/.test(trimmed)) {
+    return trimmed;
+  }
+  return `1 ${trimmed}`;
+}
+
+/**
+ * Maps a `ProductDto` from the catalog API to a `StorefrontProduct` suitable
+ * for the cart store and storefront UI components.
+ *
+ * @param dto Product DTO returned by `/api/v1/products`.
+ * @param shelfCategoryId Optional root shelf category ID to suppress redundant category badges.
+ * @returns Normalized `StorefrontProduct` projection.
+ */
+export function mapProductDtoToStorefront(
+  dto: ProductDto,
+  shelfCategoryId?: string,
+): StorefrontProduct {
+  const fallbackBadge =
+    shelfCategoryId && dto.category.id === shelfCategoryId
+      ? undefined
+      : dto.category.name;
+
+  return {
+    id: dto.id,
+    slug: dto.slug,
+    name: dto.name,
+    unit: dto.unit,
+    unitLabel: formatUnitLabel(dto.unit),
+    basePriceVnd: dto.basePriceVnd,
+    salePriceVnd: dto.salePriceVnd ?? undefined,
+    availableQuantity: dto.availableQuantity,
+    categoryKey: deriveCategoryKey(dto.category.slug),
+    badgeText: dto.isVietGap
+      ? "VietGAP"
+      : dto.isUsda
+        ? "USDA Organic"
+        : fallbackBadge,
+    imageUrl: dto.imageUrls[0],
+    isRescueDeal: false,
+    isSubscriptionEligible: dto.isSubscriptionEligible,
+  };
+}
 
 /**
  * Checks live connectivity to the GreenRoots NestJS API (`/api/v1/health`).
@@ -38,7 +162,93 @@ export async function fetchApiHealth(): Promise<{
   }
 }
 
-// TODO(catalog-api): Replace showcase items once GET /api/v1/catalog/products is implemented.
+/** Options controlling root shelf count and per-shelf product cap for SF-01. */
+export interface HomeCatalogOptions {
+  readonly maxShelves?: number;
+  readonly perShelfLimit?: number;
+}
+
+/**
+ * Fetches active root categories ordered by `sortOrder:asc` and loads up to
+ * `perShelfLimit` latest active products per root category (spanning two-level
+ * child categories server-side). Empty shelves and failed category queries are
+ * omitted so one partial failure cannot blank the entire home page.
+ *
+ * @param options Shelf count and per-shelf product limits (defaults: 6 shelves, 8 items).
+ * @param deps Optional injectable API fetchers for deterministic unit tests.
+ * @returns Non-empty `HomeCategoryShelf[]` ordered by category `sortOrder`.
+ */
+export async function fetchLiveHomeCatalog(
+  options: HomeCatalogOptions = {},
+  deps: HomeCatalogDeps = defaultHomeCatalogDeps,
+): Promise<readonly HomeCategoryShelf[]> {
+  const maxShelves = options.maxShelves ?? HOME_MAX_SHELVES;
+  const perShelfLimit = options.perShelfLimit ?? HOME_SHELF_PRODUCTS_LIMIT;
+
+  try {
+    const categoriesRes = await deps.fetchCategories({
+      rootOnly: true,
+      limit: maxShelves,
+      sort: "sortOrder:asc",
+    });
+
+    if (categoriesRes.error || !categoriesRes.data?.data.length) {
+      return [];
+    }
+
+    const rootCategories = categoriesRes.data.data
+      .filter((category) => category.isActive)
+      .slice(0, maxShelves);
+
+    if (!rootCategories.length) {
+      return [];
+    }
+
+    const shelves = await Promise.all(
+      rootCategories.map(
+        async (category): Promise<HomeCategoryShelf | null> => {
+          try {
+            const productsRes = await deps.fetchProductsByCategory({
+              categoryId: category.id,
+              limit: perShelfLimit,
+              sort: "createdAt:desc",
+            });
+
+            if (productsRes.error || !productsRes.data?.data.length) {
+              return null;
+            }
+
+            const mappedProducts = productsRes.data.data
+              .filter((dto) => dto.isActive)
+              .slice(0, perShelfLimit)
+              .map((dto) => mapProductDtoToStorefront(dto, category.id));
+
+            if (!mappedProducts.length) {
+              return null;
+            }
+
+            return {
+              id: category.id,
+              name: category.name,
+              slug: category.slug,
+              products: mappedProducts,
+            };
+          } catch {
+            return null;
+          }
+        },
+      ),
+    );
+
+    return shelves.filter(
+      (shelf): shelf is HomeCategoryShelf => shelf !== null,
+    );
+  } catch {
+    return [];
+  }
+}
+
+// TODO(catalog-api): Remove showcase products once /products and /products/[slug] wire live endpoints.
 const SHOWCASE_PRODUCTS: readonly StorefrontProduct[] = [
   {
     id: "0195a8f0-0001-7000-8000-000000000001",
@@ -197,7 +407,7 @@ const SHOWCASE_PRODUCTS: readonly StorefrontProduct[] = [
   },
 ];
 
-// TODO(catalog-api): Replace showcase plans once GET /api/v1/catalog/subscription-plans lands.
+// Subscription plans remain static fixtures; a dedicated plan-listing API is out of scope for SF-01.
 const SHOWCASE_PLANS: readonly StorefrontSubscriptionPlan[] = [
   {
     id: "plan-family-5kg",
