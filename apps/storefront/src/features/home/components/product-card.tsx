@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import {
   Badge,
   Button,
@@ -10,7 +11,7 @@ import {
   Skeleton,
 } from "@greenroots/ui";
 import { Leaf, Minus, Plus } from "lucide-react";
-import { formatVnd } from "@/lib/format";
+import { formatVnd, roundQuantity } from "@/lib/format";
 import { useCartStore } from "@/stores/cart.store";
 import type { StorefrontProduct } from "@/types/storefront.types";
 
@@ -21,16 +22,29 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const items = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
+  const syncProductSnapshot = useCartStore(
+    (state) => state.syncProductSnapshot,
+  );
   const incrementItem = useCartStore((state) => state.incrementItem);
   const decrementItem = useCartStore((state) => state.decrementItem);
 
   const cartItem = items.find((item) => item.productId === product.id);
-  const currentQty = cartItem?.quantity ?? 0;
+
+  useEffect(() => {
+    if (cartItem) {
+      syncProductSnapshot(product);
+    }
+  }, [cartItem, product, syncProductSnapshot]);
+
+  const currentQty = roundQuantity(cartItem?.quantity ?? 0);
+  const normalizedAvailable = roundQuantity(
+    Math.max(0, product.availableQuantity),
+  );
   const effectivePrice = product.salePriceVnd ?? product.basePriceVnd;
   const hasMarkdown =
     product.salePriceVnd !== undefined &&
     product.salePriceVnd < product.basePriceVnd;
-  const isOutOfStock = product.availableQuantity <= 0;
+  const isOutOfStock = normalizedAvailable <= 0;
 
   return (
     <Card className="h-full gap-0 rounded-xl border-border-subtle bg-white py-0 shadow-none transition-colors hover:border-brand-forest">
@@ -132,7 +146,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 variant="ghost"
                 size="icon"
                 aria-label={`Tăng số lượng ${product.name}`}
-                disabled={currentQty >= product.availableQuantity}
+                disabled={currentQty >= normalizedAvailable}
                 onClick={() => incrementItem(product.id)}
                 className="h-10 w-10 rounded-r-lg text-brand-dark hover:bg-green-100"
               >

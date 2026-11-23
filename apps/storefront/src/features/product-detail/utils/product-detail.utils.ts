@@ -1,35 +1,9 @@
-import { APPROVED_REMOTE_IMAGE_HOST_SET } from "@/constants/image-hosts.constant";
-import { ORDER_QUANTITY_MIN, roundQuantity } from "@/lib/format";
-
-/** Minimum purchasable quantity matching backend `ORDER_ITEM_MIN_QUANTITY` (`numeric(10, 2)`). */
-export const PRODUCT_QUANTITY_MIN = ORDER_QUANTITY_MIN;
-
-/** Standard stepper increment when clicking `-` / `+` buttons. */
-export const PRODUCT_QUANTITY_STEP = 1;
-
-/**
- * Computes remaining stock headroom that can still be added to the customer's cart.
- *
- * @param availableQuantity Live aggregate sellable quantity from `ProductDto`.
- * @param inCartQuantity Current quantity already present in `useCartStore` for this product.
- * @returns Remaining addable quantity (>= 0, rounded to 2 decimal places).
- */
-export function getRemainingAddableQuantity(
-  availableQuantity: number,
-  inCartQuantity: number,
-): number {
-  const safeAvailable = Number.isFinite(availableQuantity)
-    ? Math.max(0, availableQuantity)
-    : 0;
-  const safeInCart = Number.isFinite(inCartQuantity)
-    ? Math.max(0, inCartQuantity)
-    : 0;
-  return roundQuantity(Math.max(0, safeAvailable - safeInCart));
-}
+import { BUSINESS_RULES } from "@greenroots/shared";
+import { roundQuantity } from "@/lib/format";
 
 /**
  * Resolves the initial picker quantity: `1` by default when at least 1 unit remains,
- * or the exact fractional remainder (e.g. `0.5`) when `0 < remainingAddable < 1`.
+ * or the exact fractional remainder (e.g. `0.5`) when `0 < availableQuantity < 1`.
  *
  * @param remainingAddable Remaining stock headroom available to add.
  * @returns Initial picker quantity (`0` when no stock remains).
@@ -43,7 +17,7 @@ export function getDefaultOrderQuantity(remainingAddable: number): number {
 }
 
 /**
- * Clamps a numeric quantity strictly within `[min(0.01, remainingAddable), remainingAddable]`.
+ * Clamps a numeric quantity strictly within `[min(ORDER_ITEM_MIN_QUANTITY, remainingAddable), remainingAddable]`.
  *
  * @param value Candidate quantity entered or stepped by the user.
  * @param remainingAddable Remaining stock headroom available to add.
@@ -57,7 +31,10 @@ export function clampOrderQuantity(
   if (maxAllowed <= 0 || !Number.isFinite(value)) {
     return 0;
   }
-  const minAllowed = Math.min(PRODUCT_QUANTITY_MIN, maxAllowed);
+  const minAllowed = Math.min(
+    BUSINESS_RULES.ORDER_ITEM_MIN_QUANTITY,
+    maxAllowed,
+  );
   return roundQuantity(Math.min(Math.max(value, minAllowed), maxAllowed));
 }
 
@@ -87,45 +64,6 @@ export function parseOrderQuantityInput(raw: string): number | null {
  */
 export function formatQuantityDisplay(quantity: number): string {
   return String(roundQuantity(quantity));
-}
-
-/**
- * Validates that an image URL uses either an approved Next.js `remotePatterns` HTTPS host
- * or a local root-relative asset path (`/...`, excluding protocol-relative `//`).
- *
- * @param rawUrl Candidate product image URL.
- * @returns `true` when safe to pass to `next/image`.
- */
-export function isApprovedStorefrontImageUrl(rawUrl: string): boolean {
-  const trimmed = rawUrl.trim();
-  if (!trimmed) {
-    return false;
-  }
-  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
-    return true;
-  }
-
-  try {
-    const parsed = new URL(trimmed);
-    return (
-      parsed.protocol === "https:" &&
-      APPROVED_REMOTE_IMAGE_HOST_SET.has(parsed.hostname)
-    );
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Filters a product's `imageUrls` array down to entries permitted by `next.config.ts`.
- *
- * @param imageUrls Raw `ProductDto.imageUrls` list.
- * @returns Approved image URLs preserving order.
- */
-export function filterApprovedProductImages(
-  imageUrls: readonly string[],
-): string[] {
-  return imageUrls.filter(isApprovedStorefrontImageUrl);
 }
 
 /**

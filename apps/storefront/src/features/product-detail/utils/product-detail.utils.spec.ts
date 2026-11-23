@@ -1,18 +1,19 @@
 import { describe, expect, it } from "bun:test";
 import {
+  filterApprovedProductImages,
+  isApprovedStorefrontImageUrl,
+} from "@/lib/image-url";
+import {
   fetchLiveProductBySlug,
   type ProductDetailDeps,
   type ProductDto,
 } from "@/services/storefront.service";
 import {
   clampOrderQuantity,
-  filterApprovedProductImages,
   formatCertificationSummary,
   formatQuantityDisplay,
   getCatalogDiscountPercent,
   getDefaultOrderQuantity,
-  getRemainingAddableQuantity,
-  isApprovedStorefrontImageUrl,
   parseOrderQuantityInput,
 } from "./product-detail.utils";
 
@@ -50,12 +51,6 @@ describe("ProductDetailUtils", () => {
       expect(getDefaultOrderQuantity(0.5)).toBe(0.5);
       expect(getDefaultOrderQuantity(0.25)).toBe(0.25);
       expect(getDefaultOrderQuantity(0)).toBe(0);
-    });
-
-    it("computes remaining addable stock after subtracting cart quantity", () => {
-      expect(getRemainingAddableQuantity(1.5, 1)).toBe(0.5);
-      expect(getRemainingAddableQuantity(1.5, 2)).toBe(0);
-      expect(getRemainingAddableQuantity(0.5, 0)).toBe(0.5);
     });
 
     it("clamps positive and stepped-down quantities strictly within minimum and remaining stock", () => {

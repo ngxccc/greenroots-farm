@@ -1,10 +1,12 @@
 "use client";
 
-import { HCMC_DISTRICTS } from "@greenroots/shared";
+import { BUSINESS_RULES, HCMC_DISTRICTS } from "@greenroots/shared";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { ORDER_QUANTITY_MIN, roundQuantity } from "@/lib/format";
+import { roundQuantity } from "@/lib/format";
 import type { StorefrontProduct } from "@/types/storefront.types";
+
+const ORDER_QUANTITY_MIN = BUSINESS_RULES.ORDER_ITEM_MIN_QUANTITY;
 
 export interface CartItem {
   readonly productId: string;
@@ -23,6 +25,7 @@ interface CartState {
   selectedDistrictCode: string;
   streetAddress: string;
   addItem: (product: StorefrontProduct, quantity?: number) => void;
+  syncProductSnapshot: (product: StorefrontProduct) => void;
   setQuantity: (productId: string, quantity: number) => void;
   incrementItem: (productId: string) => void;
   decrementItem: (productId: string) => void;
@@ -79,9 +82,16 @@ export const useCartStore = create<CartState>()(
                 item.productId === product.id
                   ? {
                       ...item,
-                      quantity: nextQuantity,
-                      availableQuantity: product.availableQuantity,
+                      slug: product.slug,
+                      name: product.name,
+                      unitLabel: product.unitLabel,
                       unitPriceVnd: effectivePrice,
+                      originalPriceVnd: product.salePriceVnd
+                        ? product.basePriceVnd
+                        : undefined,
+                      availableQuantity: product.availableQuantity,
+                      imageUrl: product.imageUrl,
+                      quantity: nextQuantity,
                     }
                   : item,
               ),
@@ -113,6 +123,68 @@ export const useCartStore = create<CartState>()(
                 quantity: clampedQuantity,
               },
             ],
+          };
+        }),
+
+      syncProductSnapshot: (product) =>
+        set((state) => {
+          const existing = state.items.find(
+            (item) => item.productId === product.id,
+          );
+          if (!existing) {
+            return state;
+          }
+
+          const liveAvailable = roundQuantity(
+            Math.max(0, product.availableQuantity),
+          );
+          const effectivePrice = product.salePriceVnd ?? product.basePriceVnd;
+          const originalPriceVnd = product.salePriceVnd
+            ? product.basePriceVnd
+            : undefined;
+          const nextQuantity = clampAddableQuantity(
+            existing.quantity,
+            liveAvailable,
+          );
+
+          if (nextQuantity <= 0) {
+            return {
+              items: state.items.filter(
+                (item) => item.productId !== product.id,
+              ),
+            };
+          }
+
+          const isUnchanged =
+            existing.slug === product.slug &&
+            existing.name === product.name &&
+            existing.unitLabel === product.unitLabel &&
+            existing.unitPriceVnd === effectivePrice &&
+            existing.originalPriceVnd === originalPriceVnd &&
+            roundQuantity(existing.availableQuantity) === liveAvailable &&
+            existing.imageUrl === product.imageUrl &&
+            roundQuantity(existing.quantity) === nextQuantity;
+
+          if (isUnchanged) {
+            return state;
+          }
+
+          return {
+            items: state.items.map((item) =>
+              item.productId === product.id
+                ? {
+                    ...item,
+                    slug: product.slug,
+                    name: product.name,
+                    unitLabel: product.unitLabel,
+                    unitPriceVnd: effectivePrice,
+                    originalPriceVnd,
+                    availableQuantity: liveAvailable,
+                    imageUrl: product.imageUrl,
+                    quantity: nextQuantity,
+                  }
+                : item,
+            ),
           };
         }),
 

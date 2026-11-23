@@ -1,10 +1,10 @@
 import { Award, ShieldCheck } from "lucide-react";
 import { Badge } from "@greenroots/ui";
 import { formatVnd, roundQuantity } from "@/lib/format";
+import { filterApprovedProductImages } from "@/lib/image-url";
 import type { ProductDto } from "@/services/storefront.service";
 import type { StorefrontProduct } from "@/types/storefront.types";
 import {
-  filterApprovedProductImages,
   formatCertificationSummary,
   formatQuantityDisplay,
   getCatalogDiscountPercent,

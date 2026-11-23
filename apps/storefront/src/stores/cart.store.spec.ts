@@ -63,6 +63,38 @@ describe("useCartStore", () => {
     expect(useCartStore.getState().items[0]?.quantity).toBe(0.5);
   });
 
+  test("syncs persisted cart item with increased, decreased, and exhausted live catalog stock", () => {
+    useCartStore.getState().addItem(sampleTomato, 3);
+    expect(useCartStore.getState().items[0]?.availableQuantity).toBe(3);
+
+    // Live stock increased from 3 -> 10: increment must allow stepping past stale ceiling 3.
+    const restockedTomato: StorefrontProduct = {
+      ...sampleTomato,
+      availableQuantity: 10,
+      salePriceVnd: 25000,
+    };
+    useCartStore.getState().syncProductSnapshot(restockedTomato);
+    expect(useCartStore.getState().items[0]?.availableQuantity).toBe(10);
+    expect(useCartStore.getState().items[0]?.unitPriceVnd).toBe(25000);
+    useCartStore.getState().incrementItem(sampleTomato.id);
+    expect(useCartStore.getState().items[0]?.quantity).toBe(4);
+
+    // Live stock decreased from 10 -> 2: cached quantity 4 clamps down to 2.
+    useCartStore.getState().syncProductSnapshot({
+      ...restockedTomato,
+      availableQuantity: 2,
+    });
+    expect(useCartStore.getState().items[0]?.availableQuantity).toBe(2);
+    expect(useCartStore.getState().items[0]?.quantity).toBe(2);
+
+    // Live stock exhausted: item is removed.
+    useCartStore.getState().syncProductSnapshot({
+      ...restockedTomato,
+      availableQuantity: 0,
+    });
+    expect(useCartStore.getState().items).toHaveLength(0);
+  });
+
   test("removes item when decremented to zero", () => {
     useCartStore.getState().addItem(sampleTomato, 1);
     useCartStore.getState().decrementItem(sampleTomato.id);

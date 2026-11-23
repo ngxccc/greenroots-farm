@@ -13,7 +13,7 @@ import {
 } from "@greenroots/ui";
 import { AlertTriangle, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { FARM_METADATA } from "@/constants/farm-metadata.constant";
-import { formatVnd } from "@/lib/format";
+import { formatVnd, roundQuantity } from "@/lib/format";
 import { useCartStore } from "@/stores/cart.store";
 
 interface CartDrawerProps {
@@ -32,7 +32,8 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
     0,
   );
   const hasStockWarning = items.some(
-    (item) => item.quantity >= item.availableQuantity,
+    (item) =>
+      roundQuantity(item.quantity) >= roundQuantity(item.availableQuantity),
   );
 
   return (
@@ -59,7 +60,9 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
             </div>
           ) : (
             items.map((item) => {
-              const atLimit = item.quantity >= item.availableQuantity;
+              const displayQty = roundQuantity(item.quantity);
+              const displayAvailable = roundQuantity(item.availableQuantity);
+              const atLimit = displayQty >= displayAvailable;
               return (
                 <div
                   key={item.productId}
@@ -86,11 +89,11 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-sm font-extrabold text-brand-forest">
+                      <span className="text-sm font-extrabold text-brand-forest tabular-nums">
                         {formatVnd(item.unitPriceVnd * item.quantity)}
                       </span>
                       {item.originalPriceVnd ? (
-                        <span className="text-xs text-gray-400 line-through">
+                        <span className="text-xs text-gray-400 tabular-nums line-through">
                           {formatVnd(item.originalPriceVnd * item.quantity)}
                         </span>
                       ) : null}
@@ -106,8 +109,8 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                       >
                         <Minus className="size-3.5" />
                       </Button>
-                      <span className="w-6 text-center text-xs font-bold text-gray-900">
-                        {item.quantity}
+                      <span className="min-w-7 px-1 text-center text-xs font-bold text-gray-900 tabular-nums">
+                        {displayQty}
                       </span>
                       <Button
                         type="button"
@@ -125,10 +128,10 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                   {atLimit ? (
                     <Badge
                       variant="destructive"
-                      className="w-full justify-start gap-1.5 rounded-md border border-red-200 bg-red-50 font-medium text-red-700"
+                      className="w-full justify-start gap-1.5 rounded-md border border-red-200 bg-red-50 font-medium text-red-700 tabular-nums"
                     >
                       <AlertTriangle className="size-3.5 shrink-0" />
-                      Đã chạm ngưỡng tồn kho khả dụng ({item.availableQuantity})
+                      Đã chạm ngưỡng tồn kho khả dụng ({displayAvailable})
                     </Badge>
                   ) : null}
                 </div>

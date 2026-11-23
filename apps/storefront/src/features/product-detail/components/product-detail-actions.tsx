@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useSyncExternalStore, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useState,
+  useSyncExternalStore,
+  type ChangeEvent,
+} from "react";
 import { AlertCircle, Minus, Plus, ShoppingCart } from "lucide-react";
 import { Alert, AlertDescription, Button, Input, Label } from "@greenroots/ui";
 import { roundQuantity } from "@/lib/format";
@@ -47,17 +53,27 @@ function useIsHydrated(): boolean {
  * @returns Single CTA button or synced cart quantity stepper with stock ceiling feedback.
  */
 export function ProductDetailActions({ product }: ProductDetailActionsProps) {
+  const qtyInputId = useId();
   const isHydrated = useIsHydrated();
   const rawInCartQuantity = useCartStore(
     (state) =>
       state.items.find((item) => item.productId === product.id)?.quantity ?? 0,
   );
   const addItem = useCartStore((state) => state.addItem);
+  const syncProductSnapshot = useCartStore(
+    (state) => state.syncProductSnapshot,
+  );
   const setQuantity = useCartStore((state) => state.setQuantity);
   const incrementItem = useCartStore((state) => state.incrementItem);
   const decrementItem = useCartStore((state) => state.decrementItem);
 
   const [draftQuantity, setDraftQuantity] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isHydrated) {
+      syncProductSnapshot(product);
+    }
+  }, [isHydrated, product, syncProductSnapshot]);
 
   const normalizedAvailable = roundQuantity(
     Math.max(0, product.availableQuantity),
@@ -154,14 +170,13 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
           >
             <Minus className="size-4" aria-hidden="true" />
           </Button>
-          <Label htmlFor="product-detail-qty" className="sr-only">
+          <Label htmlFor={qtyInputId} className="sr-only">
             Số lượng ({product.unit})
           </Label>
           <Input
-            id="product-detail-qty"
+            id={qtyInputId}
             type="text"
             inputMode="decimal"
-            aria-label={`Số lượng (${product.unit})`}
             value={displayedValue}
             onChange={handleInputChange}
             onBlur={commitDraftQuantity}
@@ -187,7 +202,10 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
       </div>
 
       {isAtMaxStock ? (
-        <p className="text-xs font-medium text-gray-600 tabular-nums">
+        <p
+          role="status"
+          className="text-xs font-medium text-gray-600 tabular-nums"
+        >
           Đã đạt tối đa tồn kho khả dụng (
           {formatQuantityDisplay(normalizedAvailable)} {product.unit}).
         </p>

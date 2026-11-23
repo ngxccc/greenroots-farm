@@ -95,7 +95,8 @@ describe("ProductDetailHero", () => {
       expect(html).toContain("-50%");
       expect(html).toContain("VietGAP &amp; USDA Organic");
       expect(html).toContain("THÊM VÀO GIỎ HÀNG");
-      expect(html).not.toContain('id="product-detail-qty"');
+      expect(html).not.toContain('inputMode="decimal"');
+      expect(html).not.toContain('inputmode="decimal"');
       expect(html).not.toContain("Mã lô truy xuất QR");
       expect(html).not.toContain("Nhật ký canh tác");
       expect(html).not.toContain("Đã xuất 75%");
@@ -157,7 +158,9 @@ describe("ProductDetailHero", () => {
           btn.textContent.includes("THÊM VÀO GIỎ HÀNG"),
         ) as unknown as HTMLElement | undefined;
         expect(addButton).toBeDefined();
-        expect(win.document.querySelector("#product-detail-qty")).toBeNull();
+        expect(
+          win.document.querySelector('input[inputmode="decimal"]'),
+        ).toBeNull();
 
         await act(async () => {
           addButton?.click();
@@ -166,7 +169,7 @@ describe("ProductDetailHero", () => {
 
         expect(useCartStore.getState().items[0]?.quantity).toBe(1);
         const qtyInput = win.document.querySelector(
-          "#product-detail-qty",
+          'input[inputmode="decimal"]',
         ) as unknown as { value: string } | null;
         expect(qtyInput?.value).toBe("1");
 
@@ -191,6 +194,56 @@ describe("ProductDetailHero", () => {
 
         expect(useCartStore.getState().items).toHaveLength(0);
         expect(win.document.body.textContent).toContain("THÊM VÀO GIỎ HÀNG");
+
+        await act(async () => {
+          root.unmount();
+          await Promise.resolve();
+        });
+      });
+    });
+
+    it("syncs stale cached cart stock with live availableQuantity on product detail mount", async () => {
+      const staleCachedProduct = mapProductDtoToStorefront({
+        ...MOCK_PRODUCT_DTO,
+        availableQuantity: 2,
+      });
+      useCartStore.getState().addItem(staleCachedProduct, 2);
+      expect(useCartStore.getState().items[0]?.availableQuantity).toBe(2);
+
+      const restockedLiveProduct = mapProductDtoToStorefront({
+        ...MOCK_PRODUCT_DTO,
+        availableQuantity: 10,
+      });
+
+      await withHappyDom(async (win) => {
+        const { act } = await import("react");
+        const { createRoot } = await import("react-dom/client");
+        const container = win.document.createElement("div");
+        win.document.body.appendChild(container);
+        const root = createRoot(container as unknown as Element);
+
+        await act(async () => {
+          root.render(
+            createElement(ProductDetailActions, {
+              product: restockedLiveProduct,
+            }),
+          );
+          await Promise.resolve();
+        });
+
+        expect(useCartStore.getState().items[0]?.availableQuantity).toBe(10);
+
+        const plusButton = win.document.querySelector(
+          `button[aria-label="Tăng số lượng ${restockedLiveProduct.name}"]`,
+        ) as unknown as HTMLElement | null;
+        expect(plusButton).not.toBeNull();
+
+        await act(async () => {
+          plusButton?.click();
+          await Promise.resolve();
+        });
+
+        expect(useCartStore.getState().items[0]?.quantity).toBe(3);
 
         await act(async () => {
           root.unmount();

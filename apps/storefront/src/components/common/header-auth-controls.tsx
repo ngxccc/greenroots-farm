@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  Alert,
+  AlertDescription,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -150,12 +152,14 @@ export function HeaderAuthView({
         <DropdownMenuSeparator className="my-1 bg-border-subtle" />
 
         {logoutError ? (
-          <div
-            role="alert"
-            className="mx-1 mb-1 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] font-medium text-red-900"
+          <Alert
+            variant="destructive"
+            className="mx-1 mb-1 w-auto px-2.5 py-1.5"
           >
-            {logoutError}
-          </div>
+            <AlertDescription className="text-[11px] font-medium">
+              {logoutError}
+            </AlertDescription>
+          </Alert>
         ) : null}
 
         <DropdownMenuItem

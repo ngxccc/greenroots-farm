@@ -5,6 +5,7 @@ import {
   SeasonStatus,
 } from "@greenroots/shared";
 import { api } from "@/lib/api-client";
+import { filterApprovedProductImages } from "@/lib/image-url";
 import type { components } from "@/types/api-schema";
 import type {
   BatchTraceRecord,
@@ -129,7 +130,7 @@ export function mapProductDtoToStorefront(
       : dto.isUsda
         ? "USDA Organic"
         : fallbackBadge,
-    imageUrl: dto.imageUrls[0],
+    imageUrl: filterApprovedProductImages(dto.imageUrls)[0],
     isRescueDeal: false,
     isSubscriptionEligible: dto.isSubscriptionEligible,
   };
