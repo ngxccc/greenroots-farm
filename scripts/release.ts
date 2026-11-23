@@ -95,12 +95,27 @@ export function isFeature(pr: MergedPullRequest): boolean {
   );
 }
 
-/** The level a set of merged pull requests justifies, from titles and `type:*` labels. */
-export function suggestBump(prs: MergedPullRequest[]): Suggestion | null {
+export function isMajorZero(baseVersion?: string): boolean {
+  if (!baseVersion) return false;
+  const clean = baseVersion.replace(/^v/, "").split("-")[0] ?? "";
+  return clean.split(".")[0] === "0";
+}
+
+/** The level a set of merged pull requests justifies, capping pre-1.0 breaking bumps at minor. */
+export function suggestBump(
+  prs: MergedPullRequest[],
+  baseVersion?: string,
+): Suggestion | null {
   if (prs.length === 0) return null;
 
   const breaking = prs.find(isBreaking);
   if (breaking) {
+    if (isMajorZero(baseVersion)) {
+      return {
+        level: "minor",
+        reason: `#${breaking.number} is a breaking change (pre-1.0 capped to minor)`,
+      };
+    }
     return {
       level: "major",
       reason: `#${breaking.number} is a breaking change`,
@@ -113,6 +128,48 @@ export function suggestBump(prs: MergedPullRequest[]): Suggestion | null {
   }
 
   return { level: "patch", reason: "no feature, no breaking change" };
+}
+
+export type OpenReleasePr = {
+  number: number;
+  title: string;
+  headRefName: string;
+};
+
+/** Find an existing open release PR targeting main to avoid duplicate release branches. */
+export function findBlockingReleasePr(
+  prs: OpenReleasePr[],
+): OpenReleasePr | undefined {
+  return prs.find(
+    (pr) =>
+      pr.headRefName.startsWith("chore/release-v") ||
+      /^chore\(release\):/i.test(pr.title),
+  );
+}
+
+/** Parse interactive confirmation (`y/N`) or quick version override (`p`/`m`/`M`/`<semver>`). */
+export function parseInteractiveChoice(
+  answer: string | null | undefined,
+  suggested: string,
+  baseVersion: string,
+): string | null {
+  const choice = (answer ?? "").trim();
+  if (choice === "" || /^(n|no)$/i.test(choice)) {
+    return null;
+  }
+  if (/^(y|yes)$/i.test(choice)) {
+    return suggested;
+  }
+  if (choice === "p") {
+    return resolveTarget("patch", baseVersion);
+  }
+  if (choice === "m") {
+    return resolveTarget("minor", baseVersion);
+  }
+  if (choice === "M") {
+    return resolveTarget("major", baseVersion);
+  }
+  return resolveTarget(choice, baseVersion);
 }
 
 /** Pull requests merged into `main` after the previous tag was cut. */
@@ -196,6 +253,67 @@ function assertReady(target: string): void {
   });
   if (existing.exitCode === 0) {
     fail(`release v${target} already exists`);
+  }
+
+  const releaseBranch = `chore/release-v${target}`;
+  const localBranch = Bun.spawnSync({
+    cmd: [
+      "git",
+      "show-ref",
+      "--verify",
+      "--quiet",
+      `refs/heads/${releaseBranch}`,
+    ],
+    stdout: "ignore",
+    stderr: "ignore",
+  });
+  if (localBranch.exitCode === 0) {
+    fail(`local branch ${releaseBranch} already exists`);
+  }
+
+  const remoteBranch = Bun.spawnSync({
+    cmd: [
+      "git",
+      "ls-remote",
+      "--exit-code",
+      "--heads",
+      "origin",
+      releaseBranch,
+    ],
+    stdout: "ignore",
+    stderr: "ignore",
+  });
+  if (remoteBranch.exitCode === 0) {
+    fail(`remote branch origin/${releaseBranch} already exists`);
+  }
+
+  const openPrsRaw = run(
+    [
+      "gh",
+      "pr",
+      "list",
+      "--state",
+      "open",
+      "--base",
+      "main",
+      "--limit",
+      "50",
+      "--json",
+      "number,title,headRefName",
+    ],
+    { capture: true },
+  );
+  let openPrs: OpenReleasePr[] = [];
+  try {
+    openPrs = JSON.parse(openPrsRaw) as OpenReleasePr[];
+  } catch {
+    openPrs = [];
+  }
+  const blockingPr = findBlockingReleasePr(openPrs);
+  if (blockingPr) {
+    fail(
+      `open release PR #${blockingPr.number} (${blockingPr.title}) already exists — merge or close it first`,
+    );
   }
 }
 
@@ -334,18 +452,17 @@ if (import.meta.main) {
     );
   } else {
     const previous = latestTag();
+    const baseVersion =
+      previous?.replace(/^v/, "") ?? currentVersion() ?? "0.0.1";
     const merged = mergedSince(previous);
-    const suggestion = suggestBump(merged);
+    const suggestion = suggestBump(merged, baseVersion);
     if (!suggestion) {
       fail(
         `nothing merged since ${previous ?? "the first release"} — nothing to release`,
       );
     }
 
-    target = resolveTarget(
-      suggestion.level,
-      previous?.replace(/^v/, "") ?? currentVersion(),
-    );
+    target = resolveTarget(suggestion.level, baseVersion);
     const count = `${merged.length} pull request${merged.length === 1 ? "" : "s"}`;
     step(
       `No version given — ${count} merged since ${previous ?? "the beginning"}`,
@@ -360,11 +477,27 @@ if (import.meta.main) {
       if (!process.stdin.isTTY) {
         fail(`no terminal to confirm on — rerun as: bun run release ${target}`);
       }
-      const answer = prompt(`\nRelease v${target}? [y/N]`);
-      if (!/^y(es)?$/i.test((answer ?? "").trim())) {
+      const patchVersion = resolveTarget("patch", baseVersion);
+      const minorVersion = resolveTarget("minor", baseVersion);
+      const majorVersion = resolveTarget("major", baseVersion);
+      const answer = prompt(
+        `\nRelease v${target}? [y/N / p(${patchVersion})/m(${minorVersion})/M(${majorVersion})/<x.y.z>]`,
+      );
+      let resolvedChoice: string | null;
+      try {
+        resolvedChoice = parseInteractiveChoice(answer, target, baseVersion);
+      } catch (error) {
+        fail(
+          error instanceof Error
+            ? error.message
+            : "invalid version choice supplied",
+        );
+      }
+      if (!resolvedChoice) {
         console.log("\nAborted — nothing changed.");
         process.exit(0);
       }
+      target = resolvedChoice;
     }
   }
 

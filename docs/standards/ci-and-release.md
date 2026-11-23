@@ -69,6 +69,7 @@ Required checks:
 3. Pushing a `v*` tag, or dispatching with `tag_name`, produces the same result.
 
 - `release.yml` verifies `version:check` and publishes; type checks, lint, tests, formatting, and builds already ran in `ci.yml`.
+- Under `0.y.z`, `bun run release` caps inferred breaking changes at `minor` (promoting to `v1.0.0` requires an explicit `bun run release 1.0.0`, `major`, or `M` choice), supports interactive overrides (`p`/`m`/`M`/`<x.y.z>`), and refuses to start if a `chore/release-v*` branch or open release PR already exists.
 - Release notes categories come from `.github/release.yml` and `type:*` labels.
 - Re-running a release is a no-op; it never deletes or rewrites an existing release or tag.
 
