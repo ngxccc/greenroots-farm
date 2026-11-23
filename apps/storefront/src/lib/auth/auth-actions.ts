@@ -2,11 +2,16 @@
 
 import { API_ERROR_CODES, type ApiErrorCode } from "@greenroots/shared";
 import type { z } from "zod";
-import { resolveApiErrorMessage } from "@/constants/error-dictionary.constant";
 import { api } from "@/lib/api-client";
-import type { ApiProblemDetails } from "@/types/api";
 import type { components } from "@/types/api-schema";
 import type { StorefrontSessionUser } from "@/types/auth.types";
+import {
+  buildActionFailure,
+  buildNetworkFailure,
+  buildServiceUnavailableFailure,
+  buildValidationFailure,
+  isTransientRefreshFailure,
+} from "./bff-error";
 import {
   type ForgotPasswordFormInput,
   type LoginFormInput,
@@ -27,7 +32,6 @@ import {
   clearServerSessionCookies,
   runWithServerActionRefresh,
   setServerSessionCookies,
-  type ServerActionRefreshOutcome,
 } from "./session.server";
 
 type ForgotPasswordDto = components["schemas"]["ForgotPasswordDto"];
@@ -194,94 +198,6 @@ export interface ResetPasswordActionDeps {
     error?: unknown;
   }>;
   readonly clearCookies?: () => Promise<void>;
-}
-
-function buildSyntheticProblem(
-  code: ApiErrorCode,
-  instance: string,
-  status = 500,
-): ApiProblemDetails {
-  return {
-    type: "/errors/auth-action",
-    title: "Request Error",
-    status,
-    detail: "",
-    instance,
-    code,
-  };
-}
-
-function extractProblemDetails(
-  rawError: unknown,
-  fallbackCode: ApiErrorCode,
-  instance: string,
-): ApiProblemDetails {
-  if (typeof rawError !== "object" || rawError === null) {
-    return buildSyntheticProblem(fallbackCode, instance);
-  }
-
-  const record = rawError as Record<string, unknown>;
-  const detail = typeof record.detail === "string" ? record.detail : "";
-  const code = typeof record.code === "string" ? record.code : undefined;
-  const status = typeof record.status === "number" ? record.status : 500;
-  const title = typeof record.title === "string" ? record.title : "Error";
-  const type =
-    typeof record.type === "string" ? record.type : "/errors/unknown";
-  const errorInstance =
-    typeof record.instance === "string" ? record.instance : instance;
-
-  if (!code && !detail) {
-    return buildSyntheticProblem(fallbackCode, errorInstance, status);
-  }
-
-  return {
-    type,
-    title,
-    status,
-    detail,
-    instance: errorInstance,
-    code: code ?? fallbackCode,
-  };
-}
-
-function buildValidationFailure(
-  error: z.ZodError,
-  code: ApiErrorCode,
-  instance: string,
-): { readonly ok: false; readonly code: string; readonly message: string } {
-  const firstMessage = error.issues.at(0)?.message;
-  return {
-    ok: false,
-    code,
-    message:
-      firstMessage ??
-      resolveApiErrorMessage(buildSyntheticProblem(code, instance, 400)),
-  };
-}
-
-function buildActionFailure(
-  rawError: unknown,
-  fallbackCode: ApiErrorCode,
-  instance: string,
-): { readonly ok: false; readonly code: string; readonly message: string } {
-  const problem = extractProblemDetails(rawError, fallbackCode, instance);
-  return {
-    ok: false,
-    code: problem.code ?? fallbackCode,
-    message: resolveApiErrorMessage(problem),
-  };
-}
-
-function buildNetworkFailure(): {
-  readonly ok: false;
-  readonly code: string;
-  readonly message: string;
-} {
-  return {
-    ok: false,
-    code: API_ERROR_CODES.NETWORK_ERROR,
-    message: resolveApiErrorMessage(),
-  };
 }
 
 /**
@@ -612,31 +528,6 @@ export async function forgotPasswordAction(
   input: ForgotPasswordFormInput,
 ): Promise<ForgotPasswordActionResult> {
   return executeForgotPasswordAction(input);
-}
-
-function isTransientRefreshFailure(result: {
-  readonly response: Response;
-  readonly refreshOutcome?: ServerActionRefreshOutcome;
-}): boolean {
-  return (
-    result.response.status === 401 &&
-    (result.refreshOutcome === "transient_error" ||
-      result.refreshOutcome === "stale_concurrent")
-  );
-}
-
-function buildServiceUnavailableFailure(instance: string): {
-  readonly ok: false;
-  readonly code: string;
-  readonly message: string;
-} {
-  return {
-    ok: false,
-    code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
-    message: resolveApiErrorMessage(
-      buildSyntheticProblem(API_ERROR_CODES.SERVICE_UNAVAILABLE, instance, 503),
-    ),
-  };
 }
 
 /**

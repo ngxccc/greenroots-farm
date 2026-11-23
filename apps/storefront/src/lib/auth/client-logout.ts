@@ -1,6 +1,7 @@
 "use client";
 
 import { broadcastAuthEvent, useAuthStore } from "@/stores/auth.store";
+import { useDeliveryAddressStore } from "@/stores/delivery-address.store";
 
 /**
  * Result returned after invoking `POST /api/auth/logout` from Storefront UI controls.
@@ -22,6 +23,16 @@ export interface ClientLogoutDeps {
 }
 
 /**
+ * Synchronously clears all in-memory customer identity and delivery address state
+ * in the current tab and notifies sibling tabs (`INV-SF-ADDR-1`, `INV-SF-AUTH-6`).
+ */
+export function invalidateStorefrontClientSession(): void {
+  useAuthStore.getState().clearSession();
+  useDeliveryAddressStore.getState().clearDeliveryState();
+  broadcastAuthEvent("LOGOUT");
+}
+
+/**
  * Executes single-device customer logout via Storefront BFF `POST /api/auth/logout`,
  * clears client session store, and broadcasts `"LOGOUT"` across open browser tabs on success.
  *
@@ -33,7 +44,11 @@ export async function performStorefrontLogout(
 ): Promise<ClientLogoutResult> {
   const fetcher = deps?.fetcher ?? fetch;
   const clearSession =
-    deps?.clearSession ?? (() => useAuthStore.getState().clearSession());
+    deps?.clearSession ??
+    (() => {
+      useAuthStore.getState().clearSession();
+      useDeliveryAddressStore.getState().clearDeliveryState();
+    });
   const broadcastLogout =
     deps?.broadcastLogout ?? (() => broadcastAuthEvent("LOGOUT"));
 

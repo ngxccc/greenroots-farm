@@ -1,11 +1,29 @@
 import { describe, expect, it } from "bun:test";
+import type { CustomerAddress } from "@/types/address.types";
 import type { StorefrontSessionUser } from "@/types/auth.types";
 import { actionRefreshedTokenStorage } from "./server-token";
 import {
+  resolveAccountAddressesSession,
   resolveAccountProfileSession,
+  resolveHeaderAddresses,
   resolveServerSession,
   runWithServerActionRefresh,
 } from "./session.server";
+
+const sampleAddresses: CustomerAddress[] = [
+  {
+    id: "0195a8f0-0001-7000-8000-000000000001",
+    receiverName: "Nguyễn Văn An",
+    phoneNumber: "0901234567",
+    streetAddress: "142 Lê Đức Thọ",
+    districtCode: "go-vap",
+    district: "Quận Gò Vấp",
+    city: "TP. Hồ Chí Minh",
+    isDefault: true,
+    createdAt: "2026-11-20T00:00:00.000Z",
+    updatedAt: "2026-11-20T00:00:00.000Z",
+  },
+];
 
 const sampleUser: StorefrontSessionUser = {
   id: "0195a8f0-0001-7000-8000-000000000099",
@@ -230,6 +248,100 @@ describe("Server Auth Session", () => {
       expect(resolution).toEqual({
         status: "authenticated",
         user: sampleUser,
+      });
+    });
+  });
+
+  describe("resolveHeaderAddresses", () => {
+    it("skips upstream address requests for guests and fails open on upstream errors", async () => {
+      let called = false;
+      const guestResult = await resolveHeaderAddresses({
+        readToken: () => Promise.resolve(undefined),
+        fetchAddresses: () => {
+          called = true;
+          return Promise.resolve({ data: { data: sampleAddresses } });
+        },
+      });
+      expect(called).toBe(false);
+      expect(guestResult).toBeNull();
+
+      const errorResult = await resolveHeaderAddresses({
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchAddresses: () =>
+          Promise.resolve({
+            response: { status: 503 },
+            error: { status: 503 },
+          }),
+      });
+      expect(errorResult).toBeNull();
+    });
+  });
+
+  describe("resolveAccountAddressesSession", () => {
+    // Invariant: INV-SF-ADDR-4
+    it("separates proxy degraded and upstream errors from terminal unauthorized redirects", async () => {
+      const degradedByHeader = await resolveAccountAddressesSession({
+        isDegraded: () => Promise.resolve(true),
+        readToken: () => Promise.resolve("valid-jwt"),
+      });
+      expect(degradedByHeader).toEqual({ status: "degraded" });
+
+      const unauthenticatedByAddressEndpoint =
+        await resolveAccountAddressesSession({
+          isDegraded: () => Promise.resolve(false),
+          readToken: () => Promise.resolve("valid-jwt"),
+          fetchMe: () =>
+            Promise.resolve({
+              response: { status: 200 },
+              data: { data: sampleUser },
+            }),
+          fetchAddresses: () =>
+            Promise.resolve({
+              response: { status: 401 },
+              error: { status: 401 },
+            }),
+        });
+      expect(unauthenticatedByAddressEndpoint).toEqual({
+        status: "unauthenticated",
+      });
+
+      const degradedByAddressEndpoint = await resolveAccountAddressesSession({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleUser },
+          }),
+        fetchAddresses: () =>
+          Promise.resolve({
+            response: { status: 503 },
+            error: { status: 503 },
+          }),
+      });
+      expect(degradedByAddressEndpoint).toEqual({ status: "degraded" });
+    });
+
+    it("returns authenticated profile and addresses when both endpoints succeed", async () => {
+      const authenticated = await resolveAccountAddressesSession({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleUser },
+          }),
+        fetchAddresses: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleAddresses },
+          }),
+      });
+
+      expect(authenticated).toEqual({
+        status: "authenticated",
+        user: sampleUser,
+        addresses: sampleAddresses,
       });
     });
   });

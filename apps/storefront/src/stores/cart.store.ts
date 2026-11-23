@@ -153,6 +153,11 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: "greenroots-cart-v1",
+      // Persist only non-PII cart items and guest district code so address text never stays in localStorage (INV-SF-ADDR-1).
+      partialize: (state) => ({
+        items: state.items,
+        selectedDistrictCode: state.selectedDistrictCode,
+      }),
       storage: createJSONStorage(() =>
         typeof window === "undefined"
           ? {

@@ -148,7 +148,10 @@ export function extractFirstQueryValue(
   return value;
 }
 
-const VN_PHONE_ERROR_MESSAGE =
+/**
+ * Shared localized Vietnamese error message for invalid mobile phone inputs.
+ */
+export const VN_PHONE_ERROR_MESSAGE =
   "Số điện thoại không hợp lệ (yêu cầu 10 chữ số bắt đầu bằng 03, 05, 07, 08 hoặc 09).";
 
 /**

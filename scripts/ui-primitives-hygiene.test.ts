@@ -38,6 +38,8 @@ const STOREFRONT_RSC_UNCACHED_LOADERS = new Set([
   "getServerSession",
   "fetchApiHealth",
   "getAccountProfileSession",
+  "getHeaderAddresses",
+  "getAccountAddressesSession",
 ]);
 
 const FORBIDDEN_NESTED_IN_LABEL = new Set([

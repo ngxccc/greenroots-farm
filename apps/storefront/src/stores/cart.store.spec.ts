@@ -46,4 +46,21 @@ describe("useCartStore", () => {
     useCartStore.getState().decrementItem(sampleTomato.id);
     expect(useCartStore.getState().items).toHaveLength(0);
   });
+
+  // Invariant: INV-SF-ADDR-1
+  test("excludes streetAddress PII from persisted storage snapshot", () => {
+    useCartStore.getState().setDeliveryDistrict("go-vap", "142 Lê Đức Thọ");
+    const state = useCartStore.getState();
+    const persisted = useCartStore.persist
+      .getOptions()
+      .partialize?.(state) as Record<string, unknown>;
+
+    expect(persisted).toEqual({
+      items: [],
+      selectedDistrictCode: "go-vap",
+    });
+    expect(persisted).not.toHaveProperty("streetAddress");
+    expect(persisted).not.toHaveProperty("receiverName");
+    expect(persisted).not.toHaveProperty("phoneNumber");
+  });
 });

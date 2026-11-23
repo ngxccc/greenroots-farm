@@ -1,6 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { api } from "@/lib/api-client";
+import type { CustomerAddress } from "@/types/address.types";
 import type { StorefrontSessionUser } from "@/types/auth.types";
 import {
   AUTH_DEGRADED_HEADER,
@@ -29,6 +30,9 @@ export interface ServerSessionDeps {
 }
 
 const fetchCachedMe = cache(async () => api.GET("/api/v1/users/me"));
+const fetchCachedAddresses = cache(async () =>
+  api.GET("/api/v1/users/me/addresses"),
+);
 
 /**
  * Resolves the authenticated customer profile when an access token is present.
@@ -124,6 +128,7 @@ export async function runWithServerActionRefresh<T>(
   data?: T;
   error?: unknown;
   refreshOutcome?: ServerActionRefreshOutcome;
+  rotatedAccessToken?: string;
 }> {
   const initialResult = await operation();
   if (initialResult.response.status !== 401) {
@@ -156,7 +161,11 @@ export async function runWithServerActionRefresh<T>(
       tokens.accessToken,
       operation,
     );
-    return { ...retried, refreshOutcome: "rotated" };
+    return {
+      ...retried,
+      refreshOutcome: "rotated",
+      rotatedAccessToken: tokens.accessToken,
+    };
   }
 
   if (refreshOutcome.status === "invalid") {
@@ -209,6 +218,42 @@ async function defaultIsAuthDegraded(): Promise<boolean> {
   return headerStore.get(AUTH_DEGRADED_HEADER) === "1";
 }
 
+function classifyFetchOutcome(
+  result: {
+    readonly response?: { readonly status: number };
+    readonly error?: unknown;
+  },
+  hasData: boolean,
+): "ok" | "unauthenticated" | "degraded" {
+  if (!result.error && hasData) {
+    return "ok";
+  }
+
+  const errorStatus =
+    result.response?.status ?? extractProblemStatus(result.error);
+  return errorStatus === 401 ? "unauthenticated" : "degraded";
+}
+
+async function checkProtectedSessionGate(
+  deps?: AccountProfileSessionDeps,
+): Promise<
+  | { readonly ready: true }
+  | { readonly ready: false; readonly status: "degraded" | "unauthenticated" }
+> {
+  const checkDegraded = deps?.isDegraded ?? defaultIsAuthDegraded;
+  if (await checkDegraded()) {
+    return { ready: false, status: "degraded" };
+  }
+
+  const readToken = deps?.readToken ?? readServerAccessToken;
+  const accessToken = await readToken();
+  if (!accessToken) {
+    return { ready: false, status: "unauthenticated" };
+  }
+
+  return { ready: true };
+}
+
 /**
  * Resolves customer identity for protected `/account/*` Server Components while distinguishing
  * terminal `401`/missing-token states from transient `5xx` or proxy-degraded failures.
@@ -220,30 +265,22 @@ export async function resolveAccountProfileSession(
   deps?: AccountProfileSessionDeps,
 ): Promise<AccountProfileSessionResolution> {
   try {
-    const checkDegraded = deps?.isDegraded ?? defaultIsAuthDegraded;
-    if (await checkDegraded()) {
-      return { status: "degraded" };
-    }
-
-    const readToken = deps?.readToken ?? readServerAccessToken;
-    const accessToken = await readToken();
-    if (!accessToken) {
-      return { status: "unauthenticated" };
+    const gate = await checkProtectedSessionGate(deps);
+    if (!gate.ready) {
+      return { status: gate.status };
     }
 
     const fetchMe = deps?.fetchMe ?? fetchCachedMe;
     const result = await fetchMe();
-    if (!result.error && result.data?.data) {
+    const classification = classifyFetchOutcome(
+      result,
+      Boolean(result.data?.data),
+    );
+    if (classification === "ok" && result.data?.data) {
       return { status: "authenticated", user: result.data.data };
     }
 
-    const errorStatus =
-      result.response?.status ?? extractProblemStatus(result.error);
-    if (errorStatus === 401) {
-      return { status: "unauthenticated" };
-    }
-
-    return { status: "degraded" };
+    return { status: classification === "ok" ? "degraded" : classification };
   } catch {
     return { status: "degraded" };
   }
@@ -255,4 +292,128 @@ export async function resolveAccountProfileSession(
 export const getAccountProfileSession = cache(
   async (): Promise<AccountProfileSessionResolution> =>
     resolveAccountProfileSession(),
+);
+
+/**
+ * Discriminated SSR outcome for protected `/account/addresses` route (`INV-SF-ADDR-4`).
+ */
+export type AccountAddressesSessionResolution =
+  | {
+      readonly status: "authenticated";
+      readonly user: StorefrontSessionUser;
+      readonly addresses: readonly CustomerAddress[];
+    }
+  | { readonly status: "unauthenticated" }
+  | { readonly status: "degraded" };
+
+/**
+ * Optional dependency overrides for isolated unit testing of `resolveHeaderAddresses` and `resolveAccountAddressesSession`.
+ */
+export interface AccountAddressesSessionDeps extends AccountProfileSessionDeps {
+  readonly fetchAddresses?: () => Promise<{
+    response?: { readonly status: number };
+    data?: { data: CustomerAddress[] };
+    error?: unknown;
+  }>;
+}
+
+/**
+ * Resolves saved delivery addresses fail-open (`null` on guest or upstream error) for `HeaderAuthSlot`.
+ *
+ * @param deps Optional token reader and address fetcher overrides for unit testing.
+ * @returns Ordered `CustomerAddress[]` or `null` when unavailable.
+ */
+export async function resolveHeaderAddresses(
+  deps?: Pick<AccountAddressesSessionDeps, "readToken" | "fetchAddresses">,
+): Promise<readonly CustomerAddress[] | null> {
+  try {
+    const readToken = deps?.readToken ?? readServerAccessToken;
+    const accessToken = await readToken();
+    if (!accessToken) {
+      return null;
+    }
+
+    const fetchAddresses = deps?.fetchAddresses ?? fetchCachedAddresses;
+    const { data, error } = await fetchAddresses();
+    if (error || !data?.data) {
+      return null;
+    }
+    return data.data;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Per-request memoized customer address list resolver for `StorefrontHeader` `<Suspense>` hydration.
+ */
+export const getHeaderAddresses = cache(
+  async (): Promise<readonly CustomerAddress[] | null> =>
+    resolveHeaderAddresses(),
+);
+
+/**
+ * Resolves both authenticated profile and saved delivery addresses for `/account/addresses`,
+ * separating terminal `401` redirects from transient `5xx` or proxy degradation (`INV-SF-ADDR-4`).
+ *
+ * @param deps Optional header, token, profile, and address fetcher overrides for unit testing.
+ * @returns Discriminated `authenticated`, `unauthenticated`, or `degraded` state.
+ */
+export async function resolveAccountAddressesSession(
+  deps?: AccountAddressesSessionDeps,
+): Promise<AccountAddressesSessionResolution> {
+  try {
+    const gate = await checkProtectedSessionGate(deps);
+    if (!gate.ready) {
+      return { status: gate.status };
+    }
+
+    const fetchMe = deps?.fetchMe ?? fetchCachedMe;
+    const fetchAddresses = deps?.fetchAddresses ?? fetchCachedAddresses;
+    const [meResult, addressesResult] = await Promise.all([
+      fetchMe(),
+      fetchAddresses(),
+    ]);
+
+    const meOutcome = classifyFetchOutcome(
+      meResult,
+      Boolean(meResult.data?.data),
+    );
+    const addressesOutcome = classifyFetchOutcome(
+      addressesResult,
+      Boolean(addressesResult.data?.data),
+    );
+
+    if (
+      meOutcome === "unauthenticated" ||
+      addressesOutcome === "unauthenticated"
+    ) {
+      return { status: "unauthenticated" };
+    }
+
+    if (
+      meOutcome !== "ok" ||
+      addressesOutcome !== "ok" ||
+      !meResult.data?.data ||
+      !addressesResult.data?.data
+    ) {
+      return { status: "degraded" };
+    }
+
+    return {
+      status: "authenticated",
+      user: meResult.data.data,
+      addresses: addressesResult.data.data,
+    };
+  } catch {
+    return { status: "degraded" };
+  }
+}
+
+/**
+ * Per-request memoized protected address-book session resolver (`React.cache`).
+ */
+export const getAccountAddressesSession = cache(
+  async (): Promise<AccountAddressesSessionResolution> =>
+    resolveAccountAddressesSession(),
 );
