@@ -91,13 +91,23 @@ export function StorefrontHeaderSearchForm({
 
 /**
  * Determines whether the sticky delivery location sub-bar renders below `StorefrontHeader`.
- * Hidden on `/account/*` routes where customers manage account settings and the address book directly.
+ * Hidden on `/account/*` routes where customers manage account settings directly, as well
+ * as informational and policy hub routes (`/about` and `/policies/*`).
  *
  * @param pathname Current client route pathname.
- * @returns `true` for storefront shopping and checkout routes, `false` inside `/account/*`.
+ * @returns `true` for storefront shopping and checkout routes, `false` inside `/account/*`, `/about/*`, or `/policies/*`.
  */
 export function shouldShowDeliverySubBar(pathname: string): boolean {
-  return pathname !== "/account" && !pathname.startsWith("/account/");
+  if (pathname === "/account" || pathname.startsWith("/account/")) {
+    return false;
+  }
+  if (pathname === "/about" || pathname.startsWith("/about/")) {
+    return false;
+  }
+  if (pathname === "/policies" || pathname.startsWith("/policies/")) {
+    return false;
+  }
+  return true;
 }
 
 function DeliveryLocationSubBar() {

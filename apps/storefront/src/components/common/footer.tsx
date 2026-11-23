@@ -15,13 +15,13 @@ export function StorefrontFooter() {
             Giới thiệu
           </Link>
           <Link
-            href="/shipping-policy"
+            href="/policies/shipping"
             className="py-1 font-semibold transition-colors hover:text-brand-forest"
           >
             Chính sách giao hàng
           </Link>
           <Link
-            href="/freshness-policy"
+            href="/policies/returns"
             className="py-1 font-semibold transition-colors hover:text-brand-forest"
           >
             Đổi trả độ tươi
