@@ -4,7 +4,19 @@ import {
   type OrderStatus,
   type PaymentMethod,
 } from "@greenroots/shared";
-import { Badge, Button, Card, CardContent, toast } from "@greenroots/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  toast,
+} from "@greenroots/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   createColumnHelper,
@@ -61,7 +73,9 @@ const columns = [
   columnHelper.accessor("orderCode", {
     header: "Mã đơn",
     cell: (info) => (
-      <span className="font-bold text-gray-900">{info.getValue()}</span>
+      <span className="font-bold text-gray-900 tabular-nums">
+        {info.getValue()}
+      </span>
     ),
   }),
   columnHelper.accessor("customerName", {
@@ -70,7 +84,7 @@ const columns = [
   columnHelper.accessor("fefoBatch", {
     header: "Lô đề xuất (FEFO)",
     cell: (info) => (
-      <span className="text-xs font-semibold text-brand-forest">
+      <span className="text-xs font-semibold text-brand-forest tabular-nums">
         {info.getValue()}
       </span>
     ),
@@ -107,24 +121,26 @@ const columns = [
       return (
         <div className="flex items-center gap-2">
           <Button
+            type="button"
             size="xs"
             onClick={() =>
               toast.success(
                 `Đã phân bổ FEFO (${row.fefoBatch}) cho ${row.orderCode}`,
               )
             }
-            className="gap-1 bg-brand-forest text-white hover:bg-brand-dark"
+            className="gap-1"
           >
-            <Zap className="size-3.5" />
+            <Zap className="size-3.5" aria-hidden="true" />
             <span>Phân bổ FEFO</span>
           </Button>
           <Button
+            type="button"
             size="xs"
             variant="outline"
             onClick={() => toast.info(`In phiếu giao hàng ${row.orderCode}`)}
             className="gap-1"
           >
-            <Printer className="size-3.5" />
+            <Printer className="size-3.5" aria-hidden="true" />
             <span>In phiếu</span>
           </Button>
         </div>
@@ -155,42 +171,43 @@ function OrdersFefoPage() {
         <Badge variant="secondary">TanStack Table</Badge>
       </div>
 
-      <Card className="border-border-subtle bg-white shadow-sm">
+      <Card className="border-border-subtle bg-surface-card shadow-sm">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border-subtle bg-gray-50 text-xs font-bold text-gray-600 uppercase">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <th key={header.id} className="px-4 py-3">
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody className="divide-y divide-border-subtle">
-                {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50/70">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader className="bg-gray-50 text-xs font-bold text-gray-600 uppercase">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="h-auto px-4 py-3 font-bold text-gray-600"
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id} className="hover:bg-gray-50/70">
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} className="px-4 py-3">
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>
