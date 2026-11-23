@@ -119,7 +119,7 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
 
   if (isOutOfStock) {
     return (
-      <div className="px-4 py-3 lg:px-0 lg:py-0">
+      <div className="border-t border-border-subtle bg-surface-card px-4 py-3 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0">
         <Alert className="rounded-lg border-border-subtle bg-surface-warm">
           <AlertCircle className="size-4 text-gray-500" aria-hidden="true" />
           <AlertDescription className="font-semibold text-gray-700">
@@ -136,7 +136,7 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
       <Button
         type="button"
         onClick={handleInitialAdd}
-        className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-none bg-brand-forest px-6 text-sm font-bold text-white hover:bg-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:ring-offset-2 lg:h-11 lg:rounded-lg"
+        className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-none border-0 bg-brand-forest px-6 text-sm font-bold text-white hover:bg-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:ring-offset-2 lg:h-11 lg:rounded-lg"
       >
         <ShoppingCart className="size-5 shrink-0" aria-hidden="true" />
         <span>THÊM VÀO GIỎ HÀNG</span>
@@ -147,7 +147,7 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
   const displayedValue = draftQuantity ?? formatQuantityDisplay(inCartQuantity);
 
   return (
-    <div className="flex flex-col gap-2 px-4 py-2.5 lg:px-0 lg:py-0">
+    <div className="flex flex-col gap-2 border-t border-border-subtle bg-surface-card px-4 py-2.5 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-medium text-gray-600 lg:text-sm">
           Trong giỏ ({product.unit})

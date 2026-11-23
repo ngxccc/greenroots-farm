@@ -150,7 +150,7 @@ export function ProductDetailHero({ product, dto }: ProductDetailHeroProps) {
           ))}
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 z-30 order-4 border-t border-border-subtle bg-surface-card shadow-[0_-4px_12px_rgba(0,0,0,0.06)] lg:static lg:border-0 lg:bg-transparent lg:pt-4 lg:shadow-none">
+        <div className="fixed inset-x-0 bottom-0 z-30 order-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] lg:static lg:pt-4 lg:shadow-none">
           <ProductDetailActions product={product} />
         </div>
       </div>
