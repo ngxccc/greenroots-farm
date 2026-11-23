@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, cache } from "react";
-import { AlertCircle, ChevronRight } from "lucide-react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 import {
   Alert,
   AlertDescription,
@@ -87,34 +87,15 @@ async function ProductDetailContent({ slug }: { readonly slug: string }) {
   return (
     <div className="w-full flex-1 bg-surface-card">
       <div className="mx-auto flex w-full max-w-6xl flex-col lg:gap-5 lg:px-6 lg:pt-5 lg:pb-10">
-        <nav
-          aria-label="Đường dẫn"
-          className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 text-xs text-gray-500 lg:px-0 lg:py-0"
-        >
-          <Link
-            href="/"
-            className="inline-flex items-center hover:text-brand-forest"
-          >
-            Trang chủ
-          </Link>
-          <ChevronRight
-            className="size-3.5 shrink-0 text-gray-400"
-            aria-hidden="true"
-          />
+        <div className="px-4 py-2.5 lg:px-0 lg:py-0">
           <Link
             href="/products"
-            className="inline-flex items-center hover:text-brand-forest"
+            className="inline-flex w-fit items-center gap-1.5 rounded text-xs font-semibold text-brand-forest hover:underline focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
           >
-            Danh sách sản phẩm
+            <ArrowLeft className="size-4 shrink-0" aria-hidden="true" />
+            <span>Quay lại danh mục</span>
           </Link>
-          <ChevronRight
-            className="size-3.5 shrink-0 text-gray-400"
-            aria-hidden="true"
-          />
-          <span className="inline-flex items-center font-semibold text-gray-900">
-            {dto.name}
-          </span>
-        </nav>
+        </div>
 
         <section aria-label="Thông tin chi tiết sản phẩm">
           <ProductDetailHero product={product} dto={dto} />
@@ -147,7 +128,7 @@ export default function ProductDetailPage({
         <div aria-hidden="true" className="w-full flex-1 bg-surface-card">
           <div className="mx-auto flex w-full max-w-6xl flex-col lg:gap-5 lg:px-6 lg:pt-5 lg:pb-10">
             <div className="px-4 py-2.5 lg:px-0 lg:py-0">
-              <Skeleton className="h-4 w-48 bg-gray-200" />
+              <Skeleton className="h-4 w-32 bg-gray-200" />
             </div>
             <div className="grid grid-cols-1 items-start lg:grid-cols-12 lg:gap-8">
               <Skeleton className="aspect-4/3 w-full bg-gray-100 lg:col-span-5 lg:rounded-xl" />

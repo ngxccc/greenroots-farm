@@ -150,7 +150,7 @@ export function ProductDetailHero({ product, dto }: ProductDetailHeroProps) {
           ))}
         </div>
 
-        <div className="sticky bottom-0 z-30 order-4 bg-surface-card px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] lg:static lg:bg-transparent lg:px-0 lg:pt-4 lg:pb-0 lg:shadow-none">
+        <div className="order-4 px-4 py-3.5 lg:px-0 lg:pt-4 lg:pb-0">
           <ProductDetailActions product={product} />
         </div>
       </div>
