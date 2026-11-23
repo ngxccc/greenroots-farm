@@ -1,4 +1,4 @@
-import { BUSINESS_RULES, OrderStatus, UserRole } from "@greenroots/shared";
+import { OrderStatus, UserRole } from "@greenroots/shared";
 
 /**
  * Runtime domain constants and derived tuple unions for `OrdersModule` (`ADR-0035`).
@@ -18,7 +18,6 @@ export type OrderSortOption = (typeof ORDER_SORT_OPTIONS)[number];
 export const ORDER_CODE_PREFIX = "ORD";
 export const ORDER_CODE_RANDOM_LENGTH = 6;
 export const ORDER_CODE_MAX_GENERATION_ATTEMPTS = 5;
-export const ORDER_ITEM_MIN_QUANTITY = BUSINESS_RULES.ORDER_ITEM_MIN_QUANTITY;
 export const ORDER_ITEM_MAX_QUANTITY = 10_000;
 export const MAX_CART_LINE_ITEMS = 50;
 

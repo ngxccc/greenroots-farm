@@ -1,3 +1,4 @@
+import { BUSINESS_RULES } from "@greenroots/shared";
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { MESSAGES } from "@/common/constants/messages.constant";
@@ -7,7 +8,6 @@ import {
   CART_ITEM_ISSUES,
   MAX_CART_LINE_ITEMS,
   ORDER_ITEM_MAX_QUANTITY,
-  ORDER_ITEM_MIN_QUANTITY,
 } from "../orders.constant";
 
 /**
@@ -17,7 +17,7 @@ export const cartLineItemInputSchema = z
   .object({
     productId: zUuidV7(),
     quantity: zDecimalQuantity({
-      min: ORDER_ITEM_MIN_QUANTITY,
+      min: BUSINESS_RULES.ORDER_ITEM_MIN_QUANTITY,
       max: ORDER_ITEM_MAX_QUANTITY,
     }),
   })
