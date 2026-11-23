@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { Skeleton } from "@greenroots/ui";
 import { getServerSession } from "@/lib/auth/session.server";
 import { HeaderAuthControls } from "./header-auth-controls";
@@ -16,6 +17,7 @@ export function HeaderAuthSkeleton() {
  * inside a `<Suspense>` boundary so `RootLayout` retains PPR static caching (`INV-SF-AUTH-8`).
  */
 export async function HeaderAuthSlot() {
+  await connection();
   const user = await getServerSession();
   return <HeaderAuthControls initialUser={user} />;
 }

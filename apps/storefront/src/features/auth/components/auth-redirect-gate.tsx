@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { Skeleton } from "@greenroots/ui";
 import { sanitizeRedirectPath } from "@/lib/auth/cookies";
@@ -81,6 +82,9 @@ export async function AuthRedirectGate({
   renderForm,
   deps,
 }: AuthRedirectGateProps) {
+  if (!deps?.readSession) {
+    await connection();
+  }
   return resolveAuthRedirectGate(searchParams, renderForm, deps);
 }
 
