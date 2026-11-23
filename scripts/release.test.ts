@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+  buildOxfmtArgs,
   findBlockingReleasePr,
   isBreaking,
   isFeature,
@@ -100,5 +101,18 @@ describe("release suggestions", () => {
         },
       ])?.number,
     ).toBe(180);
+  });
+
+  it("includes --no-error-on-unmatched-pattern so ignored CHANGELOG targets succeed", () => {
+    const withConfig = buildOxfmtArgs("CHANGELOG.md", true);
+    expect(withConfig).toContain("--no-error-on-unmatched-pattern");
+    expect(withConfig).toContain("--config");
+    expect(withConfig[withConfig.length - 1]).toBe("CHANGELOG.md");
+
+    const withoutConfig = buildOxfmtArgs("CHANGELOG.md", false);
+    expect(withoutConfig).toEqual([
+      "--no-error-on-unmatched-pattern",
+      "CHANGELOG.md",
+    ]);
   });
 });

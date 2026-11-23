@@ -358,6 +358,18 @@ export function generateNotes(target: string, head: string): string {
   );
 }
 
+/** Build oxfmt CLI flags allowing ignored targets such as CHANGELOG.md to pass cleanly. */
+export function buildOxfmtArgs(
+  path: string,
+  hasConfig: boolean = existsSync(OXFMT_CONFIG),
+): string[] {
+  return [
+    "--no-error-on-unmatched-pattern",
+    ...(hasConfig ? ["--config", OXFMT_CONFIG] : []),
+    path,
+  ];
+}
+
 export function formatMarkdown(path: string = CHANGELOG): void {
   if (!existsSync(OXFMT_BIN)) {
     console.warn(
@@ -365,10 +377,7 @@ export function formatMarkdown(path: string = CHANGELOG): void {
     );
     return;
   }
-  const args = existsSync(OXFMT_CONFIG)
-    ? ["--config", OXFMT_CONFIG, path]
-    : [path];
-  run([OXFMT_BIN, ...args], { capture: true });
+  run([OXFMT_BIN, ...buildOxfmtArgs(path)], { capture: true });
 }
 
 export function seedChangelog(path: string = CHANGELOG): void {
