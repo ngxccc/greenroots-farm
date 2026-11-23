@@ -20,12 +20,16 @@ import { ResendVerificationControl } from "./resend-verification-control";
 
 interface LoginFormProps {
   readonly redirectTo?: string;
+  readonly loggedOutAll?: boolean;
 }
 
 /**
  * Customer credential login form wired to `loginAction` and Storefront BFF session state.
  */
-export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
+export function LoginForm({
+  redirectTo = "/",
+  loggedOutAll = false,
+}: LoginFormProps) {
   const router = useRouter();
   const setUser = useAuthStore((state) => state.setUser);
   const safeRedirectTo = sanitizeRedirectPath(redirectTo);
@@ -105,6 +109,13 @@ export function LoginForm({ redirectTo = "/" }: LoginFormProps) {
           hàng.
         </p>
       </div>
+
+      {loggedOutAll && !errorMessage ? (
+        <AuthAlertBanner
+          variant="success"
+          message="Đã đăng xuất khỏi tất cả thiết bị. Vui lòng đăng nhập lại để tiếp tục."
+        />
+      ) : null}
 
       {errorMessage ? (
         <div className="flex flex-col gap-2.5">

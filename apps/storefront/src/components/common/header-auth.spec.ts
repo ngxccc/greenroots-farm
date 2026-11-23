@@ -122,6 +122,7 @@ describe("Storefront Header Auth UI", () => {
         createElement(HeaderAuthView, { activeUser: sampleUser }),
       );
       expect(ssrHtml).toContain("Nguyễn Văn An");
+      expect(ssrHtml).toContain("VA");
       expect(ssrHtml).toContain('aria-haspopup="menu"');
 
       const openChangeCalls: boolean[] = [];

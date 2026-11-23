@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import {
   AuthFormSkeleton,
   AuthRedirectGate,
+  resolveRedirectCandidate,
   type AuthSearchParams,
 } from "@/features/auth/components/auth-redirect-gate";
 import { LoginForm } from "@/features/auth/components/login-form";
@@ -25,7 +26,14 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
     <Suspense fallback={<AuthFormSkeleton />}>
       <AuthRedirectGate
         searchParams={searchParams}
-        renderForm={(redirectTo) => <LoginForm redirectTo={redirectTo} />}
+        renderForm={(redirectTo, resolvedParams) => (
+          <LoginForm
+            redirectTo={redirectTo}
+            loggedOutAll={
+              resolveRedirectCandidate(resolvedParams?.loggedOutAll) === "1"
+            }
+          />
+        )}
       />
     </Suspense>
   );

@@ -20,3 +20,25 @@ export function formatViDate(isoDate: string): string {
     year: "numeric",
   });
 }
+
+/**
+ * Derives up to two uppercase initials from a customer's full name for compact avatar badges.
+ *
+ * @param fullName Customer display name.
+ * @returns One or two uppercase initials (e.g. `"Nguyễn Minh Anh"` -> `"MA"`).
+ */
+export function getUserInitials(fullName: string): string {
+  const words = fullName.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return "GR";
+  }
+
+  if (words.length === 1) {
+    const firstWord = Array.from(words[0] ?? "");
+    return (firstWord[0] ?? "G").toLocaleUpperCase("vi-VN");
+  }
+
+  const secondLastChar = Array.from(words.at(-2) ?? "")[0] ?? "";
+  const lastChar = Array.from(words.at(-1) ?? "")[0] ?? "";
+  return `${secondLastChar}${lastChar}`.toLocaleUpperCase("vi-VN");
+}

@@ -15,12 +15,10 @@ import {
   toast,
 } from "@greenroots/ui";
 import { ChevronDown, LogIn, LogOut, Package, User } from "lucide-react";
+import { getUserInitials } from "@/lib/format";
 import type { StorefrontSessionUser } from "@/types/auth.types";
-import {
-  broadcastAuthEvent,
-  subscribeAuthEvents,
-  useAuthStore,
-} from "@/stores/auth.store";
+import { performStorefrontLogout } from "@/lib/auth/client-logout";
+import { subscribeAuthEvents, useAuthStore } from "@/stores/auth.store";
 
 interface HeaderAuthControlsProps {
   readonly initialUser: StorefrontSessionUser | null;
@@ -65,6 +63,8 @@ export function HeaderAuthView({
     );
   }
 
+  const initials = getUserInitials(activeUser.fullName);
+
   return (
     <DropdownMenu open={menuOpen} onOpenChange={onMenuOpenChange}>
       <DropdownMenuTrigger
@@ -73,12 +73,18 @@ export function HeaderAuthView({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-auto gap-1 rounded-full border border-white/30 bg-brand-dark/35 px-2 py-1.5 text-xs font-semibold text-white hover:bg-brand-dark/50 hover:text-white focus-visible:border-white focus-visible:ring-2 focus-visible:ring-white aria-expanded:bg-brand-dark/50 aria-expanded:text-white sm:gap-1.5 sm:px-3 dark:hover:bg-brand-dark/50"
+            aria-label={`Tài khoản ${activeUser.fullName}`}
+            className="h-auto gap-1.5 rounded-full border border-white/30 bg-brand-dark/35 py-1 pr-2.5 pl-1.5 text-xs font-semibold text-white hover:bg-brand-dark/50 hover:text-white focus-visible:border-white focus-visible:ring-2 focus-visible:ring-white aria-expanded:bg-brand-dark/50 aria-expanded:text-white sm:pr-3 dark:hover:bg-brand-dark/50"
           />
         }
       >
-        <User className="size-3.5 shrink-0 sm:size-4" aria-hidden="true" />
-        <span className="max-w-14 truncate sm:max-w-35">
+        <span
+          aria-hidden="true"
+          className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-50 text-[11px] font-bold text-brand-dark"
+        >
+          {initials}
+        </span>
+        <span className="hidden truncate sm:inline sm:max-w-35">
           {activeUser.fullName}
         </span>
         <ChevronDown
@@ -107,7 +113,7 @@ export function HeaderAuthView({
         <DropdownMenuSeparator className="my-1 bg-border-subtle" />
 
         <DropdownMenuItem
-          render={<Link href="/account/profile" />}
+          render={<Link href="/account/profile" prefetch={false} />}
           className="cursor-pointer rounded-lg px-2.5 py-2 text-xs font-semibold text-gray-700 focus:bg-accent focus:text-brand-forest"
         >
           <User className="size-4 shrink-0" aria-hidden="true" />
@@ -174,23 +180,15 @@ export function HeaderAuthControls({ initialUser }: HeaderAuthControlsProps) {
 
     setIsLoggingOut(true);
     try {
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-
-      if (!response.ok) {
-        toast.error("Không thể đăng xuất, vui lòng thử lại.");
+      const result = await performStorefrontLogout();
+      if (!result.ok) {
+        toast.error(result.message);
         return;
       }
 
-      clearSession();
       setMenuOpen(false);
-      broadcastAuthEvent("LOGOUT");
       toast.success("Đã đăng xuất tài khoản");
       router.refresh();
-    } catch {
-      toast.error("Không thể kết nối máy chủ để đăng xuất.");
     } finally {
       setIsLoggingOut(false);
     }

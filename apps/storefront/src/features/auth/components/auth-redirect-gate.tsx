@@ -11,11 +11,15 @@ import type { StorefrontSessionUser } from "@/types/auth.types";
  */
 export interface AuthSearchParams {
   readonly redirect?: string | string[];
+  readonly loggedOutAll?: string | string[];
 }
 
 interface AuthRedirectGateProps {
   readonly searchParams: Promise<AuthSearchParams>;
-  readonly renderForm: (redirectTo: string) => ReactNode;
+  readonly renderForm: (
+    redirectTo: string,
+    resolvedParams?: AuthSearchParams,
+  ) => ReactNode;
   readonly deps?: AuthRedirectGateDeps;
 }
 
@@ -53,7 +57,10 @@ export function resolveRedirectCandidate(
  */
 export async function resolveAuthRedirectGate(
   searchParams: Promise<AuthSearchParams>,
-  renderForm: (redirectTo: string) => ReactNode,
+  renderForm: (
+    redirectTo: string,
+    resolvedParams?: AuthSearchParams,
+  ) => ReactNode,
   deps?: AuthRedirectGateDeps,
 ): Promise<ReactNode> {
   const readSession = deps?.readSession ?? getServerSession;
@@ -69,7 +76,7 @@ export async function resolveAuthRedirectGate(
     return (deps?.onRedirect ?? redirect)(safeRedirect);
   }
 
-  return renderForm(safeRedirect);
+  return renderForm(safeRedirect, resolvedParams);
 }
 
 /**
