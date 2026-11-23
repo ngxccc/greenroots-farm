@@ -1,6 +1,6 @@
 {
   "name": "@greenroots/ui",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "GreenRoots Farm shared Shadcn Base UI primitives and Organic Minimalism design tokens",
   "private": true,
   "type": "module",
