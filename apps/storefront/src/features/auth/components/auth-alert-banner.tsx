@@ -16,20 +16,16 @@ export function AuthAlertBanner({ variant, message }: AuthAlertBannerProps) {
 
   return (
     <Alert
-      variant={isError ? "destructive" : "default"}
+      variant={isError ? "destructive" : "success"}
       role={isError ? "alert" : "status"}
-      className={
-        isError
-          ? "border-red-200 bg-red-50 px-3.5 py-3 text-red-900 *:data-[slot=alert-description]:text-xs *:data-[slot=alert-description]:text-red-900/90"
-          : "border-green-200 bg-green-50 px-3.5 py-3 text-brand-dark *:data-[slot=alert-description]:text-xs *:data-[slot=alert-description]:text-brand-dark/90 *:[svg]:text-status-fresh"
-      }
+      className="px-3.5 py-3"
     >
       {isError ? (
         <AlertCircle aria-hidden="true" />
       ) : (
         <CheckCircle2 aria-hidden="true" />
       )}
-      <AlertDescription>{message}</AlertDescription>
+      <AlertDescription className="text-xs">{message}</AlertDescription>
     </Alert>
   );
 }

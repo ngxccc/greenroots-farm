@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ChangeEvent, type SubmitEvent } from "react";
-import { Button, Input, Label } from "@greenroots/ui";
+import { Button, Input, Label, buttonVariants, cn } from "@greenroots/ui";
 import {
   AlertTriangle,
   Loader2,
@@ -237,7 +237,10 @@ export function VerifyEmailPanel({
 
         <Link
           href="/login"
-          className={`${AUTH_PRIMARY_BUTTON_CLASS} flex items-center justify-center`}
+          className={cn(
+            buttonVariants({ size: "lg" }),
+            AUTH_PRIMARY_BUTTON_CLASS,
+          )}
         >
           Đăng nhập ngay
         </Link>

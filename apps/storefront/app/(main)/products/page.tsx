@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { ProductCard } from "@/features/home/components/product-card";
+import { Skeleton } from "@greenroots/ui";
+import {
+  ProductCard,
+  ProductGridSkeleton,
+} from "@/features/home/components/product-card";
 import { getShowcaseCatalog } from "@/services/storefront.service";
 
 async function ProductsList({
@@ -54,8 +58,15 @@ export default function ProductsPage({
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-gray-500 lg:px-6">
-          Đang tải danh mục nông sản...
+        <div
+          aria-hidden="true"
+          className="mx-auto max-w-6xl space-y-5 px-4 py-8 lg:px-6"
+        >
+          <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+            <Skeleton className="h-7 w-56 bg-gray-200" />
+            <Skeleton className="h-4 w-24 bg-gray-200" />
+          </div>
+          <ProductGridSkeleton count={8} />
         </div>
       }
     >

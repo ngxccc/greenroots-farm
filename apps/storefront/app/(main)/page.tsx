@@ -1,6 +1,8 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { Skeleton } from "@greenroots/ui";
 import { HomeView } from "@/features/home/components/home-view";
+import { ProductGridSkeleton } from "@/features/home/components/product-card";
 import {
   fetchApiHealth,
   getShowcaseCatalog,
@@ -22,8 +24,12 @@ export default function HomePage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-gray-500 lg:px-6">
-          Đang tải gian hàng GreenRoots Farm...
+        <div
+          aria-hidden="true"
+          className="mx-auto max-w-6xl space-y-8 px-4 py-8 lg:px-6"
+        >
+          <Skeleton className="h-64 w-full rounded-2xl bg-green-100/70" />
+          <ProductGridSkeleton count={4} />
         </div>
       }
     >

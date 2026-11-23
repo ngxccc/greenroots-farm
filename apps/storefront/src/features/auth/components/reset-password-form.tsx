@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type SubmitEvent } from "react";
 import { API_ERROR_CODES } from "@greenroots/shared";
-import { Button } from "@greenroots/ui";
+import { Button, buttonVariants, cn } from "@greenroots/ui";
 import { CheckCircle2, KeyRound, Loader2, ShieldAlert } from "lucide-react";
 import { resetPasswordAction } from "@/lib/auth/auth-actions";
 import { resetPasswordFormSchema } from "@/lib/auth/auth-validation";
@@ -64,7 +64,10 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
         <Link
           href="/login"
-          className={`${AUTH_PRIMARY_BUTTON_CLASS} flex items-center justify-center`}
+          className={cn(
+            buttonVariants({ size: "lg" }),
+            AUTH_PRIMARY_BUTTON_CLASS,
+          )}
         >
           Đăng nhập với mật khẩu mới
         </Link>
@@ -99,7 +102,10 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
         <Link
           href="/forgot-password"
-          className={`${AUTH_PRIMARY_BUTTON_CLASS} flex items-center justify-center`}
+          className={cn(
+            buttonVariants({ size: "lg" }),
+            AUTH_PRIMARY_BUTTON_CLASS,
+          )}
         >
           Yêu cầu liên kết mới
         </Link>

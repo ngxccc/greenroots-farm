@@ -2,7 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useId, useState, type SubmitEvent } from "react";
-import { Button, Input, Label } from "@greenroots/ui";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  Label,
+} from "@greenroots/ui";
 import { Search } from "lucide-react";
 import { buildProductSearchHref } from "@/lib/navigation";
 
@@ -32,28 +38,35 @@ export function NotFoundSearchFormView({
       onSubmit={onSubmit}
       className="w-full max-w-md"
     >
-      <div className="flex items-center gap-2 rounded-full border border-border-subtle bg-surface-warm py-1.5 pr-1.5 pl-4 focus-within:ring-2 focus-within:ring-brand-forest">
-        <Label htmlFor={searchInputId} className="sr-only">
-          Tìm kiếm sản phẩm trên trang không tìm thấy
-        </Label>
-        <Search className="size-4 shrink-0 text-gray-500" aria-hidden="true" />
-        <Input
+      <Label htmlFor={searchInputId} className="sr-only">
+        Tìm kiếm sản phẩm trên trang không tìm thấy
+      </Label>
+      <InputGroup className="h-auto rounded-full border-border-subtle bg-surface-warm py-1 pr-1.5 pl-3.5 shadow-none has-[[data-slot=input-group-control]:focus-visible]:border-brand-forest has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-brand-forest dark:bg-surface-warm">
+        <InputGroupAddon className="py-0 pl-0 text-gray-500">
+          <Search className="size-4" aria-hidden="true" />
+        </InputGroupAddon>
+        <InputGroupInput
           id={searchInputId}
           type="search"
           name="q"
           value={query}
           onChange={(event) => onQueryChange?.(event.target.value)}
           placeholder="Tìm xà lách, cà chua bi, gói rau..."
-          className="h-auto border-0 bg-transparent p-0 text-[13px] text-gray-900 shadow-none placeholder:text-gray-500 focus-visible:ring-0"
+          className="h-8 py-1 text-[13px] text-gray-900 placeholder:text-gray-500"
         />
-        <Button
-          type="submit"
-          size="sm"
-          className="h-auto shrink-0 cursor-pointer rounded-full bg-brand-forest px-4 py-1.5 text-xs font-semibold text-white hover:bg-brand-dark"
+        <InputGroupAddon
+          align="inline-end"
+          className="py-0 pr-0 has-[>button]:mr-0"
         >
-          Tìm ngay
-        </Button>
-      </div>
+          <InputGroupButton
+            type="submit"
+            size="sm"
+            className="h-auto shrink-0 cursor-pointer rounded-full bg-brand-forest px-4 py-1.5 text-xs font-semibold text-white hover:bg-brand-dark hover:text-white dark:hover:bg-brand-dark"
+          >
+            Tìm ngay
+          </InputGroupButton>
+        </InputGroupAddon>
+      </InputGroup>
     </form>
   );
 }

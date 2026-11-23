@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { Badge, Card, CardContent } from "@greenroots/ui";
+import { Badge, Card, CardContent, Skeleton } from "@greenroots/ui";
 import { ArrowLeft, Leaf, ShieldCheck } from "lucide-react";
 import { ProductCard } from "@/features/home/components/product-card";
 import { formatVnd } from "@/lib/format";
@@ -74,8 +74,21 @@ export default function ProductDetailPage({
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-3xl px-4 py-8 text-sm text-gray-500">
-          Đang tải chi tiết nông sản...
+        <div
+          aria-hidden="true"
+          className="mx-auto max-w-3xl space-y-4 px-4 py-8 lg:px-6"
+        >
+          <Skeleton className="h-4 w-32 bg-gray-200" />
+          <div className="grid items-center gap-6 rounded-xl border border-border-subtle bg-white p-5 md:grid-cols-2">
+            <Skeleton className="h-56 w-full rounded-2xl bg-green-50" />
+            <div className="space-y-3">
+              <Skeleton className="h-5 w-28 rounded-full bg-green-100" />
+              <Skeleton className="h-7 w-3/4 bg-gray-200" />
+              <Skeleton className="h-4 w-2/3 bg-gray-200" />
+              <Skeleton className="h-8 w-1/2 bg-gray-200" />
+              <Skeleton className="h-10 w-full rounded-lg bg-green-100/70" />
+            </div>
+          </div>
         </div>
       }
     >

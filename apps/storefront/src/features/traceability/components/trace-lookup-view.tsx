@@ -8,7 +8,9 @@ import {
   Button,
   Card,
   CardContent,
-  Input,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
   Label,
   buttonVariants,
 } from "@greenroots/ui";
@@ -91,15 +93,14 @@ export function TraceLookupContent({
                 onSubmit={onSubmit}
                 className="flex flex-col gap-2 sm:flex-row"
               >
-                <div className="flex flex-1 items-center gap-2 rounded-lg border border-border-subtle bg-surface-warm px-4 py-2 focus-within:border-brand-forest focus-within:ring-1 focus-within:ring-brand-forest">
-                  <QrCode
-                    className="size-5 shrink-0 text-brand-forest"
-                    aria-hidden="true"
-                  />
-                  <Label htmlFor={batchCodeInputId} className="sr-only">
-                    Mã lô thu hoạch
-                  </Label>
-                  <Input
+                <Label htmlFor={batchCodeInputId} className="sr-only">
+                  Mã lô thu hoạch
+                </Label>
+                <InputGroup className="h-11 flex-1 rounded-lg border-border-subtle bg-surface-warm px-3.5 shadow-none has-[[data-slot=input-group-control]:focus-visible]:border-brand-forest has-[[data-slot=input-group-control]:focus-visible]:ring-1 has-[[data-slot=input-group-control]:focus-visible]:ring-brand-forest dark:bg-surface-warm">
+                  <InputGroupAddon className="py-0 pl-0 text-brand-forest">
+                    <QrCode className="size-5" aria-hidden="true" />
+                  </InputGroupAddon>
+                  <InputGroupInput
                     id={batchCodeInputId}
                     type="text"
                     value={batchCode}
@@ -107,9 +108,9 @@ export function TraceLookupContent({
                       onBatchCodeChange?.(event.target.value)
                     }
                     placeholder="Ví dụ: BATCH-2026-TOM-01"
-                    className="h-auto border-0 bg-transparent p-0 text-[13px] font-semibold tracking-wide text-gray-900 tabular-nums shadow-none placeholder:text-gray-500 focus-visible:ring-0"
+                    className="h-9 py-1.5 text-[13px] font-semibold tracking-wide text-gray-900 tabular-nums placeholder:text-gray-500"
                   />
-                </div>
+                </InputGroup>
 
                 <Button
                   type="submit"

@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Badge, Button, Card, CardContent } from "@greenroots/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Progress,
+  Skeleton,
+} from "@greenroots/ui";
 import { Leaf, Minus, Plus } from "lucide-react";
 import { formatVnd } from "@/lib/format";
 import { useCartStore } from "@/stores/cart.store";
@@ -69,14 +76,14 @@ export function ProductCard({ product }: ProductCardProps) {
           {product.isRescueDeal &&
           product.rescueBatchProgressPct !== undefined ? (
             <div className="flex flex-col gap-1.5">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-red-50">
-                <div
-                  className="h-full rounded-full bg-status-spoiled"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, product.rescueBatchProgressPct))}%`,
-                  }}
-                />
-              </div>
+              <Progress
+                variant="rescue"
+                value={Math.min(
+                  100,
+                  Math.max(0, product.rescueBatchProgressPct),
+                )}
+                aria-label={`Tiến độ giải cứu ${product.name}`}
+              />
               <div className="flex items-center justify-between gap-1">
                 <span className="text-[11px] font-semibold text-status-spoiled tabular-nums">
                   Đã xuất {product.rescueBatchProgressPct}%
@@ -129,5 +136,33 @@ export function ProductCard({ product }: ProductCardProps) {
         </footer>
       </CardContent>
     </Card>
+  );
+}
+
+interface ProductGridSkeletonProps {
+  readonly count: number;
+}
+
+/**
+ * Responsive card grid placeholder matched to `ProductCard` geometry for route `<Suspense>` fallbacks.
+ *
+ * @param props Number of product card skeletons to display.
+ * @returns Grid of decorative skeleton cards hidden from assistive tech.
+ */
+export function ProductGridSkeleton({ count }: ProductGridSkeletonProps) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      {Array.from({ length: count }, (_, index) => (
+        <div
+          key={index}
+          className="space-y-3 rounded-xl border border-border-subtle bg-white p-3"
+        >
+          <Skeleton className="h-36 w-full rounded-lg bg-green-50" />
+          <Skeleton className="h-4 w-3/4 bg-gray-200" />
+          <Skeleton className="h-4 w-1/2 bg-gray-200" />
+          <Skeleton className="h-10 w-full rounded-lg bg-green-100/70" />
+        </div>
+      ))}
+    </div>
   );
 }

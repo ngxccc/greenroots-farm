@@ -4,7 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, type ReactNode, type SubmitEvent } from "react";
 import { HCMC_DISTRICTS } from "@greenroots/shared";
-import { Badge, Button, Input, Label } from "@greenroots/ui";
+import {
+  Badge,
+  Button,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  Label,
+} from "@greenroots/ui";
 import { MapPin, Search, ShoppingCart } from "lucide-react";
 import { buildProductSearchHref } from "@/lib/navigation";
 import { estimateDistrictPreviewQuote } from "@/lib/shipping";
@@ -38,27 +46,34 @@ export function StorefrontHeaderSearchForm({
       onSubmit={onSubmit}
       className="order-3 w-full md:order-2 md:max-w-xl md:flex-1"
     >
-      <div className="flex items-center gap-2 rounded-full border border-border-subtle bg-white py-1 pr-1.5 pl-4 focus-within:ring-2 focus-within:ring-green-200">
-        <Label htmlFor={searchInputId} className="sr-only">
-          Tìm kiếm nông sản
-        </Label>
-        <Search className="size-4 shrink-0 text-gray-500" aria-hidden="true" />
-        <Input
+      <Label htmlFor={searchInputId} className="sr-only">
+        Tìm kiếm nông sản
+      </Label>
+      <InputGroup className="h-auto rounded-full border-border-subtle bg-white py-1 pr-1.5 pl-3.5 shadow-none has-[[data-slot=input-group-control]:focus-visible]:border-green-300 has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-green-200 dark:bg-white">
+        <InputGroupAddon className="py-0 pl-0 text-gray-500">
+          <Search className="size-4" aria-hidden="true" />
+        </InputGroupAddon>
+        <InputGroupInput
           id={searchInputId}
           type="search"
           value={query}
           onChange={(event) => onQueryChange?.(event.target.value)}
           placeholder="Tìm rau củ hữu cơ tươi ngon..."
-          className="h-auto border-0 bg-transparent p-0 text-xs text-gray-900 shadow-none placeholder:text-gray-500 focus-visible:ring-0 sm:text-sm dark:bg-transparent"
+          className="h-8 py-1 text-xs text-gray-900 placeholder:text-gray-500 sm:text-sm"
         />
-        <Button
-          type="submit"
-          size="sm"
-          className="h-auto shrink-0 rounded-full bg-green-50 px-4 py-1.5 text-xs font-semibold text-brand-dark shadow-none hover:bg-green-100"
+        <InputGroupAddon
+          align="inline-end"
+          className="py-0 pr-0 has-[>button]:mr-0"
         >
-          Tìm
-        </Button>
-      </div>
+          <InputGroupButton
+            type="submit"
+            size="sm"
+            className="h-auto shrink-0 rounded-full bg-green-50 px-4 py-1.5 text-xs font-semibold text-brand-dark hover:bg-green-100 dark:hover:bg-green-100"
+          >
+            Tìm
+          </InputGroupButton>
+        </InputGroupAddon>
+      </InputGroup>
     </form>
   );
 }

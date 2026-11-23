@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Card, CardContent } from "@greenroots/ui";
+import { Card, CardContent, Skeleton } from "@greenroots/ui";
 import { FARM_METADATA } from "@/constants/farm-metadata.constant";
 
 async function ComplaintContent({
@@ -35,8 +35,12 @@ export default function OrderComplaintPage({
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-xl px-4 py-8 text-sm text-gray-500">
-          Đang tải biểu mẫu khiếu nại...
+        <div aria-hidden="true" className="mx-auto max-w-xl px-4 py-8 lg:px-6">
+          <div className="space-y-3 rounded-xl border border-border-subtle bg-white p-6">
+            <Skeleton className="h-6 w-3/4 bg-gray-200" />
+            <Skeleton className="h-4 w-full bg-gray-200" />
+            <Skeleton className="h-4 w-5/6 bg-gray-200" />
+          </div>
         </div>
       }
     >

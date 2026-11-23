@@ -170,16 +170,16 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
 
           <div className="relative z-10 flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center rounded-full bg-brand-dark px-3 py-1 text-xs font-semibold text-white">
+              <Badge className="h-auto border-0 bg-brand-dark px-3 py-1 text-xs font-semibold text-white">
                 GreenRoots Củ Chi
-              </span>
-              <span className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-brand-dark">
+              </Badge>
+              <Badge className="h-auto max-w-full border-0 bg-green-50 px-3 py-1 text-xs font-semibold whitespace-normal text-brand-dark">
                 Từ Nông Trại Hữu Cơ Đến Bàn Ăn
-              </span>
+              </Badge>
               {!apiReachable ? (
-                <span className="inline-flex items-center rounded-full bg-red-600/90 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                <Badge className="h-auto border-0 bg-red-600/90 px-2.5 py-0.5 text-[11px] font-semibold text-white">
                   Chế độ Demo
-                </span>
+                </Badge>
               ) : null}
             </div>
 
@@ -228,7 +228,7 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
                 value={batchCode}
                 onChange={(event) => setBatchCode(event.target.value)}
                 placeholder="Nhập mã lô thu hoạch..."
-                className="h-10 rounded-lg border-border-subtle bg-gray-100 px-4 font-mono text-[13px] text-gray-900 focus-visible:border-brand-forest"
+                className="h-10 rounded-lg border-border-subtle bg-gray-100 px-4 text-[13px] font-semibold tracking-wide text-gray-900 tabular-nums focus-visible:border-brand-forest dark:bg-gray-100"
               />
               <Button
                 type="submit"
@@ -279,9 +279,9 @@ export function HomeView({ products, plans, apiReachable }: HomeViewProps) {
               <span className="text-xs font-semibold text-red-800 tabular-nums">
                 Ưu đãi tươi nhanh {FARM_METADATA.flashSaleHoursThreshold}h
               </span>
-              <span className="inline-flex items-center rounded-full bg-status-spoiled px-2 py-0.5 text-[11px] font-semibold text-white tabular-nums">
+              <Badge className="h-auto border-0 bg-status-spoiled px-2 py-0.5 text-[11px] font-semibold text-white tabular-nums">
                 -{FARM_METADATA.flashSaleDiscountPercent}%
-              </span>
+              </Badge>
             </div>
           </div>
 
