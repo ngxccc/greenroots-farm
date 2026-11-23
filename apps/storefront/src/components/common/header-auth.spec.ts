@@ -6,6 +6,7 @@ import { createElement, useLayoutEffect } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { StorefrontSessionUser } from "@/types/auth.types";
 import { BrandLogo } from "./brand-logo";
+import { shouldShowDeliverySubBar } from "./header";
 import { HeaderAuthView } from "./header-auth-controls";
 import { HeaderAuthSkeleton } from "./header-auth-slot";
 
@@ -152,6 +153,7 @@ describe("Storefront Header Auth UI", () => {
         const bodyHtml = win.document.body.innerHTML;
         expect(bodyHtml).toContain("khach@greenroots.vn");
         expect(bodyHtml).toContain('href="/account/profile"');
+        expect(bodyHtml).toContain('href="/account/addresses"');
         expect(bodyHtml).toContain('href="/orders"');
         expect(bodyHtml).toContain("Đăng xuất");
 
@@ -159,7 +161,7 @@ describe("Storefront Header Auth UI", () => {
         expect(menu).not.toBeNull();
 
         const items = win.document.querySelectorAll('[role="menuitem"]');
-        expect(items.length).toBe(3);
+        expect(items.length).toBe(4);
 
         const logoutItem = win.document.querySelector(
           '[role="menuitem"][data-variant="destructive"]',
@@ -209,6 +211,17 @@ describe("Storefront Header Auth UI", () => {
       expect(skeletonHtml).toContain("animate-pulse");
       expect(logoHtml).toContain("GreenRoots");
       expect(logoHtml).toContain("Farm");
+    });
+  });
+
+  describe("shouldShowDeliverySubBar", () => {
+    it("hides delivery sub-bar inside account routes while keeping it visible on shopping pages", () => {
+      expect(shouldShowDeliverySubBar("/account")).toBe(false);
+      expect(shouldShowDeliverySubBar("/account/profile")).toBe(false);
+      expect(shouldShowDeliverySubBar("/account/addresses")).toBe(false);
+      expect(shouldShowDeliverySubBar("/")).toBe(true);
+      expect(shouldShowDeliverySubBar("/products/rau-cai")).toBe(true);
+      expect(shouldShowDeliverySubBar("/checkout")).toBe(true);
     });
   });
 });

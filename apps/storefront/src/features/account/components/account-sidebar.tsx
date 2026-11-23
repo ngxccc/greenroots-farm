@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Button,
@@ -12,20 +12,50 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  Skeleton,
   toast,
 } from "@greenroots/ui";
-import { Calendar, LogOut, PanelLeft, ShieldCheck } from "lucide-react";
+import { Calendar, LogOut, MapPin, PanelLeft, ShieldCheck } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/common/confirm-action-dialog";
 import { performStorefrontLogout } from "@/lib/auth/client-logout";
 import { getUserInitials } from "@/lib/format";
+import { useAuthStore } from "@/stores/auth.store";
 import type { StorefrontSessionUser } from "@/types/auth.types";
+
+/**
+ * Active customer account sub-route key highlighted in `AccountSidebar`.
+ */
+export type AccountSidebarSection = "profile" | "addresses";
+
+const ACCOUNT_NAV_ITEMS = [
+  {
+    key: "profile",
+    href: "/account/profile",
+    label: "Hồ sơ & Bảo mật",
+    icon: ShieldCheck,
+  },
+  {
+    key: "addresses",
+    href: "/account/addresses",
+    label: "Sổ địa chỉ",
+    icon: MapPin,
+  },
+  {
+    key: "subscriptions",
+    href: "/subscriptions",
+    label: "Gói rau định kỳ",
+    icon: Calendar,
+  },
+] as const;
 
 interface AccountSidebarProps {
   readonly user: StorefrontSessionUser;
+  readonly activeSection?: AccountSidebarSection;
 }
 
 interface AccountSidebarViewProps {
   readonly user: StorefrontSessionUser;
+  readonly activeSection?: AccountSidebarSection;
   readonly mobileSheetOpen?: boolean;
   readonly logoutDialogOpen?: boolean;
   readonly isLoggingOut?: boolean;
@@ -37,6 +67,7 @@ interface AccountSidebarViewProps {
 
 interface SidebarNavBodyProps {
   readonly user: StorefrontSessionUser;
+  readonly activeSection: AccountSidebarSection;
   readonly isLoggingOut: boolean;
   readonly onNavigate?: () => void;
   readonly onRequestLogout: () => void;
@@ -44,6 +75,7 @@ interface SidebarNavBodyProps {
 
 function SidebarNavBody({
   user,
+  activeSection,
   isLoggingOut,
   onNavigate,
   onRequestLogout,
@@ -70,25 +102,26 @@ function SidebarNavBody({
       </div>
 
       <nav aria-label="Danh mục tài khoản" className="flex flex-col gap-1">
-        <Link
-          href="/account/profile"
-          prefetch={false}
-          aria-current="page"
-          onClick={onNavigate}
-          className="flex w-full items-center gap-2 rounded-lg bg-green-50 px-3 py-2.5 text-xs font-semibold text-brand-dark transition-colors focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
-        >
-          <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
-          <span>Hồ sơ &amp; Bảo mật</span>
-        </Link>
-
-        <Link
-          href="/subscriptions"
-          onClick={onNavigate}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
-        >
-          <Calendar className="size-4 shrink-0" aria-hidden="true" />
-          <span>Gói rau định kỳ</span>
-        </Link>
+        {ACCOUNT_NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const isCurrent = item.key === activeSection;
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              aria-current={isCurrent ? "page" : undefined}
+              onClick={onNavigate}
+              className={
+                isCurrent
+                  ? "flex w-full items-center gap-2 rounded-lg bg-green-50 px-3 py-2.5 text-xs font-semibold text-brand-dark transition-colors focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
+                  : "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
+              }
+            >
+              <Icon className="size-4 shrink-0" aria-hidden="true" />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="mt-auto border-t border-border-subtle pt-2.5">
@@ -117,6 +150,7 @@ function SidebarNavBody({
  */
 export function AccountSidebarView({
   user,
+  activeSection = "profile",
   mobileSheetOpen = false,
   logoutDialogOpen = false,
   isLoggingOut = false,
@@ -125,6 +159,10 @@ export function AccountSidebarView({
   onLogoutDialogOpenChange,
   onConfirmLogout,
 }: AccountSidebarViewProps) {
+  const activeNavLabel =
+    ACCOUNT_NAV_ITEMS.find((item) => item.key === activeSection)?.label ??
+    "Hồ sơ & Bảo mật";
+
   function handleRequestLogoutFromMobileSheet() {
     // Close drawer before opening confirmation Dialog so overlays never stack on mobile.
     onMobileSheetOpenChange?.(false);
@@ -144,7 +182,7 @@ export function AccountSidebarView({
           className="h-8 cursor-pointer gap-2 px-2 text-xs font-semibold text-gray-800 hover:bg-gray-100"
         >
           <PanelLeft className="size-4 text-brand-forest" aria-hidden="true" />
-          <span>Hồ sơ &amp; Bảo mật</span>
+          <span>{activeNavLabel}</span>
         </Button>
         <span className="truncate text-xs font-medium text-gray-500">
           {user.fullName}
@@ -156,6 +194,7 @@ export function AccountSidebarView({
         <CardContent className="p-4">
           <SidebarNavBody
             user={user}
+            activeSection={activeSection}
             isLoggingOut={isLoggingOut}
             onRequestLogout={() => onLogoutDialogOpenChange?.(true)}
           />
@@ -176,6 +215,7 @@ export function AccountSidebarView({
           <div className="flex-1 p-4">
             <SidebarNavBody
               user={user}
+              activeSection={activeSection}
               isLoggingOut={isLoggingOut}
               onNavigate={() => onMobileSheetOpenChange?.(false)}
               onRequestLogout={handleRequestLogoutFromMobileSheet}
@@ -200,14 +240,21 @@ export function AccountSidebarView({
 }
 
 /**
- * Navigation and customer summary sidebar rendered alongside `/account/profile`.
- * Links strictly to implemented Storefront routes (`UI-4`).
+ * Navigation and customer summary sidebar rendered in persistent `/account/layout.tsx`.
+ * Derives active tab from `usePathname()` and subscribes to `useAuthStore` so profile updates sync live.
  *
- * @param props Active `StorefrontSessionUser` displayed in the sidebar header.
+ * @param props Initial server-fetched `StorefrontSessionUser` and optional explicit active section.
  * @returns Stateful sidebar container handling mobile drawer and single-device logout confirmation.
  */
-export function AccountSidebar({ user }: AccountSidebarProps) {
+export function AccountSidebar({ user, activeSection }: AccountSidebarProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const storeUser = useAuthStore((state) => state.user);
+  const resolvedSection: AccountSidebarSection =
+    activeSection ??
+    (pathname.startsWith("/account/addresses") ? "addresses" : "profile");
+  const displayUser = storeUser ?? user;
+
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -248,7 +295,8 @@ export function AccountSidebar({ user }: AccountSidebarProps) {
 
   return (
     <AccountSidebarView
-      user={user}
+      user={displayUser}
+      activeSection={resolvedSection}
       mobileSheetOpen={mobileSheetOpen}
       logoutDialogOpen={logoutDialogOpen}
       isLoggingOut={isLoggingOut}
@@ -257,5 +305,16 @@ export function AccountSidebar({ user }: AccountSidebarProps) {
       onLogoutDialogOpenChange={handleDialogOpenChange}
       onConfirmLogout={() => void handleConfirmLogout()}
     />
+  );
+}
+
+/**
+ * Streaming skeleton placeholder rendered once in `/account/layout.tsx` while resolving sidebar user state.
+ */
+export function AccountSidebarSkeleton() {
+  return (
+    <div aria-hidden="true" className="lg:col-span-3">
+      <Skeleton className="h-12 w-full rounded-xl lg:h-60" />
+    </div>
   );
 }

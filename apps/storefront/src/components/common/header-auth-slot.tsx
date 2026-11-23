@@ -1,6 +1,9 @@
 import { connection } from "next/server";
 import { Skeleton } from "@greenroots/ui";
-import { getServerSession } from "@/lib/auth/session.server";
+import {
+  getHeaderAddresses,
+  getServerSession,
+} from "@/lib/auth/session.server";
 import { HeaderAuthControls } from "./header-auth-controls";
 
 /**
@@ -14,10 +17,16 @@ export function HeaderAuthSkeleton() {
 
 /**
  * Streaming Server Component slot reading customer identity via `GET /api/v1/users/me`
- * inside a `<Suspense>` boundary so `RootLayout` retains PPR static caching (`INV-SF-AUTH-8`).
+ * and fail-open default address summary inside `<Suspense>` so `RootLayout` retains PPR (`INV-SF-AUTH-8`).
  */
 export async function HeaderAuthSlot() {
   await connection();
   const user = await getServerSession();
-  return <HeaderAuthControls initialUser={user} />;
+  const initialAddresses = user ? await getHeaderAddresses() : null;
+  return (
+    <HeaderAuthControls
+      initialUser={user}
+      initialAddresses={initialAddresses}
+    />
+  );
 }

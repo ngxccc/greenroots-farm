@@ -14,14 +14,24 @@ import {
   DropdownMenuTrigger,
   toast,
 } from "@greenroots/ui";
-import { ChevronDown, LogIn, LogOut, Package, User } from "lucide-react";
-import { getUserInitials } from "@/lib/format";
-import type { StorefrontSessionUser } from "@/types/auth.types";
+import {
+  ChevronDown,
+  LogIn,
+  LogOut,
+  MapPin,
+  Package,
+  User,
+} from "lucide-react";
 import { performStorefrontLogout } from "@/lib/auth/client-logout";
+import { getUserInitials } from "@/lib/format";
 import { subscribeAuthEvents, useAuthStore } from "@/stores/auth.store";
+import { useDeliveryAddressStore } from "@/stores/delivery-address.store";
+import type { CustomerAddress } from "@/types/address.types";
+import type { StorefrontSessionUser } from "@/types/auth.types";
 
 interface HeaderAuthControlsProps {
   readonly initialUser: StorefrontSessionUser | null;
+  readonly initialAddresses?: readonly CustomerAddress[] | null;
 }
 
 interface HeaderAuthViewProps {
@@ -117,7 +127,15 @@ export function HeaderAuthView({
           className="cursor-pointer rounded-lg px-2.5 py-2 text-xs font-semibold text-gray-700 focus:bg-accent focus:text-brand-forest"
         >
           <User className="size-4 shrink-0" aria-hidden="true" />
-          <span>Tài khoản &amp; điểm thưởng</span>
+          <span>Tài khoản</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          render={<Link href="/account/addresses" prefetch={false} />}
+          className="cursor-pointer rounded-lg px-2.5 py-2 text-xs font-semibold text-gray-700 focus:bg-accent focus:text-brand-forest"
+        >
+          <MapPin className="size-4 shrink-0" aria-hidden="true" />
+          <span>Sổ địa chỉ</span>
         </DropdownMenuItem>
 
         <DropdownMenuItem
@@ -149,29 +167,48 @@ export function HeaderAuthView({
  * Interactive customer auth control rendered inside `StorefrontHeader`.
  * Hydrates from SSR `<Suspense>` props without guest-to-user flicker and syncs logout across tabs.
  */
-export function HeaderAuthControls({ initialUser }: HeaderAuthControlsProps) {
+export function HeaderAuthControls({
+  initialUser,
+  initialAddresses = null,
+}: HeaderAuthControlsProps) {
   const router = useRouter();
   const storeUser = useAuthStore((state) => state.user);
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const setUser = useAuthStore((state) => state.setUser);
   const clearSession = useAuthStore((state) => state.clearSession);
+  const setAddresses = useDeliveryAddressStore((state) => state.setAddresses);
+  const clearDeliveryState = useDeliveryAddressStore(
+    (state) => state.clearDeliveryState,
+  );
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     setUser(initialUser);
-  }, [initialUser, setUser]);
+    if (initialUser && initialAddresses) {
+      setAddresses(initialAddresses);
+    } else if (!initialUser) {
+      clearDeliveryState();
+    }
+  }, [
+    clearDeliveryState,
+    initialAddresses,
+    initialUser,
+    setAddresses,
+    setUser,
+  ]);
 
   useEffect(() => {
     return subscribeAuthEvents((eventType) => {
+      clearDeliveryState();
       if (eventType === "LOGOUT") {
         clearSession();
         setMenuOpen(false);
       }
       router.refresh();
     });
-  }, [clearSession, router]);
+  }, [clearDeliveryState, clearSession, router]);
 
   async function handleLogout() {
     if (isLoggingOut) {

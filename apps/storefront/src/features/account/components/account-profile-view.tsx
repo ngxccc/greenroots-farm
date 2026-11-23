@@ -16,7 +16,6 @@ import {
 import { AlertCircle, Home, RefreshCw } from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
 import type { StorefrontSessionUser } from "@/types/auth.types";
-import { AccountSidebar } from "./account-sidebar";
 import { LoyaltyBalanceCard } from "./loyalty-balance-card";
 import { ProfileDetailsForm } from "./profile-details-form";
 import { SecuritySessionsCard } from "./security-sessions-card";
@@ -26,12 +25,11 @@ interface AccountProfileViewProps {
 }
 
 /**
- * Coordinates the 2-column customer profile, loyalty balance, and security cards
- * inside `StorefrontShell` (`app/(main)/layout.tsx`), syncing fresh SSR profile data
- * into `useAuthStore` across client navigations.
+ * Coordinates the customer loyalty balance, editable profile details, and security cards
+ * inside persistent `/account/layout.tsx`, syncing fresh SSR profile data into `useAuthStore`.
  *
  * @param props Fresh server-fetched `StorefrontSessionUser`.
- * @returns Responsive two-column account profile dashboard.
+ * @returns Profile, loyalty, and security card stack.
  */
 export function AccountProfileView({ initialUser }: AccountProfileViewProps) {
   const setUser = useAuthStore((state) => state.setUser);
@@ -48,36 +46,34 @@ export function AccountProfileView({ initialUser }: AccountProfileViewProps) {
     editedSnapshot?.base === initialUser ? editedSnapshot.next : initialUser;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:py-6 lg:px-6 lg:py-8">
-      <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-12">
-        <AccountSidebar user={activeUser} />
-
-        <div className="flex flex-col gap-4 sm:gap-6 lg:col-span-9">
-          <LoyaltyBalanceCard rewardPoints={activeUser.rewardPoints} />
-          <ProfileDetailsForm
-            user={activeUser}
-            onProfileUpdated={(updated) =>
-              setEditedSnapshot({ base: initialUser, next: updated })
-            }
-          />
-          <SecuritySessionsCard />
-        </div>
-      </div>
+    <div className="flex flex-col gap-4 sm:gap-6">
+      <LoyaltyBalanceCard rewardPoints={activeUser.rewardPoints} />
+      <ProfileDetailsForm
+        user={activeUser}
+        onProfileUpdated={(updated) =>
+          setEditedSnapshot({ base: initialUser, next: updated })
+        }
+      />
+      <SecuritySessionsCard />
     </div>
   );
 }
 
 interface AccountProfileDegradedCardProps {
+  readonly title?: string;
+  readonly description?: string;
   readonly onRetry?: () => void;
 }
 
 /**
- * Pure presentational degraded-mode recovery card (`INV-SF-PROFILE-1`).
+ * Pure presentational degraded-mode recovery card (`INV-SF-PROFILE-1`, `INV-SF-ADDR-4`).
  *
- * @param props Optional retry callback invoked when clicking `"Thử tải lại"`.
+ * @param props Optional localized title/description copy and retry handler for `"Thử tải lại"`.
  * @returns Accessible error alert card preserving cookies and providing retry/home actions.
  */
 export function AccountProfileDegradedCard({
+  title = "Không thể tải thông tin tài khoản lúc này",
+  description = "Kết nối tới máy chủ GreenRoots Farm đang tạm gián đoạn. Phiên đăng nhập của bạn vẫn được giữ nguyên — vui lòng thử tải lại sau ít giây.",
   onRetry,
 }: AccountProfileDegradedCardProps) {
   return (
@@ -86,12 +82,8 @@ export function AccountProfileDegradedCard({
         <CardContent className="flex flex-col gap-4 p-6">
           <Alert variant="destructive">
             <AlertCircle className="size-4" aria-hidden="true" />
-            <AlertTitle>Không thể tải thông tin tài khoản lúc này</AlertTitle>
-            <AlertDescription>
-              Kết nối tới máy chủ GreenRoots Farm đang tạm gián đoạn. Phiên đăng
-              nhập của bạn vẫn được giữ nguyên — vui lòng thử tải lại sau ít
-              giây.
-            </AlertDescription>
+            <AlertTitle>{title}</AlertTitle>
+            <AlertDescription>{description}</AlertDescription>
           </Alert>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -135,20 +127,10 @@ export function AccountProfileDegradedView() {
  */
 export function AccountProfileSkeleton() {
   return (
-    <div
-      aria-hidden="true"
-      className="mx-auto w-full max-w-6xl px-4 py-6 lg:px-6 lg:py-8"
-    >
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-3">
-          <Skeleton className="h-60 w-full rounded-xl" />
-        </div>
-        <div className="flex flex-col gap-6 lg:col-span-9">
-          <Skeleton className="h-28 w-full rounded-xl" />
-          <Skeleton className="h-72 w-full rounded-xl" />
-          <Skeleton className="h-44 w-full rounded-xl" />
-        </div>
-      </div>
+    <div aria-hidden="true" className="flex flex-col gap-6">
+      <Skeleton className="h-28 w-full rounded-xl" />
+      <Skeleton className="h-72 w-full rounded-xl" />
+      <Skeleton className="h-44 w-full rounded-xl" />
     </div>
   );
 }

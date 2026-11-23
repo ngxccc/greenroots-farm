@@ -14,7 +14,7 @@ import {
 import { LogOut, ShieldAlert } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/common/confirm-action-dialog";
 import { logoutAllAction } from "@/lib/auth/auth-actions";
-import { broadcastAuthEvent, useAuthStore } from "@/stores/auth.store";
+import { invalidateStorefrontClientSession } from "@/lib/auth/client-logout";
 
 interface SecuritySessionsViewProps {
   readonly dialogOpen: boolean;
@@ -102,7 +102,6 @@ export function SecuritySessionsView({
  */
 export function SecuritySessionsCard() {
   const router = useRouter();
-  const clearSession = useAuthStore((state) => state.clearSession);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -128,8 +127,7 @@ export function SecuritySessionsCard() {
     try {
       const result = await logoutAllAction();
       if (result.ok) {
-        clearSession();
-        broadcastAuthEvent("LOGOUT");
+        invalidateStorefrontClientSession();
         setDialogOpen(false);
         toast.success(result.message);
         router.replace("/login?loggedOutAll=1");
@@ -138,8 +136,7 @@ export function SecuritySessionsCard() {
       }
 
       if (result.sessionInvalidated) {
-        clearSession();
-        broadcastAuthEvent("LOGOUT");
+        invalidateStorefrontClientSession();
         setDialogOpen(false);
         router.replace("/login?redirect=%2Faccount%2Fprofile");
         router.refresh();

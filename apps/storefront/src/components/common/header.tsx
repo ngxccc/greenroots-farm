@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useId, useState, type ReactNode, type SubmitEvent } from "react";
-import { HCMC_DISTRICTS } from "@greenroots/shared";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  Suspense,
+  useId,
+  useState,
+  type ReactNode,
+  type SubmitEvent,
+} from "react";
+import { HCMC_DISTRICTS, findHcmcDistrictByCode } from "@greenroots/shared";
 import {
   Badge,
   Button,
@@ -16,7 +22,12 @@ import {
 import { MapPin, Search, ShoppingCart } from "lucide-react";
 import { buildProductSearchHref } from "@/lib/navigation";
 import { estimateDistrictPreviewQuote } from "@/lib/shipping";
+import { useAuthStore } from "@/stores/auth.store";
 import { useCartStore } from "@/stores/cart.store";
+import {
+  findActiveDeliveryAddress,
+  useDeliveryAddressStore,
+} from "@/stores/delivery-address.store";
 import { AddressDialog } from "./address-dialog";
 import { BrandLogo } from "./brand-logo";
 import { CartDrawer } from "./cart-drawer";
@@ -78,6 +89,75 @@ export function StorefrontHeaderSearchForm({
   );
 }
 
+/**
+ * Determines whether the sticky delivery location sub-bar renders below `StorefrontHeader`.
+ * Hidden on `/account/*` routes where customers manage account settings and the address book directly.
+ *
+ * @param pathname Current client route pathname.
+ * @returns `true` for storefront shopping and checkout routes, `false` inside `/account/*`.
+ */
+export function shouldShowDeliverySubBar(pathname: string): boolean {
+  return pathname !== "/account" && !pathname.startsWith("/account/");
+}
+
+function DeliveryLocationSubBar() {
+  const pathname = usePathname();
+  const [addressOpen, setAddressOpen] = useState(false);
+
+  const selectedDistrictCode = useCartStore(
+    (state) => state.selectedDistrictCode,
+  );
+  const activeUser = useAuthStore((state) => state.user);
+  const savedAddresses = useDeliveryAddressStore((state) => state.addresses);
+  const selectedAddressId = useDeliveryAddressStore(
+    (state) => state.selectedAddressId,
+  );
+
+  if (!shouldShowDeliverySubBar(pathname)) {
+    return null;
+  }
+
+  const activeSavedAddress = activeUser
+    ? findActiveDeliveryAddress(savedAddresses, selectedAddressId)
+    : null;
+  const effectiveDistrictCode = activeSavedAddress
+    ? activeSavedAddress.districtCode
+    : selectedDistrictCode;
+  const activeDistrict =
+    findHcmcDistrictByCode(effectiveDistrictCode) ?? HCMC_DISTRICTS[0];
+  const deliveryQuote = estimateDistrictPreviewQuote(activeDistrict);
+
+  return (
+    <>
+      <div className="border-b border-border-subtle bg-white">
+        <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5 text-xs lg:px-6">
+          <MapPin
+            className="size-4 shrink-0 text-brand-forest"
+            aria-hidden="true"
+          />
+          <span className="shrink-0 text-gray-500">Giao đến:</span>
+          <span className="min-w-0 truncate font-semibold text-gray-900 tabular-nums">
+            {activeSavedAddress
+              ? `${activeSavedAddress.streetAddress}, ${activeSavedAddress.district}`
+              : `${activeDistrict.name}, TP.HCM`}{" "}
+            (~{deliveryQuote.roadDistanceKm} km)
+          </span>
+          <Button
+            type="button"
+            variant="link"
+            size="xs"
+            onClick={() => setAddressOpen(true)}
+            className="h-auto shrink-0 p-0 text-xs font-semibold text-brand-forest focus-visible:ring-2 focus-visible:ring-brand-forest"
+          >
+            Đổi địa chỉ
+          </Button>
+        </div>
+      </div>
+      <AddressDialog open={addressOpen} onOpenChange={setAddressOpen} />
+    </>
+  );
+}
+
 interface StorefrontHeaderProps {
   readonly authSlot?: ReactNode;
 }
@@ -86,19 +166,9 @@ export function StorefrontHeader({ authSlot }: StorefrontHeaderProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
-  const [addressOpen, setAddressOpen] = useState(false);
 
   const items = useCartStore((state) => state.items);
-  const selectedDistrictCode = useCartStore(
-    (state) => state.selectedDistrictCode,
-  );
-
   const totalCount = items.reduce((sum, item) => sum + item.quantity, 0);
-
-  const activeDistrict =
-    HCMC_DISTRICTS.find((item) => item.code === selectedDistrictCode) ??
-    HCMC_DISTRICTS[0];
-  const deliveryQuote = estimateDistrictPreviewQuote(activeDistrict);
 
   function handleSearchSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -145,30 +215,12 @@ export function StorefrontHeader({ authSlot }: StorefrontHeaderProps) {
         </div>
       </header>
 
-      <div className="border-b border-border-subtle bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-2.5 text-xs lg:px-6">
-          <MapPin
-            className="size-4 shrink-0 text-brand-forest"
-            aria-hidden="true"
-          />
-          <span className="text-gray-500">Giao đến:</span>
-          <span className="font-semibold text-gray-900 tabular-nums">
-            {activeDistrict.name}, TP.HCM (~{deliveryQuote.roadDistanceKm} km)
-          </span>
-          <Button
-            type="button"
-            variant="link"
-            size="xs"
-            onClick={() => setAddressOpen(true)}
-            className="h-auto p-0 text-xs font-semibold text-brand-forest focus-visible:ring-2 focus-visible:ring-brand-forest"
-          >
-            Đổi địa chỉ
-          </Button>
-        </div>
-      </div>
+      {/* Isolate usePathname() inside Suspense so static PPR prerendering succeeds under cacheComponents (UI-3). */}
+      <Suspense fallback={null}>
+        <DeliveryLocationSubBar />
+      </Suspense>
 
       <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
-      <AddressDialog open={addressOpen} onOpenChange={setAddressOpen} />
     </>
   );
 }
