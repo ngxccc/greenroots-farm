@@ -16,7 +16,7 @@
   "dependencies": {
     "@greenroots/shared": "workspace:*",
     "@greenroots/ui": "workspace:*",
-    "@tanstack/react-query": "^5.90.2",
+    "@tanstack/react-query": "^5.108.1",
     "@tanstack/react-router": "^1.132.0",
     "@tanstack/react-table": "^8.21.3",
     "lucide-react": "catalog:",

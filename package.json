@@ -5,11 +5,11 @@
   "type": "module",
   "packageManager": "bun@1.4",
   "catalog": {
-    "@types/bun": "^1.4.4",
+    "@types/bun": "^1.4.5",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "lucide-react": "^1.47.0",
+    "lucide-react": "^1.76.0",
     "openapi-fetch": "^0.17.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
