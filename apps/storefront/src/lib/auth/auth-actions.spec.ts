@@ -4,12 +4,16 @@ import type { StorefrontSessionUser } from "@/types/auth.types";
 import {
   executeForgotPasswordAction,
   executeLoginAction,
+  executeLogoutAllAction,
   executeRegisterAction,
   executeResendVerificationAction,
   executeResetPasswordAction,
+  executeUpdateProfileAction,
   executeVerifyEmailAction,
   type RegisterActionDeps,
 } from "./auth-actions";
+import { actionRefreshedTokenStorage } from "./server-token";
+import { runWithServerActionRefresh } from "./session.server";
 import type { SessionTokenPair } from "./cookies";
 
 const sampleProfile: StorefrontSessionUser = {
@@ -538,6 +542,316 @@ describe("Storefront Auth Actions", () => {
       });
       expect(okReset.ok).toBe(true);
       expect(cookieClears).toBe(1);
+    });
+  });
+
+  describe("executeUpdateProfileAction", () => {
+    it("retries expired access tokens via refresh wrapper and returns updated profile", async () => {
+      // Invariant: INV-SF-PROFILE-5
+      let patchAttempts = 0;
+      const appliedTokens: SessionTokenPair[] = [];
+      const updatedUser: StorefrontSessionUser = {
+        ...sampleProfile,
+        fullName: "Nguyễn Minh Tuấn",
+        phone: null,
+      };
+
+      const result = await executeUpdateProfileAction(
+        { fullName: "Nguyễn Minh Tuấn", phone: null },
+        {
+          runWithRefresh: (operation) =>
+            runWithServerActionRefresh(operation, {
+              readRefreshToken: () => Promise.resolve("r1"),
+              refresh: () =>
+                Promise.resolve({
+                  status: "rotated",
+                  accessToken: "fresh-jwt-2",
+                  refreshToken: "r2",
+                }),
+              applyTokens: (tokens) => {
+                appliedTokens.push(tokens);
+                return Promise.resolve();
+              },
+            }),
+          patchMe: (body) => {
+            patchAttempts++;
+            expect(body).toEqual({
+              fullName: "Nguyễn Minh Tuấn",
+              phone: null,
+            });
+            if (patchAttempts === 1) {
+              return Promise.resolve({
+                response: new Response(null, { status: 401 }),
+                error: { status: 401 },
+              });
+            }
+            expect(actionRefreshedTokenStorage.getStore()).toBe("fresh-jwt-2");
+            return Promise.resolve({
+              response: new Response(null, { status: 200 }),
+              data: { data: updatedUser },
+            });
+          },
+        },
+      );
+
+      expect(patchAttempts).toBe(2);
+      expect(appliedTokens).toEqual([
+        { accessToken: "fresh-jwt-2", refreshToken: "r2" },
+      ]);
+      expect(result).toEqual({ ok: true, user: updatedUser });
+    });
+
+    it("surfaces unavailable error and preserves cookies when refresh fails transiently on update", async () => {
+      // Invariant: INV-SF-PROFILE-5
+      let cookieClears = 0;
+
+      const transientResult = await executeUpdateProfileAction(
+        { fullName: "Nguyễn Minh Tuấn" },
+        {
+          runWithRefresh: (operation) =>
+            runWithServerActionRefresh(operation, {
+              readRefreshToken: () => Promise.resolve("r1"),
+              refresh: () => Promise.resolve({ status: "transient_error" }),
+            }),
+          patchMe: () =>
+            Promise.resolve({
+              response: new Response(null, { status: 401 }),
+              error: { status: 401 },
+            }),
+          clearCookies: () => {
+            cookieClears++;
+            return Promise.resolve();
+          },
+        },
+      );
+
+      const terminalResult = await executeUpdateProfileAction(
+        { fullName: "Nguyễn Minh Tuấn" },
+        {
+          runWithRefresh: (operation) => operation(),
+          patchMe: () =>
+            Promise.resolve({
+              response: new Response(null, { status: 401 }),
+              error: {
+                status: 401,
+                code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
+              },
+            }),
+          clearCookies: () => {
+            cookieClears++;
+            return Promise.resolve();
+          },
+        },
+      );
+
+      expect(transientResult).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+        message: API_ERROR_DICTIONARY[API_ERROR_CODES.SERVICE_UNAVAILABLE],
+      });
+      expect(terminalResult).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
+        message:
+          API_ERROR_DICTIONARY[API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED],
+      });
+      expect(cookieClears).toBe(1);
+    });
+
+    it("maps opaque server errors on profile update to internal error fallback", async () => {
+      // Invariant: INV-SF-PROFILE-2
+      const result = await executeUpdateProfileAction(
+        { fullName: "Nguyễn Minh Tuấn" },
+        {
+          runWithRefresh: (operation) => operation(),
+          patchMe: () =>
+            Promise.resolve({
+              response: new Response(null, { status: 502 }),
+              error: {},
+            }),
+        },
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.INTERNAL_SERVER_ERROR,
+        message: API_ERROR_DICTIONARY[API_ERROR_CODES.INTERNAL_SERVER_ERROR],
+      });
+    });
+
+    it("rejects empty patch payloads without calling backend profile endpoint", async () => {
+      // Invariant: INV-SF-PROFILE-2
+      let patchCalled = false;
+      const result = await executeUpdateProfileAction(
+        {},
+        {
+          patchMe: () => {
+            patchCalled = true;
+            return Promise.resolve({
+              response: new Response(null, { status: 200 }),
+              data: { data: sampleProfile },
+            });
+          },
+        },
+      );
+
+      expect(patchCalled).toBe(false);
+      expect(result.ok).toBe(false);
+    });
+  });
+
+  describe("executeLogoutAllAction", () => {
+    it("rotates expired access tokens via refresh wrapper before executing global logout", async () => {
+      // Invariant: INV-SF-PROFILE-5
+      let calls = 0;
+      let cookieClears = 0;
+
+      const result = await executeLogoutAllAction({
+        runWithRefresh: (operation) =>
+          runWithServerActionRefresh(operation, {
+            readRefreshToken: () => Promise.resolve("r1"),
+            refresh: () =>
+              Promise.resolve({
+                status: "rotated",
+                accessToken: "fresh-jwt-3",
+                refreshToken: "r3",
+              }),
+            applyTokens: () => Promise.resolve(),
+          }),
+        postLogoutAll: () => {
+          calls++;
+          if (calls === 1) {
+            return Promise.resolve({
+              response: new Response(null, { status: 401 }),
+              error: { status: 401 },
+            });
+          }
+          expect(actionRefreshedTokenStorage.getStore()).toBe("fresh-jwt-3");
+          return Promise.resolve({
+            response: new Response(null, { status: 200 }),
+            data: { data: null },
+          });
+        },
+        clearCookies: () => {
+          cookieClears++;
+          return Promise.resolve();
+        },
+      });
+
+      expect(calls).toBe(2);
+      expect(cookieClears).toBe(1);
+      expect(result.ok).toBe(true);
+    });
+
+    it("clears local cookies when global revocation succeeds or token is already rejected", async () => {
+      // Invariant: INV-SF-PROFILE-6
+      let cookieClears = 0;
+
+      const okResult = await executeLogoutAllAction({
+        runWithRefresh: (operation) => operation(),
+        postLogoutAll: () =>
+          Promise.resolve({
+            response: new Response(null, { status: 200 }),
+            data: { data: null },
+          }),
+        clearCookies: () => {
+          cookieClears++;
+          return Promise.resolve();
+        },
+      });
+
+      const revokedResult = await executeLogoutAllAction({
+        runWithRefresh: (operation) => operation(),
+        postLogoutAll: () =>
+          Promise.resolve({
+            response: new Response(null, { status: 401 }),
+            error: {
+              status: 401,
+              code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
+            },
+          }),
+        clearCookies: () => {
+          cookieClears++;
+          return Promise.resolve();
+        },
+      });
+
+      expect(okResult.ok).toBe(true);
+      expect(revokedResult).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
+        message:
+          API_ERROR_DICTIONARY[API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED],
+        sessionInvalidated: true,
+      });
+      expect(cookieClears).toBe(2);
+    });
+
+    it("preserves local cookies when global revocation is rate-limited, transiently degraded, or unreachable", async () => {
+      // Invariant: INV-SF-PROFILE-6
+      let cookieClears = 0;
+
+      const rateLimited = await executeLogoutAllAction({
+        runWithRefresh: (operation) => operation(),
+        postLogoutAll: () =>
+          Promise.resolve({
+            response: new Response(null, { status: 429 }),
+            error: {
+              status: 429,
+              code: API_ERROR_CODES.TOO_MANY_REQUESTS,
+            },
+          }),
+        clearCookies: () => {
+          cookieClears++;
+          return Promise.resolve();
+        },
+      });
+
+      const transientRefreshFail = await executeLogoutAllAction({
+        runWithRefresh: (operation) =>
+          runWithServerActionRefresh(operation, {
+            readRefreshToken: () => Promise.resolve("r1"),
+            refresh: () => Promise.resolve({ status: "transient_error" }),
+          }),
+        postLogoutAll: () =>
+          Promise.resolve({
+            response: new Response(null, { status: 401 }),
+            error: { status: 401 },
+          }),
+        clearCookies: () => {
+          cookieClears++;
+          return Promise.resolve();
+        },
+      });
+
+      const networkDown = await executeLogoutAllAction({
+        runWithRefresh: (operation) => operation(),
+        postLogoutAll: () => Promise.reject(new Error("ECONNREFUSED")),
+        clearCookies: () => {
+          cookieClears++;
+          return Promise.resolve();
+        },
+      });
+
+      expect(rateLimited).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.TOO_MANY_REQUESTS,
+        message: API_ERROR_DICTIONARY[API_ERROR_CODES.TOO_MANY_REQUESTS],
+        sessionInvalidated: false,
+      });
+      expect(transientRefreshFail).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+        message: API_ERROR_DICTIONARY[API_ERROR_CODES.SERVICE_UNAVAILABLE],
+        sessionInvalidated: false,
+      });
+      expect(networkDown).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.NETWORK_ERROR,
+        message: API_ERROR_DICTIONARY[API_ERROR_CODES.NETWORK_ERROR],
+        sessionInvalidated: false,
+      });
+      expect(cookieClears).toBe(0);
     });
   });
 });

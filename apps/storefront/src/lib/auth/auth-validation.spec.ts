@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   PASSWORD_MAX_LENGTH,
+  buildUpdateProfileDiff,
   decrementCooldownSeconds,
   evaluatePasswordRules,
   forgotPasswordFormSchema,
@@ -8,11 +9,15 @@ import {
   formatResendCooldownLabel,
   loginFormSchema,
   normalizeOptionalPhone,
+  normalizeProfileFullName,
+  normalizeProfilePhoneInput,
   parsePrefillEmailParam,
   parseRecoveryTokenParam,
+  profileFormSchema,
   registerFormSchema,
   resendVerificationFormSchema,
   resetPasswordFormSchema,
+  updateProfilePatchSchema,
   verifyEmailSchema,
 } from "./auth-validation";
 
@@ -303,6 +308,71 @@ describe("Storefront Auth Validation", () => {
       expect(valid.success).toBe(true);
       expect(missingSpecial.success).toBe(false);
       expect(mismatch.success).toBe(false);
+    });
+  });
+
+  describe("profileFormSchema and buildUpdateProfileDiff", () => {
+    it("normalizes whitespace and converts blank phone inputs to null", () => {
+      // Invariant: INV-SF-PROFILE-2
+      expect(normalizeProfileFullName("  Nguyễn   Minh   Anh  ")).toBe(
+        "Nguyễn Minh Anh",
+      );
+      expect(normalizeProfilePhoneInput("  0908 412 679  ")).toBe("0908412679");
+      expect(normalizeProfilePhoneInput("   ")).toBeNull();
+      expect(normalizeProfilePhoneInput(null)).toBeNull();
+    });
+
+    it("returns null patch when edited profile values match baseline", () => {
+      // Invariant: INV-SF-PROFILE-2
+      const sameNameAndNullPhone = buildUpdateProfileDiff(
+        { fullName: "Nguyễn Minh Anh", phone: null },
+        { fullName: "  Nguyễn   Minh Anh ", phone: "   " },
+      );
+      const sameFormattedPhone = buildUpdateProfileDiff(
+        { fullName: "Nguyễn Minh Anh", phone: "0908412679" },
+        { fullName: "Nguyễn Minh Anh", phone: "0908 412 679" },
+      );
+
+      expect(sameNameAndNullPhone).toEqual({ ok: true, patch: null });
+      expect(sameFormattedPhone).toEqual({ ok: true, patch: null });
+    });
+
+    it("emits only modified fields and clears phone with explicit null", () => {
+      // Invariant: INV-SF-PROFILE-2
+      const clearPhone = buildUpdateProfileDiff(
+        { fullName: "Nguyễn Minh Anh", phone: "0908412679" },
+        { fullName: "Nguyễn Minh Anh", phone: "" },
+      );
+      const updateNameOnly = buildUpdateProfileDiff(
+        { fullName: "Nguyễn Minh Anh", phone: null },
+        { fullName: "Nguyễn Văn Bình", phone: "" },
+      );
+
+      expect(clearPhone).toEqual({ ok: true, patch: { phone: null } });
+      expect(updateNameOnly).toEqual({
+        ok: true,
+        patch: { fullName: "Nguyễn Văn Bình" },
+      });
+    });
+
+    it("rejects empty objects and malformed phone strings in profile patch schema", () => {
+      // Invariant: INV-SF-PROFILE-2
+      expect(updateProfilePatchSchema.safeParse({}).success).toBe(false);
+      expect(updateProfilePatchSchema.safeParse({ phone: "" }).success).toBe(
+        false,
+      );
+      expect(
+        updateProfilePatchSchema.safeParse({
+          fullName: "Nguyễn Minh Anh",
+          rewardPoints: 9999,
+        }).success,
+      ).toBe(false);
+      expect(
+        profileFormSchema.safeParse({
+          fullName: "Nguyễn Minh Anh",
+          phone: "0123456789",
+        }).success,
+      ).toBe(false);
     });
   });
 });

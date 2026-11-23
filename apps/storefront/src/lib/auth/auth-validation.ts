@@ -148,6 +148,34 @@ export function extractFirstQueryValue(
   return value;
 }
 
+const VN_PHONE_ERROR_MESSAGE =
+  "Số điện thoại không hợp lệ (yêu cầu 10 chữ số bắt đầu bằng 03, 05, 07, 08 hoặc 09).";
+
+/**
+ * Maximum normalized character length for `fullName` matching `UpdateProfileDto`.
+ */
+export const PROFILE_FULL_NAME_MAX_LENGTH = 100;
+
+/**
+ * Collapses repeated whitespace and trims leading/trailing spacing on customer full names.
+ *
+ * @param raw Raw full-name input string.
+ * @returns Normalized single-spaced name string.
+ */
+export function normalizeProfileFullName(raw: string): string {
+  return raw.replace(/\s+/g, " ").trim();
+}
+
+const fullNameFieldSchema = z
+  .string()
+  .transform(normalizeProfileFullName)
+  .refine((value) => value.length >= 1, {
+    message: "Vui lòng nhập họ và tên.",
+  })
+  .refine((value) => value.length <= PROFILE_FULL_NAME_MAX_LENGTH, {
+    message: `Họ và tên không được vượt quá ${PROFILE_FULL_NAME_MAX_LENGTH} ký tự.`,
+  });
+
 const emailFieldSchema = z
   .string()
   .trim()
@@ -245,22 +273,14 @@ export type LoginFormInput = z.infer<typeof loginFormSchema>;
  */
 export const registerFormSchema = z
   .object({
-    fullName: z
-      .string()
-      .transform((value) => value.replace(/\s+/g, " ").trim())
-      .refine((value) => value.length >= 1, {
-        message: "Vui lòng nhập họ và tên.",
-      })
-      .refine((value) => value.length <= 100, {
-        message: "Họ và tên không được vượt quá 100 ký tự.",
-      }),
+    fullName: fullNameFieldSchema,
     phone: z
       .string()
       .optional()
       .transform((value) => normalizeOptionalPhone(value))
       .refine(
         (value) => value === undefined || VN_PHONE_REGEX.test(value),
-        "Số điện thoại không hợp lệ (yêu cầu 10 chữ số bắt đầu bằng 03, 05, 07, 08 hoặc 09).",
+        VN_PHONE_ERROR_MESSAGE,
       ),
     email: emailFieldSchema,
     password: owaspPasswordSchema,
@@ -343,3 +363,106 @@ export const resetPasswordFormSchema = z
  * Validated password reset submission payload.
  */
 export type ResetPasswordFormInput = z.infer<typeof resetPasswordFormSchema>;
+
+/**
+ * Strips whitespace from optional phone input and converts blank strings to `null`
+ * so `PATCH /api/v1/users/me` clears `users.phone` explicitly (`INV-PROFILE-6`).
+ *
+ * @param raw Raw phone string, `null`, or `undefined`.
+ * @returns Stripped phone digits or `null` when empty.
+ */
+export function normalizeProfilePhoneInput(
+  raw: string | null | undefined,
+): string | null {
+  return normalizeOptionalPhone(raw) ?? null;
+}
+
+/**
+ * Form schema validating editable profile inputs (`fullName` + optional clearable `phone`)
+ * aligned with `apps/api` `UpdateProfileDto` rules (`INV-PROFILE-6`, `INV-PROFILE-7`).
+ */
+export const profileFormSchema = z
+  .object({
+    fullName: fullNameFieldSchema,
+    phone: z
+      .string()
+      .nullable()
+      .optional()
+      .transform((value) => normalizeProfilePhoneInput(value))
+      .refine((value) => value === null || VN_PHONE_REGEX.test(value), {
+        message: VN_PHONE_ERROR_MESSAGE,
+      }),
+  })
+  .strict();
+
+/**
+ * Strict Server Action payload schema mirroring `apps/api` `updateProfileSchema.strict()`.
+ */
+export const updateProfilePatchSchema = z
+  .object({
+    fullName: fullNameFieldSchema.optional(),
+    phone: z
+      .union([
+        z.null(),
+        z.string().trim().regex(VN_PHONE_REGEX, {
+          message: VN_PHONE_ERROR_MESSAGE,
+        }),
+      ])
+      .optional(),
+  })
+  .strict()
+  .refine((data) => data.fullName !== undefined || data.phone !== undefined, {
+    message: "Vui lòng thay đổi ít nhất một thông tin trước khi lưu.",
+  });
+
+/**
+ * Partial profile update payload sent to `PATCH /api/v1/users/me`.
+ */
+export type UpdateProfilePatch = z.infer<typeof updateProfilePatchSchema>;
+
+/**
+ * Result returned when computing dirty changes for the self-service profile form.
+ */
+export type ProfileDiffResult =
+  | { readonly ok: true; readonly patch: UpdateProfilePatch | null }
+  | { readonly ok: false; readonly message: string };
+
+/**
+ * Validates customer profile form fields and returns only changed attributes
+ * against the server baseline so no-op `{}` writes are prevented upfront (`INV-PROFILE-5`).
+ *
+ * @param baseline Current persisted `fullName` and `phone` from `UserProfileDto`.
+ * @param next Raw form field values edited by the customer.
+ * @returns Minimal changed `UpdateProfilePatch`, `null` if unchanged, or localized error.
+ */
+export function buildUpdateProfileDiff(
+  baseline: { readonly fullName: string; readonly phone: string | null },
+  next: { readonly fullName: string; readonly phone?: string | null },
+): ProfileDiffResult {
+  const parsed = profileFormSchema.safeParse(next);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message:
+        parsed.error.issues.at(0)?.message ??
+        "Vui lòng kiểm tra lại thông tin hồ sơ.",
+    };
+  }
+
+  const normalizedBaselineName = normalizeProfileFullName(baseline.fullName);
+  const normalizedBaselinePhone = normalizeProfilePhoneInput(baseline.phone);
+
+  const patch: { fullName?: string; phone?: string | null } = {};
+  if (parsed.data.fullName !== normalizedBaselineName) {
+    patch.fullName = parsed.data.fullName;
+  }
+  if (parsed.data.phone !== normalizedBaselinePhone) {
+    patch.phone = parsed.data.phone;
+  }
+
+  if (patch.fullName === undefined && patch.phone === undefined) {
+    return { ok: true, patch: null };
+  }
+
+  return { ok: true, patch };
+}

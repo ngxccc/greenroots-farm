@@ -37,6 +37,7 @@ const FORBIDDEN_STOREFRONT_RAW_ELEMENTS = new Set(["button"]);
 const STOREFRONT_RSC_UNCACHED_LOADERS = new Set([
   "getServerSession",
   "fetchApiHealth",
+  "getAccountProfileSession",
 ]);
 
 const FORBIDDEN_NESTED_IN_LABEL = new Set([

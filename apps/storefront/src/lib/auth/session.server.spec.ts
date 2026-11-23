@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import type { StorefrontSessionUser } from "@/types/auth.types";
 import { actionRefreshedTokenStorage } from "./server-token";
 import {
+  resolveAccountProfileSession,
   resolveServerSession,
   runWithServerActionRefresh,
 } from "./session.server";
@@ -153,6 +154,83 @@ describe("Server Auth Session", () => {
 
       expect(cleared).toBe(false);
       expect(result.response.status).toBe(401);
+    });
+  });
+
+  describe("resolveAccountProfileSession", () => {
+    it("returns degraded immediately when proxy marks auth header degraded", async () => {
+      // Invariant: INV-SF-PROFILE-1
+      let fetchCalled = false;
+      const resolution = await resolveAccountProfileSession({
+        isDegraded: () => Promise.resolve(true),
+        readToken: () => Promise.resolve("jwt-1"),
+        fetchMe: () => {
+          fetchCalled = true;
+          return Promise.resolve({ data: { data: sampleUser } });
+        },
+      });
+
+      expect(fetchCalled).toBe(false);
+      expect(resolution).toEqual({ status: "degraded" });
+    });
+
+    it("returns unauthenticated when token is absent or profile fetch fails authentication", async () => {
+      // Invariant: INV-SF-PROFILE-1
+      const missingToken = await resolveAccountProfileSession({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve(undefined),
+      });
+      const revokedToken = await resolveAccountProfileSession({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("revoked-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 401 },
+            error: { status: 401 },
+          }),
+      });
+
+      expect(missingToken).toEqual({ status: "unauthenticated" });
+      expect(revokedToken).toEqual({ status: "unauthenticated" });
+    });
+
+    it("returns degraded when upstream profile endpoint hits server or network failure", async () => {
+      // Invariant: INV-SF-PROFILE-1
+      const upstreamError = await resolveAccountProfileSession({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 503 },
+            error: { status: 503 },
+          }),
+      });
+      const networkError = await resolveAccountProfileSession({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () => Promise.reject(new Error("ECONNREFUSED")),
+      });
+
+      expect(upstreamError).toEqual({ status: "degraded" });
+      expect(networkError).toEqual({ status: "degraded" });
+    });
+
+    it("returns authenticated profile when token resolves live user data", async () => {
+      // Invariant: INV-SF-PROFILE-1
+      const resolution = await resolveAccountProfileSession({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleUser },
+          }),
+      });
+
+      expect(resolution).toEqual({
+        status: "authenticated",
+        user: sampleUser,
+      });
     });
   });
 });

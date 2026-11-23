@@ -18,12 +18,16 @@ import {
   registerFormSchema,
   resendVerificationFormSchema,
   resetPasswordFormSchema,
+  updateProfilePatchSchema,
+  type UpdateProfilePatch,
   verifyEmailSchema,
 } from "./auth-validation";
 import type { SessionTokenPair } from "./cookies";
 import {
   clearServerSessionCookies,
+  runWithServerActionRefresh,
   setServerSessionCookies,
+  type ServerActionRefreshOutcome,
 } from "./session.server";
 
 type ForgotPasswordDto = components["schemas"]["ForgotPasswordDto"];
@@ -32,6 +36,7 @@ type LoginResponseDto = components["schemas"]["LoginResponseDto"];
 type RegisterDto = components["schemas"]["RegisterDto"];
 type ResendVerificationDto = components["schemas"]["ResendVerificationDto"];
 type ResetPasswordDto = components["schemas"]["ResetPasswordDto"];
+type UpdateProfileDto = components["schemas"]["UpdateProfileDto"];
 type VerifyEmailDto = components["schemas"]["VerifyEmailDto"];
 
 /**
@@ -79,6 +84,51 @@ export type ForgotPasswordActionResult = AuthFeedbackActionResult;
  * Discriminated result returned by `resetPasswordAction`.
  */
 export type ResetPasswordActionResult = AuthFeedbackActionResult;
+
+/**
+ * Discriminated result returned by `updateProfileAction`.
+ */
+export type UpdateProfileActionResult =
+  | { readonly ok: true; readonly user: StorefrontSessionUser }
+  | { readonly ok: false; readonly code: string; readonly message: string };
+
+/**
+ * Discriminated result returned by `logoutAllAction`.
+ */
+export type LogoutAllActionResult =
+  | { readonly ok: true; readonly message: string }
+  | {
+      readonly ok: false;
+      readonly code: string;
+      readonly message: string;
+      readonly sessionInvalidated: boolean;
+    };
+
+/**
+ * Optional dependency overrides for isolated unit testing of `executeUpdateProfileAction`.
+ */
+export interface UpdateProfileActionDeps {
+  readonly patchMe?: (body: UpdateProfileDto) => Promise<{
+    response: Response;
+    data?: { data: StorefrontSessionUser };
+    error?: unknown;
+  }>;
+  readonly runWithRefresh?: typeof runWithServerActionRefresh;
+  readonly clearCookies?: () => Promise<void>;
+}
+
+/**
+ * Optional dependency overrides for isolated unit testing of `executeLogoutAllAction`.
+ */
+export interface LogoutAllActionDeps {
+  readonly postLogoutAll?: () => Promise<{
+    response: Response;
+    data?: unknown;
+    error?: unknown;
+  }>;
+  readonly runWithRefresh?: typeof runWithServerActionRefresh;
+  readonly clearCookies?: () => Promise<void>;
+}
 
 /**
  * Optional dependency overrides for isolated unit testing of `executeLoginAction`.
@@ -562,6 +612,174 @@ export async function forgotPasswordAction(
   input: ForgotPasswordFormInput,
 ): Promise<ForgotPasswordActionResult> {
   return executeForgotPasswordAction(input);
+}
+
+function isTransientRefreshFailure(result: {
+  readonly response: Response;
+  readonly refreshOutcome?: ServerActionRefreshOutcome;
+}): boolean {
+  return (
+    result.response.status === 401 &&
+    (result.refreshOutcome === "transient_error" ||
+      result.refreshOutcome === "stale_concurrent")
+  );
+}
+
+function buildServiceUnavailableFailure(instance: string): {
+  readonly ok: false;
+  readonly code: string;
+  readonly message: string;
+} {
+  return {
+    ok: false,
+    code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+    message: resolveApiErrorMessage(
+      buildSyntheticProblem(API_ERROR_CODES.SERVICE_UNAVAILABLE, instance, 503),
+    ),
+  };
+}
+
+/**
+ * Executes a self-service customer profile patch via `PATCH /api/v1/users/me`,
+ * automatically rotating expired access tokens once through `runWithServerActionRefresh`.
+ *
+ * @param input Partial `{ fullName?, phone? }` payload containing at least one changed field.
+ * @param deps Optional injectable adapters for isolated unit testing.
+ * @returns Updated `UserProfileDto` from NestJS or localized RFC 9457 error feedback.
+ */
+export async function executeUpdateProfileAction(
+  input: UpdateProfilePatch,
+  deps?: UpdateProfileActionDeps,
+): Promise<UpdateProfileActionResult> {
+  const parsed = updateProfilePatchSchema.safeParse(input);
+  if (!parsed.success) {
+    return buildValidationFailure(
+      parsed.error,
+      API_ERROR_CODES.VALIDATION_FAILED,
+      "/account/profile",
+    );
+  }
+
+  const patchMe =
+    deps?.patchMe ??
+    ((body: UpdateProfileDto) => api.PATCH("/api/v1/users/me", { body }));
+  const runWithRefresh = deps?.runWithRefresh ?? runWithServerActionRefresh;
+  const clearCookies = deps?.clearCookies ?? clearServerSessionCookies;
+
+  try {
+    const result = await runWithRefresh(() => patchMe(parsed.data));
+    if (!result.error && result.data?.data) {
+      return { ok: true, user: result.data.data };
+    }
+
+    if (isTransientRefreshFailure(result)) {
+      return buildServiceUnavailableFailure("/account/profile");
+    }
+
+    if (result.response.status === 401) {
+      await clearCookies();
+      return buildActionFailure(
+        result.error,
+        API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
+        "/account/profile",
+      );
+    }
+
+    const fallbackCode =
+      result.response.status === 429
+        ? API_ERROR_CODES.TOO_MANY_REQUESTS
+        : result.response.status >= 500
+          ? API_ERROR_CODES.INTERNAL_SERVER_ERROR
+          : API_ERROR_CODES.VALIDATION_FAILED;
+    return buildActionFailure(result.error, fallbackCode, "/account/profile");
+  } catch {
+    return buildNetworkFailure();
+  }
+}
+
+/**
+ * Revokes all active sessions across every device via `POST /api/v1/auth/logout-all`.
+ * Clears local `httpOnly` cookies ONLY when global revocation succeeds or the session
+ * is already invalid (`401` without transient/concurrent refresh failure);
+ * `429`/`5xx`/network/transient refresh errors preserve cookies intact.
+ *
+ * @param deps Optional injectable adapters for isolated unit testing.
+ * @returns Success confirmation or failure indicating whether local session was already invalidated.
+ */
+export async function executeLogoutAllAction(
+  deps?: LogoutAllActionDeps,
+): Promise<LogoutAllActionResult> {
+  const postLogoutAll =
+    deps?.postLogoutAll ?? (() => api.POST("/api/v1/auth/logout-all"));
+  const runWithRefresh = deps?.runWithRefresh ?? runWithServerActionRefresh;
+  const clearCookies = deps?.clearCookies ?? clearServerSessionCookies;
+
+  try {
+    const result = await runWithRefresh(postLogoutAll);
+
+    if (!result.error && result.response.ok) {
+      await clearCookies();
+      return {
+        ok: true,
+        message: "Đã đăng xuất khỏi tất cả thiết bị.",
+      };
+    }
+
+    if (isTransientRefreshFailure(result)) {
+      return {
+        ...buildServiceUnavailableFailure("/account/profile"),
+        sessionInvalidated: false,
+      };
+    }
+
+    if (result.response.status === 401) {
+      await clearCookies();
+      return {
+        ...buildActionFailure(
+          result.error,
+          API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
+          "/account/profile",
+        ),
+        sessionInvalidated: true,
+      };
+    }
+
+    const fallbackCode =
+      result.response.status === 429
+        ? API_ERROR_CODES.TOO_MANY_REQUESTS
+        : API_ERROR_CODES.INTERNAL_SERVER_ERROR;
+
+    return {
+      ...buildActionFailure(result.error, fallbackCode, "/account/profile"),
+      sessionInvalidated: false,
+    };
+  } catch {
+    return {
+      ...buildNetworkFailure(),
+      sessionInvalidated: false,
+    };
+  }
+}
+
+/**
+ * Next.js Server Action updating editable customer profile fields from `/account/profile`.
+ *
+ * @param input Partial `{ fullName?, phone? }` payload containing at least one changed field.
+ * @returns Updated customer profile or localized validation/auth error.
+ */
+export async function updateProfileAction(
+  input: UpdateProfilePatch,
+): Promise<UpdateProfileActionResult> {
+  return executeUpdateProfileAction(input);
+}
+
+/**
+ * Next.js Server Action revoking all sessions globally from `/account/profile`.
+ *
+ * @returns Global logout confirmation or failure status preserving cookies on transient errors.
+ */
+export async function logoutAllAction(): Promise<LogoutAllActionResult> {
+  return executeLogoutAllAction();
 }
 
 /**

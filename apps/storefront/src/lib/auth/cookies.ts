@@ -4,6 +4,11 @@ export const ACCESS_TOKEN_COOKIE = "accessToken";
 export const REFRESH_TOKEN_COOKIE = "refreshToken";
 export const REFRESHED_ACCESS_TOKEN_HEADER = "x-gr-refreshed-access-token";
 
+/**
+ * Internal request/response header signalling transient auth refresh degradation on protected routes.
+ */
+export const AUTH_DEGRADED_HEADER = "x-gr-auth-degraded";
+
 export const ACCESS_TOKEN_MAX_AGE_SECONDS = 900;
 export const REFRESH_TOKEN_MAX_AGE_SECONDS = 604_800;
 export const DEFAULT_REFRESH_SKEW_SECONDS = 60;

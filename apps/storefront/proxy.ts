@@ -3,6 +3,7 @@ import { API_ERROR_CODES } from "@greenroots/shared";
 import { isMaintenanceModeEnabled } from "@/env";
 import {
   ACCESS_TOKEN_COOKIE,
+  AUTH_DEGRADED_HEADER,
   REFRESHED_ACCESS_TOKEN_HEADER,
   REFRESH_TOKEN_COOKIE,
   applySessionCookies,
@@ -20,7 +21,7 @@ const SKIP_REFRESH_PATHS = [
   "/forgot-password",
   "/reset-password",
 ] as const;
-export const AUTH_DEGRADED_HEADER = "x-gr-auth-degraded";
+export { AUTH_DEGRADED_HEADER };
 const MAINTENANCE_HEADERS = {
   "Retry-After": "900",
   "X-Robots-Tag": "noindex, nofollow",

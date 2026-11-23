@@ -106,10 +106,14 @@ describe("useAuthStore", () => {
       });
 
       broadcastAuthEvent("LOGOUT");
+      broadcastAuthEvent("SESSION_CHANGED");
       unsubscribe();
 
-      expect(postedPayloads).toEqual([{ type: "LOGOUT" }]);
-      expect(received).toEqual(["LOGOUT"]);
+      expect(postedPayloads).toEqual([
+        { type: "LOGOUT" },
+        { type: "SESSION_CHANGED" },
+      ]);
+      expect(received).toEqual(["LOGOUT", "SESSION_CHANGED"]);
       expect(storageSetCalls).toBe(0);
       expect(AUTH_STORAGE_EVENT_KEY).toBe("greenroots-auth-event");
     });
