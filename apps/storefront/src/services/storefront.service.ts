@@ -622,6 +622,98 @@ export function getShowcaseTraceByCode(
 }
 
 /**
+ * Injectable transport dependencies for `fetchLiveProductBySlug` so unit specs
+ * remain isolated without mutating Bun's global module registry.
+ */
+export interface ProductDetailDeps {
+  readonly fetchProductBySlug: (slug: string) => Promise<{
+    data?: { data: ProductDto };
+    error?: unknown;
+    response?: { readonly status: number };
+  }>;
+}
+
+/**
+ * Discriminated live product lookup outcome distinguishing missing/inactive SKUs (`404`)
+ * from transient upstream failures (`5xx` or offline network).
+ */
+export type ProductDetailResult =
+  | {
+      readonly status: "ok";
+      readonly product: StorefrontProduct;
+      readonly dto: ProductDto;
+    }
+  | { readonly status: "not_found" }
+  | { readonly status: "error" };
+
+const defaultProductDetailDeps: ProductDetailDeps = {
+  fetchProductBySlug: (slug) =>
+    api.GET("/api/v1/products/{slug}", {
+      params: { path: { slug } },
+    }),
+};
+
+function extractResponseStatus(result: {
+  readonly response?: { readonly status: number };
+  readonly error?: unknown;
+}): number | undefined {
+  if (result.response?.status !== undefined) {
+    return result.response.status;
+  }
+  if (
+    typeof result.error === "object" &&
+    result.error !== null &&
+    "status" in result.error &&
+    typeof result.error.status === "number"
+  ) {
+    return result.error.status;
+  }
+  return undefined;
+}
+
+/**
+ * Fetches a single active catalog product by kebab-case slug from `GET /api/v1/products/:slug`.
+ * Returns `"not_found"` for `400`/`404` or inactive products/categories and `"error"` on
+ * transient `5xx` or network outages without falling back to static showcase fixtures.
+ *
+ * @param slug Candidate product kebab-case slug from the route param.
+ * @param deps Optional injectable transport adapter for deterministic unit tests.
+ * @returns Discriminated `ProductDetailResult`.
+ */
+export async function fetchLiveProductBySlug(
+  slug: string,
+  deps: ProductDetailDeps = defaultProductDetailDeps,
+): Promise<ProductDetailResult> {
+  if (!slug.trim()) {
+    return { status: "not_found" };
+  }
+
+  try {
+    const result = await deps.fetchProductBySlug(slug);
+    if (result.error || !result.data?.data) {
+      const status = extractResponseStatus(result);
+      if (status === 400 || status === 404) {
+        return { status: "not_found" };
+      }
+      return { status: "error" };
+    }
+
+    const dto = result.data.data;
+    if (!dto.isActive) {
+      return { status: "not_found" };
+    }
+
+    return {
+      status: "ok",
+      product: mapProductDtoToStorefront(dto),
+      dto,
+    };
+  } catch {
+    return { status: "error" };
+  }
+}
+
+/**
  * Returns all showcase batch traceability records for the `/trace` directory page.
  *
  * @returns Ordered list of showcase batch traceability records.
