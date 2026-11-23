@@ -9,7 +9,9 @@ const alertVariants = cva(
       variant: {
         default: "bg-card text-card-foreground",
         destructive:
-          "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
+          "border-red-200 bg-red-50 text-red-900 *:data-[slot=alert-description]:text-red-900/90 *:[svg]:text-current",
+        success:
+          "border-green-200 bg-green-50 text-brand-dark *:data-[slot=alert-description]:text-brand-dark/90 *:[svg]:text-status-fresh",
       },
     },
     defaultVariants: {
@@ -21,12 +23,13 @@ const alertVariants = cva(
 function Alert({
   className,
   variant,
+  role,
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof alertVariants>) {
   return (
     <div
       data-slot="alert"
-      role="alert"
+      role={role ?? (variant === "success" ? "status" : "alert")}
       className={cn(alertVariants({ variant }), className)}
       {...props}
     />

@@ -46,7 +46,22 @@ export {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 export { Input } from "./components/ui/input";
+export {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
+  InputGroupTextarea,
+} from "./components/ui/input-group";
 export { Label } from "./components/ui/label";
+export {
+  Progress,
+  ProgressIndicator,
+  ProgressLabel,
+  ProgressTrack,
+  ProgressValue,
+} from "./components/ui/progress";
 export {
   Select,
   SelectContent,
