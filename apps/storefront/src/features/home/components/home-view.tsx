@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useState, type ComponentType, type SubmitEvent } from "react";
+import { useId, useState, type SubmitEvent } from "react";
 import {
   Alert,
   AlertDescription,
@@ -27,10 +27,8 @@ import {
   Clock,
   Flame,
   Leaf,
-  Package,
   QrCode,
   ShieldCheck,
-  Sprout,
 } from "lucide-react";
 import { DELIVERY_DAY_LABELS } from "@/constants/domain-labels.constant";
 import { FARM_METADATA } from "@/constants/farm-metadata.constant";
@@ -50,23 +48,9 @@ interface HomeViewProps {
   readonly apiReachable: boolean;
 }
 
-type ShelfIconComponent = ComponentType<{ readonly className?: string }>;
-
-function resolveCategoryIcon(slug: string): ShelfIconComponent {
-  const normalized = slug.toLowerCase();
-  if (/(?:^|-)nam(?:$|-)|gia-vi|herb|spice|mushroom/.test(normalized)) {
-    return Sprout;
-  }
-  if (/(?:^|-)qua(?:$|-)|(?:^|-)cu(?:$|-)|trai|fruit/.test(normalized)) {
-    return Package;
-  }
-  return Leaf;
-}
-
 interface ShelfSectionProps {
   readonly id: string;
   readonly title: string;
-  readonly icon: ComponentType<{ readonly className?: string }>;
   readonly actionHref?: string;
   readonly actionLabel?: string;
   readonly products: readonly StorefrontProduct[];
@@ -75,7 +59,6 @@ interface ShelfSectionProps {
 function ShelfSection({
   id,
   title,
-  icon: Icon,
   actionHref,
   actionLabel,
   products,
@@ -83,10 +66,7 @@ function ShelfSection({
   return (
     <section id={id} className="flex scroll-mt-24 flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Icon className="size-5 text-brand-forest" aria-hidden="true" />
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-        </div>
+        <h2 className="text-lg font-bold text-gray-900">{title}</h2>
 
         {actionHref && actionLabel ? (
           <Link
@@ -111,6 +91,13 @@ interface HomeViewContentProps extends HomeViewProps {
   readonly onTraceNavigate?: (href: string) => void;
 }
 
+interface QuickNavItem {
+  readonly key: string;
+  readonly label: string;
+  readonly targetId: string;
+  readonly isRescue: boolean;
+}
+
 /**
  * Pure presentational home showcase view decoupled from Next.js router hooks
  * for deterministic unit testing and SSR rendering.
@@ -118,14 +105,6 @@ interface HomeViewContentProps extends HomeViewProps {
  * @param props Catalog items, subscription plans, API status, and navigation handler.
  * @returns SF-01 home showcase layout.
  */
-interface QuickNavItem {
-  readonly key: string;
-  readonly label: string;
-  readonly targetId: string;
-  readonly icon: ShelfIconComponent;
-  readonly isRescue: boolean;
-}
-
 export function HomeViewContent({
   shelves,
   rescueDeals = [],
@@ -144,7 +123,6 @@ export function HomeViewContent({
       key: "rescue",
       label: "Deal tươi",
       targetId: "rescue",
-      icon: Flame,
       isRescue: true,
     });
   }
@@ -153,7 +131,6 @@ export function HomeViewContent({
       key: shelf.id,
       label: shelf.name,
       targetId: `shelf-${shelf.slug}`,
-      icon: resolveCategoryIcon(shelf.slug),
       isRescue: false,
     });
   }
@@ -162,7 +139,6 @@ export function HomeViewContent({
       key: "plans",
       label: "Gói định kỳ",
       targetId: "plans",
-      icon: Calendar,
       isRescue: false,
     });
   }
@@ -181,33 +157,33 @@ export function HomeViewContent({
       {visibleNavItems.length > 0 ? (
         <nav
           aria-label="Danh mục sản phẩm"
-          className="rounded-2xl border border-border-subtle bg-white p-4 shadow-sm"
+          className="flex flex-wrap items-center justify-between gap-3"
         >
-          <div className="grid grid-cols-2 items-stretch gap-4 sm:flex sm:flex-wrap sm:justify-around">
-            {visibleNavItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <a
-                  key={item.key}
-                  href={`#${item.targetId}`}
-                  className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl p-2 text-center transition-colors hover:bg-gray-100 sm:min-w-28"
-                >
-                  <span
-                    className={`flex size-11 items-center justify-center rounded-full ${
-                      item.isRescue
-                        ? "bg-red-50 text-status-spoiled"
-                        : "bg-green-50 text-brand-forest"
-                    }`}
-                  >
-                    <Icon className="size-5" aria-hidden="true" />
-                  </span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {item.label}
-                  </span>
-                </a>
-              );
-            })}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
+              Danh mục:
+            </span>
+            {visibleNavItems.map((item) => (
+              <a
+                key={item.key}
+                href={`#${item.targetId}`}
+                className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none ${
+                  item.isRescue
+                    ? "border-red-200 bg-red-50 text-status-spoiled hover:bg-red-100"
+                    : "border-border-subtle bg-white text-brand-dark hover:border-brand-forest hover:bg-green-50"
+                }`}
+              >
+                {item.label}
+              </a>
+            ))}
           </div>
+          <Link
+            href="/products"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-brand-forest hover:underline focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
+          >
+            <span>Tất cả sản phẩm</span>
+            <ArrowRight className="size-3.5" aria-hidden="true" />
+          </Link>
         </nav>
       ) : null}
 
@@ -372,7 +348,6 @@ export function HomeViewContent({
           key={shelf.id}
           id={`shelf-${shelf.slug}`}
           title={shelf.name.toUpperCase()}
-          icon={resolveCategoryIcon(shelf.slug)}
           actionHref="/products"
           actionLabel="Xem tất cả"
           products={shelf.products}
