@@ -206,7 +206,10 @@ function FarmingLogsPage() {
             className="min-h-20 rounded-xl border-border-subtle bg-surface-card p-3 text-sm"
           />
           {feedback ? (
-            <Alert variant={feedback.variant}>
+            <Alert
+              variant={feedback.variant}
+              role={feedback.variant === "destructive" ? "alert" : "status"}
+            >
               {feedback.variant === "success" ? (
                 <CheckCircle2 className="size-4" aria-hidden="true" />
               ) : (

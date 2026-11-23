@@ -56,7 +56,10 @@ function LoginPage() {
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-3">
             {formNotice ? (
-              <Alert className="border-border-subtle bg-surface-warm text-gray-800">
+              <Alert
+                role="status"
+                className="border-border-subtle bg-surface-warm text-gray-800"
+              >
                 <AlertCircle
                   className="size-4 text-gray-500"
                   aria-hidden="true"
