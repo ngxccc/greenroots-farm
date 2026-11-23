@@ -13,7 +13,6 @@ import {
   SheetHeader,
   SheetTitle,
   Skeleton,
-  toast,
 } from "@greenroots/ui";
 import { Calendar, LogOut, MapPin, PanelLeft, ShieldCheck } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/common/confirm-action-dialog";
@@ -285,7 +284,6 @@ export function AccountSidebar({ user, activeSection }: AccountSidebarProps) {
       }
 
       setLogoutDialogOpen(false);
-      toast.success("Đã đăng xuất tài khoản");
       router.replace("/");
       router.refresh();
     } finally {

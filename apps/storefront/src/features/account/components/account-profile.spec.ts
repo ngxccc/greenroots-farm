@@ -229,6 +229,25 @@ describe("Account Profile UI Components", () => {
         expect(win.document.body.innerHTML).toContain('role="alert"');
         expect(win.document.body.innerHTML).toContain("Chưa xác thực");
 
+        const savedHtml = renderToStaticMarkup(
+          createElement(ProfileDetailsFormView, {
+            email: sampleUser.email,
+            emailVerified: true,
+            createdAt: sampleUser.createdAt,
+            fullName: sampleUser.fullName,
+            phone: "0908412679",
+            hasPendingChanges: false,
+            isPending: false,
+            errorMessage: null,
+            successMessage: "Đã cập nhật thông tin hồ sơ cá nhân.",
+            onFullNameChange: () => undefined,
+            onPhoneChange: () => undefined,
+            onSubmit: () => undefined,
+          }),
+        );
+        expect(savedHtml).toContain('role="status"');
+        expect(savedHtml).toContain("Đã cập nhật thông tin hồ sơ cá nhân.");
+
         const submitBtn = win.document.querySelector(
           'button[type="submit"]',
         ) as unknown as HTMLElement | null;

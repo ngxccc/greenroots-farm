@@ -23,7 +23,6 @@ import {
   Label,
   Skeleton,
   buttonVariants,
-  toast,
 } from "@greenroots/ui";
 import {
   AlertCircle,
@@ -276,10 +275,6 @@ function AddressDialogAuthenticatedContent({
       return;
     }
     selectSavedAddress(draftAddressId);
-    const chosen = savedAddresses.find((item) => item.id === draftAddressId);
-    if (chosen) {
-      toast.success(`Đã chọn địa chỉ tại ${chosen.district}`);
-    }
     onCloseProgrammatically();
   }
 
@@ -319,7 +314,6 @@ function AddressDialogAuthenticatedContent({
       }
 
       reconcileAfterCreate(result.address);
-      toast.success("Đã lưu và chọn địa chỉ giao hàng mới");
       onCloseProgrammatically();
       onRefresh?.();
     } catch {

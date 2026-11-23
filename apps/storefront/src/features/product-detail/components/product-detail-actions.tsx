@@ -2,14 +2,7 @@
 
 import { useState, useSyncExternalStore, type ChangeEvent } from "react";
 import { AlertCircle, Minus, Plus, ShoppingCart } from "lucide-react";
-import {
-  Alert,
-  AlertDescription,
-  Button,
-  Input,
-  Label,
-  toast,
-} from "@greenroots/ui";
+import { Alert, AlertDescription, Button, Input, Label } from "@greenroots/ui";
 import { roundQuantity } from "@/lib/format";
 import { useCartStore } from "@/stores/cart.store";
 import type { StorefrontProduct } from "@/types/storefront.types";
@@ -84,9 +77,6 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
     }
     addItem(product, initialQty);
     setDraftQuantity(null);
-    toast.success(
-      `Đã thêm ${formatQuantityDisplay(initialQty)} ${product.unit} ${product.name} vào giỏ hàng`,
-    );
   }
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {

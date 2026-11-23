@@ -10,7 +10,6 @@ import {
   Card,
   CardContent,
   Skeleton,
-  toast,
 } from "@greenroots/ui";
 import { AlertCircle, MapPin, Plus } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/common/confirm-action-dialog";
@@ -257,7 +256,6 @@ export function AccountAddressesView({
       }
 
       reconcileAfterSetDefault(result.address);
-      toast.success("Đã đặt làm địa chỉ giao hàng mặc định");
       router.refresh();
     } catch {
       setListActionError("Không thể kết nối tới máy chủ GreenRoots Farm.");
@@ -287,7 +285,6 @@ export function AccountAddressesView({
 
       reconcileAfterDelete(deletingAddress.id, result.addresses);
       setDeletingAddress(null);
-      toast.success("Đã xóa địa chỉ khỏi sổ");
       router.refresh();
     } catch {
       setDeleteError("Không thể kết nối tới máy chủ GreenRoots Farm.");

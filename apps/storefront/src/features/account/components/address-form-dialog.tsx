@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  toast,
 } from "@greenroots/ui";
 import { Loader2 } from "lucide-react";
 import {
@@ -251,7 +250,6 @@ function AddressFormDialogBody({
         }
 
         onUpdated(result.address);
-        toast.success("Đã cập nhật địa chỉ giao hàng");
         onOpenChange(false);
         router.refresh();
       } catch {
@@ -290,7 +288,6 @@ function AddressFormDialogBody({
       }
 
       onCreated(result.address);
-      toast.success("Đã thêm địa chỉ giao hàng mới");
       onOpenChange(false);
       router.refresh();
     } catch {

@@ -12,7 +12,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  toast,
 } from "@greenroots/ui";
 import {
   ChevronDown,
@@ -38,6 +37,7 @@ interface HeaderAuthViewProps {
   readonly activeUser: StorefrontSessionUser | null;
   readonly menuOpen?: boolean;
   readonly isLoggingOut?: boolean;
+  readonly logoutError?: string | null;
   readonly onMenuOpenChange?: (open: boolean) => void;
   readonly onLogout?: () => void;
 }
@@ -50,6 +50,7 @@ export function HeaderAuthView({
   activeUser,
   menuOpen = false,
   isLoggingOut = false,
+  logoutError = null,
   onMenuOpenChange,
   onLogout,
 }: HeaderAuthViewProps) {
@@ -148,6 +149,15 @@ export function HeaderAuthView({
 
         <DropdownMenuSeparator className="my-1 bg-border-subtle" />
 
+        {logoutError ? (
+          <div
+            role="alert"
+            className="mx-1 mb-1 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] font-medium text-red-900"
+          >
+            {logoutError}
+          </div>
+        ) : null}
+
         <DropdownMenuItem
           variant="destructive"
           disabled={isLoggingOut}
@@ -183,6 +193,7 @@ export function HeaderAuthControls({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   useEffect(() => {
     setUser(initialUser);
@@ -205,26 +216,34 @@ export function HeaderAuthControls({
       if (eventType === "LOGOUT") {
         clearSession();
         setMenuOpen(false);
+        setLogoutError(null);
       }
       router.refresh();
     });
   }, [clearDeliveryState, clearSession, router]);
+
+  function handleMenuOpenChange(open: boolean) {
+    setMenuOpen(open);
+    if (!open) {
+      setLogoutError(null);
+    }
+  }
 
   async function handleLogout() {
     if (isLoggingOut) {
       return;
     }
 
+    setLogoutError(null);
     setIsLoggingOut(true);
     try {
       const result = await performStorefrontLogout();
       if (!result.ok) {
-        toast.error(result.message);
+        setLogoutError(result.message);
         return;
       }
 
       setMenuOpen(false);
-      toast.success("Đã đăng xuất tài khoản");
       router.refresh();
     } finally {
       setIsLoggingOut(false);
@@ -239,7 +258,8 @@ export function HeaderAuthControls({
       activeUser={activeUser}
       menuOpen={menuOpen}
       isLoggingOut={isLoggingOut}
-      onMenuOpenChange={setMenuOpen}
+      logoutError={logoutError}
+      onMenuOpenChange={handleMenuOpenChange}
       onLogout={() => void handleLogout()}
     />
   );

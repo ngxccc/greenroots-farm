@@ -194,6 +194,26 @@ describe("Storefront Header Auth UI", () => {
           root.unmount();
           await Promise.resolve();
         });
+
+        const errorRoot = createRoot(container as unknown as Element);
+        await act(async () => {
+          errorRoot.render(
+            createElement(HeaderAuthView, {
+              activeUser: sampleUser,
+              menuOpen: true,
+              logoutError: "Không thể đăng xuất lúc này.",
+            }),
+          );
+          await Promise.resolve();
+        });
+        expect(win.document.body.innerHTML).toContain('role="alert"');
+        expect(win.document.body.innerHTML).toContain(
+          "Không thể đăng xuất lúc này.",
+        );
+        await act(async () => {
+          errorRoot.unmount();
+          await Promise.resolve();
+        });
       });
     });
   });

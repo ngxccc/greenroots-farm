@@ -15,7 +15,6 @@ import {
   CardTitle,
   Input,
   Label,
-  toast,
 } from "@greenroots/ui";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { updateProfileAction } from "@/lib/auth/auth-actions";
@@ -41,6 +40,7 @@ interface ProfileDetailsFormViewProps {
   readonly hasPendingChanges: boolean;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
+  readonly successMessage?: string | null;
   readonly onFullNameChange: (value: string) => void;
   readonly onPhoneChange: (value: string) => void;
   readonly onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
@@ -62,6 +62,7 @@ export function ProfileDetailsFormView({
   hasPendingChanges,
   isPending,
   errorMessage,
+  successMessage = null,
   onFullNameChange,
   onPhoneChange,
   onSubmit,
@@ -94,6 +95,13 @@ export function ProfileDetailsFormView({
             <Alert variant="destructive">
               <AlertCircle className="size-4" aria-hidden="true" />
               <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          {successMessage ? (
+            <Alert variant="success">
+              <CheckCircle2 className="size-4" aria-hidden="true" />
+              <AlertDescription>{successMessage}</AlertDescription>
             </Alert>
           ) : null}
 
@@ -218,6 +226,7 @@ export function ProfileDetailsForm({
     readonly phone: string;
   } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
 
   const activeDraft = draft?.baseKey === baselineKey ? draft : null;
@@ -233,12 +242,18 @@ export function ProfileDetailsForm({
     if (errorMessage) {
       setErrorMessage(null);
     }
+    if (successMessage) {
+      setSuccessMessage(null);
+    }
   }
 
   function handlePhoneChange(nextPhone: string) {
     setDraft({ baseKey: baselineKey, fullName, phone: nextPhone });
     if (errorMessage) {
       setErrorMessage(null);
+    }
+    if (successMessage) {
+      setSuccessMessage(null);
     }
   }
 
@@ -249,6 +264,7 @@ export function ProfileDetailsForm({
     }
 
     setErrorMessage(null);
+    setSuccessMessage(null);
     const diff = buildUpdateProfileDiff(baseline, { fullName, phone });
     if (!diff.ok) {
       setErrorMessage(diff.message);
@@ -266,7 +282,7 @@ export function ProfileDetailsForm({
         setUser(result.user);
         onProfileUpdated?.(result.user);
         broadcastAuthEvent("SESSION_CHANGED");
-        toast.success("Đã cập nhật thông tin hồ sơ cá nhân.");
+        setSuccessMessage("Đã cập nhật thông tin hồ sơ cá nhân.");
         router.refresh();
         return;
       }
@@ -297,6 +313,7 @@ export function ProfileDetailsForm({
       hasPendingChanges={hasPendingChanges}
       isPending={isPending}
       errorMessage={errorMessage}
+      successMessage={successMessage}
       onFullNameChange={handleFullNameChange}
       onPhoneChange={handlePhoneChange}
       onSubmit={(event) => void handleSubmit(event)}

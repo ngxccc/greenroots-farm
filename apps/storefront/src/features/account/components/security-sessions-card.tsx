@@ -9,7 +9,6 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  toast,
 } from "@greenroots/ui";
 import { LogOut, ShieldAlert } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/common/confirm-action-dialog";
@@ -129,7 +128,6 @@ export function SecuritySessionsCard() {
       if (result.ok) {
         invalidateStorefrontClientSession();
         setDialogOpen(false);
-        toast.success(result.message);
         router.replace("/login?loggedOutAll=1");
         router.refresh();
         return;
