@@ -20,6 +20,7 @@ import {
   Label,
 } from "@greenroots/ui";
 import { MapPin, Search, ShoppingCart } from "lucide-react";
+import { roundQuantity } from "@/lib/format";
 import { buildProductSearchHref } from "@/lib/navigation";
 import { estimateDistrictPreviewQuote } from "@/lib/shipping";
 import { useAuthStore } from "@/stores/auth.store";
@@ -178,7 +179,9 @@ export function StorefrontHeader({ authSlot }: StorefrontHeaderProps) {
   const [cartOpen, setCartOpen] = useState(false);
 
   const items = useCartStore((state) => state.items);
-  const totalCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalCount = roundQuantity(
+    items.reduce((sum, item) => sum + item.quantity, 0),
+  );
 
   function handleSearchSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();

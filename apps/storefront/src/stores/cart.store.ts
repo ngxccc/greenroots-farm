@@ -3,6 +3,7 @@
 import { HCMC_DISTRICTS } from "@greenroots/shared";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { ORDER_QUANTITY_MIN, roundQuantity } from "@/lib/format";
 import type { StorefrontProduct } from "@/types/storefront.types";
 
 export interface CartItem {
@@ -33,6 +34,21 @@ interface CartState {
 const DEFAULT_DISTRICT_CODE = HCMC_DISTRICTS[0].code;
 const ssrMemoryFallback = new Map<string, string>();
 
+function clampAddableQuantity(requested: number, available: number): number {
+  const normalizedAvailable = roundQuantity(Math.max(0, available));
+  if (normalizedAvailable <= 0) {
+    return 0;
+  }
+  const normalizedRequested = roundQuantity(requested);
+  if (!Number.isFinite(normalizedRequested) || normalizedRequested <= 0) {
+    return 0;
+  }
+  const boundedMin = Math.min(ORDER_QUANTITY_MIN, normalizedAvailable);
+  return roundQuantity(
+    Math.min(Math.max(normalizedRequested, boundedMin), normalizedAvailable),
+  );
+}
+
 /**
  * Client-side grocery cart persisted in `localStorage` (Q27).
  * Inventory is never locked in the cart; availability is checked before checkout.
@@ -51,10 +67,13 @@ export const useCartStore = create<CartState>()(
             (item) => item.productId === product.id,
           );
           if (existing) {
-            const nextQuantity = Math.min(
+            const nextQuantity = clampAddableQuantity(
               existing.quantity + quantity,
               product.availableQuantity,
             );
+            if (nextQuantity <= 0) {
+              return state;
+            }
             return {
               items: state.items.map((item) =>
                 item.productId === product.id
@@ -69,11 +88,11 @@ export const useCartStore = create<CartState>()(
             };
           }
 
-          const clampedQuantity = Math.max(
-            1,
-            Math.min(quantity, product.availableQuantity),
+          const clampedQuantity = clampAddableQuantity(
+            quantity,
+            product.availableQuantity,
           );
-          if (product.availableQuantity <= 0) {
+          if (clampedQuantity <= 0) {
             return state;
           }
 
@@ -99,7 +118,8 @@ export const useCartStore = create<CartState>()(
 
       setQuantity: (productId, quantity) =>
         set((state) => {
-          if (quantity <= 0) {
+          const rounded = roundQuantity(quantity);
+          if (!Number.isFinite(rounded) || rounded <= 0) {
             return {
               items: state.items.filter((item) => item.productId !== productId),
             };
@@ -109,7 +129,10 @@ export const useCartStore = create<CartState>()(
               item.productId === productId
                 ? {
                     ...item,
-                    quantity: Math.min(quantity, item.availableQuantity),
+                    quantity: clampAddableQuantity(
+                      rounded,
+                      item.availableQuantity,
+                    ),
                   }
                 : item,
             ),
@@ -122,7 +145,10 @@ export const useCartStore = create<CartState>()(
             item.productId === productId
               ? {
                   ...item,
-                  quantity: Math.min(item.quantity + 1, item.availableQuantity),
+                  quantity: clampAddableQuantity(
+                    item.quantity + 1,
+                    item.availableQuantity,
+                  ),
                 }
               : item,
           ),
@@ -133,10 +159,10 @@ export const useCartStore = create<CartState>()(
           items: state.items
             .map((item) =>
               item.productId === productId
-                ? { ...item, quantity: item.quantity - 1 }
+                ? { ...item, quantity: roundQuantity(item.quantity - 1) }
                 : item,
             )
-            .filter((item) => item.quantity > 0),
+            .filter((item) => item.quantity >= ORDER_QUANTITY_MIN),
         })),
 
       removeItem: (productId) =>

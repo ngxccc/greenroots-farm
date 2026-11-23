@@ -41,6 +41,28 @@ describe("useCartStore", () => {
     expect(useCartStore.getState().items[0]?.quantity).toBe(3);
   });
 
+  test("clamps quantity to fractional stock when availableQuantity is below one unit", () => {
+    const halfKgProduct: StorefrontProduct = {
+      ...sampleTomato,
+      id: "prod-half-kg",
+      unit: "kg",
+      unitLabel: "1 kg",
+      availableQuantity: 0.5,
+    };
+
+    useCartStore.getState().addItem(halfKgProduct, 1);
+    expect(useCartStore.getState().items[0]?.quantity).toBe(0.5);
+
+    useCartStore.getState().addItem(halfKgProduct, 0.25);
+    expect(useCartStore.getState().items[0]?.quantity).toBe(0.5);
+
+    useCartStore.getState().setQuantity(halfKgProduct.id, 0.3);
+    expect(useCartStore.getState().items[0]?.quantity).toBe(0.3);
+
+    useCartStore.getState().incrementItem(halfKgProduct.id);
+    expect(useCartStore.getState().items[0]?.quantity).toBe(0.5);
+  });
+
   test("removes item when decremented to zero", () => {
     useCartStore.getState().addItem(sampleTomato, 1);
     useCartStore.getState().decrementItem(sampleTomato.id);

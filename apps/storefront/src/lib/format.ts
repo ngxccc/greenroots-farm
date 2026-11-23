@@ -1,3 +1,16 @@
+/** Minimum purchasable decimal quantity matching backend `ORDER_ITEM_MIN_QUANTITY` (`numeric(10, 2)`). */
+export const ORDER_QUANTITY_MIN = 0.01;
+
+/**
+ * Rounds a numeric quantity to 2 decimal places (`numeric(10, 2)`) to avoid IEEE-754 drift.
+ *
+ * @param value Raw numeric quantity.
+ * @returns Quantity rounded to 2 decimal places.
+ */
+export function roundQuantity(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 /**
  * Formats an integer VND amount for storefront pricing display.
  */
