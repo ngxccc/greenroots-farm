@@ -1,60 +1,125 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
-import { Badge, Card, CardContent, Skeleton } from "@greenroots/ui";
-import { ArrowLeft, Leaf, ShieldCheck } from "lucide-react";
-import { ProductCard } from "@/features/home/components/product-card";
-import { formatVnd } from "@/lib/format";
-import { getShowcaseProductBySlug } from "@/services/storefront.service";
+import { connection } from "next/server";
+import { Suspense, cache } from "react";
+import { AlertCircle, ChevronRight } from "lucide-react";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Skeleton,
+  buttonVariants,
+} from "@greenroots/ui";
+import { ProductDetailHero } from "@/features/product-detail";
+import { fetchLiveProductBySlug } from "@/services/storefront.service";
 
-async function CachedProductDetail({ slug }: { readonly slug: string }) {
-  "use cache";
-  const product = await Promise.resolve(getShowcaseProductBySlug(slug));
-  if (!product) {
+const getProductBySlugCached = cache(async (slug: string) =>
+  fetchLiveProductBySlug(slug),
+);
+
+/**
+ * Resolves dynamic page `<title>` and description from the live product catalog.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  await connection();
+  const { slug } = await params;
+  const result = await getProductBySlugCached(slug);
+
+  if (result.status !== "ok") {
+    return { title: "Chi tiết sản phẩm" };
+  }
+
+  return {
+    title: result.dto.name,
+    description:
+      result.dto.description ??
+      `${result.dto.name} — nông sản hữu cơ tươi sạch tại GreenRoots Farm.`,
+  };
+}
+
+async function ProductDetailContent({ slug }: { readonly slug: string }) {
+  await connection();
+  const result = await getProductBySlugCached(slug);
+
+  if (result.status === "not_found") {
     notFound();
   }
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 lg:px-6">
-      <Link
-        href="/products"
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-forest hover:underline"
-      >
-        <ArrowLeft className="size-4" />
-        Quay lại danh mục
-      </Link>
+  if (result.status === "error") {
+    return (
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-8 lg:px-6">
+        <Alert
+          variant="destructive"
+          className="rounded-2xl border-red-200 bg-white p-5"
+        >
+          <AlertCircle className="size-4" aria-hidden="true" />
+          <AlertTitle className="font-bold text-gray-900">
+            Không thể tải thông tin sản phẩm
+          </AlertTitle>
+          <AlertDescription className="text-gray-600">
+            Hệ thống tạm thời chưa kết nối được tới danh mục trực tiếp. Vui lòng
+            tải lại trang hoặc quay về trang chủ.
+          </AlertDescription>
+        </Alert>
+        <div>
+          <Link
+            href="/products"
+            className={buttonVariants({
+              variant: "outline",
+              className:
+                "border-border-subtle bg-surface-card font-semibold text-gray-900 hover:border-brand-forest",
+            })}
+          >
+            Xem danh sách sản phẩm
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-      <Card className="border-border-subtle bg-white">
-        <CardContent className="grid items-center gap-6 p-5 md:grid-cols-2">
-          <div className="flex h-56 items-center justify-center rounded-2xl bg-green-50">
-            <Leaf className="size-20 text-brand-forest/70" />
-          </div>
-          <div className="space-y-3">
-            {product.badgeText ? (
-              <Badge className="border-0 bg-green-100 font-bold text-brand-dark">
-                {product.badgeText}
-              </Badge>
-            ) : null}
-            <h1 className="text-2xl font-extrabold text-gray-900">
-              {product.name}
-            </h1>
-            <p className="text-xs text-gray-500">
-              Quy cách: {product.unitLabel} · Tổng tồn kho khả dụng:{" "}
-              {product.availableQuantity}
-            </p>
-            <p className="text-2xl font-extrabold text-brand-forest">
-              {formatVnd(product.salePriceVnd ?? product.basePriceVnd)}
-            </p>
-            <p className="flex items-center gap-1.5 text-xs text-gray-600">
-              <ShieldCheck className="size-4 shrink-0 text-status-fresh" />
-              Hệ thống tự động xuất theo lô cận hạn trước (FEFO) khi đóng gói.
-            </p>
-            <div className="pt-2">
-              <ProductCard product={product} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+  const { product, dto } = result;
+
+  return (
+    <div className="w-full flex-1 bg-surface-card">
+      <div className="mx-auto flex w-full max-w-6xl flex-col lg:gap-5 lg:px-6 lg:pt-5 lg:pb-10">
+        <nav
+          aria-label="Đường dẫn"
+          className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 text-xs text-gray-500 lg:px-0 lg:py-0"
+        >
+          <Link
+            href="/"
+            className="inline-flex items-center hover:text-brand-forest"
+          >
+            Trang chủ
+          </Link>
+          <ChevronRight
+            className="size-3.5 shrink-0 text-gray-400"
+            aria-hidden="true"
+          />
+          <Link
+            href="/products"
+            className="inline-flex items-center hover:text-brand-forest"
+          >
+            Danh sách sản phẩm
+          </Link>
+          <ChevronRight
+            className="size-3.5 shrink-0 text-gray-400"
+            aria-hidden="true"
+          />
+          <span className="inline-flex items-center font-semibold text-gray-900">
+            {dto.name}
+          </span>
+        </nav>
+
+        <section aria-label="Thông tin chi tiết sản phẩm">
+          <ProductDetailHero product={product} dto={dto} />
+        </section>
+      </div>
     </div>
   );
 }
@@ -65,9 +130,12 @@ async function ProductParamsLoader({
   readonly params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  return <CachedProductDetail slug={slug} />;
+  return <ProductDetailContent slug={slug} />;
 }
 
+/**
+ * SF-02 Customer Product Detail Page (`/products/[slug]`).
+ */
 export default function ProductDetailPage({
   params,
 }: {
@@ -76,19 +144,20 @@ export default function ProductDetailPage({
   return (
     <Suspense
       fallback={
-        <div
-          aria-hidden="true"
-          className="mx-auto max-w-3xl space-y-4 px-4 py-8 lg:px-6"
-        >
-          <Skeleton className="h-4 w-32 bg-gray-200" />
-          <div className="grid items-center gap-6 rounded-xl border border-border-subtle bg-white p-5 md:grid-cols-2">
-            <Skeleton className="h-56 w-full rounded-2xl bg-green-50" />
-            <div className="space-y-3">
-              <Skeleton className="h-5 w-28 rounded-full bg-green-100" />
-              <Skeleton className="h-7 w-3/4 bg-gray-200" />
-              <Skeleton className="h-4 w-2/3 bg-gray-200" />
-              <Skeleton className="h-8 w-1/2 bg-gray-200" />
-              <Skeleton className="h-10 w-full rounded-lg bg-green-100/70" />
+        <div aria-hidden="true" className="w-full flex-1 bg-surface-card">
+          <div className="mx-auto flex w-full max-w-6xl flex-col lg:gap-5 lg:px-6 lg:pt-5 lg:pb-10">
+            <div className="px-4 py-2.5 lg:px-0 lg:py-0">
+              <Skeleton className="h-4 w-48 bg-gray-200" />
+            </div>
+            <div className="grid grid-cols-1 items-start lg:grid-cols-12 lg:gap-8">
+              <Skeleton className="aspect-4/3 w-full bg-gray-100 lg:col-span-5 lg:rounded-xl" />
+              <div className="flex flex-col gap-3 p-4 lg:col-span-7 lg:gap-4 lg:p-0">
+                <Skeleton className="h-8 w-1/2 bg-gray-200" />
+                <Skeleton className="h-6 w-3/4 bg-gray-200" />
+                <Skeleton className="h-14 w-full bg-gray-100" />
+                <Skeleton className="h-24 w-full bg-gray-100" />
+                <Skeleton className="h-11 w-full rounded-xl bg-green-100/70" />
+              </div>
             </div>
           </div>
         </div>
