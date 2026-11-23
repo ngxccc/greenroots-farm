@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@greenroots/ui";
 import { ChevronUp } from "lucide-react";
 
 export function BackToTopButton() {
@@ -17,13 +18,14 @@ export function BackToTopButton() {
   if (!visible) return null;
 
   return (
-    <button
+    <Button
       type="button"
+      size="icon-lg"
       aria-label="Lên đầu trang"
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-      className="fixed right-5 bottom-6 z-50 flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-brand-forest text-white shadow-2xl transition hover:bg-brand-dark"
+      className="fixed right-5 bottom-6 z-50 size-12 rounded-full bg-brand-forest text-white shadow-2xl hover:bg-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:ring-offset-2"
     >
-      <ChevronUp className="size-6" />
-    </button>
+      <ChevronUp className="size-6" aria-hidden="true" />
+    </Button>
   );
 }

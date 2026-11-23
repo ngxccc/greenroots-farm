@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, type ReactNode, type SubmitEvent } from "react";
 import { HCMC_DISTRICTS } from "@greenroots/shared";
-import { Button, Input, Label } from "@greenroots/ui";
+import { Badge, Button, Input, Label } from "@greenroots/ui";
 import { MapPin, Search, ShoppingCart } from "lucide-react";
 import { buildProductSearchHref } from "@/lib/navigation";
 import { estimateDistrictPreviewQuote } from "@/lib/shipping";
@@ -49,7 +49,7 @@ export function StorefrontHeaderSearchForm({
           value={query}
           onChange={(event) => onQueryChange?.(event.target.value)}
           placeholder="Tìm rau củ hữu cơ tươi ngon..."
-          className="h-auto border-0 bg-transparent p-0 text-xs text-gray-900 shadow-none placeholder:text-gray-500 focus-visible:ring-0 sm:text-sm"
+          className="h-auto border-0 bg-transparent p-0 text-xs text-gray-900 shadow-none placeholder:text-gray-500 focus-visible:ring-0 sm:text-sm dark:bg-transparent"
         />
         <Button
           type="submit"
@@ -93,7 +93,7 @@ export function StorefrontHeader({ authSlot }: StorefrontHeaderProps) {
   return (
     <>
       <header className="sticky top-0 z-40 bg-brand-forest text-white shadow-sm">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-3 lg:px-6">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-1.5 gap-y-2.5 px-3 py-3 sm:gap-4 sm:px-4 lg:px-6">
           <Link
             href="/"
             className="flex shrink-0 items-center rounded focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
@@ -107,21 +107,23 @@ export function StorefrontHeader({ authSlot }: StorefrontHeaderProps) {
             onSubmit={handleSearchSubmit}
           />
 
-          <div className="order-2 flex shrink-0 items-center gap-4 md:order-3">
-            <button
+          <div className="order-2 flex min-w-0 shrink-0 items-center gap-2 sm:gap-4 md:order-3">
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setCartOpen(true)}
               aria-label={`Giỏ hàng (${totalCount} sản phẩm)`}
-              className="relative inline-flex cursor-pointer items-center justify-center rounded px-1.5 py-1 text-white transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+              className="relative size-auto rounded px-0.5 py-1 text-white hover:bg-transparent hover:text-white hover:opacity-90 focus-visible:border-white focus-visible:ring-2 focus-visible:ring-white sm:px-1.5 dark:hover:bg-transparent"
             >
               <ShoppingCart className="size-6" aria-hidden="true" />
-              <span
+              <Badge
                 role="status"
-                className="absolute -top-1.5 -right-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-white px-1 text-[11px] font-semibold text-brand-dark tabular-nums"
+                className="absolute -top-1.5 -right-2 h-4 min-w-4 border-0 bg-white px-1 text-[11px] font-semibold text-brand-dark tabular-nums"
               >
                 {totalCount}
-              </span>
-            </button>
+              </Badge>
+            </Button>
 
             {authSlot ?? <HeaderAuthControls initialUser={null} />}
           </div>
@@ -138,13 +140,15 @@ export function StorefrontHeader({ authSlot }: StorefrontHeaderProps) {
           <span className="font-semibold text-gray-900 tabular-nums">
             {activeDistrict.name}, TP.HCM (~{deliveryQuote.roadDistanceKm} km)
           </span>
-          <button
+          <Button
             type="button"
+            variant="link"
+            size="xs"
             onClick={() => setAddressOpen(true)}
-            className="cursor-pointer font-semibold text-brand-forest hover:underline focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
+            className="h-auto p-0 text-xs font-semibold text-brand-forest focus-visible:ring-2 focus-visible:ring-brand-forest"
           >
             Đổi địa chỉ
-          </button>
+          </Button>
         </div>
       </div>
 
