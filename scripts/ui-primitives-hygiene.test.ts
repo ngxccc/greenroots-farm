@@ -11,6 +11,10 @@ const UI_SCAN_ROOTS = [
 ] as const;
 
 const BACKOFFICE_SCAN_ROOT = "apps/backoffice/src";
+const STOREFRONT_SCAN_ROOTS = [
+  "apps/storefront/app",
+  "apps/storefront/src",
+] as const;
 const SHARED_UI_SCAN_ROOT = "packages/ui/src";
 
 const FORBIDDEN_BACKOFFICE_RAW_ELEMENTS = new Set([
@@ -26,6 +30,13 @@ const FORBIDDEN_BACKOFFICE_RAW_ELEMENTS = new Set([
   "button",
   "input",
   "select",
+]);
+
+const FORBIDDEN_STOREFRONT_RAW_ELEMENTS = new Set(["button"]);
+
+const STOREFRONT_RSC_UNCACHED_LOADERS = new Set([
+  "getServerSession",
+  "fetchApiHealth",
 ]);
 
 const FORBIDDEN_NESTED_IN_LABEL = new Set([
@@ -176,20 +187,111 @@ export function evaluateBackofficePrimitiveHygiene(
   filePath: string,
   sourceText: string,
 ): string[] {
-  return collectBackofficePrimitiveViolations(
+  return collectRawElementViolations(
     parseSourceFile(filePath, sourceText),
+    FORBIDDEN_BACKOFFICE_RAW_ELEMENTS,
   );
 }
 
-function collectBackofficePrimitiveViolations(
+/**
+ * Inspects a Storefront TypeScript or TSX source string for raw HTML `<button>` elements
+ * that bypass `@greenroots/ui` `Button` / `DropdownMenuTrigger` primitives.
+ *
+ * @param filePath Virtual or real workspace file path for TSX parser selection.
+ * @param sourceText Source code text to scan via the TypeScript AST.
+ * @returns Human-readable violation descriptors; empty when no raw `<button>` tags exist.
+ */
+export function evaluateStorefrontButtonHygiene(
+  filePath: string,
+  sourceText: string,
+): string[] {
+  return collectRawElementViolations(
+    parseSourceFile(filePath, sourceText),
+    FORBIDDEN_STOREFRONT_RAW_ELEMENTS,
+  );
+}
+
+/**
+ * Inspects a Storefront Server Component or app route for uncached server session/API
+ * loader calls without an explicit `await connection()` outside `try/catch` (`UI-3`).
+ *
+ * @param filePath Virtual or real workspace file path for TSX parser selection.
+ * @param sourceText Source code text to scan via the TypeScript AST.
+ * @returns Violation descriptors when an RSC references `getServerSession`/`fetchApiHealth` without top-level `connection()`.
+ */
+export function evaluateStorefrontConnectionHygiene(
+  filePath: string,
+  sourceText: string,
+): string[] {
+  if (filePath.endsWith(".spec.ts") || filePath.endsWith(".spec.tsx")) {
+    return [];
+  }
+
+  const sourceFile = parseSourceFile(filePath, sourceText);
+  const firstStmt = sourceFile.statements[0];
+  if (
+    firstStmt &&
+    ts.isExpressionStatement(firstStmt) &&
+    ts.isStringLiteral(firstStmt.expression) &&
+    (firstStmt.expression.text === "use client" ||
+      firstStmt.expression.text === "use server")
+  ) {
+    return [];
+  }
+
+  let callsUncachedLoader = false;
+  let hasSafeConnectionCall = false;
+  let connectionInsideTry = false;
+
+  function visit(node: ts.Node, inTryBlock: boolean): void {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+      const callee = node.expression.text;
+      if (STOREFRONT_RSC_UNCACHED_LOADERS.has(callee)) {
+        callsUncachedLoader = true;
+      } else if (callee === "connection") {
+        if (inTryBlock) {
+          connectionInsideTry = true;
+        } else {
+          hasSafeConnectionCall = true;
+        }
+      }
+    }
+
+    if (ts.isTryStatement(node)) {
+      visit(node.tryBlock, true);
+      if (node.catchClause) visit(node.catchClause, inTryBlock);
+      if (node.finallyBlock) visit(node.finallyBlock, inTryBlock);
+      return;
+    }
+
+    ts.forEachChild(node, (child) => visit(child, inTryBlock));
+  }
+
+  visit(sourceFile, false);
+
+  if (callsUncachedLoader && connectionInsideTry && !hasSafeConnectionCall) {
+    return [
+      "connection() must run outside try/catch before uncached server API reads",
+    ];
+  }
+  if (callsUncachedLoader && !hasSafeConnectionCall) {
+    return [
+      "missing await connection() before uncached server API reads (getServerSession/fetchApiHealth)",
+    ];
+  }
+  return [];
+}
+
+function collectRawElementViolations(
   sourceFile: ts.SourceFile,
+  forbiddenElements: ReadonlySet<string>,
 ): string[] {
   const violations: string[] = [];
 
   function visit(node: ts.Node): void {
     if (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) {
       const tagName = node.tagName.getText(sourceFile);
-      if (FORBIDDEN_BACKOFFICE_RAW_ELEMENTS.has(tagName)) {
+      if (forbiddenElements.has(tagName)) {
         const line =
           sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile))
             .line + 1;
@@ -329,6 +431,46 @@ describe("Shared UI Primitives Hygiene", () => {
     });
   });
 
+  describe("evaluateStorefrontButtonHygiene", () => {
+    it("rejects raw button elements while allowing shared Button and DropdownMenuTrigger", () => {
+      const violations = evaluateStorefrontButtonHygiene(
+        "header.tsx",
+        `<div>
+          <Button type="button">OK</Button>
+          <DropdownMenuTrigger render={<Button type="button" />} />
+          <button type="button">Raw</button>
+        </div>`,
+      );
+
+      expect(violations).toEqual(["raw button element at line 4"]);
+    });
+  });
+
+  describe("evaluateStorefrontConnectionHygiene", () => {
+    it("rejects uncached server loader calls missing connection() or wrapping connection() inside try", () => {
+      const missingConn = evaluateStorefrontConnectionHygiene(
+        "slot.tsx",
+        `export async function Slot() { return await getServerSession(); }`,
+      );
+      const insideTry = evaluateStorefrontConnectionHygiene(
+        "slot.tsx",
+        `export async function Slot() { try { await connection(); return await getServerSession(); } catch { return null; } }`,
+      );
+      const valid = evaluateStorefrontConnectionHygiene(
+        "slot.tsx",
+        `export async function Slot() { await connection(); return await getServerSession(); }`,
+      );
+
+      expect(missingConn).toEqual([
+        "missing await connection() before uncached server API reads (getServerSession/fetchApiHealth)",
+      ]);
+      expect(insideTry).toEqual([
+        "connection() must run outside try/catch before uncached server API reads",
+      ]);
+      expect(valid).toEqual([]);
+    });
+  });
+
   describe("monorepo UI sources", () => {
     it("rejects raw label tags and nested wrapper Labels across storefront and backoffice", () => {
       const violations: string[] = [];
@@ -362,6 +504,46 @@ describe("Shared UI Primitives Hygiene", () => {
         );
         for (const violation of fileViolations) {
           violations.push(`${path.relative(REPO_ROOT, file)}: ${violation}`);
+        }
+      }
+
+      expect(violations).toEqual([]);
+    });
+
+    it("rejects raw HTML button tags across storefront sources", () => {
+      const violations: string[] = [];
+
+      for (const relativeRoot of STOREFRONT_SCAN_ROOTS) {
+        for (const file of collectSourceFiles(
+          path.join(REPO_ROOT, relativeRoot),
+        )) {
+          const fileViolations = evaluateStorefrontButtonHygiene(
+            file,
+            fs.readFileSync(file, "utf8"),
+          );
+          for (const violation of fileViolations) {
+            violations.push(`${path.relative(REPO_ROOT, file)}: ${violation}`);
+          }
+        }
+      }
+
+      expect(violations).toEqual([]);
+    });
+
+    it("enforces await connection() outside try/catch for uncached storefront server loaders", () => {
+      const violations: string[] = [];
+
+      for (const relativeRoot of STOREFRONT_SCAN_ROOTS) {
+        for (const file of collectSourceFiles(
+          path.join(REPO_ROOT, relativeRoot),
+        )) {
+          const fileViolations = evaluateStorefrontConnectionHygiene(
+            file,
+            fs.readFileSync(file, "utf8"),
+          );
+          for (const violation of fileViolations) {
+            violations.push(`${path.relative(REPO_ROOT, file)}: ${violation}`);
+          }
         }
       }
 
