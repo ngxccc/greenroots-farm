@@ -6,8 +6,6 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { roundQuantity } from "@/lib/format";
 import type { StorefrontProduct } from "@/types/storefront.types";
 
-const ORDER_QUANTITY_MIN = BUSINESS_RULES.ORDER_ITEM_MIN_QUANTITY;
-
 export interface CartItem {
   readonly productId: string;
   readonly slug: string;
@@ -46,7 +44,10 @@ function clampAddableQuantity(requested: number, available: number): number {
   if (!Number.isFinite(normalizedRequested) || normalizedRequested <= 0) {
     return 0;
   }
-  const boundedMin = Math.min(ORDER_QUANTITY_MIN, normalizedAvailable);
+  const boundedMin = Math.min(
+    BUSINESS_RULES.ORDER_ITEM_MIN_QUANTITY,
+    normalizedAvailable,
+  );
   return roundQuantity(
     Math.min(Math.max(normalizedRequested, boundedMin), normalizedAvailable),
   );
@@ -234,7 +235,9 @@ export const useCartStore = create<CartState>()(
                 ? { ...item, quantity: roundQuantity(item.quantity - 1) }
                 : item,
             )
-            .filter((item) => item.quantity >= ORDER_QUANTITY_MIN),
+            .filter(
+              (item) => item.quantity >= BUSINESS_RULES.ORDER_ITEM_MIN_QUANTITY,
+            ),
         })),
 
       removeItem: (productId) =>
