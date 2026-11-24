@@ -544,7 +544,7 @@ describe("OrdersService", () => {
             slug: "ca-chua-bi",
             imageUrls: null,
             unit: "kg",
-            basePrice: 70_000,
+            basePrice: 20_000,
             salePrice: null,
             isActive: true,
             deletedAt: null,
@@ -574,10 +574,10 @@ describe("OrdersService", () => {
       };
       expect(response.code).toBe(API_ERROR_CODES.ORDER_BELOW_MINIMUM_VALUE);
       expect(response.invalidParams[0]?.params?.["minOrderValueVnd"]).toBe(
-        150_000,
+        50_000,
       );
       expect(response.invalidParams[0]?.params?.["currentSubtotalVnd"]).toBe(
-        140_000,
+        40_000,
       );
     });
 

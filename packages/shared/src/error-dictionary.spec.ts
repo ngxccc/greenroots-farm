@@ -9,8 +9,8 @@ import {
 import { ORDER_STATUS_LABELS } from "./shared-labels";
 
 describe("BUSINESS_RULES", () => {
-  it("defines the 150,000 VND minimum order value constant", () => {
-    expect(BUSINESS_RULES.MIN_ORDER_VALUE_VND).toBe(150_000);
+  it("defines the 50,000 VND minimum order value constant", () => {
+    expect(BUSINESS_RULES.MIN_ORDER_VALUE_VND).toBe(50_000);
   });
 });
 
