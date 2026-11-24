@@ -308,5 +308,33 @@ describe("TraceCacheService", () => {
 
       expect(result).toBeNull();
     });
+
+    it("writes recent batches to Redis with 60-second TTL", async () => {
+      const recent = [
+        {
+          batchCode: "BATCH-2026-TOM-01",
+          harvestDate: "2026-11-20T04:15:00.000Z",
+          status: BatchStatus.IN_STOCK,
+          product: {
+            name: "Cà chua bi",
+            unit: "500g",
+            imageUrls: [],
+          },
+          plot: {
+            plotCode: "PLOT-B2",
+            name: "Nhà màng B2",
+          },
+        },
+      ];
+
+      await service.writeCachedRecentBatches(4, recent);
+
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        "trace:recent:v1:4",
+        JSON.stringify(recent),
+        "EX",
+        60,
+      );
+    });
   });
 });

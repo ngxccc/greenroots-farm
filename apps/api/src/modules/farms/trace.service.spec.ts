@@ -285,5 +285,56 @@ describe("TraceService", () => {
         mockTraceCacheService.writeCachedRecentBatches,
       ).toHaveBeenCalledWith(4, result);
     });
+
+    it("coalesces concurrent recent batch cache misses into a single database query", async () => {
+      let releaseDb!: (rows: unknown[]) => void;
+      mockDb.setSelectResultsQueue([[]]);
+      const originalSelect = mockDb.select;
+      let selectCalls = 0;
+      mockDb.select = (() => {
+        selectCalls += 1;
+        return {
+          from: () => ({
+            innerJoin: () => ({
+              innerJoin: () => ({
+                innerJoin: () => ({
+                  where: () => ({
+                    orderBy: () => ({
+                      limit: () =>
+                        new Promise((resolve) => {
+                          releaseDb = resolve;
+                        }),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }) as unknown as typeof mockDb.select;
+
+      const first = service.listRecentTraceBatches(4);
+      const second = service.listRecentTraceBatches(4);
+
+      await Promise.resolve();
+      releaseDb([
+        {
+          batchCode: "BATCH-2026-TOM-01",
+          harvestDate: new Date("2026-11-20T04:15:00.000Z"),
+          status: BatchStatus.IN_STOCK,
+          productName: "Cà chua bi",
+          productUnit: "500g",
+          productImageUrls: [],
+          plotCode: "PLOT-B2",
+          plotName: "Nhà màng B2",
+        },
+      ]);
+
+      const [firstRes, secondRes] = await Promise.all([first, second]);
+      mockDb.select = originalSelect;
+
+      expect(selectCalls).toBe(1);
+      expect(firstRes).toEqual(secondRes);
+    });
   });
 });

@@ -31,6 +31,7 @@ import {
   TRACE_INVALIDATED_AT_PREFIX,
   TRACE_MISS_CACHE_PREFIX,
   TRACE_RECENT_CACHE_PREFIX,
+  TRACE_RECENT_MAX_LIMIT,
 } from "@/modules/farms/farms.constant";
 import { TraceCacheService } from "@/modules/farms/trace-cache.service";
 import {
@@ -81,7 +82,10 @@ async function cleanTraceRedisKeys(
     TRACE_FARM_VERSION_KEY,
     FARM_SETTINGS_CACHE_KEY,
     FARM_SETTINGS_INVALIDATED_AT_KEY,
-    `${TRACE_RECENT_CACHE_PREFIX}4`,
+    ...Array.from(
+      { length: TRACE_RECENT_MAX_LIMIT },
+      (_, index) => `${TRACE_RECENT_CACHE_PREFIX}${index + 1}`,
+    ),
   ];
 
   await redis.unlink(...keysToUnlink).catch(() => undefined);
@@ -598,7 +602,7 @@ describe("Traceability Integration", () => {
   });
 
   describe("GET /api/v1/trace", () => {
-    it("returns active in-stock and near-expiry batches while excluding expired and soft-deleted items", async () => {
+    it("returns active in-stock and near-expiry batches while excluding sold-out, expired, and soft-deleted items", async () => {
       const farm = await createFarm(setup.db);
       const activePlot = await createPlot(setup.db, {
         farmId: farm.id,
@@ -617,6 +621,30 @@ describe("Traceability Integration", () => {
         setup.db,
         SeasonMother.active({ plotId: deletedPlot.id }),
       );
+      const [deletedProductCategory] = await setup.db
+        .insert(categories)
+        .values({
+          name: "Rau củ đã xóa",
+          slug: "rau-cu-da-xoa",
+        })
+        .returning({ id: categories.id });
+      if (!deletedProductCategory) {
+        throw new Error("Expected deletedProductCategory to be created");
+      }
+      const [deletedProduct] = await setup.db
+        .insert(products)
+        .values({
+          categoryId: deletedProductCategory.id,
+          name: "Sản phẩm đã xóa",
+          slug: "san-pham-da-xoa",
+          basePrice: 25000,
+          unit: "kg",
+          deletedAt: new Date(),
+        })
+        .returning({ id: products.id });
+      if (!deletedProduct) {
+        throw new Error("Expected deletedProduct to be created");
+      }
 
       await createBatch(setup.db, {
         batchCode: "BATCH-2026-TOM-01",
@@ -625,16 +653,35 @@ describe("Traceability Integration", () => {
         harvestDate: new Date("2026-11-20T04:15:00.000Z"),
       });
       await createBatch(setup.db, {
+        batchCode: "BATCH-2026-INV-01",
+        seasonId: activeSeason.id,
+        status: BatchStatus.NEAR_EXPIRY,
+        harvestDate: new Date("2026-11-21T04:15:00.000Z"),
+      });
+      await createBatch(setup.db, {
+        batchCode: "BATCH-2026-CONC-01",
+        seasonId: activeSeason.id,
+        status: BatchStatus.SOLD_OUT,
+        harvestDate: new Date("2026-11-22T04:15:00.000Z"),
+      });
+      await createBatch(setup.db, {
         batchCode: "BATCH-2026-EXP-01",
         seasonId: activeSeason.id,
         status: BatchStatus.EXPIRED,
-        harvestDate: new Date("2026-11-21T04:15:00.000Z"),
+        harvestDate: new Date("2026-11-23T04:15:00.000Z"),
       });
       await createBatch(setup.db, {
         batchCode: "BATCH-2026-NULL-01",
         seasonId: deletedPlotSeason.id,
         status: BatchStatus.IN_STOCK,
-        harvestDate: new Date("2026-11-22T04:15:00.000Z"),
+        harvestDate: new Date("2026-11-24T04:15:00.000Z"),
+      });
+      await createBatch(setup.db, {
+        batchCode: "BATCH-2026-HIST-01",
+        seasonId: activeSeason.id,
+        productId: deletedProduct.id,
+        status: BatchStatus.IN_STOCK,
+        harvestDate: new Date("2026-11-25T04:15:00.000Z"),
       });
 
       const res = await request(app.getHttpServer())
@@ -643,17 +690,30 @@ describe("Traceability Integration", () => {
 
       const body = res.body as ApiResponse<RecentTraceBatchItemSchema[]>;
       expect(body.data.map((item) => item.batchCode)).toEqual([
+        "BATCH-2026-INV-01",
         "BATCH-2026-TOM-01",
+      ]);
+
+      const singleRes = await request(app.getHttpServer())
+        .get("/api/v1/trace?limit=1")
+        .expect(200);
+      const singleBody = singleRes.body as ApiResponse<
+        RecentTraceBatchItemSchema[]
+      >;
+      expect(singleBody.data.map((item) => item.batchCode)).toEqual([
+        "BATCH-2026-INV-01",
       ]);
     });
 
-    it("rejects unknown query parameters on the recent batches endpoint", async () => {
-      const res = await request(app.getHttpServer())
-        .get("/api/v1/trace?limit=4&unknownParam=1")
-        .expect(400);
+    it("rejects out-of-range limit values and unknown query parameters on the recent batches endpoint", async () => {
+      for (const query of ["limit=0", "limit=13", "limit=4&unknownParam=1"]) {
+        const res = await request(app.getHttpServer())
+          .get(`/api/v1/trace?${query}`)
+          .expect(400);
 
-      const body = res.body as Rfc9457ProblemDetails;
-      expect(body.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+        const body = res.body as Rfc9457ProblemDetails;
+        expect(body.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+      }
     });
   });
 });
