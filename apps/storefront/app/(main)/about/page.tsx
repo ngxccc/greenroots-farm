@@ -9,7 +9,7 @@ import { PolicySidebar } from "@/features/policies/components/policy-sidebar";
 export const metadata: Metadata = {
   title: "Giới thiệu nông trại",
   description:
-    "Tìm hiểu câu chuyện nông trại GreenRoots Farm Củ Chi với 12 ha canh tác hữu cơ chuẩn VietGAP, thu hoạch lúc 4h sáng và giao xe lạnh trong ngày.",
+    "Tìm hiểu câu chuyện nông trại GreenRoots Farm tại Đơn Dương, Lâm Đồng với 12 ha canh tác hữu cơ chuẩn VietGAP, thu hoạch lúc 4h sáng và vận chuyển xe lạnh về Urban Hub TP.HCM.",
 };
 
 /**
@@ -29,12 +29,13 @@ export default function AboutFarmPage() {
             <span>Từ Nông Trại Hữu Cơ Đến Bàn Ăn</span>
           </Badge>
           <h1 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            Nông trại GreenRoots Củ Chi — 12 hecta canh tác hữu cơ chuẩn VietGAP
+            Nông trại GreenRoots Đà Lạt — 12 hecta canh tác hữu cơ chuẩn VietGAP
           </h1>
           <p className="text-sm leading-relaxed text-green-50 sm:text-base">
-            Mỗi bó rau tại GreenRoots Farm được cắt lúc{" "}
-            {FARM_METADATA.harvestTimeLabel}, làm mát nhanh ở 4°C và giao thẳng
-            đến bếp nhà bạn trong ngày, không qua thương lái trung gian.
+            Mỗi bó rau tại GreenRoots Farm (Đơn Dương, Lâm Đồng) được cắt lúc{" "}
+            {FARM_METADATA.harvestTimeLabel}, làm mát nhanh ở 4°C, chạy xe lạnh
+            đêm về Urban Hub Bình Thạnh và giao thẳng đến bếp nhà bạn trong
+            ngày.
           </p>
         </div>
 

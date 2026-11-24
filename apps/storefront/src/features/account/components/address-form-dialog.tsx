@@ -88,7 +88,7 @@ export function AddressFormDialogView({
           </DialogTitle>
           <DialogDescription>
             {isCreate
-              ? "Chọn quận/huyện TP.HCM để hệ thống ước lượng lộ trình giao lạnh từ nông trại Củ Chi."
+              ? "Chọn quận/huyện TP.HCM để hệ thống ước lượng lộ trình giao hỏa tốc từ Urban Hub Bình Thạnh."
               : "Chỉnh sửa thông tin người nhận hoặc địa chỉ chi tiết tại TP.HCM."}
           </DialogDescription>
         </DialogHeader>

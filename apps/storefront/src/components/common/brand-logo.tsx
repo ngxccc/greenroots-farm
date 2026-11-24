@@ -49,7 +49,7 @@ export function BrandLogo({
               isDarkSurface ? "text-green-200" : "text-gray-500"
             }`}
           >
-            Nông trại hữu cơ Củ Chi
+            Nông sản sạch Đà Lạt · Cold-Chain
           </span>
         ) : null}
       </span>

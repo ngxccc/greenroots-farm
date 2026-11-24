@@ -600,7 +600,7 @@ export function AddressDialogPanel({
             </span>
           </DialogTitle>
           <DialogDescription className="text-gray-500">
-            Hệ thống giao nông sản tươi hỏa tốc từ nông trại Củ Chi theo bán
+            Hệ thống giao nông sản tươi hỏa tốc từ Urban Hub Bình Thạnh theo bán
             kính cam kết {FARM_METADATA.maxDeliveryRadiusKm} km.
           </DialogDescription>
         </DialogHeader>

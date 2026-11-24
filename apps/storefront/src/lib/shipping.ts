@@ -17,8 +17,8 @@ export function estimateDistrictPreviewQuote(
 ): DeliveryQuote {
   return calculateDeliveryQuote(
     {
-      latitude: BUSINESS_RULES.FARM_COORDINATES.LATITUDE,
-      longitude: BUSINESS_RULES.FARM_COORDINATES.LONGITUDE,
+      latitude: BUSINESS_RULES.FULFILLMENT_HUB.LATITUDE,
+      longitude: BUSINESS_RULES.FULFILLMENT_HUB.LONGITUDE,
     },
     {
       latitude: district.latitude,

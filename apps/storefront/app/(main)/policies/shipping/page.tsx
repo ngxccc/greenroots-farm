@@ -9,7 +9,7 @@ import { formatVnd } from "@/lib/format";
 export const metadata: Metadata = {
   title: "Chính sách giao hàng xe lạnh",
   description:
-    "Chính sách giao hàng xe lạnh 4°C chuyên dụng của GreenRoots Farm từ Củ Chi đến TP.HCM với cước phí Haversine minh bạch và khung giờ cố định.",
+    "Chính sách chuỗi lạnh 4°C từ nông trại Đà Lạt về Urban Hub Bình Thạnh, TP.HCM với cước phí Haversine minh bạch và khung giờ cố định.",
 };
 
 /**
@@ -37,9 +37,9 @@ export default function ShippingPolicyPage() {
                 </h1>
               </div>
               <p className="text-sm leading-relaxed text-gray-600 sm:text-base">
-                GreenRoots Farm vận hành đội xe lạnh chuyên dụng, giao thẳng từ
-                nông trại Củ Chi đến các quận huyện nội thành và lân cận TP.HCM
-                trong ngày nhằm đảm bảo độ giòn tươi nguyên vẹn.
+                GreenRoots Farm vận chuyển rau củ bằng xe lạnh 4°C từ Đơn Dương
+                (Lâm Đồng) về Urban Hub Bình Thạnh lúc rạng sáng, sau đó giao
+                hỏa tốc đến các quận huyện TP.HCM nhằm giữ trọn độ giòn tươi.
               </p>
             </div>
 
@@ -107,7 +107,7 @@ export default function ShippingPolicyPage() {
                   <span className="tabular-nums">
                     {BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM}km
                   </span>{" "}
-                  từ nông trại Củ Chi
+                  từ Urban Hub Bình Thạnh, TP.HCM
                 </span>
                 <span>
                   Hệ thống tự động tính cước vận chuyển chuẩn xác theo vị trí

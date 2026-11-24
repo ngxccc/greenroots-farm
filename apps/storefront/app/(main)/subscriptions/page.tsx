@@ -17,7 +17,7 @@ export default function SubscriptionsPage() {
         </h1>
         <p className="text-xs text-gray-600">
           Giao cố định vào Thứ 3 hoặc Thứ 6, miễn phí vận chuyển trong bán kính
-          20 km từ nông trại Củ Chi.
+          20 km từ Urban Hub Bình Thạnh, TP.HCM.
         </p>
       </div>
 

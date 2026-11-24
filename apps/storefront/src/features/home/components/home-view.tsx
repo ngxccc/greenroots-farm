@@ -200,7 +200,7 @@ export function HomeViewContent({
           <div className="relative z-10 flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="h-auto border-0 bg-brand-dark px-3 py-1 text-xs font-semibold text-white">
-                GreenRoots Củ Chi
+                GreenRoots Đà Lạt
               </Badge>
               <Badge className="h-auto max-w-full border-0 bg-green-50 px-3 py-1 text-xs font-semibold whitespace-normal text-brand-dark">
                 Từ Nông Trại Hữu Cơ Đến Bàn Ăn

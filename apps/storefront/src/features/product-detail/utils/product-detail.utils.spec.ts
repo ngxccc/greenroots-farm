@@ -29,7 +29,7 @@ const MOCK_PRODUCT_DTO: ProductDto = {
   name: "Xà lách Romaine hữu cơ",
   slug: "xa-lach-romaine",
   description:
-    "Thu hoạch thủ công lúc 4h sáng tại nông trại GreenRoots Củ Chi.",
+    "Thu hoạch thủ công lúc 4h sáng tại nông trại GreenRoots Đà Lạt (Đơn Dương, Lâm Đồng).",
   basePriceVnd: 36000,
   salePriceVnd: 18000,
   availableQuantity: 12.5,

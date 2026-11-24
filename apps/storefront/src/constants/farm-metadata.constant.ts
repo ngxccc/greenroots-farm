@@ -7,9 +7,11 @@ const expressDeliveryLabel = `${BUSINESS_RULES.EXPRESS_DELIVERY_HOURS}h`;
  * Single source of truth for GreenRoots Farm storefront branding and policy copy.
  */
 export const FARM_METADATA = {
-  brandName: BUSINESS_RULES.FARM_COORDINATES.NAME,
-  locationShort: "Củ Chi, TP.HCM",
-  fullAddress: BUSINESS_RULES.FARM_COORDINATES.ADDRESS,
+  brandName: BUSINESS_RULES.FARM_ORIGIN.BRAND_NAME,
+  locationShort: `${BUSINESS_RULES.FARM_ORIGIN.BRAND_ORIGIN}, Lâm Đồng`,
+  fullAddress: BUSINESS_RULES.FARM_ORIGIN.ADDRESS,
+  hubName: BUSINESS_RULES.FULFILLMENT_HUB.NAME,
+  hubAddress: BUSINESS_RULES.FULFILLMENT_HUB.ADDRESS,
   hotline: "1900 6868",
   email: "chamsoc@greenroots.farm",
   certifications: ["VietGAP", "USDA Organic"] as const,
