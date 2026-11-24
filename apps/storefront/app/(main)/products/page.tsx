@@ -9,7 +9,7 @@ import {
   parseCatalogSearchParams,
   type RawCatalogSearchParams,
 } from "@/services/catalog-query";
-import { fetchCatalogListing } from "@/services/storefront.service";
+import { fetchCatalogListing } from "@/services/catalog.service";
 
 export const metadata: Metadata = {
   title: "Sản phẩm",

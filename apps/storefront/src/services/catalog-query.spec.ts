@@ -7,12 +7,12 @@ import {
   CATALOG_PAGE_LIMIT,
   parseCatalogSearchParams,
 } from "@/services/catalog-query";
-import {
-  fetchCatalogListing,
-  type CatalogListingDeps,
-  type CategoryDto,
-  type ProductDto,
-} from "@/services/storefront.service";
+import { fetchCatalogListing } from "@/services/catalog.service";
+import type {
+  CatalogListingDeps,
+  CategoryDto,
+  ProductDto,
+} from "@/types/catalog.types";
 
 function makeCategory(
   overrides: Partial<CategoryDto> & { id: string; name: string; slug: string },

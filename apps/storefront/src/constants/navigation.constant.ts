@@ -1,4 +1,4 @@
-import type { CategoryShelfKey } from "@/types/storefront.types";
+import type { CategoryShelfKey } from "@/types/catalog.types";
 
 export interface StorefrontShelfNavItem {
   readonly key: CategoryShelfKey | "plans";

@@ -3,10 +3,10 @@ import { Badge, Card, CardContent, buttonVariants } from "@greenroots/ui";
 import { Calendar } from "lucide-react";
 import { DELIVERY_DAY_LABELS } from "@/constants/domain-labels.constant";
 import { formatVnd } from "@/lib/format";
-import { getShowcaseCatalog } from "@/services/storefront.service";
+import { getSubscriptionPlans } from "@/services/subscription.service";
 
 export default function SubscriptionsPage() {
-  const { plans } = getShowcaseCatalog();
+  const plans = getSubscriptionPlans();
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 lg:px-6">

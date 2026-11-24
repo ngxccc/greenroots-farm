@@ -3,7 +3,7 @@ import { buildProductSearchHref, buildTraceDetailHref } from "./navigation";
 import {
   getShowcaseTraceByCode,
   getShowcaseTraceList,
-} from "@/services/storefront.service";
+} from "@/services/trace.service";
 
 describe("Storefront Navigation Helpers", () => {
   describe("buildProductSearchHref", () => {

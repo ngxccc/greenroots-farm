@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { useCartStore } from "./cart.store";
-import type { StorefrontProduct } from "@/types/storefront.types";
+import type { StorefrontProduct } from "@/types/catalog.types";
 
 const sampleTomato: StorefrontProduct = {
   id: "prod-tomato",
@@ -11,7 +11,6 @@ const sampleTomato: StorefrontProduct = {
   basePriceVnd: 56000,
   salePriceVnd: 28000,
   availableQuantity: 3,
-  categoryKey: "fruit",
   badgeText: "VietGAP",
   hoursRemaining: 26,
   isRescueDeal: true,

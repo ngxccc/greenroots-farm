@@ -2,10 +2,8 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { Window } from "happy-dom";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import {
-  mapProductDtoToStorefront,
-  type ProductDto,
-} from "@/services/storefront.service";
+import { mapProductDtoToStorefront } from "@/services/catalog-mapper";
+import type { ProductDto } from "@/types/catalog.types";
 import { useCartStore } from "@/stores/cart.store";
 import { ProductDetailActions } from "./product-detail-actions";
 import { ProductDetailHero } from "./product-detail-hero";

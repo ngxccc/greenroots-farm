@@ -11,7 +11,7 @@ import { AlertCircle, Minus, Plus, ShoppingCart } from "lucide-react";
 import { Alert, AlertDescription, Button, Input, Label } from "@greenroots/ui";
 import { roundQuantity } from "@/lib/format";
 import { useCartStore } from "@/stores/cart.store";
-import type { StorefrontProduct } from "@/types/storefront.types";
+import type { StorefrontProduct } from "@/types/catalog.types";
 import {
   clampOrderQuantity,
   formatQuantityDisplay,

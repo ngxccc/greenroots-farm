@@ -3,16 +3,17 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { HomeViewContent } from "@/features/home/components/home-view";
 import { ProductCard } from "@/features/home/components/product-card";
+import { mapProductDtoToStorefront } from "./catalog-mapper";
 import {
   HOME_MAX_SHELVES,
   HOME_SHELF_PRODUCTS_LIMIT,
-  deriveCategoryKey,
   fetchLiveHomeCatalog,
-  mapProductDtoToStorefront,
-  type CategoryDto,
-  type HomeCatalogDeps,
-  type ProductDto,
-} from "./storefront.service";
+} from "./catalog.service";
+import type {
+  CategoryDto,
+  HomeCatalogDeps,
+  ProductDto,
+} from "@/types/catalog.types";
 
 const ROOT_LEAF_CATEGORY: CategoryDto = {
   id: "cat-root-leaf",
@@ -109,22 +110,6 @@ function createSeedProducts(count: number, categoryId: string): ProductDto[] {
 }
 
 describe("Storefront Home Catalog", () => {
-  describe("deriveCategoryKey", () => {
-    it("derives leaf, fruit, and spice keys including mushrooms and parent fallback", () => {
-      expect(deriveCategoryKey("rau-an-la")).toBe("leaf");
-      expect(deriveCategoryKey("green-leaves")).toBe("leaf");
-      expect(deriveCategoryKey("cu-qua")).toBe("fruit");
-      expect(deriveCategoryKey("rau-cu-qua")).toBe("fruit");
-      expect(deriveCategoryKey("trai-cay-sach")).toBe("fruit");
-      expect(deriveCategoryKey("organic-fruits")).toBe("fruit");
-      expect(deriveCategoryKey("rau-gia-vi")).toBe("spice");
-      expect(deriveCategoryKey("nam-cac-loai")).toBe("spice");
-      expect(deriveCategoryKey("fresh-herbs")).toBe("spice");
-      expect(deriveCategoryKey("ca-chua", "rau-cu-qua")).toBe("fruit");
-      expect(deriveCategoryKey("specialty")).toBe("leaf");
-    });
-  });
-
   describe("mapProductDtoToStorefront", () => {
     it("maps core fields, unit labels, certifications, and suppresses duplicate root category badges", () => {
       const product = mapProductDtoToStorefront(MOCK_LEAF_PRODUCT_DTO);

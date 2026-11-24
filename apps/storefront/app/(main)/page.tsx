@@ -3,10 +3,8 @@ import { Suspense } from "react";
 import { Skeleton } from "@greenroots/ui";
 import { HomeView } from "@/features/home/components/home-view";
 import { ProductGridSkeleton } from "@/features/home/components/product-card";
-import {
-  fetchApiHealth,
-  fetchLiveHomeCatalog,
-} from "@/services/storefront.service";
+import { fetchLiveHomeCatalog } from "@/services/catalog.service";
+import { fetchApiHealth } from "@/services/health.service";
 
 async function HomeContent() {
   await connection();

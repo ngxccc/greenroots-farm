@@ -25,7 +25,7 @@ import {
 import { FARM_METADATA } from "@/constants/farm-metadata.constant";
 import { formatViDate } from "@/lib/format";
 import { buildTraceDetailHref } from "@/lib/navigation";
-import type { BatchTraceRecord } from "@/types/storefront.types";
+import type { BatchTraceRecord } from "@/types/trace.types";
 
 interface TraceLookupContentProps {
   readonly records: readonly BatchTraceRecord[];

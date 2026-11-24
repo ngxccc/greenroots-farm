@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { TraceView } from "@/features/traceability/components/trace-view";
-import { getShowcaseTraceByCode } from "@/services/storefront.service";
+import { getShowcaseTraceByCode } from "@/services/trace.service";
 
 async function CachedBatchTrace({ batchCode }: { readonly batchCode: string }) {
   "use cache";

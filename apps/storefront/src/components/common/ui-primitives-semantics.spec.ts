@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from "@greenroots/ui";
 import { AuthAlertBanner } from "@/features/auth/components/auth-alert-banner";
 import { ProductCard } from "@/features/home/components/product-card";
 import { TraceLookupContent } from "@/features/traceability/components/trace-lookup-view";
-import type { StorefrontProduct } from "@/types/storefront.types";
+import type { StorefrontProduct } from "@/types/catalog.types";
 import { StorefrontHeaderSearchForm } from "./header";
 import { NotFoundSearchFormView } from "./not-found-search-form";
 
@@ -19,7 +19,6 @@ function buildRescueProduct(rescueBatchProgressPct: number): StorefrontProduct {
     basePriceVnd: 45_000,
     salePriceVnd: 29_000,
     availableQuantity: 12,
-    categoryKey: "fruit",
     badgeText: "Giải cứu -35%",
     hoursRemaining: 6,
     isRescueDeal: true,

@@ -36,8 +36,10 @@ import {
   type CatalogCategoryNode,
   type CatalogFilterState,
 } from "@/services/catalog-query";
-import type { CatalogPaginationMeta } from "@/services/storefront.service";
-import type { StorefrontProduct } from "@/types/storefront.types";
+import type {
+  CatalogPaginationMeta,
+  StorefrontProduct,
+} from "@/types/catalog.types";
 import { CatalogFilterSidebar } from "./catalog-filter-sidebar";
 
 interface CatalogViewProps {

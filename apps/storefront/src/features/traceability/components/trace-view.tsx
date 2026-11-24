@@ -22,7 +22,7 @@ import {
   SEASON_STATUS_LABELS,
 } from "@/constants/domain-labels.constant";
 import { formatViDate } from "@/lib/format";
-import type { BatchTraceRecord } from "@/types/storefront.types";
+import type { BatchTraceRecord } from "@/types/trace.types";
 
 interface TraceViewProps {
   readonly record?: BatchTraceRecord;
