@@ -43,13 +43,7 @@ export function AddressCard({
   const quote = estimateDistrictPreviewQuote(district);
 
   return (
-    <article
-      className={
-        address.isDefault
-          ? "flex items-start justify-between gap-3 rounded-xl border border-brand-forest bg-green-50/60 p-4 transition-colors"
-          : "flex items-start justify-between gap-3 rounded-xl border border-border-subtle bg-surface-warm p-4 transition-colors"
-      }
-    >
+    <article className="flex items-start justify-between gap-3 py-4">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-bold text-gray-900">
@@ -59,7 +53,7 @@ export function AddressCard({
             {address.phoneNumber}
           </span>
           {address.isDefault ? (
-            <Badge className="border-0 bg-brand-forest px-2 py-0.5 text-[11px] font-semibold text-white">
+            <Badge className="border-0 bg-green-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-dark">
               Mặc định
             </Badge>
           ) : null}

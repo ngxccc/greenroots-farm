@@ -46,7 +46,7 @@ export function AccountProfileView({ initialUser }: AccountProfileViewProps) {
     editedSnapshot?.base === initialUser ? editedSnapshot.next : initialUser;
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-6">
+    <div className="flex flex-col gap-8">
       <LoyaltyBalanceCard rewardPoints={activeUser.rewardPoints} />
       <ProfileDetailsForm
         user={activeUser}

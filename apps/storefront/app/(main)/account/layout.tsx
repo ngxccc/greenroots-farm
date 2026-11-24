@@ -28,7 +28,7 @@ export default function AccountLayout({
 }>) {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:py-6 lg:px-6 lg:py-8">
-      <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-12">
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
         <Suspense fallback={<AccountSidebarSkeleton />}>
           <AccountSidebarSlot />
         </Suspense>

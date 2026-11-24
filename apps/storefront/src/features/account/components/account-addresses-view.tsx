@@ -2,15 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  AlertDescription,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  Skeleton,
-} from "@greenroots/ui";
+import { Alert, AlertDescription, Button, Skeleton } from "@greenroots/ui";
 import { AlertCircle, MapPin, Plus } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/common/confirm-action-dialog";
 import {
@@ -75,88 +67,86 @@ export function AccountAddressesListCard({
   const reachedCap = addresses.length >= MAX_USER_ADDRESSES;
 
   return (
-    <Card className="border-border-subtle bg-surface-card py-0 shadow-sm">
-      <CardContent className="flex flex-col gap-4 p-5 sm:p-6">
-        <div className="flex flex-col justify-between gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-center">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-lg font-bold text-gray-900">
-              Sổ địa chỉ giao hàng
-            </h1>
-            <Badge
-              variant="secondary"
-              className="border-0 bg-green-50 text-xs font-semibold text-brand-dark tabular-nums"
-            >
-              {addresses.length} / {MAX_USER_ADDRESSES} địa chỉ
-            </Badge>
-          </div>
-
-          <Button
-            type="button"
-            disabled={reachedCap}
-            onClick={onOpenCreate}
-            className="h-9 cursor-pointer gap-1.5 rounded-lg bg-brand-forest px-3.5 text-xs font-semibold text-white hover:bg-brand-dark"
-          >
-            <Plus className="size-4" aria-hidden="true" />
-            <span>Thêm địa chỉ mới</span>
-          </Button>
+    <section
+      aria-label="Danh sách địa chỉ giao hàng"
+      className="flex flex-col gap-4"
+    >
+      <div className="flex flex-col justify-between gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-center">
+        <div className="flex flex-wrap items-baseline gap-2.5">
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
+            Sổ địa chỉ giao hàng
+          </h1>
+          <span className="text-xs font-semibold text-brand-dark tabular-nums sm:text-sm">
+            {addresses.length} / {MAX_USER_ADDRESSES} địa chỉ
+          </span>
         </div>
 
-        {reachedCap ? (
-          <p className="text-xs text-gray-600">
-            Bạn đã lưu tối đa {MAX_USER_ADDRESSES} địa chỉ. Vui lòng xóa bớt
-            hoặc chỉnh sửa địa chỉ hiện có.
-          </p>
-        ) : null}
+        <Button
+          type="button"
+          disabled={reachedCap}
+          onClick={onOpenCreate}
+          className="h-9 cursor-pointer gap-1.5 rounded-lg bg-brand-forest px-3.5 text-xs font-semibold text-white hover:bg-brand-dark"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          <span>Thêm địa chỉ mới</span>
+        </Button>
+      </div>
 
-        {listActionError ? (
-          <Alert variant="destructive">
-            <AlertCircle className="size-4" aria-hidden="true" />
-            <AlertDescription>{listActionError}</AlertDescription>
-          </Alert>
-        ) : null}
+      {reachedCap ? (
+        <p className="text-xs text-gray-600">
+          Bạn đã lưu tối đa {MAX_USER_ADDRESSES} địa chỉ. Vui lòng xóa bớt hoặc
+          chỉnh sửa địa chỉ hiện có.
+        </p>
+      ) : null}
 
-        {addresses.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border-subtle bg-surface-warm px-6 py-10 text-center">
-            <span
-              aria-hidden="true"
-              className="flex size-12 items-center justify-center rounded-full bg-green-50 text-brand-dark"
-            >
-              <MapPin className="size-6" />
-            </span>
-            <div className="space-y-1">
-              <p className="text-sm font-bold text-gray-900">
-                Bạn chưa lưu địa chỉ giao hàng nào
-              </p>
-              <p className="text-xs text-gray-500">
-                Thêm địa chỉ tại TP.HCM để chọn nhanh khi đặt rau củ và tính phí
-                giao lạnh chính xác hơn.
-              </p>
-            </div>
-            <Button
-              type="button"
-              onClick={onOpenCreate}
-              className="mt-1 h-9 cursor-pointer gap-1.5 rounded-lg bg-brand-forest px-4 text-xs font-semibold text-white hover:bg-brand-dark"
-            >
-              <Plus className="size-4" aria-hidden="true" />
-              <span>Thêm địa chỉ đầu tiên</span>
-            </Button>
+      {listActionError ? (
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" aria-hidden="true" />
+          <AlertDescription>{listActionError}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {addresses.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg bg-surface-warm px-6 py-10 text-center">
+          <span
+            aria-hidden="true"
+            className="flex size-12 items-center justify-center rounded-full bg-green-50 text-brand-dark"
+          >
+            <MapPin className="size-6" />
+          </span>
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-gray-900">
+              Bạn chưa lưu địa chỉ giao hàng nào
+            </p>
+            <p className="text-xs text-gray-500">
+              Thêm địa chỉ tại TP.HCM để chọn nhanh khi đặt rau củ và tính phí
+              giao lạnh chính xác hơn.
+            </p>
           </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {addresses.map((address) => (
-              <AddressCard
-                key={address.id}
-                address={address}
-                isPending={pendingActionAddressId === address.id}
-                onRequestSetDefault={onRequestSetDefault}
-                onRequestEdit={onRequestEdit}
-                onRequestDelete={onRequestDelete}
-              />
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          <Button
+            type="button"
+            onClick={onOpenCreate}
+            className="mt-1 h-9 cursor-pointer gap-1.5 rounded-lg bg-brand-forest px-4 text-xs font-semibold text-white hover:bg-brand-dark"
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            <span>Thêm địa chỉ đầu tiên</span>
+          </Button>
+        </div>
+      ) : (
+        <div className="divide-y divide-border-subtle border-b border-border-subtle">
+          {addresses.map((address) => (
+            <AddressCard
+              key={address.id}
+              address={address}
+              isPending={pendingActionAddressId === address.id}
+              onRequestSetDefault={onRequestSetDefault}
+              onRequestEdit={onRequestEdit}
+              onRequestDelete={onRequestDelete}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

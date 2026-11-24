@@ -5,8 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Button,
-  Card,
-  CardContent,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -14,7 +12,7 @@ import {
   SheetTitle,
   Skeleton,
 } from "@greenroots/ui";
-import { Calendar, LogOut, MapPin, PanelLeft, ShieldCheck } from "lucide-react";
+import { LogOut, PanelLeft } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/common/confirm-action-dialog";
 import { performStorefrontLogout } from "@/lib/auth/client-logout";
 import { getUserInitials } from "@/lib/format";
@@ -31,19 +29,16 @@ const ACCOUNT_NAV_ITEMS = [
     key: "profile",
     href: "/account/profile",
     label: "Hồ sơ & Bảo mật",
-    icon: ShieldCheck,
   },
   {
     key: "addresses",
     href: "/account/addresses",
     label: "Sổ địa chỉ",
-    icon: MapPin,
   },
   {
     key: "subscriptions",
     href: "/subscriptions",
     label: "Gói rau định kỳ",
-    icon: Calendar,
   },
 ] as const;
 
@@ -102,7 +97,6 @@ function SidebarNavBody({
 
       <nav aria-label="Danh mục tài khoản" className="flex flex-col gap-1">
         {ACCOUNT_NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
           const isCurrent = item.key === activeSection;
           return (
             <Link
@@ -112,11 +106,10 @@ function SidebarNavBody({
               onClick={onNavigate}
               className={
                 isCurrent
-                  ? "flex w-full items-center gap-2 rounded-lg bg-green-50 px-3 py-2.5 text-xs font-semibold text-brand-dark transition-colors focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
-                  : "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
+                  ? "flex w-full items-center rounded-lg bg-green-50 px-3 py-2.5 text-xs font-semibold text-brand-dark transition-colors focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none sm:text-sm"
+                  : "flex w-full items-center rounded-lg px-3 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none sm:text-sm"
               }
             >
-              <Icon className="size-4 shrink-0" aria-hidden="true" />
               <span>{item.label}</span>
             </Link>
           );
@@ -171,7 +164,7 @@ export function AccountSidebarView({
   return (
     <aside className="lg:col-span-3">
       {/* Compact mobile trigger bar collapsing sidebar into a left Sheet drawer (< lg) */}
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-card px-3 py-2 shadow-sm lg:hidden">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-card px-3 py-2 shadow-xs lg:hidden">
         <Button
           type="button"
           variant="ghost"
@@ -188,17 +181,15 @@ export function AccountSidebarView({
         </span>
       </div>
 
-      {/* Desktop static sidebar (>= lg) */}
-      <Card className="hidden border-border-subtle bg-surface-card py-0 shadow-sm lg:block">
-        <CardContent className="p-4">
-          <SidebarNavBody
-            user={user}
-            activeSection={activeSection}
-            isLoggingOut={isLoggingOut}
-            onRequestLogout={() => onLogoutDialogOpenChange?.(true)}
-          />
-        </CardContent>
-      </Card>
+      {/* Desktop flat rail (>= lg) */}
+      <div className="hidden lg:flex lg:flex-col lg:border-r lg:border-border-subtle lg:pr-6">
+        <SidebarNavBody
+          user={user}
+          activeSection={activeSection}
+          isLoggingOut={isLoggingOut}
+          onRequestLogout={() => onLogoutDialogOpenChange?.(true)}
+        />
+      </div>
 
       {/* Mobile slide-over Sheet drawer */}
       <Sheet open={mobileSheetOpen} onOpenChange={onMobileSheetOpenChange}>

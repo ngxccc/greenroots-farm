@@ -8,11 +8,6 @@ import {
   AlertDescription,
   Badge,
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Input,
   Label,
 } from "@greenroots/ui";
@@ -76,131 +71,129 @@ export function ProfileDetailsFormView({
   }
 
   return (
-    <Card
+    <section
       aria-label="Thông tin cá nhân"
-      className="border-border-subtle bg-surface-card py-0 shadow-sm"
+      className="flex flex-col gap-5 border-b border-border-subtle pb-8"
     >
-      <CardHeader className="border-b border-border-subtle px-4 py-3.5 sm:px-6 sm:py-4">
-        <CardTitle className="text-base font-bold text-gray-900 sm:text-lg">
+      <div className="flex flex-col gap-1 border-b border-border-subtle pb-3">
+        <h2 className="text-base font-bold text-gray-900 sm:text-lg">
           Thông tin cá nhân
-        </CardTitle>
-        <CardDescription className="text-xs text-gray-500">
+        </h2>
+        <p className="text-xs text-gray-500 sm:text-sm">
           Cập nhật họ tên và số điện thoại liên hệ khi giao hàng xe lạnh.
-        </CardDescription>
-      </CardHeader>
+        </p>
+      </div>
 
-      <CardContent className="p-4 sm:p-6">
-        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-          {errorMessage ? (
-            <Alert variant="destructive">
-              <AlertCircle className="size-4" aria-hidden="true" />
-              <AlertDescription>{errorMessage}</AlertDescription>
-            </Alert>
-          ) : null}
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        {errorMessage ? (
+          <Alert variant="destructive">
+            <AlertCircle className="size-4" aria-hidden="true" />
+            <AlertDescription>{errorMessage}</AlertDescription>
+          </Alert>
+        ) : null}
 
-          {successMessage ? (
-            <Alert variant="success">
-              <CheckCircle2 className="size-4" aria-hidden="true" />
-              <AlertDescription>{successMessage}</AlertDescription>
-            </Alert>
-          ) : null}
+        {successMessage ? (
+          <Alert variant="success">
+            <CheckCircle2 className="size-4" aria-hidden="true" />
+            <AlertDescription>{successMessage}</AlertDescription>
+          </Alert>
+        ) : null}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label
-                htmlFor="profile-full-name"
-                className="text-xs font-semibold text-gray-900"
-              >
-                Họ và tên
-              </Label>
-              <Input
-                id="profile-full-name"
-                name="fullName"
-                type="text"
-                autoComplete="name"
-                maxLength={PROFILE_FULL_NAME_MAX_LENGTH}
-                required
-                disabled={isPending}
-                value={fullName}
-                onChange={handleFullNameInput}
-                className="h-10 rounded-lg border-border-subtle bg-surface-card px-3 text-sm text-gray-900"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label
-                htmlFor="profile-phone"
-                className="text-xs font-semibold text-gray-900"
-              >
-                Số điện thoại
-              </Label>
-              <Input
-                id="profile-phone"
-                name="phone"
-                type="tel"
-                autoComplete="tel"
-                inputMode="numeric"
-                disabled={isPending}
-                placeholder="Ví dụ: 0908412679"
-                value={phone}
-                onChange={handlePhoneInput}
-                className="h-10 rounded-lg border-border-subtle bg-surface-card px-3 text-sm text-gray-900 tabular-nums"
-              />
-              <p className="text-[11px] text-gray-500">
-                10 chữ số (03, 05, 07, 08, 09). Để trống nếu muốn xóa SĐT.
-              </p>
-            </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label
+              htmlFor="profile-full-name"
+              className="text-xs font-semibold text-gray-900"
+            >
+              Họ và tên
+            </Label>
+            <Input
+              id="profile-full-name"
+              name="fullName"
+              type="text"
+              autoComplete="name"
+              maxLength={PROFILE_FULL_NAME_MAX_LENGTH}
+              required
+              disabled={isPending}
+              value={fullName}
+              onChange={handleFullNameInput}
+              className="h-10 rounded-lg border-border-subtle bg-surface-card px-3 text-sm text-gray-900"
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-gray-900">
-              Email đăng nhập
-            </span>
-            <div className="flex items-center justify-between gap-2 rounded-lg border border-border-subtle bg-surface-warm px-3 py-2.5">
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-sm font-medium text-gray-800">
-                  {email}
-                </span>
-                <span className="text-[11px] text-gray-500 tabular-nums">
-                  Thành viên từ {formatViDate(createdAt)}
-                </span>
-              </div>
-              {emailVerified ? (
-                <Badge className="h-auto shrink-0 border-0 bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-brand-dark">
-                  <CheckCircle2 aria-hidden="true" />
-                  <span>Đã xác thực</span>
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="shrink-0 text-xs text-gray-600"
-                >
-                  <AlertCircle aria-hidden="true" />
-                  <span>Chưa xác thực</span>
-                </Badge>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-1">
-            <Button
-              type="submit"
-              disabled={!hasPendingChanges || isPending}
-              className="h-10 w-full cursor-pointer rounded-lg bg-brand-forest px-5 text-sm font-semibold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto"
+            <Label
+              htmlFor="profile-phone"
+              className="text-xs font-semibold text-gray-900"
             >
-              {isPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                  <span>Đang lưu...</span>
-                </>
-              ) : (
-                <span>Lưu thay đổi</span>
-              )}
-            </Button>
+              Số điện thoại
+            </Label>
+            <Input
+              id="profile-phone"
+              name="phone"
+              type="tel"
+              autoComplete="tel"
+              inputMode="numeric"
+              disabled={isPending}
+              placeholder="Ví dụ: 0908412679"
+              value={phone}
+              onChange={handlePhoneInput}
+              className="h-10 rounded-lg border-border-subtle bg-surface-card px-3 text-sm text-gray-900 tabular-nums"
+            />
+            <p className="text-[11px] text-gray-500">
+              10 chữ số (03, 05, 07, 08, 09). Để trống nếu muốn xóa SĐT.
+            </p>
           </div>
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold text-gray-900">
+            Email đăng nhập
+          </span>
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-border-subtle bg-surface-card px-3.5 py-2.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="truncate text-sm font-medium text-gray-800">
+                {email}
+              </span>
+              <span className="text-[11px] text-gray-500 tabular-nums">
+                Thành viên từ {formatViDate(createdAt)}
+              </span>
+            </div>
+            {emailVerified ? (
+              <Badge className="h-auto shrink-0 border-0 bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-brand-dark">
+                <CheckCircle2 aria-hidden="true" />
+                <span>Đã xác thực</span>
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="shrink-0 text-xs text-gray-600"
+              >
+                <AlertCircle aria-hidden="true" />
+                <span>Chưa xác thực</span>
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-1">
+          <Button
+            type="submit"
+            disabled={!hasPendingChanges || isPending}
+            className="h-10 w-full cursor-pointer rounded-lg bg-brand-forest px-5 text-sm font-semibold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                <span>Đang lưu...</span>
+              </>
+            ) : (
+              <span>Lưu thay đổi</span>
+            )}
+          </Button>
+        </div>
+      </form>
+    </section>
   );
 }
 
