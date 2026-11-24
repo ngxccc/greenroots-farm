@@ -6,8 +6,8 @@ describe("HaversineShippingDriver", () => {
   const driver = new HaversineShippingDriver();
 
   const origin = {
-    latitude: BUSINESS_RULES.FARM_COORDINATES.LATITUDE,
-    longitude: BUSINESS_RULES.FARM_COORDINATES.LONGITUDE,
+    latitude: BUSINESS_RULES.FULFILLMENT_HUB.LATITUDE,
+    longitude: BUSINESS_RULES.FULFILLMENT_HUB.LONGITUDE,
   };
 
   const baseConfig = {
@@ -21,10 +21,10 @@ describe("HaversineShippingDriver", () => {
   };
 
   it("computes integer VND fees for deliverable retail destinations", async () => {
-    const cuChi = HCMC_DISTRICTS.find((d) => d.code === "cu-chi")!;
+    const quan1 = HCMC_DISTRICTS.find((d) => d.code === "quan-1")!;
     const result = await driver.calculateQuote({
       origin,
-      destination: { latitude: cuChi.latitude, longitude: cuChi.longitude },
+      destination: { latitude: quan1.latitude, longitude: quan1.longitude },
       config: baseConfig,
       isSubscription: false,
     });
@@ -50,18 +50,21 @@ describe("HaversineShippingDriver", () => {
   });
 
   it("applies zero fee within subscriptionFreeRadiusKm and standard fee between 20km and 25km", async () => {
-    const cuChi = HCMC_DISTRICTS.find((d) => d.code === "cu-chi")!;
-    const hocMon = HCMC_DISTRICTS.find((d) => d.code === "hoc-mon")!;
+    const quan1 = HCMC_DISTRICTS.find((d) => d.code === "quan-1")!;
+    const binhChanh = HCMC_DISTRICTS.find((d) => d.code === "binh-chanh")!;
 
     const freeQuote = await driver.calculateQuote({
       origin,
-      destination: { latitude: cuChi.latitude, longitude: cuChi.longitude },
+      destination: { latitude: quan1.latitude, longitude: quan1.longitude },
       config: baseConfig,
       isSubscription: true,
     });
     const paidQuote = await driver.calculateQuote({
       origin,
-      destination: { latitude: hocMon.latitude, longitude: hocMon.longitude },
+      destination: {
+        latitude: binhChanh.latitude,
+        longitude: binhChanh.longitude,
+      },
       config: baseConfig,
       isSubscription: true,
     });

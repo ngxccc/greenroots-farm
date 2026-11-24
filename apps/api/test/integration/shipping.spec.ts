@@ -49,7 +49,8 @@ const CONTRACT_QUOTE_KEYS = [
   "subscriptionFreeRadiusKm",
 ] as const;
 
-const CU_CHI = HCMC_DISTRICTS.find((d) => d.code === "cu-chi")!;
+const QUAN_1 = HCMC_DISTRICTS.find((d) => d.code === "quan-1")!;
+const BINH_CHANH = HCMC_DISTRICTS.find((d) => d.code === "binh-chanh")!;
 const HOC_MON = HCMC_DISTRICTS.find((d) => d.code === "hoc-mon")!;
 const CAN_GIO = HCMC_DISTRICTS.find((d) => d.code === "can-gio")!;
 const QUAN_7 = HCMC_DISTRICTS.find((d) => d.code === "quan-7")!;
@@ -135,7 +136,7 @@ describe("Shipping Integration", () => {
     it("rejects unauthenticated callers and non-customer roles", async () => {
       await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
-        .send({ districtCode: CU_CHI.code })
+        .send({ districtCode: QUAN_1.code })
         .expect(401);
 
       for (const header of [
@@ -148,7 +149,7 @@ describe("Shipping Integration", () => {
         const res = await request(app.getHttpServer())
           .post("/api/v1/shipping/quote")
           .set(header)
-          .send({ districtCode: CU_CHI.code })
+          .send({ districtCode: QUAN_1.code })
           .expect(403);
         expect((res.body as Rfc9457ProblemDetails).code).toBe(
           API_ERROR_CODES.FORBIDDEN,
@@ -161,7 +162,7 @@ describe("Shipping Integration", () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: CU_CHI.code })
+        .send({ districtCode: QUAN_1.code })
         .expect(404);
 
       expect((res.body as Rfc9457ProblemDetails).code).toBe(
@@ -176,7 +177,7 @@ describe("Shipping Integration", () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: CU_CHI.code })
+        .send({ districtCode: QUAN_1.code })
         .expect(200);
 
       const body = res.body as ApiResponse<ShippingQuoteResponse>;
@@ -203,12 +204,12 @@ describe("Shipping Integration", () => {
           userId: customerId,
           receiverName: "Nguyen Van An",
           phoneNumber: "0912345678",
-          streetAddress: "12 Tinh Lo 8",
-          districtCode: CU_CHI.code,
-          district: CU_CHI.name,
+          streetAddress: "123 Lê Lợi",
+          districtCode: QUAN_1.code,
+          district: QUAN_1.name,
           city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
-          latitude: CU_CHI.latitude.toFixed(8),
-          longitude: CU_CHI.longitude.toFixed(8),
+          latitude: QUAN_1.latitude.toFixed(8),
+          longitude: QUAN_1.longitude.toFixed(8),
           isDefault: true,
         })
         .returning();
@@ -243,12 +244,12 @@ describe("Shipping Integration", () => {
       const retailRes = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: HOC_MON.code, isSubscription: false })
+        .send({ districtCode: BINH_CHANH.code, isSubscription: false })
         .expect(200);
       const subRes = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: HOC_MON.code, isSubscription: true })
+        .send({ districtCode: BINH_CHANH.code, isSubscription: true })
         .expect(200);
 
       const retailQuote = (retailRes.body as ApiResponse<ShippingQuoteResponse>)
@@ -315,13 +316,13 @@ describe("Shipping Integration", () => {
         subscriptionFreeRadiusKm: 150,
       });
 
-      const cuChiRes = await request(app.getHttpServer())
+      const quan1Res = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: CU_CHI.code, isSubscription: false })
+        .send({ districtCode: QUAN_1.code, isSubscription: false })
         .expect(200);
       expect(
-        (cuChiRes.body as ApiResponse<ShippingQuoteResponse>).data.feeVnd,
+        (quan1Res.body as ApiResponse<ShippingQuoteResponse>).data.feeVnd,
       ).toBeGreaterThanOrEqual(30000);
 
       const hocMonBaseline = await request(app.getHttpServer())
@@ -396,9 +397,9 @@ describe("Shipping Integration", () => {
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
         .send({
-          districtCode: CU_CHI.code,
-          latitude: 11.0067,
-          longitude: 106.5132,
+          districtCode: QUAN_1.code,
+          latitude: 10.8106,
+          longitude: 106.7091,
         })
         .expect(400);
       expect((injectedCoords.body as Rfc9457ProblemDetails).code).toBe(

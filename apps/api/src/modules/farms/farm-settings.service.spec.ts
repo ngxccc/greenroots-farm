@@ -26,13 +26,13 @@ describe("FarmSettingsService", () => {
 
   const sampleFarmRow = {
     id: "019fa8bc-8f4d-7000-b366-e691f45cfb90",
-    name: BUSINESS_RULES.FARM_COORDINATES.NAME,
+    name: BUSINESS_RULES.FULFILLMENT_HUB.NAME,
     legalName: "Công ty TNHH Nông nghiệp Hữu cơ GreenRoots",
     tagline: "Rau hữu cơ tươi mỗi ngày",
     taxId: "0316987654",
-    address: BUSINESS_RULES.FARM_COORDINATES.ADDRESS,
-    latitude: "11.00670000",
-    longitude: "106.51320000",
+    address: BUSINESS_RULES.FULFILLMENT_HUB.ADDRESS,
+    latitude: "10.81060000",
+    longitude: "106.70910000",
     certificationUrl:
       "https://res.cloudinary.com/test-cloud/image/upload/v1/farms/vietgap.png",
     hotlines: { primary: "0909123456", support: "02838991234" },
@@ -119,8 +119,8 @@ describe("FarmSettingsService", () => {
     it("returns cached farm settings without querying PostgreSQL on cache hit", async () => {
       const cachedPayload = {
         ...sampleFarmRow,
-        latitude: 11.0067,
-        longitude: 106.5132,
+        latitude: 10.8106,
+        longitude: 106.7091,
         createdAt: timestamp.toISOString(),
         updatedAt: timestamp.toISOString(),
       };
@@ -140,8 +140,8 @@ describe("FarmSettingsService", () => {
       const afterMs = Date.now();
 
       expect(result.id).toBe(sampleFarmRow.id);
-      expect(result.latitude).toBe(11.0067);
-      expect(result.longitude).toBe(106.5132);
+      expect(result.latitude).toBe(10.8106);
+      expect(result.longitude).toBe(106.7091);
       expect(mockRedisClient.eval).toHaveBeenCalledTimes(1);
       const evalArgs = mockRedisClient.eval.mock.calls[0] as unknown[];
       expect(evalArgs[1]).toBe(2);
@@ -168,8 +168,8 @@ describe("FarmSettingsService", () => {
 
       const legacyCachedPayload = {
         ...sampleFarmRow,
-        latitude: 11.0067,
-        longitude: 106.5132,
+        latitude: 10.8106,
+        longitude: 106.7091,
         shippingConfig: {
           baseFeeVnd: 15000,
           freeKmThreshold: 3,
@@ -229,17 +229,17 @@ describe("FarmSettingsService", () => {
     it("persists changes, unlinks the cache key, and tolerates post-commit Redis outage", async () => {
       const updatedRow = {
         ...sampleFarmRow,
-        name: "GreenRoots Củ Chi",
+        name: "GreenRoots Urban Hub",
         updatedAt: new Date("2026-11-19T01:00:00.000Z"),
       };
       mockDb.setSelectResultsQueue([[sampleFarmRow], [updatedRow]]);
       mockPipeline.exec.mockRejectedValueOnce(new Error("Redis unavailable"));
 
       const result = await service.updateSettings({
-        name: "GreenRoots Củ Chi",
+        name: "GreenRoots Urban Hub",
       });
 
-      expect(result.name).toBe("GreenRoots Củ Chi");
+      expect(result.name).toBe("GreenRoots Urban Hub");
       expect(mockPipeline.unlink).toHaveBeenCalledWith(FARM_SETTINGS_CACHE_KEY);
       expect(mockPipeline.set).toHaveBeenCalledTimes(1);
     });

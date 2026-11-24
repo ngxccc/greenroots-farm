@@ -49,13 +49,13 @@ export async function createFarm(
   const [farm] = await db
     .insert(farms)
     .values({
-      name: BUSINESS_RULES.FARM_COORDINATES.NAME,
+      name: BUSINESS_RULES.FULFILLMENT_HUB.NAME,
       legalName: "Công ty TNHH Nông nghiệp Hữu cơ GreenRoots",
-      tagline: "Rau hữu cơ tươi mỗi ngày từ nông trại đến bàn ăn",
+      tagline: "Nông sản sạch Đà Lạt — Chuỗi lạnh hỏa tốc trong ngày",
       taxId: "0316987654",
-      address: BUSINESS_RULES.FARM_COORDINATES.ADDRESS,
-      latitude: BUSINESS_RULES.FARM_COORDINATES.LATITUDE.toFixed(8),
-      longitude: BUSINESS_RULES.FARM_COORDINATES.LONGITUDE.toFixed(8),
+      address: BUSINESS_RULES.FULFILLMENT_HUB.ADDRESS,
+      latitude: BUSINESS_RULES.FULFILLMENT_HUB.LATITUDE.toFixed(8),
+      longitude: BUSINESS_RULES.FULFILLMENT_HUB.LONGITUDE.toFixed(8),
       certificationUrl: `https://res.cloudinary.com/${cloudName}/image/upload/v1/farms/vietgap-cert.png`,
       hotlines: { primary: "0909123456", support: "02838991234" },
       emails: {

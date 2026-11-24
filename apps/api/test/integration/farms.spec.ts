@@ -159,8 +159,8 @@ describe("Farms Integration", () => {
       const firstBody = firstRes.body as ApiResponse<FarmSettingsSchema>;
       expect(firstBody.success).toBe(true);
       expect(firstBody.data.id).toBe(farm.id);
-      expect(firstBody.data.latitude).toBeCloseTo(11.0067, 4);
-      expect(firstBody.data.longitude).toBeCloseTo(106.5132, 4);
+      expect(firstBody.data.latitude).toBeCloseTo(10.8106, 4);
+      expect(firstBody.data.longitude).toBeCloseTo(106.7091, 4);
 
       const cachedRaw = await appRedisClient.get(FARM_SETTINGS_CACHE_KEY);
       expect(cachedRaw).not.toBeNull();
@@ -284,7 +284,7 @@ describe("Farms Integration", () => {
         .patch("/api/v1/farms/settings")
         .set(superAdminHeader)
         .send({
-          name: "GreenRoots Organic Củ Chi",
+          name: "GreenRoots Urban Hub",
           certificationUrl: newCertUrl,
           bankInfo: null,
           shippingConfig: {
@@ -303,7 +303,7 @@ describe("Farms Integration", () => {
         .expect(200);
 
       const updateBody = updateRes.body as ApiResponse<FarmSettingsSchema>;
-      expect(updateBody.data.name).toBe("GreenRoots Organic Củ Chi");
+      expect(updateBody.data.name).toBe("GreenRoots Urban Hub");
       expect(updateBody.data.certificationUrl).toBe(newCertUrl);
       expect(updateBody.data.bankInfo).toBeNull();
       expect(updateBody.data.shippingConfig.maxRadiusKm).toBe(30);
@@ -317,7 +317,7 @@ describe("Farms Integration", () => {
         .expect(200);
       expect(
         (refreshedRes.body as ApiResponse<FarmSettingsSchema>).data.name,
-      ).toBe("GreenRoots Organic Củ Chi");
+      ).toBe("GreenRoots Urban Hub");
     });
 
     it("rejects empty payloads, unknown fields, negative VND, and non-Cloudinary URLs", async () => {

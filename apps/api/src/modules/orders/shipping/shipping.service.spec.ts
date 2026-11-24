@@ -17,19 +17,19 @@ import { HaversineShippingDriver } from "./drivers/haversine-shipping.driver";
 import { ShippingService } from "./shipping.service";
 
 describe("ShippingService", () => {
-  const cuChi = HCMC_DISTRICTS.find((d) => d.code === "cu-chi")!;
+  const quan1 = HCMC_DISTRICTS.find((d) => d.code === "quan-1")!;
   const hocMon = HCMC_DISTRICTS.find((d) => d.code === "hoc-mon")!;
   const canGio = HCMC_DISTRICTS.find((d) => d.code === "can-gio")!;
 
   const baseFarmSettings: FarmSettings = {
     id: "019fa8bc-8f4d-7000-b366-e691f45cfb90",
-    name: BUSINESS_RULES.FARM_COORDINATES.NAME,
+    name: BUSINESS_RULES.FULFILLMENT_HUB.NAME,
     legalName: "GreenRoots Farm Co.",
     tagline: null,
     taxId: null,
-    address: BUSINESS_RULES.FARM_COORDINATES.ADDRESS,
-    latitude: BUSINESS_RULES.FARM_COORDINATES.LATITUDE,
-    longitude: BUSINESS_RULES.FARM_COORDINATES.LONGITUDE,
+    address: BUSINESS_RULES.FULFILLMENT_HUB.ADDRESS,
+    latitude: BUSINESS_RULES.FULFILLMENT_HUB.LATITUDE,
+    longitude: BUSINESS_RULES.FULFILLMENT_HUB.LONGITUDE,
     certificationUrl: null,
     hotlines: { primary: "0909123456" },
     emails: { primary: "hello@greenroots.farm" },
@@ -58,12 +58,12 @@ describe("ShippingService", () => {
     id: "019fa8bc-8f4d-7000-b366-e691f45cfb99",
     receiverName: "Nguyen Van An",
     phoneNumber: "0912345678",
-    formattedAddress: "123 TL8, Huyện Củ Chi, TP. Hồ Chí Minh",
-    districtCode: cuChi.code,
-    district: cuChi.name,
+    formattedAddress: "123 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
+    districtCode: quan1.code,
+    district: quan1.name,
     city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
-    latitude: cuChi.latitude,
-    longitude: cuChi.longitude,
+    latitude: quan1.latitude,
+    longitude: quan1.longitude,
   };
 
   let resolveAddressMock: ReturnType<typeof mock>;
@@ -181,7 +181,7 @@ describe("ShippingService", () => {
 
     try {
       await service.quoteForCustomer("user-1", {
-        districtCode: cuChi.code,
+        districtCode: quan1.code,
         isSubscription: false,
       });
       expect.unreachable("Expected NotFoundException");

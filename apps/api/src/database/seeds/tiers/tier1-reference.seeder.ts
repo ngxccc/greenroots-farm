@@ -22,13 +22,13 @@ export async function seedTier1Reference(db: DrizzleDB): Promise<Tier1Result> {
     .insert(farms)
     .values({
       id: SEED_IDS.farm,
-      name: BUSINESS_RULES.FARM_COORDINATES.NAME,
+      name: BUSINESS_RULES.FULFILLMENT_HUB.NAME,
       legalName: "Công ty TNHH Nông nghiệp Hữu cơ GreenRoots",
-      tagline: "Rau hữu cơ tươi mỗi ngày từ nông trại đến bàn ăn",
+      tagline: "Nông sản sạch Đà Lạt — Chuỗi lạnh hỏa tốc trong ngày",
       taxId: "0316987654",
-      address: BUSINESS_RULES.FARM_COORDINATES.ADDRESS,
-      latitude: String(BUSINESS_RULES.FARM_COORDINATES.LATITUDE),
-      longitude: String(BUSINESS_RULES.FARM_COORDINATES.LONGITUDE),
+      address: BUSINESS_RULES.FULFILLMENT_HUB.ADDRESS,
+      latitude: String(BUSINESS_RULES.FULFILLMENT_HUB.LATITUDE),
+      longitude: String(BUSINESS_RULES.FULFILLMENT_HUB.LONGITUDE),
       certificationUrl: `https://res.cloudinary.com/${cloudName}/image/upload/v1/farms/vietgap-certificate.png`,
       hotlines: {
         primary: "0909 123 456",

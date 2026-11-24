@@ -53,7 +53,7 @@ describe("TraceService", () => {
       name: "GreenRoots Farm",
       legalName: "Công ty TNHH Nông nghiệp Hữu cơ GreenRoots",
       tagline: null,
-      address: "Củ Chi, TP.HCM",
+      address: "Bình Thạnh, TP.HCM",
       certificationUrl: null,
     },
   };

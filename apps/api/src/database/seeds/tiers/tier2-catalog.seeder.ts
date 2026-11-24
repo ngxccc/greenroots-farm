@@ -44,7 +44,7 @@ export async function seedTier2Catalog(db: DrizzleDB): Promise<Tier2Result> {
         id: SEED_IDS.plotA1,
         farmId: SEED_IDS.farm,
         plotCode: "PLOT-A1",
-        name: "Lô A1 - Nhà kính cà chua",
+        name: "Lô A1 - Nhà kính Đơn Dương, Lâm Đồng",
         areaSqm: "1200.00",
         soilTestResult: {
           ph: 6.4,
@@ -68,7 +68,7 @@ export async function seedTier2Catalog(db: DrizzleDB): Promise<Tier2Result> {
         id: SEED_IDS.plotB2,
         farmId: SEED_IDS.farm,
         plotCode: "PLOT-B2",
-        name: "Lô B2 - Rau ăn lá",
+        name: "Lô B2 - Rau ăn lá Lạc Dương, Lâm Đồng",
         areaSqm: "800.00",
       },
     ])

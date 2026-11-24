@@ -64,7 +64,7 @@ import {
 type OrderResponse = components["schemas"]["OrderDto"];
 type ValidateCartResponse = components["schemas"]["ValidateCartResponseDto"];
 
-const CU_CHI = HCMC_DISTRICTS.find((d) => d.code === "cu-chi")!;
+const QUAN_1 = HCMC_DISTRICTS.find((d) => d.code === "quan-1")!;
 const CAN_GIO = HCMC_DISTRICTS.find((d) => d.code === "can-gio")!;
 
 describe("Orders Checkout Integration", () => {
@@ -204,12 +204,12 @@ describe("Orders Checkout Integration", () => {
           userId: customerId,
           receiverName: "Trần Thị Khách",
           phoneNumber: "0912345678",
-          streetAddress: "123 Tỉnh Lộ 8",
-          districtCode: CU_CHI.code,
-          district: CU_CHI.name,
+          streetAddress: "123 Lê Lợi",
+          districtCode: QUAN_1.code,
+          district: QUAN_1.name,
           city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
-          latitude: CU_CHI.latitude.toFixed(8),
-          longitude: CU_CHI.longitude.toFixed(8),
+          latitude: QUAN_1.latitude.toFixed(8),
+          longitude: QUAN_1.longitude.toFixed(8),
           isDefault: true,
         },
         {
@@ -228,12 +228,12 @@ describe("Orders Checkout Integration", () => {
           userId: otherCustomerId,
           receiverName: "Người Dùng Khác",
           phoneNumber: "0987654321",
-          streetAddress: "45 Tỉnh Lộ 8",
-          districtCode: CU_CHI.code,
-          district: CU_CHI.name,
+          streetAddress: "45 Lê Lợi",
+          districtCode: QUAN_1.code,
+          district: QUAN_1.name,
           city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
-          latitude: CU_CHI.latitude.toFixed(8),
-          longitude: CU_CHI.longitude.toFixed(8),
+          latitude: QUAN_1.latitude.toFixed(8),
+          longitude: QUAN_1.longitude.toFixed(8),
           isDefault: true,
         },
       ])
@@ -260,7 +260,7 @@ describe("Orders Checkout Integration", () => {
             { productId: regularProductId, quantity: 1 },
             { productId: regularProductId, quantity: 0.5 },
           ],
-          districtCode: CU_CHI.code,
+          districtCode: QUAN_1.code,
           loyaltyPoints: 999_999,
           clientTotalVnd: 1000,
         })
@@ -424,7 +424,7 @@ describe("Orders Checkout Integration", () => {
       expect(created.paymentStatus).toBe(PaymentStatus.PENDING);
       expect(created.receiverName).toBe("Trần Thị Khách");
       expect(created.receiverPhone).toBe("0912345678");
-      expect(created.shippingAddress).toContain("123 Tỉnh Lộ 8");
+      expect(created.shippingAddress).toContain("123 Lê Lợi");
       expect(created.subtotalVnd).toBe(195_000);
       expect(created.loyaltyPointsUsed).toBe(50_000);
       expect(created.discountAmountVnd).toBe(50_000);
@@ -656,7 +656,7 @@ describe("Orders Checkout Integration", () => {
         .where(eq(orders.id, order1.id));
       expect(persistedOrder?.receiverName).toBe("Trần Thị Khách");
       expect(persistedOrder?.receiverPhone).toBe("0912345678");
-      expect(persistedOrder?.shippingAddress).toContain("123 Tỉnh Lộ 8");
+      expect(persistedOrder?.shippingAddress).toContain("123 Lê Lợi");
     });
 
     // Invariant: INV-ORD-6
