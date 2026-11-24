@@ -25,7 +25,7 @@ export default function HomePage() {
           className="mx-auto max-w-6xl space-y-8 px-4 py-8 lg:px-6"
         >
           <Skeleton className="h-64 w-full rounded-2xl bg-green-100/70" />
-          <ProductGridSkeleton count={4} />
+          <ProductGridSkeleton count={5} columns={5} />
         </div>
       }
     >

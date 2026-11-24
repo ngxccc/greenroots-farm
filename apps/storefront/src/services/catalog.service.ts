@@ -21,8 +21,8 @@ import type {
 /** Default number of root category shelves displayed on the SF-01 home page. */
 export const HOME_MAX_SHELVES = 6;
 
-/** Default number of product cards displayed per category shelf (4x2 desktop grid). */
-export const HOME_SHELF_PRODUCTS_LIMIT = 8;
+/** Default number of product cards displayed per category shelf (5x1 desktop grid). */
+export const HOME_SHELF_PRODUCTS_LIMIT = 5;
 
 const defaultHomeCatalogDeps: HomeCatalogDeps = {
   fetchCategories: (query) =>

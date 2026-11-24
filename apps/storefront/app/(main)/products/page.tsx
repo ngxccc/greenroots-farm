@@ -83,7 +83,7 @@ export default function ProductsPage({
             </div>
 
             <div className="lg:col-span-9">
-              <ProductGridSkeleton count={CATALOG_PAGE_LIMIT} />
+              <ProductGridSkeleton count={CATALOG_PAGE_LIMIT} columns={4} />
             </div>
           </div>
         </div>

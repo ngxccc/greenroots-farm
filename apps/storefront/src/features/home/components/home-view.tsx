@@ -78,7 +78,7 @@ function ShelfSection({
         ) : null}
       </div>
 
-      <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 items-stretch gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
         {products.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
@@ -334,7 +334,7 @@ export function HomeViewContent({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 lg:grid-cols-4">
+            <div className="grid grid-cols-2 items-stretch gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
               {rescueDeals.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

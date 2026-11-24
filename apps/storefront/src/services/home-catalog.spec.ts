@@ -162,7 +162,7 @@ describe("Storefront Home Catalog", () => {
   });
 
   describe("fetchLiveHomeCatalog", () => {
-    it("builds dynamic shelves from root categories, omits empty shelves, and caps at 6x8", async () => {
+    it("builds dynamic shelves from root categories, omits empty shelves, and caps at 6x5", async () => {
       const eightExtraCategories: CategoryDto[] = Array.from(
         { length: 8 },
         (_, index) => ({
@@ -211,12 +211,12 @@ describe("Storefront Home Catalog", () => {
       const shelves = await fetchLiveHomeCatalog(undefined, deps);
 
       expect(HOME_MAX_SHELVES).toBe(6);
-      expect(HOME_SHELF_PRODUCTS_LIMIT).toBe(8);
+      expect(HOME_SHELF_PRODUCTS_LIMIT).toBe(5);
       expect(capturedRootLimit).toBe(6);
-      expect(capturedPerShelfLimit).toBe(8);
+      expect(capturedPerShelfLimit).toBe(5);
       expect(shelves).toHaveLength(5);
       expect(shelves[0]?.id).toBe("cat-root-1");
-      expect(shelves[0]?.products).toHaveLength(8);
+      expect(shelves[0]?.products).toHaveLength(5);
       expect(shelves.some((shelf) => shelf.id === "cat-root-2")).toBe(false);
     });
 

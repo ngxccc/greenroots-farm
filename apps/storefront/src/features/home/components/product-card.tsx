@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Badge,
   Button,
@@ -28,6 +28,7 @@ interface ProductCardProps {
  * @returns Bordered product card with inline cart quantity stepper.
  */
 export function ProductCard({ product, showStock = false }: ProductCardProps) {
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const items = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
   const syncProductSnapshot = useCartStore(
@@ -63,48 +64,48 @@ export function ProductCard({ product, showStock = false }: ProductCardProps) {
       )
     : 0;
   const isOutOfStock = normalizedAvailable <= 0;
+  const showFallbackImage =
+    !product.imageUrl || failedImageUrl === product.imageUrl;
   const clampedRescuePct =
     product.rescueBatchProgressPct !== undefined
       ? Math.min(100, Math.max(0, product.rescueBatchProgressPct))
       : undefined;
 
   return (
-    <Card className="h-full gap-0 rounded-sm border border-border-subtle bg-surface-card py-0 shadow-none transition-colors hover:border-brand-forest">
-      <CardContent className="flex h-full flex-col justify-between gap-3 p-1.5">
-        <div className="flex flex-col gap-2">
-          <Link
-            href={`/products/${product.slug}`}
-            className="relative flex h-36 items-center justify-center overflow-hidden rounded-sm bg-white"
-          >
-            {product.imageUrl ? (
-              <Image
-                src={product.imageUrl}
-                alt={product.name}
-                fill
-                sizes="(max-width: 1024px) 50vw, 25vw"
-                className={`object-contain p-1 ${
-                  isOutOfStock ? "opacity-50" : ""
-                }`}
-              />
-            ) : (
-              <div
-                className={`flex h-full w-full items-center justify-center rounded-sm border border-border-subtle/60 bg-surface-warm/40 ${
-                  isOutOfStock ? "opacity-50" : ""
-                }`}
-              >
-                <Leaf
-                  className="size-10 text-brand-forest/70"
-                  aria-hidden="true"
-                />
-              </div>
-            )}
-            {product.isRescueDeal && product.hoursRemaining ? (
-              <Badge className="absolute top-1.5 left-1.5 rounded-sm border-0 bg-status-spoiled px-2 py-0.5 text-[11px] font-semibold text-white tabular-nums">
-                HSD còn {product.hoursRemaining}h
-              </Badge>
-            ) : null}
-          </Link>
+    <Card className="h-full gap-0 overflow-hidden rounded-sm border border-border-subtle bg-surface-card py-0 shadow-none transition-colors">
+      <CardContent className="flex h-full flex-col p-0">
+        <Link
+          href={`/products/${product.slug}`}
+          className="relative flex h-36 w-full items-center justify-center overflow-hidden bg-green-50"
+        >
+          {!showFallbackImage && product.imageUrl ? (
+            <Image
+              src={product.imageUrl}
+              alt={product.name}
+              fill
+              sizes="(max-width: 1024px) 50vw, 25vw"
+              onError={() => setFailedImageUrl(product.imageUrl ?? null)}
+              className={`object-cover ${isOutOfStock ? "opacity-50" : ""}`}
+            />
+          ) : (
+            <div
+              role="img"
+              aria-label={product.name}
+              className={`flex h-full w-full items-center justify-center bg-surface-warm text-brand-forest ${
+                isOutOfStock ? "opacity-50" : ""
+              }`}
+            >
+              <Leaf className="size-10 opacity-80" aria-hidden="true" />
+            </div>
+          )}
+          {product.isRescueDeal && product.hoursRemaining ? (
+            <Badge className="absolute top-1.5 left-1.5 rounded-sm border-0 bg-status-spoiled px-2 py-0.5 text-[11px] font-semibold text-white tabular-nums">
+              HSD còn {product.hoursRemaining}h
+            </Badge>
+          ) : null}
+        </Link>
 
+        <div className="flex flex-1 flex-col gap-2 p-2">
           <div className="flex flex-col gap-0.5">
             {(product.badgeText || showStock) && !product.isRescueDeal ? (
               <div className="flex items-center justify-between gap-1 text-[11px] font-medium">
@@ -194,25 +195,26 @@ export function ProductCard({ product, showStock = false }: ProductCardProps) {
           ) : null}
         </div>
 
-        <footer>
+        <footer className="mt-auto">
           {currentQty === 0 ? (
             <Button
               type="button"
+              variant="ghost"
               disabled={isOutOfStock}
               onClick={() => addItem(product, 1)}
-              className="h-9 w-full rounded-sm bg-brand-forest text-xs font-semibold text-white hover:bg-brand-dark"
+              className="h-9 w-full rounded-none border-0 border-t border-border-subtle bg-green-100 text-xs font-semibold text-brand-dark hover:bg-green-100/70! hover:text-brand-dark!"
             >
               {isOutOfStock ? "Tạm hết hàng" : "MUA NGAY"}
             </Button>
           ) : (
-            <div className="flex h-9 items-center justify-between rounded-sm border border-brand-forest bg-green-50">
+            <div className="flex h-9 items-center justify-between border-t border-border-subtle bg-green-50">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 aria-label={`Giảm số lượng ${product.name}`}
                 onClick={() => decrementItem(product.id)}
-                className="h-9 w-9 rounded-l-sm text-brand-dark hover:bg-green-100"
+                className="h-9 w-9 rounded-none text-brand-dark hover:bg-green-100"
               >
                 <Minus className="size-4" aria-hidden="true" />
               </Button>
@@ -226,7 +228,7 @@ export function ProductCard({ product, showStock = false }: ProductCardProps) {
                 aria-label={`Tăng số lượng ${product.name}`}
                 disabled={currentQty >= normalizedAvailable}
                 onClick={() => incrementItem(product.id)}
-                className="h-9 w-9 rounded-r-sm text-brand-dark hover:bg-green-100"
+                className="h-9 w-9 rounded-none text-brand-dark hover:bg-green-100"
               >
                 <Plus className="size-4" aria-hidden="true" />
               </Button>
@@ -240,26 +242,38 @@ export function ProductCard({ product, showStock = false }: ProductCardProps) {
 
 interface ProductGridSkeletonProps {
   readonly count: number;
+  readonly columns?: 4 | 5;
 }
 
 /**
  * Responsive card grid placeholder matched to `ProductCard` geometry for route `<Suspense>` fallbacks.
  *
- * @param props Number of product card skeletons to display.
+ * @param props Number of product card skeletons and desktop column count (`4` or `5`).
  * @returns Grid of decorative skeleton cards hidden from assistive tech.
  */
-export function ProductGridSkeleton({ count }: ProductGridSkeletonProps) {
+export function ProductGridSkeleton({
+  count,
+  columns = 5,
+}: ProductGridSkeletonProps) {
+  const gridColsClass =
+    columns === 4
+      ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+      : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5";
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+    <div className={gridColsClass}>
       {Array.from({ length: count }, (_, index) => (
         <div
           key={index}
-          className="space-y-3 rounded-sm border border-border-subtle bg-surface-card p-1.5"
+          className="flex flex-col overflow-hidden rounded-sm border border-border-subtle bg-surface-card"
         >
-          <Skeleton className="h-36 w-full rounded-sm bg-gray-100" />
-          <Skeleton className="h-4 w-3/4 bg-gray-200" />
-          <Skeleton className="h-4 w-1/2 bg-gray-200" />
-          <Skeleton className="h-9 w-full rounded-sm bg-green-100/70" />
+          <Skeleton className="h-36 w-full rounded-none bg-surface-warm" />
+          <div className="space-y-2 p-2">
+            <Skeleton className="h-3 w-16 bg-gray-200" />
+            <Skeleton className="h-4 w-3/4 bg-gray-200" />
+            <Skeleton className="h-5 w-1/2 bg-gray-200" />
+          </div>
+          <Skeleton className="mt-auto h-9 w-full rounded-none bg-green-100/70" />
         </div>
       ))}
     </div>
