@@ -5,6 +5,15 @@ export {
   AlertTitle,
 } from "./components/ui/alert";
 export { Badge, badgeVariants } from "./components/ui/badge";
+export {
+  Breadcrumb,
+  BreadcrumbEllipsis,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "./components/ui/breadcrumb";
 export { Button, buttonVariants } from "./components/ui/button";
 export {
   Card,

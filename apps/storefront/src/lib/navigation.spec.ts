@@ -1,9 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import { buildProductSearchHref, buildTraceDetailHref } from "./navigation";
-import {
-  getShowcaseTraceByCode,
-  getShowcaseTraceList,
-} from "@/services/trace.service";
 
 describe("Storefront Navigation Helpers", () => {
   describe("buildProductSearchHref", () => {
@@ -21,21 +17,6 @@ describe("Storefront Navigation Helpers", () => {
         "/trace/LOT-DL-2604-A1",
       );
       expect(buildTraceDetailHref("   ")).toBeNull();
-    });
-  });
-
-  describe("getShowcaseTraceList", () => {
-    it("exposes showcase batches that all resolve cleanly by batch code", () => {
-      // Invariant: INV-SF-ERR-2
-      const records = getShowcaseTraceList();
-      expect(records.length).toBeGreaterThanOrEqual(4);
-
-      for (const record of records) {
-        expect(buildTraceDetailHref(record.batchCode)).toBe(
-          `/trace/${encodeURIComponent(record.batchCode)}`,
-        );
-        expect(getShowcaseTraceByCode(record.batchCode)).toBeDefined();
-      }
     });
   });
 });

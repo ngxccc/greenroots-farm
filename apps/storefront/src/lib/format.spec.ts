@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   formatViDate,
+  formatViDateTime,
   formatVnd,
   getUserInitials,
   roundQuantity,
@@ -26,6 +27,10 @@ describe("Storefront Formatting Helpers", () => {
       expect(formatVnd(2450)).toBe("2.450đ");
       expect(formatViDate("2026-11-13T00:00:00.000Z")).toBe("13/11/2026");
       expect(formatViDate("not-a-date")).toBe("not-a-date");
+      expect(formatViDateTime("2026-11-20T04:15:00.000Z")).toBe(
+        "11:15, 20/11/2026",
+      );
+      expect(formatViDateTime("not-a-date")).toBe("not-a-date");
       expect(roundQuantity(0.1 + 0.2)).toBe(0.3);
       expect(roundQuantity(1.255)).toBe(1.26);
     });

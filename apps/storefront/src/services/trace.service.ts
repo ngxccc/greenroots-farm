@@ -1,189 +1,126 @@
-import {
-  BatchStatus,
-  FarmingActionType,
-  SeasonStatus,
-} from "@greenroots/shared";
-import type { BatchTraceRecord } from "@/types/trace.types";
+import { resolveSharedApiErrorMessage } from "@greenroots/shared";
+import { api } from "@/lib/api-client";
+import type {
+  RecentTraceBatchItem,
+  TraceLookupResult,
+  TraceRecord,
+} from "@/types/trace.types";
 
-// TODO(farms-api): Wire GET /api/v1/farms/trace/:batchCode once FarmsModule controller lands.
-const SHOWCASE_TRACE_RECORDS: Record<string, BatchTraceRecord> = {
-  "BATCH-2026-TOM-01": {
-    batchCode: "BATCH-2026-TOM-01",
-    productName: "Cà chua bi hữu cơ",
-    unitLabel: "500g",
-    harvestDate: "2026-11-20",
-    expirationDate: "2026-11-29",
-    status: BatchStatus.IN_STOCK,
-    plotCode: "PLOT-B2",
-    plotName: "Lô B2 - Nhà kính Đơn Dương, Lâm Đồng",
-    areaSqm: 1200,
-    seasonName: "Vụ Đông Xuân 2026 - Cà Chua Bi",
-    seasonStatus: SeasonStatus.ACTIVE,
-    soilPh: 6.4,
-    waterPh: 7.1,
-    heavyMetalsPass: true,
-    certificationUrl: "https://greenroots.farm/xet-nghiem/dat-b2.pdf",
-    farmingLogs: [
-      {
-        id: "log-1",
-        actionType: FarmingActionType.SEEDING,
-        description:
-          "Xuống giống cà chua bi hữu cơ F1 trên giá thể xơ dừa đã xử lý vi sinh.",
-        mediaUrls: [],
-        loggedAt: "2026-09-01T01:30:00.000Z",
-        engineerName: "Kỹ sư Lê Văn Canh Tác",
-      },
-      {
-        id: "log-2",
-        actionType: FarmingActionType.BIO_FERTILIZING,
-        description:
-          "Bón thúc phân trùn quế kết hợp dịch chuối ủ men vi sinh định kỳ tuần 4.",
-        mediaUrls: [],
-        loggedAt: "2026-10-02T02:15:00.000Z",
-        engineerName: "Kỹ sư Lê Văn Canh Tác",
-      },
-      {
-        id: "log-3",
-        actionType: FarmingActionType.HARVESTING,
-        description:
-          "Thu hoạch thủ công lúc 15h chiều đạt độ chín 90%, làm lạnh sơ bộ 4°C và đóng xe lạnh đêm về TP.HCM.",
-        mediaUrls: [],
-        loggedAt: "2026-11-20T21:00:00.000Z",
-        engineerName: "Kỹ sư Lê Văn Canh Tác",
-      },
-    ],
-  },
-  "LOT-DL-2604-A1": {
-    batchCode: "LOT-DL-2604-A1",
-    productName: "Cải bó xôi hữu cơ",
-    unitLabel: "300g",
-    harvestDate: "2026-11-21",
-    expirationDate: "2026-11-25",
-    status: BatchStatus.IN_STOCK,
-    plotCode: "PLOT-A1",
-    plotName: "Lô A1 - Nhà kính Đơn Dương, Lâm Đồng",
-    areaSqm: 900,
-    seasonName: "Vụ Đông Xuân 2026 - Cải Bó Xôi",
-    seasonStatus: SeasonStatus.ACTIVE,
-    soilPh: 6.5,
-    waterPh: 7.0,
-    heavyMetalsPass: true,
-    certificationUrl: "https://greenroots.farm/xet-nghiem/dat-a1.pdf",
-    farmingLogs: [
-      {
-        id: "log-a1-1",
-        actionType: FarmingActionType.SEEDING,
-        description:
-          "Gieo hạt cải bó xôi hữu cơ trên luống phủ màng sinh học thoáng khí.",
-        mediaUrls: [],
-        loggedAt: "2026-10-15T01:00:00.000Z",
-        engineerName: "Kỹ sư Nguyễn Minh Thảo",
-      },
-      {
-        id: "log-a1-2",
-        actionType: FarmingActionType.HARVESTING,
-        description:
-          "Thu hoạch chiều mát lúc 15h30 khi lá đạt độ giòn ngọt chuẩn VietGAP, đóng sọt đi xe lạnh đêm.",
-        mediaUrls: [],
-        loggedAt: "2026-11-21T21:30:00.000Z",
-        engineerName: "Kỹ sư Nguyễn Minh Thảo",
-      },
-    ],
-  },
-  "LOT-CC-2604-C1": {
-    batchCode: "LOT-CC-2604-C1",
-    productName: "Cải xoăn Kale hữu cơ",
-    unitLabel: "250g",
-    harvestDate: "2026-11-21",
-    expirationDate: "2026-11-26",
-    status: BatchStatus.IN_STOCK,
-    plotCode: "PLOT-C1",
-    plotName: "Lô C1 - Vườn đồi Lạc Dương, Lâm Đồng",
-    areaSqm: 1100,
-    seasonName: "Vụ Đông Xuân 2026 - Cải Xoăn Kale",
-    seasonStatus: SeasonStatus.ACTIVE,
-    soilPh: 6.3,
-    waterPh: 6.9,
-    heavyMetalsPass: true,
-    certificationUrl: "https://greenroots.farm/xet-nghiem/dat-c1.pdf",
-    farmingLogs: [
-      {
-        id: "log-c1-1",
-        actionType: FarmingActionType.BIO_FERTILIZING,
-        description:
-          "Bổ sung phân hữu cơ hoai mục và vi sinh đối kháng bảo vệ bộ rễ.",
-        mediaUrls: [],
-        loggedAt: "2026-10-25T02:00:00.000Z",
-        engineerName: "Kỹ sư Lê Văn Canh Tác",
-      },
-      {
-        id: "log-c1-2",
-        actionType: FarmingActionType.HARVESTING,
-        description:
-          "Tỉa lá cải xoăn Kale tuyển chọn lúc 16h chiều và làm mát tức thì ở 4°C.",
-        mediaUrls: [],
-        loggedAt: "2026-11-21T21:45:00.000Z",
-        engineerName: "Kỹ sư Lê Văn Canh Tác",
-      },
-    ],
-  },
-  "LOT-DL-2604-D2": {
-    batchCode: "LOT-DL-2604-D2",
-    productName: "Cà rốt hữu cơ Đà Lạt",
-    unitLabel: "500g",
-    harvestDate: "2026-11-21",
-    expirationDate: "2026-12-01",
-    status: BatchStatus.IN_STOCK,
-    plotCode: "PLOT-D2",
-    plotName: "Lô D2 - Đất đỏ bazan Đơn Dương, Lâm Đồng",
-    areaSqm: 1500,
-    seasonName: "Vụ Đông Xuân 2026 - Cà Rốt",
-    seasonStatus: SeasonStatus.ACTIVE,
-    soilPh: 6.6,
-    waterPh: 7.1,
-    heavyMetalsPass: true,
-    certificationUrl: "https://greenroots.farm/xet-nghiem/dat-d2.pdf",
-    farmingLogs: [
-      {
-        id: "log-d2-1",
-        actionType: FarmingActionType.SOIL_TESTING,
-        description:
-          "Kiểm định mẫu đất cát pha đạt chuẩn kim loại nặng bằng 0 trước gieo.",
-        mediaUrls: [],
-        loggedAt: "2026-09-12T03:00:00.000Z",
-        engineerName: "Kỹ sư Nguyễn Minh Thảo",
-      },
-      {
-        id: "log-d2-2",
-        actionType: FarmingActionType.HARVESTING,
-        description:
-          "Nhổ củ lúc 5h sáng, rửa nước giếng lọc vi sinh và phân loại kích cỡ.",
-        mediaUrls: [],
-        loggedAt: "2026-11-21T22:00:00.000Z",
-        engineerName: "Kỹ sư Nguyễn Minh Thảo",
-      },
-    ],
-  },
+const DEFAULT_RECENT_TRACE_LIMIT = 4;
+
+/** Injectable API fetchers for deterministic unit testing of trace service functions. */
+export interface TraceServiceDeps {
+  readonly fetchRecent: (query: { limit?: number }) => Promise<{
+    readonly data?: { readonly data?: readonly RecentTraceBatchItem[] };
+    readonly error?: unknown;
+    readonly response?: { readonly status: number };
+  }>;
+  readonly fetchByBatchCode: (batchCode: string) => Promise<{
+    readonly data?: { readonly data?: TraceRecord };
+    readonly error?: unknown;
+    readonly response?: { readonly status: number };
+  }>;
+}
+
+const defaultTraceServiceDeps: TraceServiceDeps = {
+  fetchRecent: (query) => api.GET("/api/v1/trace", { params: { query } }),
+  fetchByBatchCode: (batchCode) =>
+    api.GET("/api/v1/trace/{batchCode}", {
+      params: { path: { batchCode } },
+    }),
 };
 
-/**
- * Looks up a showcase batch traceability record by batch code (case-insensitive).
- *
- * @param batchCode Candidate batch code from the `/trace/:batchCode` route param.
- * @returns Matching `BatchTraceRecord` or `undefined` when not found.
- */
-export function getShowcaseTraceByCode(
-  batchCode: string,
-): BatchTraceRecord | undefined {
-  const normalized = batchCode.trim().toUpperCase();
-  return SHOWCASE_TRACE_RECORDS[normalized];
+function extractProblemError(error: unknown): {
+  status?: number;
+  code?: string;
+  detail?: string;
+} {
+  if (typeof error !== "object" || error === null) {
+    return {};
+  }
+  const record = error as Record<string, unknown>;
+  return {
+    status: typeof record.status === "number" ? record.status : undefined,
+    code: typeof record.code === "string" ? record.code : undefined,
+    detail: typeof record.detail === "string" ? record.detail : undefined,
+  };
 }
 
 /**
- * Returns all showcase batch traceability records for the `/trace` directory page.
+ * Fetches the most recently harvested active batches from `GET /api/v1/trace`.
+ * Degrades gracefully to `[]` if the API is unreachable so `/trace` remains usable.
  *
- * @returns Ordered list of showcase batch traceability records.
+ * @param limit Maximum number of recent batches to request (default `4`).
+ * @param deps Optional injectable API fetchers for unit tests.
+ * @returns Ordered list of redacted recent batch summaries.
  */
-export function getShowcaseTraceList(): readonly BatchTraceRecord[] {
-  return Object.values(SHOWCASE_TRACE_RECORDS);
+export async function fetchRecentTraceBatches(
+  limit = DEFAULT_RECENT_TRACE_LIMIT,
+  deps: Pick<TraceServiceDeps, "fetchRecent"> = defaultTraceServiceDeps,
+): Promise<readonly RecentTraceBatchItem[]> {
+  try {
+    const result = await deps.fetchRecent({ limit });
+    if (result.error || !result.data?.data) {
+      return [];
+    }
+    return result.data.data;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetches the full public QR traceability record for a batch code from `GET /api/v1/trace/:batchCode`.
+ *
+ * @param rawBatchCode Candidate batch code from route params or lookup form.
+ * @param deps Optional injectable API fetchers for unit tests.
+ * @returns Discriminated lookup result distinguishing `not_found` (`400`/`404`) from transient errors.
+ */
+export async function fetchTraceByBatchCode(
+  rawBatchCode: string,
+  deps: Pick<TraceServiceDeps, "fetchByBatchCode"> = defaultTraceServiceDeps,
+): Promise<TraceLookupResult> {
+  const normalized = rawBatchCode.trim().toUpperCase();
+  if (!normalized) {
+    return {
+      ok: false,
+      reason: "not_found",
+      message: "Vui lòng nhập mã lô để tra cứu.",
+    };
+  }
+
+  try {
+    const result = await deps.fetchByBatchCode(normalized);
+    if (result.data?.data) {
+      return { ok: true, data: result.data.data };
+    }
+
+    const problem = extractProblemError(result.error);
+    const status = result.response?.status ?? problem.status;
+    if (status === 404 || status === 400) {
+      return {
+        ok: false,
+        reason: "not_found",
+        message: resolveSharedApiErrorMessage(
+          problem.code,
+          "Không tìm thấy mã lô nông sản.",
+        ),
+      };
+    }
+
+    return {
+      ok: false,
+      reason: "error",
+      message: resolveSharedApiErrorMessage(
+        problem.code,
+        "Không thể tải dữ liệu truy xuất lúc này. Vui lòng thử lại sau.",
+      ),
+    };
+  } catch {
+    return {
+      ok: false,
+      reason: "error",
+      message: "Không thể kết nối máy chủ truy xuất nguồn gốc.",
+    };
+  }
 }

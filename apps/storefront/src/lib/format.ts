@@ -32,6 +32,27 @@ export function formatViDate(isoDate: string): string {
 }
 
 /**
+ * Formats an ISO datetime string into `HH:mm, DD/MM/YYYY` in `Asia/Ho_Chi_Minh`.
+ *
+ * @param isoDate ISO-8601 datetime string.
+ * @returns Formatted Vietnam local time and calendar date, or raw input when invalid.
+ */
+export function formatViDateTime(isoDate: string): string {
+  const parsed = new Date(isoDate);
+  if (Number.isNaN(parsed.getTime())) {
+    return isoDate;
+  }
+  const time = parsed.toLocaleTimeString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const date = formatViDate(isoDate);
+  return `${time}, ${date}`;
+}
+
+/**
  * Derives up to two uppercase initials from a customer's full name for compact avatar badges.
  *
  * @param fullName Customer display name.
