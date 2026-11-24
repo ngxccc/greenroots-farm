@@ -4,7 +4,6 @@ import { HCMC_DISTRICTS, findHcmcDistrictByCode } from "@greenroots/shared";
 import {
   Alert,
   AlertDescription,
-  Badge,
   Checkbox,
   Input,
   Label,
@@ -15,16 +14,19 @@ import {
   SelectValue,
 } from "@greenroots/ui";
 import { AlertCircle, Truck } from "lucide-react";
-import { FARM_METADATA } from "@/constants/farm-metadata.constant";
+import { DeliveryQuoteSummary } from "@/components/common/delivery-quote-summary";
 import {
   ADDRESS_RECEIVER_NAME_MAX_LENGTH,
   ADDRESS_STREET_MAX_LENGTH,
 } from "@/lib/address/address-validation";
-import { formatVnd } from "@/lib/format";
-import { estimateDistrictPreviewQuote } from "@/lib/shipping";
+import { invalidateStorefrontClientSession } from "@/lib/auth/client-logout";
+import { useShippingQuote } from "@/lib/shipping/use-shipping-quote";
+import { useAuthStore } from "@/stores/auth.store";
 
 interface DeliveryQuotePreviewProps {
   readonly districtCode: string;
+  readonly addressId?: string | null;
+  readonly isSubscription?: boolean;
 }
 
 /**
@@ -70,44 +72,49 @@ export function HcmcDistrictSelect({
 }
 
 /**
- * Displays deterministic Haversine road-distance and estimated express fee preview
- * from GreenRoots Farm using `HCMC_DISTRICTS` and `estimateDistrictPreviewQuote()`.
+ * Displays dynamic server-computed delivery quote via `POST /api/shipping/quote` for
+ * authenticated customers, or a login prompt for unauthenticated guests.
  *
- * @param props Selected canonical HCMC `districtCode`.
- * @returns Styled summary card showing distance and VND fee or out-of-radius badge.
+ * @param props Selected HCMC `districtCode` and optional saved `addressId`.
+ * @returns Styled summary card showing distance and VND fee, retry alert, out-of-radius badge, or login prompt.
  */
 export function DeliveryQuotePreview({
   districtCode,
+  addressId = null,
+  isSubscription = false,
 }: DeliveryQuotePreviewProps) {
+  const activeUser = useAuthStore((state) => state.user);
   const district = findHcmcDistrictByCode(districtCode) ?? HCMC_DISTRICTS[0];
-  const quote = estimateDistrictPreviewQuote(district);
+  const isAuthenticated = Boolean(activeUser);
+
+  const serverQuote = useShippingQuote({
+    enabled: isAuthenticated,
+    addressId,
+    districtCode: addressId ? null : district.code,
+    isSubscription,
+    onSessionInvalidated: invalidateStorefrontClientSession,
+  });
+
+  if (isAuthenticated) {
+    return (
+      <DeliveryQuoteSummary
+        districtName={addressId ? undefined : district.name}
+        quote={serverQuote.quote}
+        isLoading={serverQuote.status === "loading"}
+        errorMessage={serverQuote.errorMessage}
+        onRetry={serverQuote.retry}
+      />
+    );
+  }
 
   return (
-    <div className="space-y-1.5 rounded-xl border border-border-subtle bg-surface-warm p-3 text-xs">
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-gray-600">
-          <Truck
-            className="size-4 shrink-0 text-brand-forest"
-            aria-hidden="true"
-          />
-          <span>Khoảng cách ước tính ({district.name})</span>
-        </span>
-        <span className="font-bold text-gray-900 tabular-nums">
-          ~{quote.roadDistanceKm} km
-        </span>
-      </div>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-gray-600">Phí giao hỏa tốc dự kiến</span>
-        {quote.isDeliverable ? (
-          <Badge className="border-0 bg-green-100 text-brand-dark tabular-nums">
-            {formatVnd(quote.feeVnd)}
-          </Badge>
-        ) : (
-          <Badge variant="destructive">
-            Ngoài phạm vi giao tươi {FARM_METADATA.maxDeliveryRadiusKm} km
-          </Badge>
-        )}
-      </div>
+    <div className="flex items-center gap-2 rounded-xl border border-border-subtle bg-surface-warm p-3 text-xs text-gray-600">
+      <Truck className="size-4 shrink-0 text-brand-forest" aria-hidden="true" />
+      <span>
+        Đăng nhập để xem khoảng cách và phí giao hàng chính xác tới{" "}
+        <strong className="font-semibold text-gray-900">{district.name}</strong>
+        .
+      </span>
     </div>
   );
 }

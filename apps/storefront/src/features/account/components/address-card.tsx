@@ -1,6 +1,5 @@
 "use client";
 
-import { HCMC_DISTRICTS, findHcmcDistrictByCode } from "@greenroots/shared";
 import {
   Badge,
   Button,
@@ -11,9 +10,10 @@ import {
   DropdownMenuTrigger,
 } from "@greenroots/ui";
 import { CheckCircle2, MoreVertical, Pencil, Trash2 } from "lucide-react";
-import { FARM_METADATA } from "@/constants/farm-metadata.constant";
+import { invalidateStorefrontClientSession } from "@/lib/auth/client-logout";
 import { formatVnd } from "@/lib/format";
-import { estimateDistrictPreviewQuote } from "@/lib/shipping";
+import { useShippingQuote } from "@/lib/shipping/use-shipping-quote";
+import { useAuthStore } from "@/stores/auth.store";
 import type { CustomerAddress } from "@/types/address.types";
 
 interface AddressCardProps {
@@ -38,9 +38,17 @@ export function AddressCard({
   onRequestEdit,
   onRequestDelete,
 }: AddressCardProps) {
-  const district =
-    findHcmcDistrictByCode(address.districtCode) ?? HCMC_DISTRICTS[0];
-  const quote = estimateDistrictPreviewQuote(district);
+  const activeUser = useAuthStore((state) => state.user);
+  const isAuthenticated = Boolean(activeUser);
+  const serverQuote = useShippingQuote({
+    enabled: isAuthenticated,
+    districtCode: address.districtCode,
+    onSessionInvalidated: invalidateStorefrontClientSession,
+  });
+
+  const quote = isAuthenticated ? serverQuote.quote : null;
+  const isLoading = isAuthenticated && serverQuote.status === "loading";
+  const errorMessage = isAuthenticated ? serverQuote.errorMessage : null;
 
   return (
     <article className="flex items-start justify-between gap-3 py-4">
@@ -53,7 +61,7 @@ export function AddressCard({
             {address.phoneNumber}
           </span>
           {address.isDefault ? (
-            <Badge className="border-0 bg-green-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-dark">
+            <Badge className="border-0 bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-brand-dark">
               Mặc định
             </Badge>
           ) : null}
@@ -63,17 +71,29 @@ export function AddressCard({
           {address.streetAddress}, {address.district}, {address.city}
         </p>
 
-        <p
-          className={
-            quote.isDeliverable
-              ? "text-xs text-gray-600 tabular-nums"
-              : "text-xs font-medium text-status-spoiled tabular-nums"
-          }
-        >
-          {quote.isDeliverable
-            ? `Cách farm ~${quote.roadDistanceKm} km — Phí giao dự kiến ${formatVnd(quote.feeVnd)}`
-            : `Cách farm ~${quote.roadDistanceKm} km — Ngoài phạm vi giao tươi ${FARM_METADATA.maxDeliveryRadiusKm} km`}
-        </p>
+        {isLoading ? (
+          <p className="text-xs text-gray-500">Đang tính phí giao hàng...</p>
+        ) : !isAuthenticated ? (
+          <p className="text-xs text-gray-500">
+            Đăng nhập để xem phí giao hàng dự kiến.
+          </p>
+        ) : errorMessage || !quote ? (
+          <p className="text-xs text-gray-500">
+            {errorMessage ?? "Không thể tải phí giao hàng dự kiến."}
+          </p>
+        ) : quote.isDeliverable && quote.feeVnd !== null ? (
+          <p className="text-xs text-gray-600 tabular-nums">
+            {`Cách farm ~${quote.roadDistanceKm} km — Phí giao dự kiến ${
+              quote.isFreeShipping || quote.feeVnd === 0
+                ? "Miễn phí (0đ)"
+                : formatVnd(quote.feeVnd)
+            }`}
+          </p>
+        ) : (
+          <p className="text-xs font-medium text-status-spoiled tabular-nums">
+            {`Cách farm ~${quote.roadDistanceKm} km — Ngoài phạm vi giao tươi ${quote.maxRadiusKm} km`}
+          </p>
+        )}
       </div>
 
       <DropdownMenu>

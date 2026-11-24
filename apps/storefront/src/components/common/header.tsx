@@ -20,9 +20,10 @@ import {
   Label,
 } from "@greenroots/ui";
 import { MapPin, Search, ShoppingCart } from "lucide-react";
+import { invalidateStorefrontClientSession } from "@/lib/auth/client-logout";
 import { roundQuantity } from "@/lib/format";
 import { buildProductSearchHref } from "@/lib/navigation";
-import { estimateDistrictPreviewQuote } from "@/lib/shipping";
+import { useShippingQuote } from "@/lib/shipping/use-shipping-quote";
 import { useAuthStore } from "@/stores/auth.store";
 import { useCartStore } from "@/stores/cart.store";
 import {
@@ -124,10 +125,6 @@ function DeliveryLocationSubBar() {
     (state) => state.selectedAddressId,
   );
 
-  if (!shouldShowDeliverySubBar(pathname)) {
-    return null;
-  }
-
   const activeSavedAddress = activeUser
     ? findActiveDeliveryAddress(savedAddresses, selectedAddressId)
     : null;
@@ -136,7 +133,22 @@ function DeliveryLocationSubBar() {
     : selectedDistrictCode;
   const activeDistrict =
     findHcmcDistrictByCode(effectiveDistrictCode) ?? HCMC_DISTRICTS[0];
-  const deliveryQuote = estimateDistrictPreviewQuote(activeDistrict);
+
+  const serverQuote = useShippingQuote({
+    enabled: Boolean(activeUser) && shouldShowDeliverySubBar(pathname),
+    addressId: activeSavedAddress?.id ?? null,
+    districtCode: activeSavedAddress ? null : activeDistrict.code,
+    onSessionInvalidated: invalidateStorefrontClientSession,
+  });
+
+  if (!shouldShowDeliverySubBar(pathname)) {
+    return null;
+  }
+
+  const distanceSuffix =
+    activeUser && serverQuote.quote
+      ? ` (~${serverQuote.quote.roadDistanceKm} km)`
+      : "";
 
   return (
     <>
@@ -150,8 +162,8 @@ function DeliveryLocationSubBar() {
           <span className="min-w-0 truncate font-semibold text-gray-900 tabular-nums">
             {activeSavedAddress
               ? `${activeSavedAddress.streetAddress}, ${activeSavedAddress.district}`
-              : `${activeDistrict.name}, TP.HCM`}{" "}
-            (~{deliveryQuote.roadDistanceKm} km)
+              : `${activeDistrict.name}, TP.HCM`}
+            {distanceSuffix}
           </span>
           <Button
             type="button"

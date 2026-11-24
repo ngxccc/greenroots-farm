@@ -32,7 +32,6 @@ import {
   Plus,
   RefreshCw,
 } from "lucide-react";
-import { FARM_METADATA } from "@/constants/farm-metadata.constant";
 import {
   AddressFormFields,
   DeliveryQuotePreview,
@@ -480,7 +479,7 @@ function AddressDialogAuthenticatedContent({
                           ({addr.phoneNumber})
                         </span>
                         {addr.isDefault ? (
-                          <Badge className="border-0 bg-green-100 px-1.5 py-0 text-[10px] font-semibold text-brand-dark">
+                          <Badge className="border-0 bg-gray-100 px-1.5 py-0 text-[10px] font-semibold text-brand-dark">
                             Mặc định
                           </Badge>
                         ) : null}
@@ -506,7 +505,10 @@ function AddressDialogAuthenticatedContent({
             })}
           </div>
 
-          <DeliveryQuotePreview districtCode={previewDistrictCode} />
+          <DeliveryQuotePreview
+            districtCode={previewDistrictCode}
+            addressId={selectedSavedAddress?.id ?? null}
+          />
         </>
       )}
 
@@ -600,8 +602,8 @@ export function AddressDialogPanel({
             </span>
           </DialogTitle>
           <DialogDescription className="text-gray-500">
-            Hệ thống giao nông sản tươi hỏa tốc từ Urban Hub Bình Thạnh theo bán
-            kính cam kết {FARM_METADATA.maxDeliveryRadiusKm} km.
+            Hệ thống giao nông sản tươi hỏa tốc từ Urban Hub Bình Thạnh trong
+            ngày.
           </DialogDescription>
         </DialogHeader>
 

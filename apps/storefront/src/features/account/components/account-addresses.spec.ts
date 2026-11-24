@@ -167,7 +167,9 @@ describe("Storefront Account Addresses Components", () => {
         });
 
         expect(win.document.body.innerHTML).toContain("Mặc định");
-        expect(win.document.body.innerHTML).toContain("Cách farm ~");
+        expect(win.document.body.innerHTML).toContain(
+          "Đăng nhập để xem phí giao hàng dự kiến.",
+        );
 
         const trigger = win.document.querySelector(
           'button[aria-haspopup="menu"]',
