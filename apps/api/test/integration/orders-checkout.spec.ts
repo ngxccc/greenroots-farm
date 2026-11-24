@@ -270,7 +270,7 @@ describe("Orders Checkout Integration", () => {
 
       // regular: 1.5 * 80,000 = 120,000; markdown: 1 * 35,000 = 35,000 -> subtotal = 155,000
       expect(payload.subtotalVnd).toBe(155_000);
-      expect(payload.minOrderValueVnd).toBe(150_000);
+      expect(payload.minOrderValueVnd).toBe(50_000);
       expect(payload.meetsMinOrderValue).toBe(true);
       expect(payload.availableLoyaltyPoints).toBe(50_000);
       expect(payload.appliedLoyaltyPoints).toBe(50_000);
@@ -506,17 +506,17 @@ describe("Orders Checkout Integration", () => {
         .set(customerHeader)
         .set("Idempotency-Key", randomUUID())
         .send({
-          items: [{ productId: markdownProductId, quantity: 4 }], // 4 * 35,000 = 140,000 < 150,000
+          items: [{ productId: markdownProductId, quantity: 1 }], // 1 * 35,000 = 35,000 < 50,000
         })
         .expect(422);
 
       const problem = res.body as Rfc9457ProblemDetails;
       expect(problem.code).toBe(API_ERROR_CODES.ORDER_BELOW_MINIMUM_VALUE);
       expect(problem.invalidParams[0]?.params?.["minOrderValueVnd"]).toBe(
-        150_000,
+        50_000,
       );
       expect(problem.invalidParams[0]?.params?.["currentSubtotalVnd"]).toBe(
-        140_000,
+        35_000,
       );
 
       const persistedOrders = await setup.db.select().from(orders);
