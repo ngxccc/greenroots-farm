@@ -9,7 +9,7 @@ import { PolicySidebar } from "@/features/policies/components/policy-sidebar";
 export const metadata: Metadata = {
   title: "Giới thiệu nông trại",
   description:
-    "Tìm hiểu câu chuyện nông trại GreenRoots Farm tại Đơn Dương, Lâm Đồng với 12 ha canh tác hữu cơ chuẩn VietGAP, thu hoạch lúc 4h sáng và vận chuyển xe lạnh về Urban Hub TP.HCM.",
+    "Tìm hiểu câu chuyện nông trại GreenRoots Farm tại Đơn Dương, Lâm Đồng với 12 ha canh tác hữu cơ chuẩn VietGAP, thu hoạch lúc 15h chiều và vận chuyển xe lạnh đêm về Urban Hub TP.HCM.",
 };
 
 /**
@@ -88,11 +88,12 @@ export default function AboutFarmPage() {
                 <Clock className="size-5" aria-hidden="true" />
               </span>
               <h2 className="text-base font-bold text-gray-900">
-                Thu hoạch 4h sáng
+                Thu hoạch {FARM_METADATA.harvestTimeLabel} · Xe lạnh đêm
               </h2>
               <p className="text-xs leading-relaxed text-gray-600 sm:text-sm">
-                Rau được cắt khi sương còn đọng lá, sơ chế và đóng gói trong
-                phòng lạnh để giữ trọn độ giòn ngọt.
+                Rau được cắt buổi chiều tại Đà Lạt, làm mát nhanh ở 4°C và chạy
+                xe lạnh đêm về Urban Hub Bình Thạnh lúc{" "}
+                {FARM_METADATA.hubArrivalLabel} để giữ trọn độ giòn ngọt.
               </p>
             </div>
 

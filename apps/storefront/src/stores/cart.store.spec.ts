@@ -12,7 +12,7 @@ const sampleTomato: StorefrontProduct = {
   salePriceVnd: 28000,
   availableQuantity: 3,
   categoryKey: "fruit",
-  badgeText: "Cắt 4h sáng",
+  badgeText: "VietGAP",
   hoursRemaining: 26,
   isRescueDeal: true,
   isSubscriptionEligible: true,

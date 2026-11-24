@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { BadgeCheck, Leaf, QrCode, Star } from "lucide-react";
 import { BrandLogo } from "@/components/common/brand-logo";
+import { FARM_METADATA } from "@/constants/farm-metadata.constant";
 
 interface AuthSplitLayoutProps {
   readonly children: ReactNode;
@@ -22,7 +23,7 @@ const PRODUCE_SHOWCASE = [
 const CUSTOMER_PERKS = [
   {
     icon: BadgeCheck,
-    text: "Thu hoạch lúc 4h sáng, giao xe lạnh trong ngày",
+    text: `Thu hoạch ${FARM_METADATA.harvestTimeLabel}, xe lạnh đêm cập bến ${FARM_METADATA.hubArrivalLabel}`,
   },
   {
     icon: QrCode,

@@ -1,6 +1,7 @@
 import { BUSINESS_RULES } from "@greenroots/shared";
 
-const harvestTimeLabel = `${BUSINESS_RULES.HARVEST_START_HOUR}h sáng`;
+const harvestTimeLabel = `${BUSINESS_RULES.HARVEST_START_HOUR}h chiều`;
+const hubArrivalLabel = `${BUSINESS_RULES.HUB_ARRIVAL_HOUR}h sáng`;
 const expressDeliveryLabel = `${BUSINESS_RULES.EXPRESS_DELIVERY_HOURS}h`;
 
 /**
@@ -17,6 +18,7 @@ export const FARM_METADATA = {
   certifications: ["VietGAP", "USDA Organic"] as const,
   certificationCode: "VG-HCM-2026-0089",
   harvestTimeLabel,
+  hubArrivalLabel,
   expressDeliveryLabel,
   complaintWindowHours: BUSINESS_RULES.COMPLAINT_WINDOW_HOURS,
   maxDeliveryRadiusKm: BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM,

@@ -54,8 +54,8 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                 Giỏ hàng đang trống
               </p>
               <p className="text-xs text-gray-500">
-                Chọn rau củ tươi cắt lúc {FARM_METADATA.harvestTimeLabel} để
-                thêm vào giỏ.
+                Chọn rau củ tươi cắt lúc {FARM_METADATA.harvestTimeLabel} đi xe
+                lạnh đêm để thêm vào giỏ.
               </p>
             </div>
           ) : (

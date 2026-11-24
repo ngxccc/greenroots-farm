@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     default: `${FARM_METADATA.brandName} – Siêu thị Nông sản Sạch`,
     template: `%s - ${FARM_METADATA.brandName}`,
   },
-  description: `Nông sản hữu cơ thu hoạch lúc ${FARM_METADATA.harvestTimeLabel} tại ${FARM_METADATA.locationShort}, minh bạch nhật ký canh tác bất biến qua QR và giao hỏa tốc ${FARM_METADATA.expressDeliveryLabel}.`,
+  description: `Nông sản hữu cơ thu hoạch lúc ${FARM_METADATA.harvestTimeLabel} tại ${FARM_METADATA.locationShort}, vận chuyển xe lạnh đêm về Urban Hub TP.HCM, minh bạch nhật ký canh tác qua QR và giao hỏa tốc ${FARM_METADATA.expressDeliveryLabel}.`,
 };
 
 export const viewport: Viewport = {

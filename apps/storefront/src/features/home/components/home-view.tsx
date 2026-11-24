@@ -214,7 +214,7 @@ export function HomeViewContent({
 
             <div className="flex max-w-xl flex-col gap-1">
               <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-balance md:text-4xl">
-                Rau hữu cơ cắt lúc {FARM_METADATA.harvestTimeLabel}
+                Rau hữu cơ cắt {FARM_METADATA.harvestTimeLabel} · Xe lạnh đêm
               </h1>
               <p className="text-lg font-bold text-pretty text-green-50">
                 Minh bạch nhật ký bất biến qua QR
