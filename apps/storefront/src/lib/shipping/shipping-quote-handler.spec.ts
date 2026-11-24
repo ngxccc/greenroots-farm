@@ -227,7 +227,7 @@ describe("ShippingQuoteHandler", () => {
       expect(body.data?.maxRadiusKm).toBe(25);
     });
 
-    it("preserves session and maps transient refresh failures to service unavailable", async () => {
+    it("preserves session and returns fallback error when refresh fails transiently", async () => {
       // Invariant: ADR-0036
       const req = makeQuoteRequest({ districtCode: "QUAN_1" });
 
@@ -293,7 +293,7 @@ describe("ShippingQuoteHandler", () => {
       expect(res.headers.get("set-cookie")).toContain("accessToken=;");
     });
 
-    it("returns service unavailable envelope when backend request throws", async () => {
+    it("returns degraded problem envelope when backend request throws", async () => {
       const req = makeQuoteRequest({ districtCode: "QUAN_1" });
 
       const res = await handleShippingQuotePost(req, {
