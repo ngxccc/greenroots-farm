@@ -51,10 +51,15 @@ export const BUSINESS_RULES = {
     MAX_RADIUS_KM: 25,
     SUBSCRIPTION_FREE_RADIUS_KM: 20,
   },
-  FARM_COORDINATES: {
-    NAME: "GreenRoots Farm",
-    LATITUDE: 11.0067,
-    LONGITUDE: 106.5132,
-    ADDRESS: "Xã Nhuận Đức, Huyện Củ Chi, TP. Hồ Chí Minh",
+  FULFILLMENT_HUB: {
+    NAME: "GreenRoots Urban Hub — Bình Thạnh",
+    LATITUDE: 10.8106,
+    LONGITUDE: 106.7091,
+    ADDRESS: "Phường 25, Quận Bình Thạnh, TP. Hồ Chí Minh",
+  },
+  FARM_ORIGIN: {
+    BRAND_NAME: "GreenRoots Farm",
+    BRAND_ORIGIN: "Đà Lạt",
+    ADDRESS: "Xã Lạc Xuân, Huyện Đơn Dương, Tỉnh Lâm Đồng",
   },
 } as const;

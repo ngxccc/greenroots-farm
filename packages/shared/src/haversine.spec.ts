@@ -11,8 +11,8 @@ import {
 } from "./haversine";
 
 const DEFAULT_ORIGIN: GeoCoordinate = {
-  latitude: BUSINESS_RULES.FARM_COORDINATES.LATITUDE,
-  longitude: BUSINESS_RULES.FARM_COORDINATES.LONGITUDE,
+  latitude: BUSINESS_RULES.FULFILLMENT_HUB.LATITUDE,
+  longitude: BUSINESS_RULES.FULFILLMENT_HUB.LONGITUDE,
 };
 
 const DEFAULT_CONFIG: ShippingQuoteConfig = {
@@ -30,7 +30,7 @@ describe("HCMC districts and Haversine shipping quote", () => {
   });
 
   test("returns zero distance for identical origin and destination", () => {
-    const { LATITUDE, LONGITUDE } = BUSINESS_RULES.FARM_COORDINATES;
+    const { LATITUDE, LONGITUDE } = BUSINESS_RULES.FULFILLMENT_HUB;
     expect(
       calculateHaversineDistanceKm(LATITUDE, LONGITUDE, LATITUDE, LONGITUDE),
     ).toBe(0);
@@ -40,10 +40,10 @@ describe("HCMC districts and Haversine shipping quote", () => {
   });
 
   test("charges base 15,000 VND within 3km and 5,000 VND per extra km ceiling", () => {
-    const cuChi = HCMC_DISTRICTS.find((d) => d.code === "cu-chi")!;
+    const quan1 = HCMC_DISTRICTS.find((d) => d.code === "quan-1")!;
     const quote = calculateDeliveryQuote(
       DEFAULT_ORIGIN,
-      { latitude: cuChi.latitude, longitude: cuChi.longitude },
+      { latitude: quan1.latitude, longitude: quan1.longitude },
       DEFAULT_CONFIG,
     );
 
@@ -55,10 +55,10 @@ describe("HCMC districts and Haversine shipping quote", () => {
   });
 
   test("returns feeVnd null and isDeliverable false beyond maxRadiusKm", () => {
-    const canGio = HCMC_DISTRICTS.find((d) => d.code === "can-gio")!;
+    const cuChi = HCMC_DISTRICTS.find((d) => d.code === "cu-chi")!;
     const quote = calculateDeliveryQuote(
       DEFAULT_ORIGIN,
-      { latitude: canGio.latitude, longitude: canGio.longitude },
+      { latitude: cuChi.latitude, longitude: cuChi.longitude },
       DEFAULT_CONFIG,
     );
 
@@ -69,10 +69,10 @@ describe("HCMC districts and Haversine shipping quote", () => {
   });
 
   test("applies zero shipping fee for eligible subscription deliveries within 20km", () => {
-    const cuChi = HCMC_DISTRICTS.find((d) => d.code === "cu-chi")!;
+    const thaoDien = HCMC_DISTRICTS.find((d) => d.code === "quan-2-old")!;
     const quote = calculateDeliveryQuote(
       DEFAULT_ORIGIN,
-      { latitude: cuChi.latitude, longitude: cuChi.longitude },
+      { latitude: thaoDien.latitude, longitude: thaoDien.longitude },
       DEFAULT_CONFIG,
       { isSubscription: true },
     );
@@ -84,15 +84,15 @@ describe("HCMC districts and Haversine shipping quote", () => {
   });
 
   test("charges standard fee for subscription deliveries between 20km and 25km", () => {
-    const hocMon = HCMC_DISTRICTS.find((d) => d.code === "hoc-mon")!;
+    const binhChanh = HCMC_DISTRICTS.find((d) => d.code === "binh-chanh")!;
     const retailQuote = calculateDeliveryQuote(
       DEFAULT_ORIGIN,
-      { latitude: hocMon.latitude, longitude: hocMon.longitude },
+      { latitude: binhChanh.latitude, longitude: binhChanh.longitude },
       DEFAULT_CONFIG,
     );
     const subQuote = calculateDeliveryQuote(
       DEFAULT_ORIGIN,
-      { latitude: hocMon.latitude, longitude: hocMon.longitude },
+      { latitude: binhChanh.latitude, longitude: binhChanh.longitude },
       DEFAULT_CONFIG,
       { isSubscription: true },
     );
