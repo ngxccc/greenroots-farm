@@ -7,7 +7,13 @@ import {
   type DrizzleDB,
 } from "@/database/database.module";
 import { batches, seasons } from "@/database/schemas";
-import { traceRecordSchema, type TraceRecordProjection } from "./dto";
+import { z } from "zod";
+import {
+  recentTraceBatchItemSchema,
+  traceRecordSchema,
+  type RecentTraceBatchItemProjection,
+  type TraceRecordProjection,
+} from "./dto";
 import {
   TRACE_CACHE_PREFIX,
   TRACE_CACHE_TTL_SECONDS,
@@ -16,6 +22,9 @@ import {
   TRACE_INVALIDATION_MARKER_TTL_SECONDS,
   TRACE_MISS_CACHE_PREFIX,
   TRACE_MISS_TTL_SECONDS,
+  TRACE_RECENT_CACHE_PREFIX,
+  TRACE_RECENT_CACHE_TTL_SECONDS,
+  TRACE_RECENT_MAX_LIMIT,
 } from "./farms.constant";
 
 // Backfill only if farm_ver matches the read snapshot, the cached entry does not
@@ -184,9 +193,13 @@ export class TraceCacheService {
    */
   async rotateFarmVersion(): Promise<void> {
     try {
-      await this.redisService
-        .getClient()
-        .set(TRACE_FARM_VERSION_KEY, randomUUID());
+      const client = this.redisService.getClient();
+      await client.set(TRACE_FARM_VERSION_KEY, randomUUID());
+      await client.unlink(
+        ...Array.from({ length: TRACE_RECENT_MAX_LIMIT }, (_, index) =>
+          this.recentKey(index + 1),
+        ),
+      );
     } catch (error) {
       this.logger.error(
         `Failed to rotate trace farm version after commit: ${this.errorMessage(error)}`,
@@ -225,6 +238,11 @@ export class TraceCacheService {
           TRACE_INVALIDATION_MARKER_TTL_SECONDS,
         );
       }
+      pipeline.unlink(
+        ...Array.from({ length: TRACE_RECENT_MAX_LIMIT }, (_, index) =>
+          this.recentKey(index + 1),
+        ),
+      );
 
       const results = await pipeline.exec();
       const failed = results?.some(([cmdError]) => cmdError !== null) ?? true;
@@ -311,6 +329,70 @@ export class TraceCacheService {
         `Cached trace payload for ${batchCode} contained malformed JSON; falling back to PostgreSQL.`,
       );
       return null;
+    }
+  }
+
+  private recentKey(limit: number): string {
+    return `${TRACE_RECENT_CACHE_PREFIX}${limit}`;
+  }
+
+  /**
+   * Reads the cached list of recent harvested batches for a given limit.
+   *
+   * @param limit Requested list size.
+   * @returns Cached list when present and valid, or `null` on miss/Redis error.
+   */
+  async readCachedRecentBatches(
+    limit: number,
+  ): Promise<RecentTraceBatchItemProjection[] | null> {
+    try {
+      const raw = await this.redisService
+        .getClient()
+        .get(this.recentKey(limit));
+      if (!raw) {
+        return null;
+      }
+      const parsed = z
+        .array(recentTraceBatchItemSchema)
+        .safeParse(JSON.parse(raw));
+      if (!parsed.success) {
+        this.logger.warn(
+          `Cached recent trace list for limit=${limit} failed schema check; falling back to PostgreSQL.`,
+        );
+        return null;
+      }
+      return parsed.data;
+    } catch (error) {
+      this.logger.warn(
+        `Redis recent trace read failed (${this.errorMessage(error)}); falling back to PostgreSQL.`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Caches the public list of recent harvested batches with a short 60s TTL.
+   *
+   * @param limit Requested list size.
+   * @param items Redacted recent batch projections.
+   */
+  async writeCachedRecentBatches(
+    limit: number,
+    items: readonly RecentTraceBatchItemProjection[],
+  ): Promise<void> {
+    try {
+      await this.redisService
+        .getClient()
+        .set(
+          this.recentKey(limit),
+          JSON.stringify(items),
+          "EX",
+          TRACE_RECENT_CACHE_TTL_SECONDS,
+        );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to write recent trace cache for limit=${limit}: ${this.errorMessage(error)}`,
+      );
     }
   }
 

@@ -116,6 +116,18 @@ export const TRACE_MISS_TTL_SECONDS = 30;
 /** 60-second TTL for per-batch stale-backfill guard markers after invalidation. */
 export const TRACE_INVALIDATION_MARKER_TTL_SECONDS = 60;
 
+/** Redis key prefix storing serialized public recent trace batch lists. */
+export const TRACE_RECENT_CACHE_PREFIX = "trace:recent:v1:";
+
+/** 60-second TTL for cached public recent trace batch lists in seconds. */
+export const TRACE_RECENT_CACHE_TTL_SECONDS = 60;
+
+/** Default number of recent harvested batches returned by `GET /api/v1/trace`. */
+export const TRACE_RECENT_DEFAULT_LIMIT = 4;
+
+/** Maximum number of recent harvested batches allowed by `GET /api/v1/trace`. */
+export const TRACE_RECENT_MAX_LIMIT = 12;
+
 /** Maximum chronological farming log entries included in a single public trace payload. */
 export const TRACE_MAX_FARMING_LOGS = 200;
 

@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { API_ERROR_CODES } from "@greenroots/shared";
+import { API_ERROR_CODES, BatchStatus } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import {
   DATABASE_CONNECTION,
@@ -17,11 +17,15 @@ import {
   users,
 } from "@/database/schemas";
 import type {
+  RecentTraceBatchItemProjection,
   TraceLogCorrectionRef,
   TraceLogTargetSummary,
   TraceRecordProjection,
 } from "./dto";
-import { TRACE_MAX_FARMING_LOGS } from "./farms.constant";
+import {
+  TRACE_MAX_FARMING_LOGS,
+  TRACE_RECENT_DEFAULT_LIMIT,
+} from "./farms.constant";
 import { TraceCacheService } from "./trace-cache.service";
 
 const TRACE_BATCH_COLUMNS = {
@@ -84,12 +88,92 @@ export class TraceService {
     string,
     Promise<TraceRecordProjection>
   >();
+  private readonly inflightRecentReads = new Map<
+    number,
+    Promise<RecentTraceBatchItemProjection[]>
+  >();
 
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDB,
     private readonly traceCacheService: TraceCacheService,
   ) {}
+
+  /**
+   * Lists the most recently harvested active batches for the public `/trace` directory.
+   *
+   * @param limit Maximum number of batches to return (default 4).
+   * @returns Redacted recent batch summaries ordered newest-first.
+   */
+  async listRecentTraceBatches(
+    limit = TRACE_RECENT_DEFAULT_LIMIT,
+  ): Promise<RecentTraceBatchItemProjection[]> {
+    const cached = await this.traceCacheService.readCachedRecentBatches(limit);
+    if (cached !== null) {
+      return cached;
+    }
+
+    const existingRead = this.inflightRecentReads.get(limit);
+    if (existingRead) {
+      return existingRead;
+    }
+
+    const loadPromise = this.loadAndCacheRecentBatches(limit).finally(() => {
+      this.inflightRecentReads.delete(limit);
+    });
+    this.inflightRecentReads.set(limit, loadPromise);
+    return loadPromise;
+  }
+
+  private async loadAndCacheRecentBatches(
+    limit: number,
+  ): Promise<RecentTraceBatchItemProjection[]> {
+    const rows = await this.db
+      .select({
+        batchCode: batches.batchCode,
+        harvestDate: batches.harvestDate,
+        status: batches.status,
+        productName: products.name,
+        productUnit: products.unit,
+        productImageUrls: products.imageUrls,
+        plotCode: plots.plotCode,
+        plotName: plots.name,
+      })
+      .from(batches)
+      .innerJoin(products, eq(batches.productId, products.id))
+      .innerJoin(seasons, eq(batches.seasonId, seasons.id))
+      .innerJoin(plots, eq(seasons.plotId, plots.id))
+      .where(
+        and(
+          inArray(batches.status, [
+            BatchStatus.IN_STOCK,
+            BatchStatus.NEAR_EXPIRY,
+          ]),
+          isNull(products.deletedAt),
+          isNull(plots.deletedAt),
+        ),
+      )
+      .orderBy(desc(batches.harvestDate), desc(batches.createdAt))
+      .limit(limit);
+
+    const items: RecentTraceBatchItemProjection[] = rows.map((row) => ({
+      batchCode: row.batchCode,
+      harvestDate: row.harvestDate.toISOString(),
+      status: row.status,
+      product: {
+        name: row.productName,
+        unit: row.productUnit,
+        imageUrls: row.productImageUrls ?? [],
+      },
+      plot: {
+        plotCode: row.plotCode,
+        name: row.plotName,
+      },
+    }));
+
+    await this.traceCacheService.writeCachedRecentBatches(limit, items);
+    return items;
+  }
 
   /**
    * Resolves the redacted public provenance record for a normalized batch code.

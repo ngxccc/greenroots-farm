@@ -65,6 +65,8 @@ describe("TraceService", () => {
     ensureFarmVersion: ReturnType<typeof mock>;
     backfillTrace: ReturnType<typeof mock>;
     writeNegativeCache: ReturnType<typeof mock>;
+    readCachedRecentBatches: ReturnType<typeof mock>;
+    writeCachedRecentBatches: ReturnType<typeof mock>;
   };
 
   beforeEach(() => {
@@ -78,6 +80,8 @@ describe("TraceService", () => {
       ensureFarmVersion: mock(() => Promise.resolve("farm-ver-1")),
       backfillTrace: mock(() => Promise.resolve()),
       writeNegativeCache: mock(() => Promise.resolve()),
+      readCachedRecentBatches: mock(() => Promise.resolve(null)),
+      writeCachedRecentBatches: mock(() => Promise.resolve()),
     };
 
     service = new TraceService(
@@ -213,5 +217,73 @@ describe("TraceService", () => {
     expect(firstResult).toEqual(secondResult);
     expect(mockTraceCacheService.ensureFarmVersion).toHaveBeenCalledTimes(1);
     expect(mockDb.select).toHaveBeenCalledTimes(2);
+  });
+
+  describe("listRecentTraceBatches", () => {
+    it("returns cached recent batches without querying PostgreSQL on cache hit", async () => {
+      const cached = [
+        {
+          batchCode: "BATCH-2026-TOM-01",
+          harvestDate: "2026-11-20T04:15:00.000Z",
+          status: BatchStatus.IN_STOCK,
+          product: {
+            name: "Cà chua bi hữu cơ",
+            unit: "500g",
+            imageUrls: ["https://res.cloudinary.com/demo/tom.jpg"],
+          },
+          plot: {
+            plotCode: "PLOT-B2",
+            name: "Nhà màng B2",
+          },
+        },
+      ];
+      mockTraceCacheService.readCachedRecentBatches.mockResolvedValueOnce(
+        cached,
+      );
+
+      const result = await service.listRecentTraceBatches(4);
+
+      expect(result).toEqual(cached);
+      expect(mockDb.select).not.toHaveBeenCalled();
+    });
+
+    it("queries PostgreSQL and backfills cache on cache miss", async () => {
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            batchCode: "BATCH-2026-TOM-01",
+            harvestDate: new Date("2026-11-20T04:15:00.000Z"),
+            status: BatchStatus.IN_STOCK,
+            productName: "Cà chua bi hữu cơ",
+            productUnit: "500g",
+            productImageUrls: null,
+            plotCode: "PLOT-B2",
+            plotName: "Nhà màng B2",
+          },
+        ],
+      ]);
+
+      const result = await service.listRecentTraceBatches(4);
+
+      expect(result).toEqual([
+        {
+          batchCode: "BATCH-2026-TOM-01",
+          harvestDate: "2026-11-20T04:15:00.000Z",
+          status: BatchStatus.IN_STOCK,
+          product: {
+            name: "Cà chua bi hữu cơ",
+            unit: "500g",
+            imageUrls: [],
+          },
+          plot: {
+            plotCode: "PLOT-B2",
+            name: "Nhà màng B2",
+          },
+        },
+      ]);
+      expect(
+        mockTraceCacheService.writeCachedRecentBatches,
+      ).toHaveBeenCalledWith(4, result);
+    });
   });
 });

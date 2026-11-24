@@ -7,7 +7,11 @@ import {
 } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { zIsoDate, zUuidV7 } from "@/common/schemas/zod-primitives";
-import { BATCH_CODE_REGEX } from "../farms.constant";
+import {
+  BATCH_CODE_REGEX,
+  TRACE_RECENT_DEFAULT_LIMIT,
+  TRACE_RECENT_MAX_LIMIT,
+} from "../farms.constant";
 import { soilTestResultSchema, waterTestResultSchema } from "./plot.dto";
 
 /**
@@ -141,4 +145,59 @@ export type TraceRecordProjection = z.infer<typeof traceRecordSchema>;
  */
 export class TraceRecordDto extends createZodDto(traceRecordSchema) {
   public static readonly zodSchema = traceRecordSchema;
+}
+
+/**
+ * Zod schema for `GET /api/v1/trace` query parameters.
+ */
+export const listRecentTraceQuerySchema = z
+  .object({
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(TRACE_RECENT_MAX_LIMIT)
+      .default(TRACE_RECENT_DEFAULT_LIMIT),
+  })
+  .strict();
+
+/**
+ * Query DTO for `GET /api/v1/trace`.
+ */
+export class ListRecentTraceQueryDto extends createZodDto(
+  listRecentTraceQuerySchema,
+) {
+  public static readonly zodSchema = listRecentTraceQuerySchema;
+}
+
+/**
+ * Zod schema for a redacted recent batch summary returned by `GET /api/v1/trace`.
+ */
+export const recentTraceBatchItemSchema = z.object({
+  batchCode: z.string(),
+  harvestDate: z.iso.datetime(),
+  status: z.enum(BatchStatus),
+  product: z.object({
+    name: z.string(),
+    unit: z.string(),
+    imageUrls: z.array(z.string()),
+  }),
+  plot: z.object({
+    plotCode: z.string(),
+    name: z.string(),
+  }),
+});
+
+/** Redacted public recent batch summary item. */
+export type RecentTraceBatchItemProjection = z.infer<
+  typeof recentTraceBatchItemSchema
+>;
+
+/**
+ * Response item DTO for `GET /api/v1/trace`.
+ */
+export class RecentTraceBatchItemDto extends createZodDto(
+  recentTraceBatchItemSchema,
+) {
+  public static readonly zodSchema = recentTraceBatchItemSchema;
 }

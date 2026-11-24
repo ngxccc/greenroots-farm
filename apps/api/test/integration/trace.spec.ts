@@ -30,6 +30,7 @@ import {
   TRACE_FARM_VERSION_KEY,
   TRACE_INVALIDATED_AT_PREFIX,
   TRACE_MISS_CACHE_PREFIX,
+  TRACE_RECENT_CACHE_PREFIX,
 } from "@/modules/farms/farms.constant";
 import { TraceCacheService } from "@/modules/farms/trace-cache.service";
 import {
@@ -53,6 +54,8 @@ import {
 import { createAuthenticatedAdmin } from "../helpers/auth.helper";
 
 type TraceRecordSchema = components["schemas"]["TraceRecordDto"];
+type RecentTraceBatchItemSchema =
+  components["schemas"]["RecentTraceBatchItemDto"];
 
 const TEST_BATCH_CODES = [
   "BATCH-2026-TOM-01",
@@ -78,6 +81,7 @@ async function cleanTraceRedisKeys(
     TRACE_FARM_VERSION_KEY,
     FARM_SETTINGS_CACHE_KEY,
     FARM_SETTINGS_INVALIDATED_AT_KEY,
+    `${TRACE_RECENT_CACHE_PREFIX}4`,
   ];
 
   await redis.unlink(...keysToUnlink).catch(() => undefined);
@@ -590,6 +594,66 @@ describe("Traceability Integration", () => {
           .batchCode,
       ).toBe(batch.batchCode);
       mgetSpy.mockRestore();
+    });
+  });
+
+  describe("GET /api/v1/trace", () => {
+    it("returns active in-stock and near-expiry batches while excluding expired and soft-deleted items", async () => {
+      const farm = await createFarm(setup.db);
+      const activePlot = await createPlot(setup.db, {
+        farmId: farm.id,
+        plotCode: "PLOT-ACT-1",
+      });
+      const deletedPlot = await createPlot(setup.db, {
+        farmId: farm.id,
+        plotCode: "PLOT-DEL-1",
+        deletedAt: new Date(),
+      });
+      const activeSeason = await createSeason(
+        setup.db,
+        SeasonMother.active({ plotId: activePlot.id }),
+      );
+      const deletedPlotSeason = await createSeason(
+        setup.db,
+        SeasonMother.active({ plotId: deletedPlot.id }),
+      );
+
+      await createBatch(setup.db, {
+        batchCode: "BATCH-2026-TOM-01",
+        seasonId: activeSeason.id,
+        status: BatchStatus.IN_STOCK,
+        harvestDate: new Date("2026-11-20T04:15:00.000Z"),
+      });
+      await createBatch(setup.db, {
+        batchCode: "BATCH-2026-EXP-01",
+        seasonId: activeSeason.id,
+        status: BatchStatus.EXPIRED,
+        harvestDate: new Date("2026-11-21T04:15:00.000Z"),
+      });
+      await createBatch(setup.db, {
+        batchCode: "BATCH-2026-NULL-01",
+        seasonId: deletedPlotSeason.id,
+        status: BatchStatus.IN_STOCK,
+        harvestDate: new Date("2026-11-22T04:15:00.000Z"),
+      });
+
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/trace?limit=4")
+        .expect(200);
+
+      const body = res.body as ApiResponse<RecentTraceBatchItemSchema[]>;
+      expect(body.data.map((item) => item.batchCode)).toEqual([
+        "BATCH-2026-TOM-01",
+      ]);
+    });
+
+    it("rejects unknown query parameters on the recent batches endpoint", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/trace?limit=4&unknownParam=1")
+        .expect(400);
+
+      const body = res.body as Rfc9457ProblemDetails;
+      expect(body.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
     });
   });
 });

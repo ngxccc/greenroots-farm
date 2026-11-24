@@ -238,7 +238,7 @@ describe("TraceCacheService", () => {
         "",
       ]);
 
-      expect(mockPipeline.unlink).toHaveBeenCalledTimes(1);
+      expect(mockPipeline.unlink).toHaveBeenCalledTimes(2);
       expect(mockPipeline.unlink).toHaveBeenCalledWith(
         `${TRACE_CACHE_PREFIX}BATCH-2026-TOM-01`,
         `${TRACE_MISS_CACHE_PREFIX}BATCH-2026-TOM-01`,
@@ -263,7 +263,7 @@ describe("TraceCacheService", () => {
       );
       await service.invalidateByPlotId("019fa8bc-8f4d-7000-b366-e691f45cfb94");
 
-      expect(mockPipeline.unlink).toHaveBeenCalledTimes(3);
+      expect(mockPipeline.unlink).toHaveBeenCalledTimes(5);
     });
 
     it("rotates the farm epoch key with a fresh UUID nonce", async () => {
@@ -273,6 +273,40 @@ describe("TraceCacheService", () => {
         TRACE_FARM_VERSION_KEY,
         expect.stringMatching(/^[0-9a-f-]{36}$/i),
       );
+    });
+  });
+
+  describe("recent batches cache", () => {
+    it("reads and parses cached recent batches when valid", async () => {
+      const recent = [
+        {
+          batchCode: "BATCH-2026-TOM-01",
+          harvestDate: "2026-11-20T04:15:00.000Z",
+          status: BatchStatus.IN_STOCK,
+          product: {
+            name: "Cà chua bi",
+            unit: "500g",
+            imageUrls: [],
+          },
+          plot: {
+            plotCode: "PLOT-B2",
+            name: "Nhà màng B2",
+          },
+        },
+      ];
+      mockRedisClient.get.mockResolvedValueOnce(JSON.stringify(recent));
+
+      const result = await service.readCachedRecentBatches(4);
+
+      expect(result).toEqual(recent);
+    });
+
+    it("fails open to null when Redis throws during recent batches read", async () => {
+      mockRedisClient.get.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+
+      const result = await service.readCachedRecentBatches(4);
+
+      expect(result).toBeNull();
     });
   });
 });
