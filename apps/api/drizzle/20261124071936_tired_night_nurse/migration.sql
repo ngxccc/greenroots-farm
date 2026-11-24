@@ -1,0 +1,1 @@
+CREATE INDEX "batches_recent_trace_idx" ON "batches" ("status","harvest_date","created_at");

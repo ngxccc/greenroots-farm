@@ -114,6 +114,11 @@ export const batches = snakeCase.table(
     index("batches_season_id_idx").on(table.seasonId),
     index("batches_product_id_idx").on(table.productId),
     index("batches_fefo_outbound_idx").on(table.expirationDate, table.status),
+    index("batches_recent_trace_idx").on(
+      table.status,
+      table.harvestDate,
+      table.createdAt,
+    ),
     index("batches_sellable_stock_idx")
       .on(table.productId, table.expirationDate, table.availableQuantity)
       .where(

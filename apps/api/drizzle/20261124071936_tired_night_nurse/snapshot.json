@@ -1,0 +1,71 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "b8761dbb-3f3b-4c27-84b0-30e8191e0dff",
+  "prevIds": ["5a0a9014-2800-4f52-9e43-a7bb715ffbe9"],
+  "footprints": [
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "batches",
+        "batches_recent_trace_idx"
+      ],
+      "writes": [
+        "s|idx|public.batches_recent_trace_idx",
+        "n|idx|public.batches_recent_trace_idx",
+        "e|idx|public.batches_recent_trace_idx",
+        "n|rel|public.batches_recent_trace_idx"
+      ],
+      "reads": [
+        "n|tbl|public.batches",
+        "n|sch|public",
+        "n|col|public.batches.status",
+        "n|col|public.batches.harvest_date",
+        "n|col|public.batches.created_at"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "batches",
+        "name": "batches_recent_trace_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "status",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "harvest_date",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "created_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    }
+  ]
+}
