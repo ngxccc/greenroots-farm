@@ -23,7 +23,7 @@ export function BackToTopButton() {
       size="icon-lg"
       aria-label="Lên đầu trang"
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-      className="fixed right-4 bottom-20 z-50 size-12 rounded-full bg-brand-forest text-white shadow-2xl hover:bg-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:ring-offset-2 lg:right-5 lg:bottom-6"
+      className="fixed right-4 bottom-5 z-50 size-12 rounded-full bg-brand-forest text-white shadow-2xl hover:bg-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:ring-offset-2 lg:right-5 lg:bottom-6"
     >
       <ChevronUp className="size-6" aria-hidden="true" />
     </Button>
