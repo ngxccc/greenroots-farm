@@ -19,7 +19,7 @@ This document specifies the architecture, routing boundaries, security sanitizat
 - Next.js strips `Error.message` and custom `ApiClientError` properties before passing RSC errors to client `app/error.tsx` in production; RSC `403` responses require `forbidden()` + `app/forbidden.tsx` (`experimental.authInterrupts`).
 - `app/error.tsx` does not catch errors thrown inside `RootLayout` itself (`app/global-error.tsx` is required).
 - Maintenance mode must evaluate in `apps/storefront/proxy.ts` **before** proactive token refresh (`refreshSingleFlight`) and rewrite (not redirect) to `/maintenance` with HTTP `503`.
-- The Stitch QR lookup template embeds unpermitted `lh3.googleusercontent.com` image URLs, non-Củ Chi origin strings contradicting `FARM_METADATA`, and batch codes absent from `SHOWCASE_TRACE_RECORDS`.
+- The Stitch QR lookup template embeds unpermitted `lh3.googleusercontent.com` image URLs, inconsistent origin strings contradicting `FARM_METADATA`, and batch codes absent from `SHOWCASE_TRACE_RECORDS`.
 
 ### Goals
 
@@ -75,7 +75,7 @@ Key symbol ownership and boundaries:
 - `apps/storefront/app/error.tsx` & `apps/storefront/app/global-error.tsx`: error boundaries rendering `SystemIncidentView` (minimal standalone HTML shell in `global-error.tsx` with zero dependency on `HeaderAuthSlot` or Zustand stores).
 - `apps/storefront/app/forbidden.tsx` & `apps/storefront/app/maintenance/page.tsx`: route-level `403` and `503` incident pages; `/maintenance` calls `notFound()` when `MAINTENANCE_MODE` is inactive.
 - `apps/storefront/app/not-found.tsx` & `apps/storefront/src/components/common/not-found-search-form.tsx`: `404` recovery view with inline search (`/products?q=...`) and verified links (`/`, `/products`, `/#rescue`, `/subscriptions`, `/trace`).
-- `apps/storefront/app/trace/page.tsx`, `apps/storefront/src/features/traceability/components/trace-lookup-view.tsx`, & `apps/storefront/src/services/storefront.service.ts`: `/trace` lookup page, internal visual cards replacing Google AIDA URLs, and 4 synchronized Củ Chi showcase batches in `SHOWCASE_TRACE_RECORDS`.
+- `apps/storefront/app/trace/page.tsx`, `apps/storefront/src/features/traceability/components/trace-lookup-view.tsx`, & `apps/storefront/src/services/storefront.service.ts`: `/trace` lookup page, internal visual cards replacing Google AIDA URLs, and 4 synchronized Lâm Đồng/Đà Lạt showcase batches in `SHOWCASE_TRACE_RECORDS`.
 - Typography & Styling: Reuse `Be Vietnam Pro` (`--font-sans`) with `tabular-nums` and semantic `@greenroots/ui` tokens across badges, reference IDs, and batch codes rather than loading a separate monospace font.
 
 ## Operational Flow

@@ -15,7 +15,7 @@ This specification defines the `ShippingDriver` abstraction, `HaversineShippingD
 
 Architectural commitments are recorded in ADR-0030 (subsequently amended by ADR-0034 to require `maxRadiusKm` and `subscriptionFreeRadiusKm` on `FarmShippingConfig` and remove optional-radius fallbacks in `ShippingService`); coordinate provenance and `HCMC_DISTRICTS` SSOT follow ADR-0018; dynamic `FarmSettingsService` authority follows ADR-0021; driver DI toggling follows ADR-0010; DTO co-location, response envelopes, OpenAPI sync, and RFC 9457 error handling follow ADR-0004, ADR-0007, ADR-0011, ADR-0012, and ADR-0013.
 
-Currently, `apps/api/src/modules/orders/` does not exist, `estimateDeliveryQuote()` in `packages/shared/src/haversine.ts` hardcodes `BUSINESS_RULES.FARM_COORDINATES` and `BUSINESS_RULES.SHIPPING` while blocking subscription deliveries beyond `20 km`, and `API_ERROR_DICTIONARY.OUT_OF_DELIVERY_RADIUS` in `packages/shared/src/error-dictionary.ts` interpolates a static `25 km` literal.
+Currently, `apps/api/src/modules/orders/` does not exist, `estimateDeliveryQuote()` in `packages/shared/src/haversine.ts` hardcodes `BUSINESS_RULES.FULFILLMENT_HUB` (originally `FARM_COORDINATES`) and `BUSINESS_RULES.SHIPPING` while blocking subscription deliveries beyond `20 km`, and `API_ERROR_DICTIONARY.OUT_OF_DELIVERY_RADIUS` in `packages/shared/src/error-dictionary.ts` interpolates a static `25 km` literal.
 
 ### Goals
 
@@ -222,7 +222,7 @@ sequenceDiagram
 
 | ID      | Scenario                                                                                 | Expected Behaviour                                                                                                                                                           |
 | :------ | :--------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ADV-1` | Client injects `latitude: 11.0067, longitude: 106.5132` to spoof `0 km` fee              | Rejected by `ZodValidationPipe` (`400 UNRECOGNIZED_KEYS`) before `ShippingService` runs                                                                                      |
+| `ADV-1` | Client injects `latitude: 10.8106, longitude: 106.7091` to spoof `0 km` fee              | Rejected by `ZodValidationPipe` (`400 UNRECOGNIZED_KEYS`) before `ShippingService` runs                                                                                      |
 | `ADV-2` | Customer probes another customer's address UUIDv7 via `addressId`                        | Scoped by `userId = sub`; returns `404 ADDRESS_NOT_FOUND` identically to missing UUIDs                                                                                       |
 | `ADV-3` | Staff (`farm_staff`, `sales`, `admin`, `super_admin`) or `guest` calls `/shipping/quote` | Rejected by `RolesGuard` with `403 FORBIDDEN`                                                                                                                                |
 | `ADV-4` | Concurrent `PATCH /api/v1/farms/settings` while `/shipping/quote` runs                   | Either reads pre-commit consistent snapshot or post-invalidation PostgreSQL row via ADR-0021 Lua stale-backfill guard; never mixes old coordinates with new `shippingConfig` |
