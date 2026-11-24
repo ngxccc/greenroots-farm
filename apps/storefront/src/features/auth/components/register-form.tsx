@@ -334,10 +334,7 @@ export function RegisterForm({ redirectTo = "/" }: RegisterFormProps) {
         />
 
         <div className="flex flex-col gap-1 pt-1">
-          <Label
-            htmlFor="register-agree-terms"
-            className="cursor-pointer items-start gap-2 font-normal"
-          >
+          <div className="flex items-start gap-2">
             <Checkbox
               id="register-agree-terms"
               checked={agreeTerms}
@@ -354,11 +351,29 @@ export function RegisterForm({ redirectTo = "/" }: RegisterFormProps) {
               }
               className="mt-0.5"
             />
-            <span className="text-xs leading-4.5 text-gray-600">
-              Tôi đồng ý với Điều khoản sử dụng và Chính sách bảo mật của
-              GreenRoots Farm.
-            </span>
-          </Label>
+            <div className="text-xs leading-4.5 text-gray-600">
+              <Label
+                htmlFor="register-agree-terms"
+                className="inline cursor-pointer font-normal text-gray-600"
+              >
+                Tôi đồng ý với
+              </Label>{" "}
+              <Link
+                href="/policies/terms"
+                className="font-semibold text-brand-forest underline underline-offset-2 hover:text-brand-dark"
+              >
+                Điều khoản sử dụng
+              </Link>{" "}
+              và{" "}
+              <Link
+                href="/policies/privacy"
+                className="font-semibold text-brand-forest underline underline-offset-2 hover:text-brand-dark"
+              >
+                Chính sách bảo mật
+              </Link>{" "}
+              của GreenRoots Farm.
+            </div>
+          </div>
           {fieldErrors.agreeTerms ? (
             <p
               id="register-agree-terms-error"

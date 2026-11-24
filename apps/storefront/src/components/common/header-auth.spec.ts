@@ -242,6 +242,8 @@ describe("Storefront Header Auth UI", () => {
       expect(shouldShowDeliverySubBar("/about")).toBe(false);
       expect(shouldShowDeliverySubBar("/policies/shipping")).toBe(false);
       expect(shouldShowDeliverySubBar("/policies/returns")).toBe(false);
+      expect(shouldShowDeliverySubBar("/policies/terms")).toBe(false);
+      expect(shouldShowDeliverySubBar("/policies/privacy")).toBe(false);
       expect(shouldShowDeliverySubBar("/")).toBe(true);
       expect(shouldShowDeliverySubBar("/products/rau-cai")).toBe(true);
       expect(shouldShowDeliverySubBar("/checkout")).toBe(true);

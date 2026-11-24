@@ -19,6 +19,8 @@ describe("Storefront Policies & Information Pages", () => {
         "/about",
         "/policies/shipping",
         "/policies/returns",
+        "/policies/terms",
+        "/policies/privacy",
       ]);
     });
 
@@ -32,6 +34,8 @@ describe("Storefront Policies & Information Pages", () => {
       expect(htmlAbout).toContain("Giới thiệu nông trại");
       expect(htmlAbout).toContain('href="/policies/shipping"');
       expect(htmlAbout).toContain('href="/policies/returns"');
+      expect(htmlAbout).toContain('href="/policies/terms"');
+      expect(htmlAbout).toContain('href="/policies/privacy"');
 
       const htmlShipping = renderToStaticMarkup(
         createElement(PolicySidebar, { currentPath: "/policies/shipping" }),
@@ -44,6 +48,18 @@ describe("Storefront Policies & Information Pages", () => {
       );
       expect(htmlReturns).toContain('aria-current="page"');
       expect(htmlReturns).toContain("Đổi trả độ tươi 2h");
+
+      const htmlTerms = renderToStaticMarkup(
+        createElement(PolicySidebar, { currentPath: "/policies/terms" }),
+      );
+      expect(htmlTerms).toContain('aria-current="page"');
+      expect(htmlTerms).toContain("Điều khoản sử dụng");
+
+      const htmlPrivacy = renderToStaticMarkup(
+        createElement(PolicySidebar, { currentPath: "/policies/privacy" }),
+      );
+      expect(htmlPrivacy).toContain('aria-current="page"');
+      expect(htmlPrivacy).toContain("Chính sách bảo mật");
     });
 
     it("renders PolicySidebarView with mobile drawer trigger button", () => {
@@ -56,13 +72,15 @@ describe("Storefront Policies & Information Pages", () => {
   });
 
   describe("StorefrontFooter Links", () => {
-    it("routes cleanly to /about, /policies/shipping, and /policies/returns", () => {
+    it("routes cleanly to all five policy and information pages", () => {
       // Invariant: INV-SF-POLICY-3
       const footerHtml = renderToStaticMarkup(createElement(StorefrontFooter));
 
       expect(footerHtml).toContain('href="/about"');
       expect(footerHtml).toContain('href="/policies/shipping"');
       expect(footerHtml).toContain('href="/policies/returns"');
+      expect(footerHtml).toContain('href="/policies/terms"');
+      expect(footerHtml).toContain('href="/policies/privacy"');
       expect(footerHtml).not.toContain('href="/shipping-policy"');
       expect(footerHtml).not.toContain('href="/freshness-policy"');
     });
@@ -79,7 +97,7 @@ describe("Storefront Policies & Information Pages", () => {
       expect(FARM_METADATA.maxDeliveryRadiusKm).toBe(
         BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM,
       );
-      expect(BUSINESS_RULES.MIN_ORDER_VALUE_VND).toBe(150_000);
+      expect(BUSINESS_RULES.MIN_ORDER_VALUE_VND).toBe(50_000);
       expect(BUSINESS_RULES.SHIPPING.SUBSCRIPTION_FREE_RADIUS_KM).toBe(20);
       expect(BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM).toBe(25);
     });

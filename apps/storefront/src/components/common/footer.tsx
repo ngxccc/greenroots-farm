@@ -26,6 +26,18 @@ export function StorefrontFooter() {
           >
             Đổi trả độ tươi
           </Link>
+          <Link
+            href="/policies/terms"
+            className="py-1 font-semibold transition-colors hover:text-brand-forest"
+          >
+            Điều khoản
+          </Link>
+          <Link
+            href="/policies/privacy"
+            className="py-1 font-semibold transition-colors hover:text-brand-forest"
+          >
+            Bảo mật
+          </Link>
         </div>
       </div>
     </footer>
