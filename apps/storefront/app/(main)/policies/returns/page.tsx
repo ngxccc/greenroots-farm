@@ -23,29 +23,30 @@ export const metadata: Metadata = {
 export default function ReturnsPolicyPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-4 sm:py-6 lg:px-6 lg:py-8">
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
         <PolicySidebar currentPath="/policies/returns" />
 
-        <div className="flex flex-col gap-6 lg:col-span-9">
-          <section className="flex flex-col gap-6 rounded-xl border border-border-subtle bg-white p-4 shadow-xs sm:p-6">
-            <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-8 lg:col-span-9">
+          <section className="flex flex-col gap-6">
+            <div className="flex flex-col gap-1.5 border-b border-border-subtle pb-4">
               <div className="flex items-center gap-2">
-                <span className="flex size-8 items-center justify-center rounded-full bg-green-50 text-brand-forest">
-                  <ShieldCheck className="size-4" aria-hidden="true" />
-                </span>
+                <ShieldCheck
+                  className="size-5 shrink-0 text-brand-forest"
+                  aria-hidden="true"
+                />
                 <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
                   Cam kết đổi trả độ tươi trong 2 giờ
                 </h1>
               </div>
-              <p className="text-sm leading-relaxed text-gray-600 sm:text-base">
+              <p className="text-sm leading-relaxed text-pretty text-gray-600 sm:text-base">
                 Nếu rau củ không đạt độ tươi giòn như cam kết khi mở túi,
                 GreenRoots Farm cam kết hoàn tiền 100% hoặc giao bù miễn phí
                 trong vòng 2 giờ.
               </p>
             </div>
 
-            {/* Eligible Conditions */}
-            <div className="flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-warm p-5">
+            {/* Eligible Conditions (Flat tinted container, no border) */}
+            <div className="flex flex-col gap-3 rounded-lg bg-surface-warm">
               <h2 className="text-sm font-bold text-gray-900 sm:text-base">
                 Các trường hợp được áp dụng đổi trả ngay
               </h2>
@@ -83,14 +84,14 @@ export default function ReturnsPolicyPage() {
               </ul>
             </div>
 
-            {/* 3-Step Process */}
+            {/* 3-Step Process (Flat hairline columns) */}
             <div className="flex flex-col gap-3">
               <h2 className="text-base font-bold text-gray-900 sm:text-lg">
                 Quy trình tiếp nhận & xử lý 3 bước
               </h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="flex flex-col gap-1.5 rounded-xl border border-border-subtle p-4">
-                  <span className="text-xs font-bold text-brand-forest">
+              <div className="grid grid-cols-1 divide-y divide-border-subtle border-y border-border-subtle py-4 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                <div className="flex flex-col gap-1 py-3 sm:py-0 sm:pr-5">
+                  <span className="text-xs font-bold tracking-wide text-brand-forest tabular-nums">
                     BƯỚC 01
                   </span>
                   <h3 className="text-sm font-bold text-gray-900">
@@ -105,8 +106,8 @@ export default function ReturnsPolicyPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-1.5 rounded-xl border border-border-subtle p-4">
-                  <span className="text-xs font-bold text-brand-forest">
+                <div className="flex flex-col gap-1 py-3 sm:px-5 sm:py-0">
+                  <span className="text-xs font-bold tracking-wide text-brand-forest tabular-nums">
                     BƯỚC 02
                   </span>
                   <h3 className="text-sm font-bold text-gray-900">
@@ -121,12 +122,12 @@ export default function ReturnsPolicyPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-1.5 rounded-xl border border-border-subtle p-4">
-                  <span className="text-xs font-bold text-brand-forest">
+                <div className="flex flex-col gap-1 py-3 sm:py-0 sm:pl-5">
+                  <span className="text-xs font-bold tracking-wide text-brand-forest tabular-nums">
                     BƯỚC 03
                   </span>
                   <h3 className="text-sm font-bold text-gray-900">
-                    Xử lý nhanh chóng
+                    Xử lý trong 15 phút
                   </h3>
                   <p className="text-xs leading-relaxed text-gray-600">
                     Đội ngũ xác nhận trong{" "}
@@ -139,7 +140,7 @@ export default function ReturnsPolicyPage() {
               </div>
             </div>
 
-            <div className="flex w-full flex-col gap-3 pt-2 sm:flex-row sm:items-center">
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
               <a
                 href={`tel:${FARM_METADATA.hotline.replace(/\s+/g, "")}`}
                 className={buttonVariants({
@@ -158,7 +159,7 @@ export default function ReturnsPolicyPage() {
                   variant: "outline",
                   size: "default",
                   className:
-                    "h-10 w-full justify-center border-border-subtle hover:border-brand-forest sm:h-9 sm:w-auto",
+                    "h-10 w-full justify-center border-border-subtle bg-surface-card hover:bg-surface-warm sm:h-9 sm:w-auto",
                 })}
               >
                 <ReceiptText

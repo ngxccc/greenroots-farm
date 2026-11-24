@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   Button,
-  Card,
-  CardContent,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -35,7 +33,6 @@ function PolicyNavList({ currentPath, onNavigate }: PolicyNavListProps) {
     <nav aria-label="Danh mục chính sách" className="flex flex-col gap-1">
       {POLICY_NAV_ITEMS.map((item) => {
         const isActive = currentPath === item.href;
-        const Icon = item.icon;
 
         return (
           <Link
@@ -45,16 +42,10 @@ function PolicyNavList({ currentPath, onNavigate }: PolicyNavListProps) {
             onClick={onNavigate}
             className={
               isActive
-                ? "flex w-full items-center gap-2 rounded-lg bg-green-50 px-3 py-2.5 text-xs font-semibold text-brand-dark transition-colors focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none sm:text-sm"
-                : "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none sm:text-sm"
+                ? "flex w-full items-center rounded-lg bg-green-50 px-3 py-2.5 text-xs font-semibold text-brand-dark transition-colors focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none sm:text-sm"
+                : "flex w-full items-center rounded-lg px-3 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none sm:text-sm"
             }
           >
-            <Icon
-              className={`size-4 shrink-0 ${
-                isActive ? "text-brand-dark" : "text-brand-forest"
-              }`}
-              aria-hidden="true"
-            />
             <span>{item.label}</span>
           </Link>
         );
@@ -99,17 +90,13 @@ export function PolicySidebarView({
         </span>
       </div>
 
-      {/* Desktop static sidebar (>= lg) */}
-      <Card className="hidden border-border-subtle bg-surface-card py-0 shadow-xs lg:block">
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-2">
-            <span className="px-3 py-1.5 text-xs font-semibold text-gray-500">
-              Thông tin & Chính sách
-            </span>
-            <PolicyNavList currentPath={currentPath} />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Desktop flat rail (>= lg) */}
+      <div className="hidden lg:flex lg:flex-col lg:gap-2 lg:border-r lg:border-border-subtle lg:pr-6">
+        <span className="px-3 py-1.5 text-xs font-semibold text-gray-500">
+          Thông tin & Chính sách
+        </span>
+        <PolicyNavList currentPath={currentPath} />
+      </div>
 
       {/* Mobile slide-over Sheet drawer */}
       <Sheet open={mobileSheetOpen} onOpenChange={onMobileSheetOpenChange}>

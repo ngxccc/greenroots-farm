@@ -7,13 +7,7 @@ import {
   useSyncExternalStore,
   type ComponentType,
 } from "react";
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  buttonVariants,
-} from "@greenroots/ui";
+import { Button, buttonVariants } from "@greenroots/ui";
 import {
   CloudOff,
   Home,
@@ -50,7 +44,7 @@ const INCIDENT_CONFIGS: Record<IncidentVariant, IncidentConfig> = {
     icon: CloudOff,
     iconWrapClass: "bg-red-50 text-status-spoiled",
     badge: "MÃ LỖI 500 — SỰ CỐ MÁY CHỦ",
-    badgeClass: "bg-red-50 text-red-700",
+    badgeClass: "text-status-spoiled",
     title: "Hệ thống đang tạm gián đoạn",
     description:
       "Máy chủ GreenRoots Farm vừa gặp sự cố xử lý tạm thời. Dữ liệu giỏ hàng và đơn hàng của bạn vẫn được lưu an toàn.",
@@ -60,7 +54,7 @@ const INCIDENT_CONFIGS: Record<IncidentVariant, IncidentConfig> = {
     icon: LockKeyhole,
     iconWrapClass: "bg-red-50 text-status-spoiled",
     badge: "MÃ LỖI 403 — KHÔNG CÓ QUYỀN TRUY CẬP",
-    badgeClass: "bg-red-50 text-red-700",
+    badgeClass: "text-status-spoiled",
     title: "Bạn chưa có quyền xem trang này",
     description:
       "Phiên đăng nhập đã hết hạn hoặc tài khoản hiện tại không có quyền truy cập nội dung được yêu cầu.",
@@ -70,7 +64,7 @@ const INCIDENT_CONFIGS: Record<IncidentVariant, IncidentConfig> = {
     icon: Wrench,
     iconWrapClass: "bg-green-50 text-brand-forest",
     badge: "BẢO TRÌ ĐỊNH KỲ — DỰ KIẾN 15 PHÚT",
-    badgeClass: "bg-green-50 text-brand-dark",
+    badgeClass: "text-brand-forest",
     title: "Nông trại đang nâng cấp hệ thống",
     description:
       "Chúng tôi đang cập nhật dữ liệu thu hoạch sáng nay để trải nghiệm đặt rau của bạn mượt mà hơn. Vui lòng quay lại sau ít phút.",
@@ -195,90 +189,88 @@ export function SystemIncidentView({
   return (
     <section
       aria-label="Thông báo sự cố hệ thống"
-      className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-4 py-10 lg:px-6"
+      className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-4 py-12 lg:px-6"
     >
-      <Card className="w-full max-w-xl gap-0 rounded-2xl border-border-subtle bg-surface-card py-0 shadow-sm">
-        <CardContent className="flex flex-col items-center gap-6 p-6 text-center sm:p-8">
-          <div className="flex flex-col items-center gap-2">
-            <span
-              className={`flex size-16 items-center justify-center rounded-full ${config.iconWrapClass}`}
-            >
-              <Icon className="size-8" aria-hidden="true" />
+      <div className="flex w-full max-w-xl flex-col items-center gap-6 text-center">
+        <div className="flex flex-col items-center gap-3">
+          <span
+            className={`flex size-16 items-center justify-center rounded-full ${config.iconWrapClass}`}
+          >
+            <Icon className="size-8" aria-hidden="true" />
+          </span>
+          <span
+            className={`text-xs font-semibold tracking-wide ${config.badgeClass}`}
+          >
+            {config.badge}
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <h1 className="text-[22px] leading-snug font-bold text-gray-900 md:text-[28px]">
+            {config.title}
+          </h1>
+          <p className="text-sm leading-relaxed text-pretty text-gray-500 sm:text-[15px]">
+            {config.description}
+          </p>
+        </div>
+
+        <div className="w-full divide-y divide-border-subtle border-y border-border-subtle text-left text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 py-3">
+            <span className="text-gray-500">Mã tham chiếu</span>
+            <span className="font-semibold tracking-wide text-gray-900 tabular-nums">
+              {resolvedRef}
             </span>
-            <Badge
-              className={`h-auto rounded-full border-0 px-3 py-1 text-xs font-semibold tracking-wide ${config.badgeClass}`}
-            >
-              {config.badge}
-            </Badge>
           </div>
-
-          <div className="flex flex-col gap-1.5">
-            <h1 className="text-[22px] leading-snug font-bold text-gray-900 md:text-[28px]">
-              {config.title}
-            </h1>
-            <p className="text-sm leading-relaxed text-pretty text-gray-500 sm:text-[15px]">
-              {config.description}
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 py-3">
+            <span className="text-gray-500">Thời điểm ghi nhận</span>
+            <span className="font-semibold text-gray-900 tabular-nums">
+              {recordedAt}
+            </span>
           </div>
-
-          <div className="flex w-full flex-col gap-2 rounded-xl border border-border-subtle bg-surface-warm p-4 text-left text-[13px]">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-gray-500">Mã tham chiếu</span>
-              <span className="font-semibold tracking-wide text-gray-900 tabular-nums">
-                {resolvedRef}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-gray-500">Thời điểm ghi nhận</span>
-              <span className="font-semibold text-gray-900 tabular-nums">
-                {recordedAt}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2">
-              <span className="text-gray-500">Cần hỗ trợ đặt đơn gấp?</span>
-              <span className="font-semibold text-brand-forest tabular-nums">
-                Hotline {FARM_METADATA.hotline}
-              </span>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 py-3">
+            <span className="text-gray-500">Cần hỗ trợ đặt đơn gấp?</span>
+            <span className="font-semibold text-brand-forest tabular-nums">
+              Hotline {FARM_METADATA.hotline}
+            </span>
           </div>
+        </div>
 
-          <div className="flex w-full flex-col items-center justify-center gap-2 sm:flex-row">
-            {variant === "403" ? (
-              <Link
-                href="/login"
-                className={buttonVariants({
-                  className:
-                    "h-11 w-full rounded-xl bg-brand-forest px-6 text-sm font-semibold text-white hover:bg-brand-dark sm:w-auto",
-                })}
-              >
-                <LogIn className="size-4" aria-hidden="true" />
-                {config.primaryLabel}
-              </Link>
-            ) : (
-              <Button
-                type="button"
-                onClick={handleRetryClick}
-                className="h-11 w-full cursor-pointer rounded-xl bg-brand-forest px-6 text-sm font-semibold text-white hover:bg-brand-dark sm:w-auto"
-              >
-                <RefreshCw className="size-4" aria-hidden="true" />
-                {config.primaryLabel}
-              </Button>
-            )}
-
+        <div className="flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
+          {variant === "403" ? (
             <Link
-              href="/"
+              href="/login"
               className={buttonVariants({
-                variant: "outline",
                 className:
-                  "h-11 w-full rounded-xl border-border-subtle bg-surface-card px-6 text-sm font-semibold text-gray-900 hover:bg-gray-100 sm:w-auto",
+                  "h-11 w-full rounded-md bg-brand-forest px-6 text-sm font-semibold text-white hover:bg-brand-dark sm:w-auto",
               })}
             >
-              <Home className="size-4 text-brand-forest" aria-hidden="true" />
-              Quay về trang chủ
+              <LogIn className="size-4" aria-hidden="true" />
+              {config.primaryLabel}
             </Link>
-          </div>
-        </CardContent>
-      </Card>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleRetryClick}
+              className="h-11 w-full cursor-pointer rounded-md bg-brand-forest px-6 text-sm font-semibold text-white hover:bg-brand-dark sm:w-auto"
+            >
+              <RefreshCw className="size-4" aria-hidden="true" />
+              {config.primaryLabel}
+            </Button>
+          )}
+
+          <Link
+            href="/"
+            className={buttonVariants({
+              variant: "outline",
+              className:
+                "h-11 w-full rounded-md border-border-subtle bg-surface-card px-6 text-sm font-semibold text-gray-900 hover:bg-surface-warm sm:w-auto",
+            })}
+          >
+            <Home className="size-4 text-brand-forest" aria-hidden="true" />
+            Quay về trang chủ
+          </Link>
+        </div>
+      </div>
     </section>
   );
 }
