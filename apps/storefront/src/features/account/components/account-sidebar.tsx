@@ -106,10 +106,16 @@ function SidebarNavBody({
               onClick={onNavigate}
               className={
                 isCurrent
-                  ? "flex w-full items-center rounded-lg bg-green-50 px-3 py-2.5 text-xs font-semibold text-brand-dark transition-colors focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none sm:text-sm"
-                  : "flex w-full items-center rounded-lg px-3 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-brand-dark focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none sm:text-sm"
+                  ? "flex w-full items-center gap-2.5 rounded-lg bg-gray-100 px-3 py-2.5 text-xs font-bold text-gray-900 transition-colors focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none sm:text-sm"
+                  : "flex w-full items-center rounded-lg px-3 py-2.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none sm:text-sm"
               }
             >
+              {isCurrent ? (
+                <span
+                  aria-hidden="true"
+                  className="h-4 w-1 shrink-0 rounded-full bg-green-700"
+                />
+              ) : null}
               <span>{item.label}</span>
             </Link>
           );
