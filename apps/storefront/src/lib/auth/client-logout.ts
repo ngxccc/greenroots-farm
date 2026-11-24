@@ -1,5 +1,6 @@
 "use client";
 
+import { clearShippingQuoteCache } from "@/lib/shipping/use-shipping-quote";
 import { broadcastAuthEvent, useAuthStore } from "@/stores/auth.store";
 import { useDeliveryAddressStore } from "@/stores/delivery-address.store";
 
@@ -22,13 +23,18 @@ export interface ClientLogoutDeps {
   readonly broadcastLogout?: () => void;
 }
 
+function resetClientAuthStores(): void {
+  clearShippingQuoteCache();
+  useAuthStore.getState().clearSession();
+  useDeliveryAddressStore.getState().clearDeliveryState();
+}
+
 /**
  * Synchronously clears all in-memory customer identity and delivery address state
  * in the current tab and notifies sibling tabs (`INV-SF-ADDR-1`, `INV-SF-AUTH-6`).
  */
 export function invalidateStorefrontClientSession(): void {
-  useAuthStore.getState().clearSession();
-  useDeliveryAddressStore.getState().clearDeliveryState();
+  resetClientAuthStores();
   broadcastAuthEvent("LOGOUT");
 }
 
@@ -43,12 +49,7 @@ export async function performStorefrontLogout(
   deps?: ClientLogoutDeps,
 ): Promise<ClientLogoutResult> {
   const fetcher = deps?.fetcher ?? fetch;
-  const clearSession =
-    deps?.clearSession ??
-    (() => {
-      useAuthStore.getState().clearSession();
-      useDeliveryAddressStore.getState().clearDeliveryState();
-    });
+  const clearSession = deps?.clearSession ?? resetClientAuthStores;
   const broadcastLogout =
     deps?.broadcastLogout ?? (() => broadcastAuthEvent("LOGOUT"));
 
