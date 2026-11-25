@@ -294,7 +294,7 @@ describe("PayOSAdapter", () => {
       await expectErrorMessage(adapter.cancelPaymentLink(9001), /231/);
     });
 
-    it("throws a sanitized error when PayOS returns non-JSON on HTTP 200", async () => {
+    it("throws a sanitized error when PayOS returns a non-JSON response", async () => {
       // Invariant: INV-PAY-5
       const mockFetch = () =>
         Promise.resolve(
