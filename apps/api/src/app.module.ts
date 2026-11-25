@@ -26,6 +26,7 @@ import { MailModule } from "@/modules/mail/mail.module";
 import { MediaModule } from "@/modules/media/media.module";
 import { OrdersModule } from "@/modules/orders/orders.module";
 import { ShippingModule } from "@/modules/orders/shipping/shipping.module";
+import { SubscriptionsModule } from "@/modules/subscriptions/subscriptions.module";
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { ShippingModule } from "@/modules/orders/shipping/shipping.module";
     MediaModule,
     OrdersModule,
     ShippingModule,
+    SubscriptionsModule,
     ComplaintsModule,
   ],
   controllers: [AppController],

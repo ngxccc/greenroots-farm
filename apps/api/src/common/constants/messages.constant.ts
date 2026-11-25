@@ -101,6 +101,8 @@ export const MESSAGES = {
     AT_LEAST_ONE_CATEGORY_FIELD:
       "At least one category field must be provided.",
     AT_LEAST_ONE_PRODUCT_FIELD: "At least one product field must be provided.",
+    AT_LEAST_ONE_SUBSCRIPTION_PLAN_FIELD:
+      "At least one subscription plan field must be provided.",
     PRICE_RANGE_INVALID: "Minimum price cannot exceed maximum price.",
     CONFLICTING_CATEGORY_FILTER:
       "Provide either categoryId or categorySlug, not both.",
@@ -193,6 +195,10 @@ export const MESSAGES = {
     SLUG_ALREADY_EXISTS: "An active product with this slug already exists.",
     PRICE_INVALID:
       "Sale price must be non-negative and less than or equal to base price.",
+  },
+  SUBSCRIPTION_PLANS: {
+    NOT_FOUND: "Subscription plan not found.",
+    SLUG_CONFLICT: "An active subscription plan with this slug already exists.",
   },
   ORDERS: {
     NOT_FOUND: "Order not found.",
