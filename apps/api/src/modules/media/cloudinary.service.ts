@@ -112,15 +112,14 @@ export class CloudinaryService {
       return;
     }
 
-    const checks: Promise<void>[] = imageUrls.map((url) =>
-      this.verifyRemoteAsset(url, "image"),
+    const videoUrls = [videoUrl].filter(
+      (url): url is string => typeof url === "string" && url.length > 0,
     );
 
-    if (videoUrl) {
-      checks.push(this.verifyRemoteAsset(videoUrl, "video"));
-    }
-
-    await Promise.all(checks);
+    await Promise.all([
+      ...imageUrls.map((url) => this.verifyRemoteAsset(url, "image")),
+      ...videoUrls.map((url) => this.verifyRemoteAsset(url, "video")),
+    ]);
   }
 
   private async verifyRemoteAsset(
