@@ -391,22 +391,32 @@ export function CheckoutView() {
                 }}
                 className="space-y-2"
               >
-                {addresses.map((addr) => (
-                  <Label
-                    key={addr.id}
-                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-subtle p-3 hover:border-brand-forest"
-                  >
-                    <RadioGroupItem value={addr.id} className="mt-0.5" />
-                    <div className="min-w-0 flex-1 space-y-0.5">
-                      <p className="text-sm font-bold text-gray-900">
-                        {addr.receiverName} — {addr.phoneNumber}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {addr.streetAddress}, {addr.district}, {addr.city}
-                      </p>
+                {addresses.map((addr) => {
+                  const radioId = `checkout-address-${addr.id}`;
+                  return (
+                    <div
+                      key={addr.id}
+                      className="flex items-start gap-3 rounded-lg border border-border-subtle p-3 hover:border-brand-forest"
+                    >
+                      <RadioGroupItem
+                        id={radioId}
+                        value={addr.id}
+                        className="mt-0.5"
+                      />
+                      <Label
+                        htmlFor={radioId}
+                        className="min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5"
+                      >
+                        <span className="text-sm font-bold text-gray-900">
+                          {addr.receiverName} — {addr.phoneNumber}
+                        </span>
+                        <span className="text-xs font-normal text-gray-600">
+                          {addr.streetAddress}, {addr.district}, {addr.city}
+                        </span>
+                      </Label>
                     </div>
-                  </Label>
-                ))}
+                  );
+                })}
               </RadioGroup>
             )}
 
@@ -434,8 +444,9 @@ export function CheckoutView() {
 
             {availableLoyaltyPoints > 0 ? (
               <div className="space-y-3">
-                <Label className="flex cursor-pointer items-center gap-2 text-sm">
+                <div className="flex items-center gap-2">
                   <Checkbox
+                    id="checkout-use-max-loyalty"
                     checked={useMaxLoyalty}
                     onCheckedChange={(checked) => {
                       setSubmitError(null);
@@ -454,18 +465,23 @@ export function CheckoutView() {
                       }
                     }}
                   />
-                  <span>
-                    Dùng tối đa{" "}
-                    <strong className="tabular-nums">
-                      {clampLoyaltyPoints(
-                        availableLoyaltyPoints,
-                        availableLoyaltyPoints,
-                        effectiveSubtotalVnd,
-                      ).toLocaleString("vi-VN")}
-                    </strong>{" "}
-                    điểm (1 điểm = 1đ tiền hàng)
-                  </span>
-                </Label>
+                  <Label
+                    htmlFor="checkout-use-max-loyalty"
+                    className="cursor-pointer text-sm font-normal"
+                  >
+                    <span>
+                      Dùng tối đa{" "}
+                      <strong className="tabular-nums">
+                        {clampLoyaltyPoints(
+                          availableLoyaltyPoints,
+                          availableLoyaltyPoints,
+                          effectiveSubtotalVnd,
+                        ).toLocaleString("vi-VN")}
+                      </strong>{" "}
+                      điểm (1 điểm = 1đ tiền hàng)
+                    </span>
+                  </Label>
+                </div>
 
                 {!useMaxLoyalty ? (
                   <div className="flex items-center gap-3">
