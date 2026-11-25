@@ -1,44 +1,45 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { Window } from "happy-dom";
-import { createElement } from "react";
-import { flushSync } from "react-dom";
-import { createRoot, type Root } from "react-dom/client";
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
 import { useCartStore } from "@/stores/cart.store";
 import { HeaderCartPopover } from "./header-cart-popover";
 
-function ensureDomEnvironment(): HTMLElement {
-  if (typeof globalThis.document === "undefined") {
-    const win = new Window();
-    Object.assign(globalThis, {
-      window: win,
-      document: win.document,
-      HTMLElement: win.HTMLElement,
-      Element: win.Element,
-      Node: win.Node,
-    });
+const DOM_GLOBAL_KEYS = [
+  "window",
+  "document",
+  "HTMLElement",
+  "Element",
+  "Node",
+] as const;
+
+function withDomGlobals(fn: (win: Window) => void) {
+  const win = new Window();
+  const target = globalThis as Record<string, unknown>;
+  const prev = new Map<string, PropertyDescriptor | undefined>();
+
+  for (const key of DOM_GLOBAL_KEYS) {
+    prev.set(key, Object.getOwnPropertyDescriptor(target, key));
+    target[key] = (win as unknown as Record<string, unknown>)[key];
   }
-  const container = globalThis.document.createElement("div");
-  globalThis.document.body.appendChild(container);
-  return container;
+
+  try {
+    fn(win);
+  } finally {
+    win.close();
+    for (const key of DOM_GLOBAL_KEYS) {
+      const descriptor = prev.get(key);
+      if (descriptor) {
+        Object.defineProperty(target, key, descriptor);
+      } else {
+        delete target[key];
+      }
+    }
+  }
 }
 
 describe("HeaderCartPopover", () => {
-  let container: HTMLElement;
-  let root: Root | null = null;
-
   beforeEach(() => {
-    container = ensureDomEnvironment();
-    useCartStore.setState({ items: [] });
-  });
-
-  afterEach(() => {
-    if (root) {
-      flushSync(() => {
-        root?.unmount();
-      });
-      root = null;
-    }
-    container.remove();
     useCartStore.setState({ items: [] });
   });
 
@@ -57,20 +58,33 @@ describe("HeaderCartPopover", () => {
       ],
     });
 
-    root = createRoot(container);
-    flushSync(() => {
-      root?.render(createElement(HeaderCartPopover));
+    withDomGlobals((win) => {
+      const container = win.document.createElement("div");
+      win.document.body.appendChild(container);
+      const root = createRoot(container as unknown as HTMLElement);
+
+      try {
+        act(() => {
+          root.render(createElement(HeaderCartPopover));
+        });
+
+        const badges = Array.from(
+          container.querySelectorAll('[role="status"]'),
+        );
+        expect(badges.length).toBeGreaterThan(0);
+        for (const badge of badges) {
+          expect(badge.textContent).toBe("1");
+        }
+
+        const links = Array.from(
+          container.querySelectorAll('[aria-label="Giỏ hàng (1 sản phẩm)"]'),
+        );
+        expect(links.length).toBeGreaterThan(0);
+      } finally {
+        act(() => {
+          root.unmount();
+        });
+      }
     });
-
-    const badges = Array.from(container.querySelectorAll('[role="status"]'));
-    expect(badges.length).toBeGreaterThan(0);
-    for (const badge of badges) {
-      expect(badge.textContent).toBe("1");
-    }
-
-    const links = Array.from(
-      container.querySelectorAll('[aria-label="Giỏ hàng (1 sản phẩm)"]'),
-    );
-    expect(links.length).toBeGreaterThan(0);
   });
 });
