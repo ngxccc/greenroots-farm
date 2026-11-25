@@ -255,6 +255,15 @@ jobs:
       - name: Test the Storefront
         run: bun run test:storefront
 
+      - name: Restore Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ github.workspace }}/apps/storefront/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/storefront/src/**/*.[jt]s', 'apps/storefront/src/**/*.[jt]sx', 'apps/storefront/app/**/*.[jt]s', 'apps/storefront/app/**/*.[jt]sx', 'apps/storefront/next.config.ts', 'packages/shared/src/**/*.[jt]s', 'packages/ui/src/**/*.[jt]s', 'packages/ui/src/**/*.[jt]sx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('bun.lock') }}-
+            ${{ runner.os }}-nextjs-
+
       - name: Build the Storefront
         working-directory: apps/storefront
         run: bun run build
