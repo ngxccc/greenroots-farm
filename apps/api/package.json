@@ -16,7 +16,7 @@
     "doppler:db:push": "doppler run -- bun run db:push",
     "doppler:db:seed": "doppler run -- bun run db:seed",
     "doppler:dev": "doppler run -- bun run dev",
-    "lint": "oxlint --type-aware src",
+    "lint": "oxlint --type-aware src test",
     "openapi:generate": "bun scripts/generate-openapi.ts",
     "start": "bun dist/main.js",
     "test": "bun test src/",
