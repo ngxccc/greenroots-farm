@@ -65,9 +65,9 @@ export class CloudinaryService {
     const apiKey = env.CLOUDINARY_API_KEY;
     const apiSecret = env.CLOUDINARY_API_SECRET;
 
-    if (!apiSecret) {
+    if (env.MEDIA_DRIVER === "mock" || !apiSecret) {
       this.logger.warn(
-        "CLOUDINARY_API_SECRET not set; returning mock upload signature for development",
+        "Media mock driver active or CLOUDINARY_API_SECRET unset; returning mock upload signature",
       );
       return {
         signature: `mock-signature-${timestamp}`,
@@ -105,9 +105,9 @@ export class CloudinaryService {
     imageUrls: readonly string[],
     videoUrl?: string | null,
   ): Promise<void> {
-    if (!env.CLOUDINARY_API_SECRET) {
+    if (env.MEDIA_DRIVER === "mock" || !env.CLOUDINARY_API_SECRET) {
       this.logger.warn(
-        "CLOUDINARY_API_SECRET not set; skipping remote Cloudinary metadata verification in development/test",
+        "Media mock driver active or CLOUDINARY_API_SECRET unset; skipping remote Cloudinary metadata verification",
       );
       return;
     }

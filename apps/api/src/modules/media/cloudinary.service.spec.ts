@@ -40,6 +40,7 @@ describe("CloudinaryService", () => {
     "ac6a3ea19df18adc64acab9b2754d07554d6cda9c71caa7a3d00c808860478a1";
 
   const originalEnv = {
+    mediaDriver: env.MEDIA_DRIVER,
     apiKey: env.CLOUDINARY_API_KEY,
     apiSecret: env.CLOUDINARY_API_SECRET,
     cloudName: env.CLOUDINARY_CLOUD_NAME,
@@ -60,6 +61,7 @@ describe("CloudinaryService", () => {
     );
 
     const envRecord = env as Record<string, unknown>;
+    envRecord["MEDIA_DRIVER"] = "cloudinary";
     envRecord["CLOUDINARY_API_KEY"] = TEST_CONFIG.API_KEY;
     envRecord["CLOUDINARY_API_SECRET"] = TEST_CONFIG.API_SECRET;
     envRecord["CLOUDINARY_CLOUD_NAME"] = TEST_CONFIG.CLOUD_NAME;
@@ -73,6 +75,7 @@ describe("CloudinaryService", () => {
     errorSpy.mockRestore();
 
     const envRecord = env as Record<string, unknown>;
+    envRecord["MEDIA_DRIVER"] = originalEnv.mediaDriver;
     envRecord["CLOUDINARY_API_KEY"] = originalEnv.apiKey;
     envRecord["CLOUDINARY_API_SECRET"] = originalEnv.apiSecret;
     envRecord["CLOUDINARY_CLOUD_NAME"] = originalEnv.cloudName;

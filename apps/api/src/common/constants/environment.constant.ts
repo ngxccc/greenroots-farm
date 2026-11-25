@@ -46,6 +46,13 @@ export const SHIPPING_DRIVERS = ["haversine"] as const;
 export type ShippingDriverKind = (typeof SHIPPING_DRIVERS)[number];
 
 /**
+ * Media storage/verification driver choices for the API process.
+ */
+export const MEDIA_DRIVERS = ["cloudinary", "mock"] as const;
+
+export type MediaDriver = (typeof MEDIA_DRIVERS)[number];
+
+/**
  * Resolves the active NestJS log levels for a given threshold.
  *
  * NestJS requires an explicit array of enabled levels (`LogLevel[]`). Passing a

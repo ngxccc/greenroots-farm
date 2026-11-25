@@ -69,12 +69,6 @@ describe("Complaints Integration", () => {
     );
     await cleanScopedRedisKeys(setup.redisClient);
 
-    const cloudinaryService = app.get(CloudinaryService);
-    verifySpy = spyOn(
-      cloudinaryService,
-      "verifyComplaintMedia",
-    ).mockResolvedValue(undefined);
-
     const customer = await createAuthenticatedUser(setup.db, jwtService, {
       email: "complaint-customer@greenroots.vn",
     });
@@ -313,7 +307,11 @@ describe("Complaints Integration", () => {
         items: [{ productId, quantity: "1.00", unitPrice: 50_000 }],
       });
 
-      verifySpy?.mockRejectedValueOnce(
+      const cloudinaryService = app.get(CloudinaryService);
+      verifySpy = spyOn(
+        cloudinaryService,
+        "verifyComplaintMedia",
+      ).mockRejectedValueOnce(
         new UnprocessableEntityException({
           code: API_ERROR_CODES.COMPLAINT_MEDIA_INVALID,
           detail: "Video exceeds 15s duration limit.",

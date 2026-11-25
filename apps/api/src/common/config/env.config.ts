@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   LOG_LEVELS,
   MAIL_DRIVERS,
+  MEDIA_DRIVERS,
   NODE_ENVIRONMENTS,
   PAYMENT_DRIVERS,
   SHIPPING_DRIVERS,
@@ -128,6 +129,7 @@ const envSchema = z.object({
   SHIPPING_DRIVER: z.enum(SHIPPING_DRIVERS).default("haversine"),
 
   // Cloudinary media storage configuration
+  MEDIA_DRIVER: z.enum(MEDIA_DRIVERS).default("mock"),
   CLOUDINARY_CLOUD_NAME: z.string().min(1).default("greenroots-dev"),
   CLOUDINARY_API_KEY: z.string().min(1).default("mock-api-key"),
   CLOUDINARY_API_SECRET: z.string().optional(),
