@@ -72,15 +72,39 @@ export async function createWorkerTestDatabase(
       await ensureTemplateSchemaMigrated(adminPool).catch(() => undefined);
     }
 
-    // Attempt instant table + trigger cloning from template
+    // Attempt instant table + FK + trigger cloning from template
     const cloneQuery = `
       DO $$
       DECLARE
         r RECORD;
+        fk RECORD;
         trig RECORD;
       BEGIN
         FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'test_template' AND tablename != '__drizzle_migrations') LOOP
           EXECUTE format('CREATE TABLE "%I"."%I" (LIKE "test_template"."%I" INCLUDING ALL);', '${schemaName}', r.tablename, r.tablename);
+        END LOOP;
+        FOR fk IN (
+          SELECT
+            c.relname AS table_name,
+            con.conname AS constraint_name,
+            pg_get_constraintdef(con.oid, true) AS constraint_def
+          FROM pg_constraint con
+          JOIN pg_class c ON c.oid = con.conrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'test_template' AND con.contype = 'f'
+        ) LOOP
+          EXECUTE format(
+            'ALTER TABLE "%I"."%I" ADD CONSTRAINT "%I" %s;',
+            '${schemaName}',
+            fk.table_name,
+            fk.constraint_name,
+            regexp_replace(
+              fk.constraint_def,
+              'REFERENCES (?:"?test_template"?\\.)?',
+              format('REFERENCES "%I".', '${schemaName}'),
+              'g'
+            )
+          );
         END LOOP;
         FOR trig IN (
           SELECT c.relname AS table_name, pg_get_triggerdef(t.oid, true) AS trig_def
