@@ -35,11 +35,11 @@ import {
   CATALOG_SORT_OPTIONS,
   type CatalogCategoryNode,
   type CatalogFilterState,
-} from "@/services/catalog-query";
+} from "@/features/catalog/utils/catalog-query";
 import type {
   CatalogPaginationMeta,
   StorefrontProduct,
-} from "@/types/catalog.types";
+} from "@/features/catalog/types/catalog.types";
 import { CatalogFilterSidebar } from "./catalog-filter-sidebar";
 
 interface CatalogViewProps {

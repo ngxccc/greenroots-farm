@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from "@greenroots/ui";
 import { AuthAlertBanner } from "@/features/auth/components/auth-alert-banner";
 import { ProductCard } from "@/features/home/components/product-card";
 import { TraceLookupContent } from "@/features/traceability/components/trace-lookup-view";
-import type { StorefrontProduct } from "@/types/catalog.types";
+import type { StorefrontProduct } from "@/features/catalog/types/catalog.types";
 import { StorefrontHeaderSearchForm } from "./header";
 import { NotFoundSearchFormView } from "./not-found-search-form";
 

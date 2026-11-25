@@ -8,8 +8,8 @@ import {
   CATALOG_PAGE_LIMIT,
   parseCatalogSearchParams,
   type RawCatalogSearchParams,
-} from "@/services/catalog-query";
-import { fetchCatalogListing } from "@/services/catalog.service";
+} from "@/features/catalog/utils/catalog-query";
+import { fetchCatalogListing } from "@/features/catalog/services/catalog.service";
 
 export const metadata: Metadata = {
   title: "Sản phẩm",

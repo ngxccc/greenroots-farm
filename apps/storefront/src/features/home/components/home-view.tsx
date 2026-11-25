@@ -37,7 +37,7 @@ import { buildTraceDetailHref } from "@/lib/navigation";
 import type {
   HomeCategoryShelf,
   StorefrontProduct,
-} from "@/types/catalog.types";
+} from "@/features/catalog/types/catalog.types";
 import type { StorefrontSubscriptionPlan } from "@/types/subscription.types";
 import { ProductCard } from "./product-card";
 

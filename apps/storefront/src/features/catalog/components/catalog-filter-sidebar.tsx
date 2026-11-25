@@ -15,7 +15,7 @@ import {
   type CatalogCategoryNode,
   type CatalogFilterState,
   type CatalogPricePreset,
-} from "@/services/catalog-query";
+} from "@/features/catalog/utils/catalog-query";
 
 interface CatalogFilterSidebarProps {
   readonly categories: readonly CatalogCategoryNode[];

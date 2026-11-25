@@ -13,7 +13,7 @@ import type {
   CategoryDto,
   HomeCatalogDeps,
   ProductDto,
-} from "@/types/catalog.types";
+} from "@/features/catalog/types/catalog.types";
 
 const ROOT_LEAF_CATEGORY: CategoryDto = {
   id: "cat-root-leaf",

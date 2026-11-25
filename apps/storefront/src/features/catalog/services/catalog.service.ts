@@ -1,12 +1,12 @@
 import { resolveSharedApiErrorMessage } from "@greenroots/shared";
 import { api } from "@/lib/api-client";
-import { mapProductDtoToStorefront } from "@/services/catalog-mapper";
+import { mapProductDtoToStorefront } from "@/features/catalog/services/catalog-mapper";
 import {
   buildCatalogApiQuery,
   buildCategoryTree,
   CATALOG_PAGE_LIMIT,
   type CatalogFilterState,
-} from "@/services/catalog-query";
+} from "@/features/catalog/utils/catalog-query";
 import type {
   CatalogListingDeps,
   CatalogListingResult,
@@ -16,7 +16,7 @@ import type {
   HomeCategoryShelf,
   ProductDetailDeps,
   ProductDetailResult,
-} from "@/types/catalog.types";
+} from "@/features/catalog/types/catalog.types";
 
 /** Default number of root category shelves displayed on the SF-01 home page. */
 export const HOME_MAX_SHELVES = 6;

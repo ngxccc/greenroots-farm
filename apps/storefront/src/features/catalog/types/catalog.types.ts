@@ -2,7 +2,7 @@ import type { components } from "@/types/api-schema";
 import type {
   CatalogApiQuery,
   CatalogCategoryNode,
-} from "@/services/catalog-query";
+} from "@/features/catalog/utils/catalog-query";
 
 /** Shelf category bucket key used on the SF-01 home page and navigation links. */
 export type CategoryShelfKey = "rescue" | "leaf" | "fruit" | "spice";

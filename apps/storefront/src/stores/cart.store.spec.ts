@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { useCartStore } from "./cart.store";
-import type { StorefrontProduct } from "@/types/catalog.types";
+import type { StorefrontProduct } from "@/features/catalog/types/catalog.types";
 
 const sampleTomato: StorefrontProduct = {
   id: "prod-tomato",

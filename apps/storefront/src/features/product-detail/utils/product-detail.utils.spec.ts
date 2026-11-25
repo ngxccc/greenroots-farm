@@ -3,8 +3,11 @@ import {
   filterApprovedProductImages,
   isApprovedStorefrontImageUrl,
 } from "@/lib/image-url";
-import { fetchLiveProductBySlug } from "@/services/catalog.service";
-import type { ProductDetailDeps, ProductDto } from "@/types/catalog.types";
+import { fetchLiveProductBySlug } from "@/features/catalog/services/catalog.service";
+import type {
+  ProductDetailDeps,
+  ProductDto,
+} from "@/features/catalog/types/catalog.types";
 import {
   clampOrderQuantity,
   formatCertificationSummary,

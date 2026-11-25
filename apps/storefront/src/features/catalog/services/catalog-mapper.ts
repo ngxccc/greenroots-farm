@@ -1,5 +1,8 @@
 import { filterApprovedProductImages } from "@/lib/image-url";
-import type { ProductDto, StorefrontProduct } from "@/types/catalog.types";
+import type {
+  ProductDto,
+  StorefrontProduct,
+} from "@/features/catalog/types/catalog.types";
 
 function formatUnitLabel(unit: string): string {
   const trimmed = unit.trim();

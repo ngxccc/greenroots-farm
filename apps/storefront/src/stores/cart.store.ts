@@ -4,7 +4,7 @@ import { BUSINESS_RULES, HCMC_DISTRICTS } from "@greenroots/shared";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { roundQuantity } from "@/lib/format";
-import type { StorefrontProduct } from "@/types/catalog.types";
+import type { StorefrontProduct } from "@/features/catalog/types/catalog.types";
 
 export interface CartItem {
   readonly productId: string;

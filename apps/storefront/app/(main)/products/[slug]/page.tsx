@@ -12,7 +12,7 @@ import {
   buttonVariants,
 } from "@greenroots/ui";
 import { ProductDetailHero } from "@/features/product-detail";
-import { fetchLiveProductBySlug } from "@/services/catalog.service";
+import { fetchLiveProductBySlug } from "@/features/catalog/services/catalog.service";
 
 const getProductBySlugCached = cache(async (slug: string) =>
   fetchLiveProductBySlug(slug),

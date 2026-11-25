@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Skeleton } from "@greenroots/ui";
 import { HomeView } from "@/features/home/components/home-view";
 import { ProductGridSkeleton } from "@/features/home/components/product-card";
-import { fetchLiveHomeCatalog } from "@/services/catalog.service";
+import { fetchLiveHomeCatalog } from "@/features/catalog/services/catalog.service";
 import { fetchApiHealth } from "@/services/health.service";
 
 async function HomeContent() {

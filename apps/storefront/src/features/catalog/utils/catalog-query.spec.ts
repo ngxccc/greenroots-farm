@@ -6,13 +6,13 @@ import {
   CATALOG_MAX_SEARCH_LENGTH,
   CATALOG_PAGE_LIMIT,
   parseCatalogSearchParams,
-} from "@/services/catalog-query";
-import { fetchCatalogListing } from "@/services/catalog.service";
+} from "@/features/catalog/utils/catalog-query";
+import { fetchCatalogListing } from "@/features/catalog/services/catalog.service";
 import type {
   CatalogListingDeps,
   CategoryDto,
   ProductDto,
-} from "@/types/catalog.types";
+} from "@/features/catalog/types/catalog.types";
 
 function makeCategory(
   overrides: Partial<CategoryDto> & { id: string; name: string; slug: string },

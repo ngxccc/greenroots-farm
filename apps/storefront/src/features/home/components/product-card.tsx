@@ -14,7 +14,7 @@ import {
 import { Leaf, Minus, Plus } from "lucide-react";
 import { formatVnd, roundQuantity } from "@/lib/format";
 import { useCartStore } from "@/stores/cart.store";
-import type { StorefrontProduct } from "@/types/catalog.types";
+import type { StorefrontProduct } from "@/features/catalog/types/catalog.types";
 
 interface ProductCardProps {
   readonly product: StorefrontProduct;
