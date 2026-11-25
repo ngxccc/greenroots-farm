@@ -9859,8 +9859,28 @@
             "required": false,
             "in": "query",
             "schema": {
-              "minLength": 1,
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "pending_payment",
+                      "pending_confirmation",
+                      "confirmed",
+                      "packing",
+                      "shipping",
+                      "delivered",
+                      "completed",
+                      "cancelled"
+                    ]
+                  }
+                }
+              ]
             }
           },
           {

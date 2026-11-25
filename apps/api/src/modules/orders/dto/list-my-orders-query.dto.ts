@@ -11,19 +11,23 @@ export const listMyOrdersQuerySchema = z
   .object({
     status: z.enum(OrderStatus).optional(),
     statuses: z
-      .string()
-      .trim()
-      .min(1)
-      .transform((value) =>
-        Array.from(
-          new Set(
-            value
-              .split(",")
-              .map((item) => item.trim())
-              .filter(Boolean),
+      .union([
+        z
+          .string()
+          .trim()
+          .min(1)
+          .transform((value) =>
+            Array.from(
+              new Set(
+                value
+                  .split(",")
+                  .map((item) => item.trim())
+                  .filter(Boolean),
+              ),
+            ),
           ),
-        ),
-      )
+        z.array(z.enum(OrderStatus)),
+      ])
       .pipe(
         z
           .array(z.enum(OrderStatus))
