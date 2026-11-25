@@ -36,7 +36,7 @@ export type MailDriver = (typeof MAIL_DRIVERS)[number];
  */
 export const PAYMENT_DRIVERS = ["payos", "mock"] as const;
 
-export type PaymentDriver = (typeof PAYMENT_DRIVERS)[number];
+export type PaymentDriverKind = (typeof PAYMENT_DRIVERS)[number];
 
 /**
  * Shipping calculation driver choices for the API process.

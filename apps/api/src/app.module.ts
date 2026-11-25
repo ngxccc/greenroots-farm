@@ -26,6 +26,7 @@ import { MailModule } from "@/modules/mail/mail.module";
 import { MediaModule } from "@/modules/media/media.module";
 import { OrdersModule } from "@/modules/orders/orders.module";
 import { ShippingModule } from "@/modules/orders/shipping/shipping.module";
+import { PaymentsModule } from "@/modules/payments/payments.module";
 import { SubscriptionsModule } from "@/modules/subscriptions/subscriptions.module";
 
 @Module({
@@ -77,6 +78,7 @@ import { SubscriptionsModule } from "@/modules/subscriptions/subscriptions.modul
     MediaModule,
     OrdersModule,
     ShippingModule,
+    PaymentsModule,
     SubscriptionsModule,
     ComplaintsModule,
   ],

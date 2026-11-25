@@ -199,6 +199,32 @@ export function parseApiEnvironment(
           "RESEND_API_KEY is required when MAIL_DRIVER is 'resend' in production",
       });
     }
+    if (data.PAYMENT_DRIVER === "payos") {
+      if (!data.PAYOS_CLIENT_ID?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["PAYOS_CLIENT_ID"],
+          message:
+            "PAYOS_CLIENT_ID is required when PAYMENT_DRIVER is 'payos' in production",
+        });
+      }
+      if (!data.PAYOS_API_KEY?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["PAYOS_API_KEY"],
+          message:
+            "PAYOS_API_KEY is required when PAYMENT_DRIVER is 'payos' in production",
+        });
+      }
+      if (!data.PAYOS_CHECKSUM_KEY?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["PAYOS_CHECKSUM_KEY"],
+          message:
+            "PAYOS_CHECKSUM_KEY is required when PAYMENT_DRIVER is 'payos' in production",
+        });
+      }
+    }
     if (!rawEnv["CLOUDINARY_CLOUD_NAME"]?.trim()) {
       ctx.addIssue({
         code: "custom",

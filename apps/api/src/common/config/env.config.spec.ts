@@ -48,6 +48,37 @@ describe("parseApiEnvironment", () => {
     ).toThrow(/RESEND_API_KEY/);
   });
 
+  it("fails fast in production when PAYMENT_DRIVER is payos without PayOS credentials", () => {
+    // Invariant: INV-PAY-1
+    expect(() =>
+      parseApiEnvironment({
+        ...PROD_BASE_ENV,
+        PAYMENT_DRIVER: "payos",
+        PAYOS_API_KEY: "payos-api-key",
+        PAYOS_CHECKSUM_KEY: "payos-checksum-key",
+      }),
+    ).toThrow(/PAYOS_CLIENT_ID/);
+
+    expect(() =>
+      parseApiEnvironment({
+        ...PROD_BASE_ENV,
+        PAYMENT_DRIVER: "payos",
+        PAYOS_CLIENT_ID: "payos-client-id",
+        PAYOS_CHECKSUM_KEY: "payos-checksum-key",
+      }),
+    ).toThrow(/PAYOS_API_KEY/);
+
+    expect(() =>
+      parseApiEnvironment({
+        ...PROD_BASE_ENV,
+        PAYMENT_DRIVER: "payos",
+        PAYOS_CLIENT_ID: "payos-client-id",
+        PAYOS_API_KEY: "payos-api-key",
+        PAYOS_CHECKSUM_KEY: "   ",
+      }),
+    ).toThrow(/PAYOS_CHECKSUM_KEY/);
+  });
+
   it("fails fast in production when Cloudinary credentials are missing", () => {
     expect(() =>
       parseApiEnvironment({
@@ -132,11 +163,18 @@ describe("parseApiEnvironment", () => {
       STOREFRONT_URL: "https://greenroots.farm/",
       MAIL_DRIVER: "resend",
       RESEND_API_KEY: "re_prod_123456",
+      PAYMENT_DRIVER: "payos",
+      PAYOS_CLIENT_ID: "payos-client-id",
+      PAYOS_API_KEY: "payos-api-key",
+      PAYOS_CHECKSUM_KEY: "payos-checksum-key",
     });
     expect(prodEnv.CLOUDINARY_CLOUD_NAME).toBe("prod-cloud");
     expect(prodEnv.CLOUDINARY_API_KEY).toBe("prod-key");
     expect(prodEnv.CLOUDINARY_API_SECRET).toBe("prod-secret");
     expect(prodEnv.RESEND_API_KEY).toBe("re_prod_123456");
+    expect(prodEnv.PAYOS_CLIENT_ID).toBe("payos-client-id");
+    expect(prodEnv.PAYOS_API_KEY).toBe("payos-api-key");
+    expect(prodEnv.PAYOS_CHECKSUM_KEY).toBe("payos-checksum-key");
     expect(prodEnv.STOREFRONT_URL).toBe("https://greenroots.farm");
   });
 });
