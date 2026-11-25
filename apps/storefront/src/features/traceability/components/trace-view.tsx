@@ -22,7 +22,7 @@ import { TraceProductImage } from "@/features/traceability/components/trace-prod
 import { VietGapDialogButton } from "@/features/traceability/components/vietgap-dialog-button";
 import { formatViDate, formatViDateTime } from "@/lib/format";
 import { filterApprovedProductImages } from "@/lib/image-url";
-import type { TraceRecord } from "@/types/trace.types";
+import type { TraceRecord } from "@/features/traceability/types/trace.types";
 
 interface TraceViewProps {
   readonly record?: TraceRecord;

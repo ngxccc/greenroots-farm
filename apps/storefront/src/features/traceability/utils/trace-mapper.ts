@@ -1,4 +1,7 @@
-import type { RecentTraceBatchItem, TraceRecord } from "@/types/trace.types";
+import type {
+  RecentTraceBatchItem,
+  TraceRecord,
+} from "@/features/traceability/types/trace.types";
 
 /**
  * Maps a full `TraceRecord` into the compact `RecentTraceBatchItem` shape used by the `/trace` preview panel.

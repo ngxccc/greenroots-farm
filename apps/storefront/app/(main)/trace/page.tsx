@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Skeleton } from "@greenroots/ui";
 import { TraceLookupView } from "@/features/traceability/components/trace-lookup-view";
-import { fetchRecentTraceBatches } from "@/services/trace.service";
+import { fetchRecentTraceBatches } from "@/features/traceability/services/trace.service";
 
 async function TraceDirectoryContent() {
   await connection();

@@ -3,8 +3,8 @@ import { BatchStatus, SeasonStatus } from "@greenroots/shared";
 import {
   isSafeExternalCertUrl,
   toRecentTracePreview,
-} from "@/features/traceability/trace-mapper";
-import type { TraceRecord } from "@/types/trace.types";
+} from "@/features/traceability/utils/trace-mapper";
+import type { TraceRecord } from "@/features/traceability/types/trace.types";
 
 const sampleTraceRecord: TraceRecord = {
   batch: {

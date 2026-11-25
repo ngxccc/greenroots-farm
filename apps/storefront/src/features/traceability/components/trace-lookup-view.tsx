@@ -20,11 +20,11 @@ import {
 } from "@greenroots/ui";
 import { AlertCircle, ArrowRight, QrCode, Search } from "lucide-react";
 import { TraceProductImage } from "@/features/traceability/components/trace-product-image";
-import { lookupTraceBatchAction } from "@/features/traceability/trace-actions";
-import { toRecentTracePreview } from "@/features/traceability/trace-mapper";
+import { lookupTraceBatchAction } from "@/features/traceability/actions/trace-actions";
+import { toRecentTracePreview } from "@/features/traceability/utils/trace-mapper";
 import { formatViDateTime } from "@/lib/format";
 import { filterApprovedProductImages } from "@/lib/image-url";
-import type { RecentTraceBatchItem } from "@/types/trace.types";
+import type { RecentTraceBatchItem } from "@/features/traceability/types/trace.types";
 
 interface TraceLookupContentProps {
   readonly records: readonly RecentTraceBatchItem[];

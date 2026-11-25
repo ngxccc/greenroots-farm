@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Skeleton } from "@greenroots/ui";
 import { TraceView } from "@/features/traceability/components/trace-view";
-import { fetchTraceByBatchCode } from "@/services/trace.service";
+import { fetchTraceByBatchCode } from "@/features/traceability/services/trace.service";
 
 function decodeBatchCodeParam(rawParam: string): string | null {
   try {

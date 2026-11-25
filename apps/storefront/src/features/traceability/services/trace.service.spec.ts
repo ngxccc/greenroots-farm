@@ -3,8 +3,11 @@ import { API_ERROR_CODES, BatchStatus, SeasonStatus } from "@greenroots/shared";
 import {
   fetchRecentTraceBatches,
   fetchTraceByBatchCode,
-} from "@/services/trace.service";
-import type { RecentTraceBatchItem, TraceRecord } from "@/types/trace.types";
+} from "@/features/traceability/services/trace.service";
+import type {
+  RecentTraceBatchItem,
+  TraceRecord,
+} from "@/features/traceability/types/trace.types";
 
 const sampleRecentItem: RecentTraceBatchItem = {
   batchCode: "BATCH-2026-TOM-01",

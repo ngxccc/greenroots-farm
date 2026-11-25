@@ -1,7 +1,7 @@
 "use server";
 
-import { fetchTraceByBatchCode } from "@/services/trace.service";
-import type { TraceLookupResult } from "@/types/trace.types";
+import { fetchTraceByBatchCode } from "@/features/traceability/services/trace.service";
+import type { TraceLookupResult } from "@/features/traceability/types/trace.types";
 
 /**
  * Server Action invoked by the `/trace` lookup form to resolve a batch code

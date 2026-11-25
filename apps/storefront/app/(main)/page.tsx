@@ -4,7 +4,7 @@ import { Skeleton } from "@greenroots/ui";
 import { HomeView } from "@/features/home/components/home-view";
 import { ProductGridSkeleton } from "@/features/home/components/product-card";
 import { fetchLiveHomeCatalog } from "@/features/catalog/services/catalog.service";
-import { fetchApiHealth } from "@/services/health.service";
+import { fetchApiHealth } from "@/lib/health";
 
 async function HomeContent() {
   await connection();

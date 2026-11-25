@@ -4,7 +4,7 @@ import type {
   RecentTraceBatchItem,
   TraceLookupResult,
   TraceRecord,
-} from "@/types/trace.types";
+} from "@/features/traceability/types/trace.types";
 
 const DEFAULT_RECENT_TRACE_LIMIT = 4;
 

@@ -12,7 +12,7 @@ import {
   buttonVariants,
 } from "@greenroots/ui";
 import { ExternalLink, ShieldCheck } from "lucide-react";
-import { isSafeExternalCertUrl } from "@/features/traceability/trace-mapper";
+import { isSafeExternalCertUrl } from "@/features/traceability/utils/trace-mapper";
 
 interface VietGapDialogButtonProps {
   readonly farmName: string;
