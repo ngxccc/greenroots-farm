@@ -11,7 +11,6 @@ import {
 } from "react";
 import { HCMC_DISTRICTS, findHcmcDistrictByCode } from "@greenroots/shared";
 import {
-  Badge,
   Button,
   InputGroup,
   InputGroupAddon,
@@ -19,9 +18,8 @@ import {
   InputGroupInput,
   Label,
 } from "@greenroots/ui";
-import { MapPin, Search, ShoppingCart } from "lucide-react";
+import { MapPin, Search } from "lucide-react";
 import { invalidateStorefrontClientSession } from "@/lib/auth/client-logout";
-import { roundQuantity } from "@/lib/format";
 import { buildProductSearchHref } from "@/lib/navigation";
 import { useShippingQuote } from "@/lib/shipping/use-shipping-quote";
 import { useAuthStore } from "@/stores/auth.store";
@@ -32,7 +30,7 @@ import {
 } from "@/stores/delivery-address.store";
 import { AddressDialog } from "./address-dialog";
 import { BrandLogo } from "./brand-logo";
-import { CartDrawer } from "./cart-drawer";
+import { HeaderCartPopover } from "@/features/orders";
 import { HeaderAuthControls } from "./header-auth-controls";
 
 interface StorefrontHeaderSearchFormProps {
@@ -93,11 +91,11 @@ export function StorefrontHeaderSearchForm({
 
 /**
  * Determines whether the sticky delivery location sub-bar renders below `StorefrontHeader`.
- * Hidden on `/account/*` routes where customers manage account settings directly, as well
- * as informational and policy hub routes (`/about` and `/policies/*`).
+ * Hidden on `/account/*`, `/about`, `/policies/*`, and `/checkout` (where `CheckoutView`
+ * renders the full recipient address selector directly).
  *
  * @param pathname Current client route pathname.
- * @returns `true` for storefront shopping and checkout routes, `false` inside `/account/*`, `/about/*`, or `/policies/*`.
+ * @returns `true` for storefront shopping and cart routes, `false` inside `/account/*`, `/about/*`, `/policies/*`, or `/checkout*`.
  */
 export function shouldShowDeliverySubBar(pathname: string): boolean {
   if (pathname === "/account" || pathname.startsWith("/account/")) {
@@ -107,6 +105,9 @@ export function shouldShowDeliverySubBar(pathname: string): boolean {
     return false;
   }
   if (pathname === "/policies" || pathname.startsWith("/policies/")) {
+    return false;
+  }
+  if (pathname === "/checkout" || pathname.startsWith("/checkout/")) {
     return false;
   }
   return true;
@@ -188,12 +189,6 @@ interface StorefrontHeaderProps {
 export function StorefrontHeader({ authSlot }: StorefrontHeaderProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [cartOpen, setCartOpen] = useState(false);
-
-  const items = useCartStore((state) => state.items);
-  const totalCount = roundQuantity(
-    items.reduce((sum, item) => sum + item.quantity, 0),
-  );
 
   function handleSearchSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -218,22 +213,7 @@ export function StorefrontHeader({ authSlot }: StorefrontHeaderProps) {
           />
 
           <div className="order-2 flex min-w-0 shrink-0 items-center gap-2 sm:gap-4 md:order-3">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => setCartOpen(true)}
-              aria-label={`Giỏ hàng (${totalCount} sản phẩm)`}
-              className="relative size-auto rounded px-0.5 py-1 text-white hover:bg-transparent hover:text-white hover:opacity-90 focus-visible:border-white focus-visible:ring-2 focus-visible:ring-white sm:px-1.5 dark:hover:bg-transparent"
-            >
-              <ShoppingCart className="size-6" aria-hidden="true" />
-              <Badge
-                role="status"
-                className="absolute -top-1.5 -right-2 h-4 min-w-4 border-0 bg-white px-1 text-[11px] font-semibold text-brand-dark tabular-nums"
-              >
-                {totalCount}
-              </Badge>
-            </Button>
+            <HeaderCartPopover />
 
             {authSlot ?? <HeaderAuthControls initialUser={null} />}
           </div>
@@ -244,8 +224,6 @@ export function StorefrontHeader({ authSlot }: StorefrontHeaderProps) {
       <Suspense fallback={null}>
         <DeliveryLocationSubBar />
       </Suspense>
-
-      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
     </>
   );
 }

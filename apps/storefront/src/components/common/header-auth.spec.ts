@@ -246,7 +246,8 @@ describe("Storefront Header Auth UI", () => {
       expect(shouldShowDeliverySubBar("/policies/privacy")).toBe(false);
       expect(shouldShowDeliverySubBar("/")).toBe(true);
       expect(shouldShowDeliverySubBar("/products/rau-cai")).toBe(true);
-      expect(shouldShowDeliverySubBar("/checkout")).toBe(true);
+      expect(shouldShowDeliverySubBar("/cart")).toBe(true);
+      expect(shouldShowDeliverySubBar("/checkout")).toBe(false);
     });
   });
 });

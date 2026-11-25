@@ -7,7 +7,7 @@ import {
   Button,
   Skeleton,
 } from "@greenroots/ui";
-import { AlertCircle, RefreshCw, Truck } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCw, Truck } from "lucide-react";
 import { formatVnd } from "@/lib/format";
 
 /**
@@ -66,12 +66,28 @@ export function DeliveryQuoteSummary({
   if (isLoading || !quote) {
     return (
       <div
-        className="space-y-2 rounded-xl border border-border-subtle bg-surface-warm p-3"
+        className="space-y-2 rounded-xl border border-border-subtle bg-surface-warm p-3 text-xs"
         aria-busy="true"
         aria-label="Đang tính phí giao hàng"
       >
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-1/2" />
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-gray-500">
+            <Loader2
+              className="size-4 shrink-0 animate-spin text-brand-forest"
+              aria-hidden="true"
+            />
+            <span>
+              {districtName
+                ? `Đang tính khoảng cách (${districtName})...`
+                : "Đang tính phí giao hàng..."}
+            </span>
+          </span>
+          <Skeleton className="h-4 w-16 rounded" />
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <Skeleton className="h-3.5 w-32 rounded" />
+          <Skeleton className="h-5 w-20 rounded-full" />
+        </div>
       </div>
     );
   }
