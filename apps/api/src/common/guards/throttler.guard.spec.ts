@@ -14,6 +14,10 @@ import { env } from "@/common/config/env.config";
 import { MESSAGES } from "@/common/constants/messages.constant";
 
 class TestCustomThrottlerGuard extends CustomThrottlerGuard {
+  public override getTracker(req: Record<string, unknown>): Promise<string> {
+    return super.getTracker(req);
+  }
+
   public override throwThrottlingException(
     context: ExecutionContext,
     throttlerLimitDetail: ThrottlerLimitDetail,
@@ -129,6 +133,50 @@ describe("CustomThrottlerGuard", () => {
         (env as { NODE_ENV: string }).NODE_ENV = originalEnv;
         globalThis.setTimeout = originalSetTimeout;
         superCanActivateSpy.mockRestore();
+      }
+    });
+  });
+
+  describe("getTracker", () => {
+    // Invariant: INV-SF-AUTH-9
+    it("tracks verified X-BFF-Client-IP when INTERNAL_PROXY_SECRET matches", async () => {
+      const originalSecret = env.INTERNAL_PROXY_SECRET;
+      (env as { INTERNAL_PROXY_SECRET?: string }).INTERNAL_PROXY_SECRET =
+        "test-bff-shared-secret-32-chars!!";
+
+      try {
+        const tracker = await guard.getTracker({
+          headers: {
+            "x-internal-proxy-secret": "test-bff-shared-secret-32-chars!!",
+            "x-bff-client-ip": "198.51.100.42",
+          },
+          ip: "10.0.0.1",
+        });
+        expect(tracker).toBe("198.51.100.42");
+      } finally {
+        (env as { INTERNAL_PROXY_SECRET?: string }).INTERNAL_PROXY_SECRET =
+          originalSecret;
+      }
+    });
+
+    // Invariant: INV-SF-AUTH-9
+    it("falls back to req.ip when X-Internal-Proxy-Secret is invalid or absent", async () => {
+      const originalSecret = env.INTERNAL_PROXY_SECRET;
+      (env as { INTERNAL_PROXY_SECRET?: string }).INTERNAL_PROXY_SECRET =
+        "test-bff-shared-secret-32-chars!!";
+
+      try {
+        const tracker = await guard.getTracker({
+          headers: {
+            "x-internal-proxy-secret": "invalid-secret",
+            "x-bff-client-ip": "198.51.100.42",
+          },
+          ip: "10.0.0.1",
+        });
+        expect(tracker).toBe("10.0.0.1");
+      } finally {
+        (env as { INTERNAL_PROXY_SECRET?: string }).INTERNAL_PROXY_SECRET =
+          originalSecret;
       }
     });
   });

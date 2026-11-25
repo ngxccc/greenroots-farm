@@ -6,9 +6,11 @@ import {
   type ExecutionContext,
 } from "@nestjs/common";
 import { ThrottlerGuard, type ThrottlerLimitDetail } from "@nestjs/throttler";
+import type { Request } from "express";
 import { API_ERROR_CODES } from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import { MESSAGES } from "@/common/constants/messages.constant";
+import { resolveTrustedClientIp } from "@/common/utils/client-info.util";
 
 /**
  * Custom rate limiting guard with fail-open resilience and RFC 9457 error payloads.
@@ -52,6 +54,12 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
       );
       return true;
     }
+  }
+
+  protected override getTracker(req: Record<string, unknown>): Promise<string> {
+    return Promise.resolve(
+      resolveTrustedClientIp(req as unknown as Request) ?? "unknown",
+    );
   }
 
   protected override throwThrottlingException(

@@ -135,6 +135,12 @@ const envSchema = z.object({
   // Scheduled tasks / Cron
   CRON_SECRET: z.string().optional(),
 
+  // Shared-secret trust boundary for Storefront BFF forwarded client IP
+  INTERNAL_PROXY_SECRET: z.preprocess(
+    (val) => (typeof val === "string" && val.trim() === "" ? undefined : val),
+    z.string().trim().min(16).optional(),
+  ),
+
   // Public URLs and CORS
   CORS_ORIGINS: z
     .string()
