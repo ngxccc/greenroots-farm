@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Button, buttonVariants } from "@greenroots/ui";
+import { buttonVariants } from "@greenroots/ui";
 import { CheckCircle2, MapPin } from "lucide-react";
 import { formatVnd, roundQuantity } from "@/lib/format";
 import type { OrderDto } from "../schemas/order.schema";
@@ -122,15 +122,15 @@ export function CodConfirmationView({ order }: CodConfirmationViewProps) {
       ) : null}
 
       <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
-        <Button
-          type="button"
-          variant="outline"
-          disabled
-          title="Tính năng xem chi tiết đơn hàng đang được phát triển"
-          className="h-11 w-full font-semibold"
+        <Link
+          href={`/orders/${order.id}`}
+          className={buttonVariants({
+            variant: "outline",
+            className: "h-11 w-full font-semibold",
+          })}
         >
-          Xem chi tiết đơn hàng (Sắp ra mắt)
-        </Button>
+          Xem chi tiết đơn hàng
+        </Link>
         <Link
           href="/"
           className={buttonVariants({

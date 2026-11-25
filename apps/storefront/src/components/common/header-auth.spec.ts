@@ -154,7 +154,7 @@ describe("Storefront Header Auth UI", () => {
         expect(bodyHtml).toContain("khach@greenroots.vn");
         expect(bodyHtml).toContain('href="/account/profile"');
         expect(bodyHtml).toContain('href="/account/addresses"');
-        expect(bodyHtml).toContain('href="/orders"');
+        expect(bodyHtml).toContain('href="/account/orders"');
         expect(bodyHtml).toContain("Đăng xuất");
 
         const menu = win.document.querySelector('[role="menu"]');

@@ -142,7 +142,7 @@ export function HeaderAuthView({
         </DropdownMenuItem>
 
         <DropdownMenuItem
-          render={<Link href="/orders" />}
+          render={<Link href="/account/orders" prefetch={false} />}
           className="cursor-pointer rounded-lg px-2.5 py-2 text-xs font-semibold text-gray-700 focus:bg-accent focus:text-brand-forest"
         >
           <Package className="size-4 shrink-0" aria-hidden="true" />

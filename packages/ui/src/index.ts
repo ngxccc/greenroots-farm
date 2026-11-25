@@ -123,4 +123,10 @@ export {
   tabsListVariants,
 } from "./components/ui/tabs";
 export { Textarea } from "./components/ui/textarea";
+export {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./components/ui/tooltip";
 export { cn } from "cn";
