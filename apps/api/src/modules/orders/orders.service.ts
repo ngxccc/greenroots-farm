@@ -20,6 +20,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  lte,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -77,6 +78,7 @@ import { CROCKFORD_BASE32_ALPHABET } from "@/common/constants/encoding.constant"
 import { VIETNAM_TIMEZONE } from "@/common/constants/time.constant";
 import {
   ALLOCATED_CANCELLABLE_STATUSES,
+  EXPIRY_SWEEP_BATCH_SIZE,
   ORDER_CODE_MAX_GENERATION_ATTEMPTS,
   ORDER_CODE_PREFIX,
   ORDER_CODE_RANDOM_LENGTH,
@@ -491,6 +493,90 @@ export class OrdersService {
       }
 
       return this.hydrateStaffOrderProjection(tx, updatedOrder, "active");
+    });
+  }
+
+  /**
+   * Cancels up to `EXPIRY_SWEEP_BATCH_SIZE` expired `pending_payment` / `pending_confirmation`
+   * reservations (`INV-ORD-22`), soft-releasing batch allocations and refunding loyalty points.
+   *
+   * @param now Reference timestamp for expiration comparison.
+   * @returns Number of expired orders cancelled in this sweep batch.
+   */
+  async expireStaleReservations(now: Date = new Date()): Promise<number> {
+    const hoursThreshold = await this.resolveHoursThreshold();
+
+    return this.db.transaction(async (tx) => {
+      const expiredOrders = await tx
+        .select({
+          id: orders.id,
+          customerId: orders.customerId,
+          orderStatus: orders.orderStatus,
+          loyaltyPointsUsed: orders.loyaltyPointsUsed,
+        })
+        .from(orders)
+        .where(
+          and(
+            inArray(orders.orderStatus, [
+              OrderStatus.PENDING_PAYMENT,
+              OrderStatus.PENDING_CONFIRMATION,
+            ]),
+            isNotNull(orders.reservationExpiresAt),
+            lte(orders.reservationExpiresAt, now),
+          ),
+        )
+        .orderBy(asc(orders.reservationExpiresAt), asc(orders.id))
+        .limit(EXPIRY_SWEEP_BATCH_SIZE)
+        .for("update", { skipLocked: true });
+
+      if (expiredOrders.length === 0) {
+        return 0;
+      }
+
+      for (const orderRow of expiredOrders) {
+        if (ALLOCATED_CANCELLABLE_STATUSES.includes(orderRow.orderStatus)) {
+          await this.releaseOrderAllocations(
+            tx,
+            orderRow.id,
+            hoursThreshold,
+            now,
+          );
+        }
+
+        if (orderRow.loyaltyPointsUsed > 0) {
+          await this.refundLoyaltyPoints(
+            tx,
+            orderRow.customerId,
+            orderRow.loyaltyPointsUsed,
+          );
+        }
+
+        await tx
+          .update(orders)
+          .set({
+            orderStatus: OrderStatus.CANCELLED,
+            paymentStatus: PaymentStatus.CANCELLED,
+            reservationExpiresAt: null,
+            updatedAt: now,
+          })
+          .where(eq(orders.id, orderRow.id));
+
+        await tx
+          .update(payments)
+          .set({
+            status: PaymentStatus.CANCELLED,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(payments.orderId, orderRow.id),
+              eq(payments.status, PaymentStatus.PENDING),
+              eq(payments.transactionType, PaymentTransactionType.PAYMENT),
+            ),
+          );
+      }
+
+      return expiredOrders.length;
     });
   }
 

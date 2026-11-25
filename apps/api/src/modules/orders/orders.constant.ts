@@ -20,6 +20,8 @@ export const ORDER_CODE_RANDOM_LENGTH = 6;
 export const ORDER_CODE_MAX_GENERATION_ATTEMPTS = 5;
 export const ORDER_ITEM_MAX_QUANTITY = 10_000;
 export const MAX_CART_LINE_ITEMS = 50;
+export const EXPIRY_SWEEP_BATCH_SIZE = 50;
+export const EXPIRY_SWEEP_INTERVAL_MS = 60_000;
 
 /**
  * Canonical per-item validation issues surfaced by `POST /api/v1/orders/validate-cart`.

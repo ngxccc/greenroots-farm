@@ -22,6 +22,8 @@ import {
   batches,
   orderItems,
   orders,
+  payments,
+  users,
 } from "@/database/schemas";
 import type { FarmSettings } from "@/modules/farms/dto";
 import type { FarmSettingsService } from "@/modules/farms/farm-settings.service";
@@ -2162,6 +2164,145 @@ describe("OrdersService", () => {
           code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
         });
       }
+    });
+  });
+
+  describe("expireStaleReservations", () => {
+    const orderId = "019fa8bc-8f4d-7000-b366-e691f45cfb80";
+
+    // Invariant: INV-ORD-22
+    it("returns zero without mutating records when no reservations have expired", async () => {
+      mockDb.setSelectResultsQueue([[]]);
+
+      const expiredCount = await service.expireStaleReservations(
+        new Date("2026-11-25T10:00:00.000Z"),
+      );
+
+      expect(expiredCount).toBe(0);
+      expect(mockDb.update).not.toHaveBeenCalled();
+    });
+
+    // Invariant: INV-ORD-19, INV-ORD-22
+    it("cancels expired pending_confirmation orders, soft-releases allocations, refunds loyalty points, and cancels pending payments", async () => {
+      const now = new Date("2026-11-25T10:00:00.000Z");
+      const freshAt = new Date(now.getTime() + 96 * 3_600_000);
+      const batchUpdates: Record<string, unknown>[] = [];
+      const allocationUpdates: Record<string, unknown>[] = [];
+      const userUpdates: Record<string, unknown>[] = [];
+      const orderUpdates: Record<string, unknown>[] = [];
+      const paymentUpdates: Record<string, unknown>[] = [];
+
+      const origUpdate = mockDb.update.bind(mockDb);
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          if (table === batches) batchUpdates.push(vals);
+          if (table === batchAllocations) allocationUpdates.push(vals);
+          if (table === users) userUpdates.push(vals);
+          if (table === orders) orderUpdates.push(vals);
+          if (table === payments) paymentUpdates.push(vals);
+          return origUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            id: orderId,
+            customerId: userId,
+            orderStatus: OrderStatus.PENDING_CONFIRMATION,
+            loyaltyPointsUsed: 100,
+          },
+        ],
+        [
+          {
+            id: "alloc-1",
+            batchId: "batch-1",
+            allocatedQuantity: "2.00",
+          },
+        ],
+        [
+          {
+            id: "batch-1",
+            availableQuantity: "0.00",
+            expirationDate: freshAt,
+            status: BatchStatus.SOLD_OUT,
+          },
+        ],
+        [{ id: userId }],
+      ]);
+
+      const expiredCount = await service.expireStaleReservations(now);
+
+      expect(expiredCount).toBe(1);
+      expect(batchUpdates).toHaveLength(1);
+      expect(batchUpdates[0]).toMatchObject({
+        availableQuantity: "2.00",
+        status: BatchStatus.IN_STOCK,
+        updatedAt: now,
+      });
+      expect(allocationUpdates).toHaveLength(1);
+      expect(allocationUpdates[0]).toMatchObject({
+        releasedAt: now,
+      });
+      expect(userUpdates).toHaveLength(1);
+      expect(orderUpdates).toHaveLength(1);
+      expect(orderUpdates[0]).toMatchObject({
+        orderStatus: OrderStatus.CANCELLED,
+        paymentStatus: PaymentStatus.CANCELLED,
+        reservationExpiresAt: null,
+        updatedAt: now,
+      });
+      expect(paymentUpdates).toHaveLength(1);
+      expect(paymentUpdates[0]).toMatchObject({
+        status: PaymentStatus.CANCELLED,
+        updatedAt: now,
+      });
+    });
+
+    // Invariant: INV-ORD-22
+    it("cancels expired pending_payment orders without releasing allocations when order has no active allocations", async () => {
+      const now = new Date("2026-11-25T10:00:00.000Z");
+      const batchUpdates: Record<string, unknown>[] = [];
+      const orderUpdates: Record<string, unknown>[] = [];
+      const paymentUpdates: Record<string, unknown>[] = [];
+
+      const origUpdate = mockDb.update.bind(mockDb);
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          if (table === batches) batchUpdates.push(vals);
+          if (table === orders) orderUpdates.push(vals);
+          if (table === payments) paymentUpdates.push(vals);
+          return origUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            id: orderId,
+            customerId: userId,
+            orderStatus: OrderStatus.PENDING_PAYMENT,
+            loyaltyPointsUsed: 0,
+          },
+        ],
+      ]);
+
+      const expiredCount = await service.expireStaleReservations(now);
+
+      expect(expiredCount).toBe(1);
+      expect(batchUpdates).toHaveLength(0);
+      expect(orderUpdates).toHaveLength(1);
+      expect(orderUpdates[0]).toMatchObject({
+        orderStatus: OrderStatus.CANCELLED,
+        paymentStatus: PaymentStatus.CANCELLED,
+        reservationExpiresAt: null,
+        updatedAt: now,
+      });
+      expect(paymentUpdates).toHaveLength(1);
+      expect(paymentUpdates[0]).toMatchObject({
+        status: PaymentStatus.CANCELLED,
+        updatedAt: now,
+      });
     });
   });
 });
