@@ -22,7 +22,7 @@ export type SingleFlightRefreshResult =
   | { readonly status: "transient_error" };
 
 /**
- * Injectable transport function calling `POST /api/v1/auth/refresh`.
+ * Injectable transport function calling `POST /api/v1/auth/customer/refresh`.
  */
 export type RefreshFetcher = (
   refreshToken: string,
@@ -75,7 +75,7 @@ async function defaultRefreshFetcher(
   clientHeaders?: Record<string, string>,
 ): Promise<Response> {
   const forwarded = clientHeaders ?? buildForwardedClientHeaders(undefined);
-  return fetch(`${env.API_BASE_URL}/api/v1/auth/refresh`, {
+  return fetch(`${env.API_BASE_URL}/api/v1/auth/customer/refresh`, {
     method: "POST",
     headers: {
       ...forwarded,
@@ -114,7 +114,11 @@ async function executeRefresh(
       return { status: "invalid" };
     }
 
-    if (response.status === 400 || response.status === 401) {
+    if (
+      response.status === 400 ||
+      response.status === 401 ||
+      response.status === 403
+    ) {
       const nowMs = now();
       pruneExpiredGraceMarkers(nowMs);
       const graceExpiresAt = recentlyRotated.get(digest);
@@ -132,7 +136,7 @@ async function executeRefresh(
 }
 
 /**
- * Coalesces concurrent `POST /api/v1/auth/refresh` requests keyed by `sha256(refreshToken)`
+ * Coalesces concurrent `POST /api/v1/auth/customer/refresh` requests keyed by `sha256(refreshToken)`
  * so single-use refresh tokens (`ADR-0015`) are never self-invalidated by parallel SSR/action calls.
  *
  * @param refreshToken Raw opaque refresh token from `httpOnly` cookie.

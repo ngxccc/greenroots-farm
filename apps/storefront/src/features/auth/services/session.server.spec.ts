@@ -63,7 +63,7 @@ describe("Server Auth Session", () => {
       expect(user).toEqual(sampleUser);
     });
 
-    it("returns null when upstream profile call rejects or returns an error", async () => {
+    it("returns null when upstream profile call rejects, returns an error, or returns a non-customer role", async () => {
       const errored = await resolveServerSession({
         readToken: () => Promise.resolve("revoked-jwt"),
         fetchMe: () => Promise.resolve({ error: { status: 401 } }),
@@ -72,9 +72,15 @@ describe("Server Auth Session", () => {
         readToken: () => Promise.resolve("jwt"),
         fetchMe: () => Promise.reject(new Error("ECONNREFUSED")),
       });
+      const staffRole = await resolveServerSession({
+        readToken: () => Promise.resolve("staff-jwt"),
+        fetchMe: () =>
+          Promise.resolve({ data: { data: { ...sampleUser, role: "sales" } } }),
+      });
 
       expect(errored).toBeNull();
       expect(thrown).toBeNull();
+      expect(staffRole).toBeNull();
     });
   });
 
@@ -383,6 +389,35 @@ describe("Server Auth Session", () => {
         user: sampleUser,
         addresses: sampleAddresses,
       });
+    });
+
+    it("returns unauthenticated for account profile and address resolvers when role is non-customer", async () => {
+      const profileResult = await resolveAccountProfileSession({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("staff-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: { ...sampleUser, role: "admin" } },
+          }),
+      });
+      const addressesResult = await resolveAccountAddressesSession({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("staff-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: { ...sampleUser, role: "admin" } },
+          }),
+        fetchAddresses: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleAddresses },
+          }),
+      });
+
+      expect(profileResult).toEqual({ status: "unauthenticated" });
+      expect(addressesResult).toEqual({ status: "unauthenticated" });
     });
   });
 });

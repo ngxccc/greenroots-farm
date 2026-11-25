@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
+import { UserRole } from "@greenroots/shared";
 import { api } from "@/lib/api-client";
 import type { CustomerAddress } from "@/features/account/types/address.types";
 import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
@@ -54,7 +55,7 @@ export async function resolveServerSession(
 
     const fetchMe = deps?.fetchMe ?? fetchCachedMe;
     const { data, error } = await fetchMe();
-    if (error || !data) {
+    if (error || !data || data.data.role !== UserRole.CUSTOMER) {
       return null;
     }
     return data.data;
@@ -282,6 +283,9 @@ export async function resolveAccountProfileSession(
       Boolean(result.data?.data),
     );
     if (classification === "ok" && result.data?.data) {
+      if (result.data.data.role !== UserRole.CUSTOMER) {
+        return { status: "unauthenticated" };
+      }
       return { status: "authenticated", user: result.data.data };
     }
 
@@ -403,6 +407,10 @@ export async function resolveAccountAddressesSession(
       !addressesResult.data?.data
     ) {
       return { status: "degraded" };
+    }
+
+    if (meResult.data.data.role !== UserRole.CUSTOMER) {
+      return { status: "unauthenticated" };
     }
 
     return {

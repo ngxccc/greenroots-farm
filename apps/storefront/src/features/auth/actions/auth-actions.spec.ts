@@ -170,6 +170,119 @@ describe("Storefront Auth Actions", () => {
       });
     });
 
+    it("rejects non-customer login payload without saving cookies", async () => {
+      let savedCookies = false;
+
+      const result = await executeLoginAction(
+        {
+          email: "staff@greenroots.vn",
+          password: "GreenRoots@1",
+        },
+        {
+          postLogin: () =>
+            Promise.resolve({
+              data: {
+                data: {
+                  accessToken: "access-staff",
+                  refreshToken: "refresh-staff",
+                  user: {
+                    id: sampleProfile.id,
+                    email: "staff@greenroots.vn",
+                    fullName: "Staff User",
+                    role: "sales",
+                    status: "active",
+                  },
+                },
+              },
+            }),
+          saveCookies: () => {
+            savedCookies = true;
+            return Promise.resolve();
+          },
+        },
+      );
+
+      expect(savedCookies).toBe(false);
+      expect(result).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+        message: API_ERROR_DICTIONARY[API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN],
+      });
+    });
+
+    it("maps surface forbidden error from customer login endpoint", async () => {
+      const result = await executeLoginAction(
+        {
+          email: "staff@greenroots.vn",
+          password: "GreenRoots@1",
+        },
+        {
+          postLogin: () =>
+            Promise.resolve({
+              error: {
+                status: 403,
+                code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+                detail:
+                  "Account role is not permitted on this authentication surface.",
+              },
+            }),
+        },
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+        message: API_ERROR_DICTIONARY[API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN],
+      });
+    });
+
+    it("clears cookies and rejects login when profile endpoint returns non-customer role", async () => {
+      let cleared = false;
+
+      const result = await executeLoginAction(
+        {
+          email: "minhanh@email.com",
+          password: "GreenRoots@1",
+        },
+        {
+          postLogin: () =>
+            Promise.resolve({
+              data: {
+                data: {
+                  accessToken: "access-1",
+                  refreshToken: "refresh-1",
+                  user: {
+                    id: sampleProfile.id,
+                    email: sampleProfile.email,
+                    fullName: sampleProfile.fullName,
+                    role: "customer",
+                    status: "active",
+                  },
+                },
+              },
+            }),
+          saveCookies: () => Promise.resolve(),
+          clearCookies: () => {
+            cleared = true;
+            return Promise.resolve();
+          },
+          fetchMe: () =>
+            Promise.resolve({
+              data: {
+                data: { ...sampleProfile, role: "sales" },
+              },
+            }),
+        },
+      );
+
+      expect(cleared).toBe(true);
+      expect(result).toEqual({
+        ok: false,
+        code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+        message: API_ERROR_DICTIONARY[API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN],
+      });
+    });
+
     it("aligns fallback error code and localized message when error lacks structured fields", async () => {
       // Invariant: INV-SF-AUTH-UI-4
       const opaqueError = await executeLoginAction(

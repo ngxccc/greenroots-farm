@@ -119,6 +119,18 @@ describe("SingleFlightRefresh", () => {
       expect(replayed).toEqual({ status: "invalid" });
     });
 
+    it("returns invalid when upstream refresh rejects cross-surface token", async () => {
+      const fetcher = () =>
+        Promise.resolve(
+          new Response(JSON.stringify({ status: 403 }), { status: 403 }),
+        );
+
+      const result = await refreshSingleFlight("staff-refresh-token", {
+        fetcher,
+      });
+      expect(result).toEqual({ status: "invalid" });
+    });
+
     it("rejects unauthorized tokens and preserves session on rate limits or backend outages", async () => {
       // Invariant: INV-SF-AUTH-4
       const unauthorized = await refreshSingleFlight("bad-token", {

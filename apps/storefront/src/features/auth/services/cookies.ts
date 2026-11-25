@@ -72,7 +72,7 @@ export function buildSessionCookieOptions(
  * Persists a freshly issued access and refresh token pair into `httpOnly` cookies.
  *
  * @param writer Target Next.js `cookies()` store or `NextResponse.cookies` jar.
- * @param tokens Token pair returned by `/auth/login` or `/auth/refresh`.
+ * @param tokens Token pair returned by `/auth/customer/login` or `/auth/customer/refresh`.
  * @param isSecure Optional `Secure` flag override.
  */
 export function applySessionCookies(

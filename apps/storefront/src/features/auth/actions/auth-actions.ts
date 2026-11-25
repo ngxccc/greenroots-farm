@@ -1,6 +1,10 @@
 "use server";
 
-import { API_ERROR_CODES, type ApiErrorCode } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  type ApiErrorCode,
+  UserRole,
+} from "@greenroots/shared";
 import type { z } from "zod";
 import { api } from "@/lib/api-client";
 import type { components } from "@/types/api-schema";
@@ -152,6 +156,7 @@ export interface LoginActionDeps {
     error?: unknown;
   }>;
   readonly saveCookies?: (tokens: SessionTokenPair) => Promise<void>;
+  readonly clearCookies?: () => Promise<void>;
   readonly fetchMe?: (
     accessToken: string,
     headers?: Record<string, string>,
@@ -260,7 +265,7 @@ export async function executeLoginAction(
   const postLogin =
     deps?.postLogin ??
     ((body: LoginDto, headers?: Record<string, string>) =>
-      api.POST("/api/v1/auth/login", { body, headers }));
+      api.POST("/api/v1/auth/customer/login", { body, headers }));
 
   let response: { data?: { data: LoginResponseDto }; error?: unknown };
   try {
@@ -285,7 +290,15 @@ export async function executeLoginAction(
     return failure;
   }
 
-  const { accessToken, refreshToken } = response.data.data;
+  const { accessToken, refreshToken, user } = response.data.data;
+  if (user.role !== UserRole.CUSTOMER) {
+    return buildActionFailure(
+      { code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN },
+      API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+      "/login",
+    );
+  }
+
   const saveCookies = deps?.saveCookies ?? setServerSessionCookies;
   await saveCookies({ accessToken, refreshToken });
 
@@ -300,6 +313,15 @@ export async function executeLoginAction(
   try {
     const profileResult = await fetchMe(accessToken, clientHeaders);
     if (!profileResult.error && profileResult.data?.data) {
+      if (profileResult.data.data.role !== UserRole.CUSTOMER) {
+        const clearCookies = deps?.clearCookies ?? clearServerSessionCookies;
+        await clearCookies();
+        return buildActionFailure(
+          { code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN },
+          API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+          "/login",
+        );
+      }
       return { ok: true, user: profileResult.data.data };
     }
   } catch {
