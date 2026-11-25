@@ -19,6 +19,12 @@ export const UserStatus = {
 } as const;
 export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus];
 
+export const AuthSurface = {
+  CUSTOMER: "customer",
+  STAFF: "staff",
+} as const;
+export type AuthSurface = (typeof AuthSurface)[keyof typeof AuthSurface];
+
 /**
  * Enumeration of auditable administrative actions persisted in `staff_audit_logs`.
  */

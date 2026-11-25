@@ -42,6 +42,7 @@ export const API_ERROR_CODES = {
   AUTH_EMAIL_ALREADY_EXISTS: "AUTH_EMAIL_ALREADY_EXISTS",
   AUTH_VERIFICATION_TOKEN_INVALID: "AUTH_VERIFICATION_TOKEN_INVALID",
   AUTH_RESET_TOKEN_INVALID: "AUTH_RESET_TOKEN_INVALID",
+  AUTH_SURFACE_FORBIDDEN: "AUTH_SURFACE_FORBIDDEN",
 
   // Business & Domain Errors
   INSUFFICIENT_STOCK: "INSUFFICIENT_STOCK",
@@ -171,6 +172,8 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Mã xác thực email không hợp lệ hoặc đã hết hạn.",
   [API_ERROR_CODES.AUTH_RESET_TOKEN_INVALID]:
     "Mã đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.",
+  [API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN]:
+    "Tài khoản này không được phép đăng nhập trên cổng hiện tại.",
 
   // Business & Domain
   [API_ERROR_CODES.INSUFFICIENT_STOCK]:
