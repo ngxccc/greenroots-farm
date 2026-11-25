@@ -34,6 +34,7 @@ export interface CreateOrderOptions {
   readonly paymentStatus?: PaymentStatus;
   readonly loyaltyPointsUsed?: number;
   readonly shippingFee?: number;
+  readonly deliveredAt?: Date | null;
   readonly items: readonly CreateOrderItemInput[];
 }
 
@@ -80,6 +81,7 @@ export async function createOrder(
       paymentMethod,
       paymentStatus,
       orderStatus: options.orderStatus ?? OrderStatus.PENDING_CONFIRMATION,
+      deliveredAt: options.deliveredAt ?? null,
     })
     .returning();
 

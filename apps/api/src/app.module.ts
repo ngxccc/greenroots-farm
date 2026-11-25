@@ -18,6 +18,7 @@ import { ZodValidationPipe } from "@/common/pipes/zod-validation.pipe";
 import { DatabaseModule } from "@/database/database.module";
 import { AuthModule } from "@/modules/auth/auth.module";
 import { CatalogModule } from "@/modules/catalog/catalog.module";
+import { ComplaintsModule } from "@/modules/complaints/complaints.module";
 import { FarmsModule } from "@/modules/farms/farms.module";
 import { InventoryModule } from "@/modules/inventory/inventory.module";
 import { UsersModule } from "@/modules/users/users.module";
@@ -75,6 +76,7 @@ import { ShippingModule } from "@/modules/orders/shipping/shipping.module";
     MediaModule,
     OrdersModule,
     ShippingModule,
+    ComplaintsModule,
   ],
   controllers: [AppController],
   providers: [
