@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { CustomerAddress } from "@/types/address.types";
+import type { CustomerAddress } from "@/features/account/types/address.types";
 import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 import { actionRefreshedTokenStorage } from "@/features/auth/services/server-token";
 import {

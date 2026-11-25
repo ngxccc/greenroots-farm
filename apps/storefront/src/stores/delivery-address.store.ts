@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { CustomerAddress } from "@/types/address.types";
+import type { CustomerAddress } from "@/features/account/types/address.types";
 
 interface DeliveryAddressState {
   addresses: readonly CustomerAddress[];

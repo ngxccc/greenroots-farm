@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { api } from "@/lib/api-client";
-import type { CustomerAddress } from "@/types/address.types";
+import type { CustomerAddress } from "@/features/account/types/address.types";
 import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 import {
   AUTH_DEGRADED_HEADER,

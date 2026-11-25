@@ -8,7 +8,7 @@ import { API_ERROR_CODES } from "@greenroots/shared";
 import { AddressDialogPanel } from "@/components/common/address-dialog";
 import { useAuthStore } from "@/stores/auth.store";
 import { useDeliveryAddressStore } from "@/stores/delivery-address.store";
-import type { CustomerAddress } from "@/types/address.types";
+import type { CustomerAddress } from "@/features/account/types/address.types";
 import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 import {
   AccountAddressesListCard,

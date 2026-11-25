@@ -19,12 +19,12 @@ import type {
   CreateCustomerAddressInput,
   CustomerAddress,
   UpdateCustomerAddressInput,
-} from "@/types/address.types";
+} from "@/features/account/types/address.types";
 import {
   addressIdSchema,
   createAddressFormSchema,
   updateAddressPatchSchema,
-} from "./address-validation";
+} from "@/features/account/schemas/address-validation";
 
 const ADDRESS_BOOK_INSTANCE = "/account/addresses";
 

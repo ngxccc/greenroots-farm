@@ -16,13 +16,13 @@ import { Loader2 } from "lucide-react";
 import {
   createAddressAction,
   updateAddressAction,
-} from "@/lib/address/address-actions";
+} from "@/features/account/actions/address-actions";
 import {
   buildUpdateAddressDiff,
   createAddressFormSchema,
-} from "@/lib/address/address-validation";
+} from "@/features/account/schemas/address-validation";
 import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
-import type { CustomerAddress } from "@/types/address.types";
+import type { CustomerAddress } from "@/features/account/types/address.types";
 import { AddressFormFields } from "./address-form-fields";
 
 interface AddressFormDialogViewProps {

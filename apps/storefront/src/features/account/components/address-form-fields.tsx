@@ -18,7 +18,7 @@ import { DeliveryQuoteSummary } from "@/components/common/delivery-quote-summary
 import {
   ADDRESS_RECEIVER_NAME_MAX_LENGTH,
   ADDRESS_STREET_MAX_LENGTH,
-} from "@/lib/address/address-validation";
+} from "@/features/account/schemas/address-validation";
 import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
 import { useShippingQuote } from "@/lib/shipping/use-shipping-quote";
 import { useAuthStore } from "@/stores/auth.store";

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { API_ERROR_CODES } from "@greenroots/shared";
 import { actionRefreshedTokenStorage } from "@/features/auth/services/server-token";
-import type { CustomerAddress } from "@/types/address.types";
+import type { CustomerAddress } from "@/features/account/types/address.types";
 import {
   executeCreateAddressAction,
   executeDeleteAddressAction,

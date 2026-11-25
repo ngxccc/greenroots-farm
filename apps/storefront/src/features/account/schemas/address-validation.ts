@@ -8,7 +8,7 @@ import {
 import type {
   CreateCustomerAddressInput,
   UpdateCustomerAddressInput,
-} from "@/types/address.types";
+} from "@/features/account/types/address.types";
 
 /**
  * Maximum character length for customer recipient name matching `CreateAddressDto`.

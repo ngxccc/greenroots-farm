@@ -40,11 +40,11 @@ import {
 import {
   createAddressAction,
   listAddressesAction,
-} from "@/lib/address/address-actions";
+} from "@/features/account/actions/address-actions";
 import {
   MAX_USER_ADDRESSES,
   createAddressFormSchema,
-} from "@/lib/address/address-validation";
+} from "@/features/account/schemas/address-validation";
 import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
 import { useAuthStore } from "@/stores/auth.store";
 import { useCartStore } from "@/stores/cart.store";
@@ -52,7 +52,7 @@ import {
   findActiveDeliveryAddress,
   useDeliveryAddressStore,
 } from "@/stores/delivery-address.store";
-import type { CustomerAddress } from "@/types/address.types";
+import type { CustomerAddress } from "@/features/account/types/address.types";
 import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 
 interface AddressDialogProps {

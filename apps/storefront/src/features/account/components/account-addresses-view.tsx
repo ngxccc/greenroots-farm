@@ -8,12 +8,12 @@ import { ConfirmActionDialog } from "@/components/common/confirm-action-dialog";
 import {
   deleteAddressAction,
   setDefaultAddressAction,
-} from "@/lib/address/address-actions";
-import { MAX_USER_ADDRESSES } from "@/lib/address/address-validation";
+} from "@/features/account/actions/address-actions";
+import { MAX_USER_ADDRESSES } from "@/features/account/schemas/address-validation";
 import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
 import { useAuthStore } from "@/stores/auth.store";
 import { useDeliveryAddressStore } from "@/stores/delivery-address.store";
-import type { CustomerAddress } from "@/types/address.types";
+import type { CustomerAddress } from "@/features/account/types/address.types";
 import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 import { AccountProfileDegradedCard } from "./account-profile-view";
 import { AddressCard } from "./address-card";
