@@ -65,6 +65,14 @@ export {
 } from "./components/ui/input-group";
 export { Label } from "./components/ui/label";
 export {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "./components/ui/popover";
+export {
   Progress,
   ProgressIndicator,
   ProgressLabel,
