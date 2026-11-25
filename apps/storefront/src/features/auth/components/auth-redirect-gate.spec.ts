@@ -74,6 +74,20 @@ describe("Storefront Auth Redirect Gate", () => {
         expect(error).toBeInstanceOf(RedirectInterrupt);
       }
       expect(unsafeFallback).toBe("/");
+
+      let defaultTarget = "";
+      try {
+        await resolveAuthRedirectGate(Promise.resolve({}), () => "form", {
+          readSession: () => Promise.resolve(sampleUser),
+          onRedirect: (target) => {
+            defaultTarget = target;
+            throw new RedirectInterrupt(target);
+          },
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(RedirectInterrupt);
+      }
+      expect(defaultTarget).toBe("/");
     });
 
     it("passes sanitized redirect target to form renderer for guest visitors", async () => {

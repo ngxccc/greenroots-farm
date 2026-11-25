@@ -81,8 +81,8 @@ export async function resolveAuthRedirectGate(
 
 /**
  * Async Server Component running inside `<Suspense>` (`cacheComponents: true`)
- * that redirects authenticated customers away from `/login` and `/register`
- * to the sanitized target path.
+ * that redirects authenticated customers away from `/login`, `/register`, and
+ * `/forgot-password` to the sanitized target path.
  */
 export async function AuthRedirectGate({
   searchParams,

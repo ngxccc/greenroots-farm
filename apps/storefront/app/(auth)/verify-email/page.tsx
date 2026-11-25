@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AuthFormSkeleton } from "@/features/auth/components/auth-redirect-gate";
-import { VerifyEmailPanel } from "@/features/auth/components/verify-email-panel";
 import {
-  extractFirstQueryValue,
-  parsePrefillEmailParam,
-  parseRecoveryTokenParam,
-} from "@/features/auth/schemas/auth-validation";
+  VerifyEmailGate,
+  type VerifyEmailSearchParams,
+} from "@/features/auth/components/verify-email-gate";
 
 export const metadata: Metadata = {
   title: "Xác thực email",
@@ -14,29 +12,8 @@ export const metadata: Metadata = {
     "Xác thực địa chỉ email tài khoản GreenRoots Farm hoặc gửi lại liên kết kích hoạt mới.",
 };
 
-interface VerifyEmailSearchParams {
-  readonly token?: string | string[];
-  readonly email?: string | string[];
-}
-
 interface VerifyEmailPageProps {
   readonly searchParams: Promise<VerifyEmailSearchParams>;
-}
-
-async function VerifyEmailSearchGate({ searchParams }: VerifyEmailPageProps) {
-  const resolved = await searchParams;
-  const hasTokenParam = extractFirstQueryValue(resolved.token) !== undefined;
-  const token = parseRecoveryTokenParam(resolved.token);
-  const prefillEmail = parsePrefillEmailParam(resolved.email);
-
-  return (
-    <VerifyEmailPanel
-      key={`${token ?? (hasTokenParam ? "invalid" : "standalone")}:${prefillEmail}`}
-      token={token}
-      hasTokenParam={hasTokenParam}
-      prefillEmail={prefillEmail}
-    />
-  );
 }
 
 /**
@@ -47,7 +24,7 @@ export default function VerifyEmailPage({
 }: VerifyEmailPageProps) {
   return (
     <Suspense fallback={<AuthFormSkeleton />}>
-      <VerifyEmailSearchGate searchParams={searchParams} />
+      <VerifyEmailGate searchParams={searchParams} />
     </Suspense>
   );
 }
