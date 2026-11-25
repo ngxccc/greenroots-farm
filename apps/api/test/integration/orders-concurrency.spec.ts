@@ -10,16 +10,13 @@ import {
 import request from "supertest";
 import type { INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { eq, isNull, sql } from "drizzle-orm";
 import {
   API_ERROR_CODES,
   BatchStatus,
   BUSINESS_RULES,
   HCMC_DISTRICTS,
   OrderStatus,
-  PaymentMethod,
-  PaymentStatus,
-  PaymentTransactionType,
   UserRole,
 } from "@greenroots/shared";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
@@ -28,10 +25,8 @@ import type { ApiResponse } from "@/common/utils/api-response.util";
 import {
   batchAllocations,
   batches,
-  orderItems,
-  orders,
-  payments,
   userAddresses,
+  users,
 } from "@/database/schemas";
 import {
   FARM_SETTINGS_CACHE_KEY,
@@ -58,7 +53,6 @@ import {
 } from "../helpers/auth.helper";
 
 type OrderResponse = components["schemas"]["OrderDto"];
-type StaffOrderResponse = components["schemas"]["StaffOrderDto"];
 
 const QUAN_1 = HCMC_DISTRICTS.find((d) => d.code === "quan-1")!;
 
@@ -68,13 +62,9 @@ describe("Orders Concurrency Integration", () => {
   let jwtService: JwtService;
   let appRedisClient: ReturnType<RedisService["getClient"]>;
 
-  let customerId: string;
   let salesHeader: { Authorization: string };
-
   let seasonId: string;
   let tomatoId: string;
-  let spinachId: string;
-  let orderCounter = 0;
 
   beforeAll(async () => {
     setup = await createTestApp();
@@ -84,7 +74,6 @@ describe("Orders Concurrency Integration", () => {
   }, 30000);
 
   beforeEach(async () => {
-    orderCounter = 0;
     await setup.db.execute(
       sql`TRUNCATE TABLE "payments", "batch_allocations", "order_items", "orders", "batches", "products", "categories", "seasons", "plots", "farms", "user_addresses", "users" CASCADE;`,
     );
@@ -93,15 +82,11 @@ describe("Orders Concurrency Integration", () => {
       .unlink(FARM_SETTINGS_CACHE_KEY, FARM_SETTINGS_INVALIDATED_AT_KEY)
       .catch(() => undefined);
 
-    const [customerSession, salesSession] = await Promise.all([
-      createAuthenticatedUser(setup.db, jwtService, {
-        role: UserRole.CUSTOMER,
-        rewardPoints: 0,
-      }),
-      createAuthenticatedAdmin(setup.db, jwtService, UserRole.SALES),
-    ]);
-
-    customerId = customerSession.user.id;
+    const salesSession = await createAuthenticatedAdmin(
+      setup.db,
+      jwtService,
+      UserRole.SALES,
+    );
     salesHeader = salesSession.authHeader;
 
     const farm = await createFarm(setup.db);
@@ -110,235 +95,71 @@ describe("Orders Concurrency Integration", () => {
     seasonId = season.id;
 
     const category = await createCategory(setup.db);
-    const [tomato, spinach] = await Promise.all([
-      createProduct(setup.db, {
-        categoryId: category.id,
-        name: "Cà chua bi hữu cơ",
-        slug: "ca-chua-bi-concurrency",
-        basePrice: 80_000,
-        salePrice: null,
-        unit: "kg",
-      }),
-      createProduct(setup.db, {
-        categoryId: category.id,
-        name: "Cải bó xôi hữu cơ",
-        slug: "cai-bo-xoi-concurrency",
-        basePrice: 50_000,
-        salePrice: null,
-        unit: "kg",
-      }),
-    ]);
-
+    const tomato = await createProduct(setup.db, {
+      categoryId: category.id,
+      name: "Cà chua bi hữu cơ",
+      slug: "ca-chua-bi-concurrency",
+      basePrice: 80_000,
+      salePrice: null,
+      unit: "kg",
+    });
     tomatoId = tomato.id;
-    spinachId = spinach.id;
   });
 
   afterAll(async () => {
     await teardownTestApp(setup);
   });
 
-  async function seedPendingOrder(
-    items: { productId: string; quantity: string; unitPrice: number }[],
-  ) {
-    orderCounter += 1;
-    const subtotal = items.reduce(
-      (sum, item) =>
-        sum +
-        Math.round(
-          (Math.round(Number(item.quantity) * 100) * item.unitPrice) / 100,
-        ),
-      0,
-    );
-    const shippingFee = 15_000;
-    const totalAmount = subtotal + shippingFee;
-
-    const [createdOrder] = await setup.db
-      .insert(orders)
-      .values({
-        orderCode: `ORD-20261125-C${String(orderCounter).padStart(5, "0")}`,
-        customerId,
-        receiverName: "Trần Thị Khách",
-        receiverPhone: "0912345678",
-        shippingAddress: "12 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
-        shippingDistanceKm: "5.00",
-        shippingFee,
-        subtotal,
-        discountAmount: 0,
-        loyaltyPointsUsed: 0,
-        totalAmount,
-        paymentMethod: PaymentMethod.COD,
-        paymentStatus: PaymentStatus.PENDING,
-        orderStatus: OrderStatus.PENDING_CONFIRMATION,
-      })
-      .returning();
-
-    await setup.db.insert(orderItems).values(
-      items.map((item) => ({
-        orderId: createdOrder!.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-      })),
-    );
-
-    await setup.db.insert(payments).values({
-      orderId: createdOrder!.id,
-      amount: totalAmount,
-      paymentMethod: PaymentMethod.COD,
-      status: PaymentStatus.PENDING,
-      transactionType: PaymentTransactionType.PAYMENT,
+  async function createCustomerWithAddress(rewardPoints = 0) {
+    const session = await createAuthenticatedUser(setup.db, jwtService, {
+      role: UserRole.CUSTOMER,
+      rewardPoints,
     });
-
-    return createdOrder!;
+    await setup.db.insert(userAddresses).values({
+      userId: session.user.id,
+      receiverName: "Khách Hàng",
+      phoneNumber: "0912345678",
+      streetAddress: "123 Lê Lợi",
+      districtCode: QUAN_1.code,
+      district: QUAN_1.name,
+      city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
+      latitude: QUAN_1.latitude.toFixed(8),
+      longitude: QUAN_1.longitude.toFixed(8),
+      isDefault: true,
+    });
+    return session;
   }
 
-  describe("POST /api/v1/orders/:id/confirm", () => {
-    // Invariant: INV-ORD-11
-    it("allocates limited multi-batch stock in strict FEFO order across ten parallel confirmations", async () => {
+  describe("Concurrent Lock Ordering", () => {
+    // Invariant: INV-ORD-18, INV-ORD-19
+    it("serializes ten parallel distinct-user checkouts across multiple batches in strict FEFO order", async () => {
       const now = Date.now();
-      const [earlyBatch, middleBatch, lateBatch] = await Promise.all([
-        createBatch(setup.db, {
-          seasonId,
-          productId: tomatoId,
-          harvestDate: new Date(now - 86_400_000),
-          expirationDate: new Date(now + 24 * 3_600_000),
-          initialQuantity: "2.50",
-          availableQuantity: "2.50",
-          status: BatchStatus.NEAR_EXPIRY,
-        }),
-        createBatch(setup.db, {
-          seasonId,
-          productId: tomatoId,
-          harvestDate: new Date(now - 86_400_000),
-          expirationDate: new Date(now + 48 * 3_600_000),
-          initialQuantity: "3.50",
-          availableQuantity: "3.50",
-          status: BatchStatus.IN_STOCK,
-        }),
-        createBatch(setup.db, {
-          seasonId,
-          productId: tomatoId,
-          harvestDate: new Date(now - 86_400_000),
-          expirationDate: new Date(now + 96 * 3_600_000),
-          initialQuantity: "4.00",
-          availableQuantity: "4.00",
-          status: BatchStatus.IN_STOCK,
-        }),
-      ]);
-
-      const seededOrders = await Promise.all(
-        Array.from({ length: 10 }, () =>
-          seedPendingOrder([
-            { productId: tomatoId, quantity: "1.50", unitPrice: 80_000 },
-          ]),
-        ),
-      );
-
-      const responses = await Promise.all(
-        seededOrders.map((order) =>
-          request(app.getHttpServer())
-            .post(`/api/v1/orders/${order.id}/confirm`)
-            .set(salesHeader),
-        ),
-      );
-
-      expect(responses.some((res) => res.status >= 500)).toBe(false);
-
-      const succeeded = responses.filter((res) => res.status === 200);
-      const conflicted = responses.filter((res) => res.status === 409);
-      expect(succeeded).toHaveLength(6);
-      expect(conflicted).toHaveLength(4);
-
-      for (const res of conflicted) {
-        expect((res.body as Rfc9457ProblemDetails).code).toBe(
-          API_ERROR_CODES.INSUFFICIENT_STOCK,
-        );
-      }
-
-      const batchRows = await setup.db
-        .select()
-        .from(batches)
-        .where(
-          inArray(batches.id, [earlyBatch.id, middleBatch.id, lateBatch.id]),
-        );
-      const byId = new Map(batchRows.map((row) => [row.id, row]));
-
-      expect(byId.get(earlyBatch.id)?.availableQuantity).toBe("0.00");
-      expect(byId.get(earlyBatch.id)?.status).toBe(BatchStatus.SOLD_OUT);
-      expect(byId.get(middleBatch.id)?.availableQuantity).toBe("0.00");
-      expect(byId.get(middleBatch.id)?.status).toBe(BatchStatus.SOLD_OUT);
-      expect(byId.get(lateBatch.id)?.availableQuantity).toBe("1.00");
-      expect(byId.get(lateBatch.id)?.status).toBe(BatchStatus.IN_STOCK);
-
-      for (const row of batchRows) {
-        expect(Number(row.availableQuantity)).toBeGreaterThanOrEqual(0);
-      }
-
-      const activeAllocs = await setup.db
-        .select()
-        .from(batchAllocations)
-        .where(isNull(batchAllocations.releasedAt));
-      const totalAllocatedCents = activeAllocs.reduce(
-        (sum, alloc) => sum + Math.round(Number(alloc.allocatedQuantity) * 100),
-        0,
-      );
-      const fulfilledOrderIds = succeeded.map(
-        (res) => (res.body as ApiResponse<StaffOrderResponse>).data.id,
-      );
-      const fulfilledItems = await setup.db
-        .select()
-        .from(orderItems)
-        .where(inArray(orderItems.orderId, fulfilledOrderIds));
-      const totalFulfilledCents = fulfilledItems.reduce(
-        (sum, item) => sum + Math.round(Number(item.quantity) * 100),
-        0,
-      );
-
-      expect(totalAllocatedCents).toBe(900);
-      expect(totalAllocatedCents).toBe(totalFulfilledCents);
-    });
-  });
-
-  describe("POST /api/v1/orders/checkout", () => {
-    // Invariant: INV-ORD-11, INV-ORD-4
-    it("serializes ten parallel distinct-user checkouts followed by parallel confirmations without overselling stock", async () => {
-      const now = Date.now();
-      const tomatoBatch = await createBatch(setup.db, {
+      const nearBatch = await createBatch(setup.db, {
         seasonId,
         productId: tomatoId,
+        batchCode: "BATCH-CONC-NEAR",
+        harvestDate: new Date(now - 2 * 86_400_000),
+        expirationDate: new Date(now + 12 * 3_600_000),
+        initialQuantity: "3.00",
+        availableQuantity: "3.00",
+        status: BatchStatus.NEAR_EXPIRY,
+      });
+      const freshBatch = await createBatch(setup.db, {
+        seasonId,
+        productId: tomatoId,
+        batchCode: "BATCH-CONC-FRESH",
         harvestDate: new Date(now - 86_400_000),
-        expirationDate: new Date(now + 48 * 3_600_000),
-        initialQuantity: "6.00",
-        availableQuantity: "6.00",
+        expirationDate: new Date(now + 72 * 3_600_000),
+        initialQuantity: "7.00",
+        availableQuantity: "7.00",
         status: BatchStatus.IN_STOCK,
       });
 
       const customers = await Promise.all(
-        Array.from({ length: 10 }, () =>
-          createAuthenticatedUser(setup.db, jwtService, {
-            role: UserRole.CUSTOMER,
-            rewardPoints: 0,
-          }),
-        ),
+        Array.from({ length: 10 }, () => createCustomerWithAddress()),
       );
 
-      await setup.db.insert(userAddresses).values(
-        customers.map((session, idx) => ({
-          userId: session.user.id,
-          receiverName: `Khách Hàng ${idx + 1}`,
-          phoneNumber: `09123456${String(idx).padStart(2, "0")}`,
-          streetAddress: `${idx + 1} Lê Lợi`,
-          districtCode: QUAN_1.code,
-          district: QUAN_1.name,
-          city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
-          latitude: QUAN_1.latitude.toFixed(8),
-          longitude: QUAN_1.longitude.toFixed(8),
-          isDefault: true,
-        })),
-      );
-
-      // COD checkout does not lock batches (ADR-0031); FEFO reservation occurs at confirmation (ADR-0033).
-      const checkoutResponses = await Promise.all(
+      const responses = await Promise.all(
         customers.map((session) =>
           request(app.getHttpServer())
             .post("/api/v1/orders/checkout")
@@ -350,148 +171,158 @@ describe("Orders Concurrency Integration", () => {
         ),
       );
 
-      expect(checkoutResponses.some((res) => res.status >= 500)).toBe(false);
-      for (const res of checkoutResponses) {
-        expect(res.status).toBe(201);
-      }
+      expect(responses.some((r) => r.status >= 500)).toBe(false);
+      const created = responses.filter((r) => r.status === 201);
+      const conflicted = responses.filter((r) => r.status === 409);
 
-      const [batchAfterCheckout] = await setup.db
-        .select()
-        .from(batches)
-        .where(eq(batches.id, tomatoBatch.id));
-      expect(batchAfterCheckout?.availableQuantity).toBe("6.00");
-
-      const createdOrderIds = checkoutResponses.map(
-        (res) => (res.body as ApiResponse<OrderResponse>).data.id,
-      );
-      const confirmResponses = await Promise.all(
-        createdOrderIds.map((orderId) =>
-          request(app.getHttpServer())
-            .post(`/api/v1/orders/${orderId}/confirm`)
-            .set(salesHeader),
-        ),
-      );
-
-      expect(confirmResponses.some((res) => res.status >= 500)).toBe(false);
-      const confirmed = confirmResponses.filter((res) => res.status === 200);
-      const rejected = confirmResponses.filter((res) => res.status === 409);
-
-      expect(confirmed).toHaveLength(3);
-      expect(rejected).toHaveLength(7);
-      for (const res of rejected) {
+      expect(created).toHaveLength(5);
+      expect(conflicted).toHaveLength(5);
+      for (const res of conflicted) {
         expect((res.body as Rfc9457ProblemDetails).code).toBe(
           API_ERROR_CODES.INSUFFICIENT_STOCK,
         );
       }
 
-      const [batchAfterConfirm] = await setup.db
+      const [nearRow] = await setup.db
         .select()
         .from(batches)
-        .where(eq(batches.id, tomatoBatch.id));
-      expect(batchAfterConfirm?.availableQuantity).toBe("0.00");
-      expect(batchAfterConfirm?.status).toBe(BatchStatus.SOLD_OUT);
+        .where(eq(batches.id, nearBatch.id));
+      const [freshRow] = await setup.db
+        .select()
+        .from(batches)
+        .where(eq(batches.id, freshBatch.id));
+
+      expect(nearRow?.availableQuantity).toBe("0.00");
+      expect(nearRow?.status).toBe(BatchStatus.SOLD_OUT);
+      expect(freshRow?.availableQuantity).toBe("0.00");
+      expect(freshRow?.status).toBe(BatchStatus.SOLD_OUT);
 
       const activeAllocs = await setup.db
         .select()
         .from(batchAllocations)
         .where(isNull(batchAllocations.releasedAt));
-      const totalAllocatedCents = activeAllocs.reduce(
-        (sum, alloc) => sum + Math.round(Number(alloc.allocatedQuantity) * 100),
+
+      const totalAllocated = activeAllocs.reduce(
+        (sum, alloc) => sum + Number(alloc.allocatedQuantity),
         0,
       );
-      expect(totalAllocatedCents).toBe(600);
-    });
-  });
+      const nearAllocated = activeAllocs
+        .filter((a) => a.batchId === nearBatch.id)
+        .reduce((sum, a) => sum + Number(a.allocatedQuantity), 0);
+      const freshAllocated = activeAllocs
+        .filter((a) => a.batchId === freshBatch.id)
+        .reduce((sum, a) => sum + Number(a.allocatedQuantity), 0);
 
-  describe("PATCH /api/v1/orders/:id/status", () => {
-    // Invariant: INV-ORD-11, INV-ORD-14
-    it("serializes concurrent cancellations across confirmed orders sharing batches without deadlocks or stock drift", async () => {
+      expect(totalAllocated).toBe(10);
+      expect(nearAllocated).toBe(3);
+      expect(freshAllocated).toBe(7);
+    });
+
+    // Invariant: INV-ORD-19
+    it("serializes concurrent loyalty checkouts and customer or staff cancellations on shared batches without deadlocks", async () => {
       const now = Date.now();
-      const [tomatoBatch, spinachBatch] = await Promise.all([
-        createBatch(setup.db, {
-          seasonId,
-          productId: tomatoId,
-          harvestDate: new Date(now - 86_400_000),
-          expirationDate: new Date(now + 72 * 3_600_000),
-          initialQuantity: "10.00",
-          availableQuantity: "10.00",
-          status: BatchStatus.IN_STOCK,
+      const sharedBatch = await createBatch(setup.db, {
+        seasonId,
+        productId: tomatoId,
+        batchCode: "BATCH-CONC-SHARED",
+        harvestDate: new Date(now - 86_400_000),
+        expirationDate: new Date(now + 48 * 3_600_000),
+        initialQuantity: "10.00",
+        availableQuantity: "10.00",
+        status: BatchStatus.IN_STOCK,
+      });
+
+      const initialCustomers = await Promise.all(
+        Array.from({ length: 4 }, () => createCustomerWithAddress(20_000)),
+      );
+      const newCustomers = await Promise.all(
+        Array.from({ length: 4 }, () => createCustomerWithAddress(20_000)),
+      );
+
+      // Seed 4 pending orders holding 8.00 kg total (2.00 kg remains)
+      const initialOrders = await Promise.all(
+        initialCustomers.map(async (session) => {
+          const res = await request(app.getHttpServer())
+            .post("/api/v1/orders/checkout")
+            .set(session.authHeader)
+            .set("Idempotency-Key", randomUUID())
+            .send({
+              items: [{ productId: tomatoId, quantity: 2 }],
+              loyaltyPoints: 10_000,
+            })
+            .expect(201);
+          return {
+            session,
+            orderId: (res.body as ApiResponse<OrderResponse>).data.id,
+          };
         }),
-        createBatch(setup.db, {
-          seasonId,
-          productId: spinachId,
-          harvestDate: new Date(now - 86_400_000),
-          expirationDate: new Date(now + 72 * 3_600_000),
-          initialQuantity: "10.00",
-          availableQuantity: "10.00",
-          status: BatchStatus.IN_STOCK,
-        }),
+      );
+
+      // Race 2 customer self-cancels + 2 staff cancels + 4 new loyalty checkouts
+      const cancelPromises = [
+        request(app.getHttpServer())
+          .post(`/api/v1/orders/${initialOrders[0]!.orderId}/cancel`)
+          .set(initialOrders[0]!.session.authHeader),
+        request(app.getHttpServer())
+          .post(`/api/v1/orders/${initialOrders[1]!.orderId}/cancel`)
+          .set(initialOrders[1]!.session.authHeader),
+        request(app.getHttpServer())
+          .patch(`/api/v1/orders/${initialOrders[2]!.orderId}/status`)
+          .set(salesHeader)
+          .send({ status: OrderStatus.CANCELLED }),
+        request(app.getHttpServer())
+          .patch(`/api/v1/orders/${initialOrders[3]!.orderId}/status`)
+          .set(salesHeader)
+          .send({ status: OrderStatus.CANCELLED }),
+      ];
+
+      const checkoutPromises = newCustomers.map((session) =>
+        request(app.getHttpServer())
+          .post("/api/v1/orders/checkout")
+          .set(session.authHeader)
+          .set("Idempotency-Key", randomUUID())
+          .send({
+            items: [{ productId: tomatoId, quantity: 2 }],
+            loyaltyPoints: 10_000,
+          }),
+      );
+
+      const [cancelResults, checkoutResults] = await Promise.all([
+        Promise.all(cancelPromises),
+        Promise.all(checkoutPromises),
       ]);
 
-      const seededOrders = await Promise.all(
-        Array.from({ length: 6 }, (_, idx) =>
-          seedPendingOrder(
-            idx % 2 === 0
-              ? [
-                  { productId: tomatoId, quantity: "1.00", unitPrice: 80_000 },
-                  { productId: spinachId, quantity: "1.00", unitPrice: 50_000 },
-                ]
-              : [
-                  { productId: spinachId, quantity: "1.00", unitPrice: 50_000 },
-                  { productId: tomatoId, quantity: "1.00", unitPrice: 80_000 },
-                ],
-          ),
-        ),
-      );
-
-      for (const order of seededOrders) {
-        await request(app.getHttpServer())
-          .post(`/api/v1/orders/${order.id}/confirm`)
-          .set(salesHeader)
-          .expect(200);
-      }
-
-      const cancelResponses = await Promise.all(
-        seededOrders.map((order) =>
-          request(app.getHttpServer())
-            .patch(`/api/v1/orders/${order.id}/status`)
-            .set(salesHeader)
-            .send({ status: OrderStatus.CANCELLED }),
-        ),
-      );
-
-      expect(cancelResponses.some((res) => res.status >= 500)).toBe(false);
-      for (const res of cancelResponses) {
+      for (const res of cancelResults) {
         expect(res.status).toBe(200);
-        const body = res.body as ApiResponse<StaffOrderResponse>;
-        expect(body.data.orderStatus).toBe(OrderStatus.CANCELLED);
+      }
+      for (const res of checkoutResults) {
+        expect(res.status).toBeLessThan(500);
+        expect([201, 409]).toContain(res.status);
       }
 
-      const [finalTomato] = await setup.db
+      // Cancelled customers have their 20,000 points fully restored
+      for (const { session } of initialOrders) {
+        const [userRow] = await setup.db
+          .select({ rewardPoints: users.rewardPoints })
+          .from(users)
+          .where(eq(users.id, session.user.id));
+        expect(userRow?.rewardPoints).toBe(20_000);
+      }
+
+      const [batchRow] = await setup.db
         .select()
         .from(batches)
-        .where(eq(batches.id, tomatoBatch.id));
-      const [finalSpinach] = await setup.db
-        .select()
-        .from(batches)
-        .where(eq(batches.id, spinachBatch.id));
-
-      expect(finalTomato?.availableQuantity).toBe("10.00");
-      expect(finalTomato?.status).toBe(BatchStatus.IN_STOCK);
-      expect(finalSpinach?.availableQuantity).toBe("10.00");
-      expect(finalSpinach?.status).toBe(BatchStatus.IN_STOCK);
-
+        .where(eq(batches.id, sharedBatch.id));
       const activeAllocs = await setup.db
         .select()
         .from(batchAllocations)
         .where(isNull(batchAllocations.releasedAt));
-      const releasedAllocs = await setup.db
-        .select()
-        .from(batchAllocations)
-        .where(isNotNull(batchAllocations.releasedAt));
 
-      expect(activeAllocs).toHaveLength(0);
-      expect(releasedAllocs).toHaveLength(12);
+      const allocatedSum = activeAllocs.reduce(
+        (sum, alloc) => sum + Number(alloc.allocatedQuantity),
+        0,
+      );
+      expect(Number(batchRow?.availableQuantity) + allocatedSum).toBe(10);
     });
   });
 });

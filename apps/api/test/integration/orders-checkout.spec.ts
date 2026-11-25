@@ -10,7 +10,7 @@ import {
 import request from "supertest";
 import type { INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import {
   API_ERROR_CODES,
   BatchStatus,
@@ -27,6 +27,7 @@ import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.fi
 import { RedisService } from "@/common/services/redis.service";
 import type { ApiResponse } from "@/common/utils/api-response.util";
 import {
+  batchAllocations,
   batches,
   farms,
   orderItems,
@@ -35,6 +36,7 @@ import {
   userAddresses,
   users,
 } from "@/database/schemas";
+import { OrdersService } from "@/modules/orders/orders.service";
 import {
   FARM_SETTINGS_CACHE_KEY,
   FARM_SETTINGS_INVALIDATED_AT_KEY,
@@ -397,8 +399,8 @@ describe("Orders Checkout Integration", () => {
       );
     });
 
-    // Invariant: INV-ORD-1, INV-ORD-4, INV-ORD-5
-    it("creates COD order atomically with pending confirmation status, payment ledger row, loyalty cap, and intact batch stock", async () => {
+    // Invariant: INV-ORD-1, INV-ORD-4, INV-ORD-5, INV-ORD-18
+    it("creates COD order atomically with pending confirmation status, payment ledger row, loyalty cap, and FEFO batch allocation", async () => {
       const idempotencyKey = randomUUID();
 
       const res = await request(app.getHttpServer())
@@ -454,9 +456,13 @@ describe("Orders Checkout Integration", () => {
       expect(paymentRow?.transactionType).toBe(PaymentTransactionType.PAYMENT);
       expect(paymentRow?.amount).toBe(created.totalAmountVnd);
 
-      // Verify batch stock untouched (#86 deferred allocation)
-      const [batchRow] = await setup.db
-        .select({ availableQuantity: batches.availableQuantity })
+      // Verify FEFO batch stock decremented and active batch_allocations created at checkout
+      const [regularBatchRow] = await setup.db
+        .select({
+          id: batches.id,
+          availableQuantity: batches.availableQuantity,
+          status: batches.status,
+        })
         .from(batches)
         .where(
           and(
@@ -465,7 +471,66 @@ describe("Orders Checkout Integration", () => {
           ),
         )
         .limit(1);
-      expect(Number(batchRow?.availableQuantity)).toBe(5);
+      expect(Number(regularBatchRow?.availableQuantity)).toBe(3);
+
+      const [markdownBatchRow] = await setup.db
+        .select({
+          id: batches.id,
+          availableQuantity: batches.availableQuantity,
+        })
+        .from(batches)
+        .where(
+          and(
+            eq(batches.productId, markdownProductId),
+            eq(batches.status, BatchStatus.IN_STOCK),
+          ),
+        )
+        .limit(1);
+      expect(Number(markdownBatchRow?.availableQuantity)).toBe(3);
+
+      const activeAllocs = await setup.db
+        .select()
+        .from(batchAllocations)
+        .where(isNull(batchAllocations.releasedAt));
+      expect(activeAllocs).toHaveLength(2);
+
+      const [orderRow] = await setup.db
+        .select({ reservationExpiresAt: orders.reservationExpiresAt })
+        .from(orders)
+        .where(eq(orders.id, created.id));
+      expect(orderRow?.reservationExpiresAt).toBeInstanceOf(Date);
+      expect(orderRow!.reservationExpiresAt!.getTime()).toBeGreaterThan(
+        Date.now(),
+      );
+    });
+
+    // Invariant: INV-ORD-18
+    it("marks a depleted batch as sold_out when checkout consumes its remaining quantity", async () => {
+      await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          items: [{ productId: regularProductId, quantity: 5 }],
+        })
+        .expect(201);
+
+      const [batchRow] = await setup.db
+        .select({
+          availableQuantity: batches.availableQuantity,
+          status: batches.status,
+        })
+        .from(batches)
+        .where(
+          and(
+            eq(batches.productId, regularProductId),
+            eq(batches.initialQuantity, "10.00"),
+          ),
+        )
+        .limit(1);
+
+      expect(batchRow?.availableQuantity).toBe("0.00");
+      expect(batchRow?.status).toBe(BatchStatus.SOLD_OUT);
     });
 
     // Invariant: INV-ORD-4
@@ -714,9 +779,17 @@ describe("Orders Checkout Integration", () => {
       }
     });
 
-    // Invariant: INV-ORD-4, INV-ORD-6
+    // Invariant: INV-ORD-4, INV-ORD-6, INV-ORD-20
     it("serializes parallel same-key and distinct-key concurrent checkouts without negative rewardPoints", async () => {
-      // Case A: parallel contenders sharing one Idempotency-Key
+      // Top up stock so stock is not the bottleneck for this loyalty-serialization test
+      await createBatch(setup.db, {
+        seasonId,
+        productId: regularProductId,
+        initialQuantity: "20.00",
+        availableQuantity: "20.00",
+      });
+
+      // Case A: parallel contenders sharing one Idempotency-Key (creates 1 pending order)
       const contestedKey = randomUUID();
       const sameKeyResults = await Promise.all(
         Array.from({ length: 5 }, () =>
@@ -737,9 +810,9 @@ describe("Orders Checkout Integration", () => {
         expect([201, 409]).toContain(res.status);
       }
 
-      // Case B: parallel distinct-key checkouts each requesting 20,000 points
+      // Case B: parallel distinct-key checkouts (2 more fit under MAX_PENDING_COD_ORDERS_PER_CUSTOMER=3)
       const distinctResults = await Promise.all(
-        Array.from({ length: 5 }, () =>
+        Array.from({ length: 2 }, () =>
           request(app.getHttpServer())
             .post("/api/v1/orders/checkout")
             .set(customerHeader)
@@ -773,6 +846,232 @@ describe("Orders Checkout Integration", () => {
 
       const persistedItems = await setup.db.select().from(orderItems);
       expect(persistedItems.length).toBe(persistedOrders.length);
+    });
+
+    // Invariant: INV-ORD-20
+    it("rejects the fourth concurrent pending COD order for the same customer and allows a new one after cancellation", async () => {
+      await createBatch(setup.db, {
+        seasonId,
+        productId: regularProductId,
+        initialQuantity: "20.00",
+        availableQuantity: "20.00",
+      });
+
+      const createdIds: string[] = [];
+      for (
+        let i = 0;
+        i < BUSINESS_RULES.MAX_PENDING_COD_ORDERS_PER_CUSTOMER;
+        i += 1
+      ) {
+        const res = await request(app.getHttpServer())
+          .post("/api/v1/orders/checkout")
+          .set(customerHeader)
+          .set("Idempotency-Key", randomUUID())
+          .send({
+            items: [{ productId: regularProductId, quantity: 1 }],
+          })
+          .expect(201);
+        createdIds.push((res.body as ApiResponse<OrderResponse>).data.id);
+      }
+
+      const fourthRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          items: [{ productId: regularProductId, quantity: 1 }],
+        })
+        .expect(422);
+
+      expect((fourthRes.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.ORDER_PENDING_LIMIT_EXCEEDED,
+      );
+
+      // Cancelling one frees a pending slot
+      await request(app.getHttpServer())
+        .post(`/api/v1/orders/${createdIds[0]}/cancel`)
+        .set(customerHeader)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          items: [{ productId: regularProductId, quantity: 1 }],
+        })
+        .expect(201);
+    });
+  });
+
+  describe("POST /api/v1/orders/:id/cancel", () => {
+    // Invariant: INV-ORD-21
+    it("cancels an owned pending_confirmation order, returns closed OrderDto without batchCode, and restores stock and loyalty points", async () => {
+      const checkoutRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          items: [{ productId: regularProductId, quantity: 5 }],
+          loyaltyPoints: 20_000,
+        })
+        .expect(201);
+
+      const orderId = (checkoutRes.body as ApiResponse<OrderResponse>).data.id;
+
+      const cancelRes = await request(app.getHttpServer())
+        .post(`/api/v1/orders/${orderId}/cancel`)
+        .set(customerHeader)
+        .expect(200);
+
+      const cancelled = (cancelRes.body as ApiResponse<OrderResponse>).data;
+      expect(cancelled.id).toBe(orderId);
+      expect(cancelled.orderStatus).toBe(OrderStatus.CANCELLED);
+      expect(cancelled.paymentStatus).toBe(PaymentStatus.CANCELLED);
+      expect("customerId" in cancelled).toBe(false);
+      expect("allocations" in (cancelled.items[0] ?? {})).toBe(false);
+      expect(JSON.stringify(cancelled)).not.toContain("batchCode");
+
+      const [batchRow] = await setup.db
+        .select({
+          availableQuantity: batches.availableQuantity,
+          status: batches.status,
+        })
+        .from(batches)
+        .where(
+          and(
+            eq(batches.productId, regularProductId),
+            eq(batches.initialQuantity, "10.00"),
+          ),
+        )
+        .limit(1);
+      expect(batchRow?.availableQuantity).toBe("5.00");
+      expect(batchRow?.status).toBe(BatchStatus.IN_STOCK);
+
+      const [userRow] = await setup.db
+        .select({ rewardPoints: users.rewardPoints })
+        .from(users)
+        .where(eq(users.id, customerId));
+      expect(userRow?.rewardPoints).toBe(50_000);
+
+      const activeAllocs = await setup.db
+        .select()
+        .from(batchAllocations)
+        .where(isNull(batchAllocations.releasedAt));
+      expect(activeAllocs).toHaveLength(0);
+    });
+
+    // Invariant: INV-ORD-21
+    it("returns not found for orders owned by another customer and rejects cancellation after confirmation", async () => {
+      const checkoutRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          items: [{ productId: regularProductId, quantity: 2 }],
+        })
+        .expect(201);
+
+      const orderId = (checkoutRes.body as ApiResponse<OrderResponse>).data.id;
+
+      // Another customer receives 404 ORDER_NOT_FOUND (anti-enumeration)
+      const otherRes = await request(app.getHttpServer())
+        .post(`/api/v1/orders/${orderId}/cancel`)
+        .set(otherCustomerHeader)
+        .expect(404);
+      expect((otherRes.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.ORDER_NOT_FOUND,
+      );
+
+      // Staff confirms order
+      await request(app.getHttpServer())
+        .post(`/api/v1/orders/${orderId}/confirm`)
+        .set(salesHeader)
+        .expect(200);
+
+      // Customer cannot self-cancel after confirmation
+      const confirmedCancelRes = await request(app.getHttpServer())
+        .post(`/api/v1/orders/${orderId}/cancel`)
+        .set(customerHeader)
+        .expect(422);
+      expect((confirmedCancelRes.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
+      );
+    });
+  });
+
+  describe("OrdersService.expireStaleReservations", () => {
+    // Invariant: INV-ORD-22
+    it("cancels expired reservations, restores stock and loyalty points, and skips non-expired orders", async () => {
+      const ordersService = app.get(OrdersService);
+
+      const expiredRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          items: [{ productId: regularProductId, quantity: 3 }],
+          loyaltyPoints: 15_000,
+        })
+        .expect(201);
+      const expiredOrderId = (expiredRes.body as ApiResponse<OrderResponse>)
+        .data.id;
+
+      const freshRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(otherCustomerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          items: [{ productId: regularProductId, quantity: 2 }],
+        })
+        .expect(201);
+      const freshOrderId = (freshRes.body as ApiResponse<OrderResponse>).data
+        .id;
+
+      const now = new Date();
+      await setup.db
+        .update(orders)
+        .set({ reservationExpiresAt: new Date(now.getTime() - 60_000) })
+        .where(eq(orders.id, expiredOrderId));
+
+      const sweptCount = await ordersService.expireStaleReservations(now);
+      expect(sweptCount).toBe(1);
+
+      const [expiredRow] = await setup.db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, expiredOrderId));
+      const [freshRow] = await setup.db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, freshOrderId));
+      expect(expiredRow?.orderStatus).toBe(OrderStatus.CANCELLED);
+      expect(expiredRow?.paymentStatus).toBe(PaymentStatus.CANCELLED);
+      expect(expiredRow?.reservationExpiresAt).toBeNull();
+      expect(freshRow?.orderStatus).toBe(OrderStatus.PENDING_CONFIRMATION);
+
+      const [batchRow] = await setup.db
+        .select({
+          availableQuantity: batches.availableQuantity,
+          status: batches.status,
+        })
+        .from(batches)
+        .where(
+          and(
+            eq(batches.productId, regularProductId),
+            eq(batches.initialQuantity, "10.00"),
+          ),
+        )
+        .limit(1);
+      // 5 - 3 - 2 + 3 (restored) = 3.00
+      expect(batchRow?.availableQuantity).toBe("3.00");
+      expect(batchRow?.status).toBe(BatchStatus.IN_STOCK);
+
+      const [customerRow] = await setup.db
+        .select({ rewardPoints: users.rewardPoints })
+        .from(users)
+        .where(eq(users.id, customerId));
+      expect(customerRow?.rewardPoints).toBe(50_000);
     });
   });
 });

@@ -169,13 +169,46 @@ describe("Orders Pick List Integration", () => {
         status: BatchStatus.IN_STOCK,
       });
 
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         items: [
           { productId: tomatoId, quantity: "12.00", unitPrice: 80_000 },
           { productId: spinachId, quantity: "3.50", unitPrice: 50_000 },
         ],
       });
+
+      await setup.db.insert(batchAllocations).values([
+        {
+          orderItemId: items[0]!.id,
+          batchId: batchTomato1.id,
+          allocatedQuantity: "10.00",
+        },
+        {
+          orderItemId: items[0]!.id,
+          batchId: batchTomato2.id,
+          allocatedQuantity: "2.00",
+        },
+        {
+          orderItemId: items[1]!.id,
+          batchId: batchSpinach.id,
+          allocatedQuantity: "3.50",
+        },
+      ]);
+
+      await Promise.all([
+        setup.db
+          .update(batches)
+          .set({ availableQuantity: "0.00", status: BatchStatus.SOLD_OUT })
+          .where(eq(batches.id, batchTomato1.id)),
+        setup.db
+          .update(batches)
+          .set({ availableQuantity: "8.00" })
+          .where(eq(batches.id, batchTomato2.id)),
+        setup.db
+          .update(batches)
+          .set({ availableQuantity: "6.50" })
+          .where(eq(batches.id, batchSpinach.id)),
+      ]);
 
       await request(app.getHttpServer())
         .post(`/api/v1/orders/${order.id}/confirm`)
@@ -343,10 +376,20 @@ describe("Orders Pick List Integration", () => {
         status: BatchStatus.IN_STOCK,
       });
 
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         items: [{ productId: tomatoId, quantity: "2.00", unitPrice: 80_000 }],
       });
+
+      await setup.db.insert(batchAllocations).values({
+        orderItemId: items[0]!.id,
+        batchId: batch.id,
+        allocatedQuantity: "2.00",
+      });
+      await setup.db
+        .update(batches)
+        .set({ availableQuantity: "3.00" })
+        .where(eq(batches.id, batch.id));
 
       await request(app.getHttpServer())
         .post(`/api/v1/orders/${order.id}/confirm`)
@@ -457,7 +500,7 @@ describe("Orders Pick List Integration", () => {
     // Invariant: INV-ORD-19
     it("reads an atomic snapshot when concurrent cancellation runs alongside pick-list fetch", async () => {
       const now = Date.now();
-      await createBatch(setup.db, {
+      const raceBatch = await createBatch(setup.db, {
         seasonId,
         productId: tomatoId,
         batchCode: "BATCH-PICK-RACE",
@@ -469,10 +512,22 @@ describe("Orders Pick List Integration", () => {
       });
 
       for (let attempt = 0; attempt < 5; attempt += 1) {
-        const { order } = await createOrder(setup.db, {
+        const { order, items } = await createOrder(setup.db, {
           customerId,
           items: [{ productId: tomatoId, quantity: "2.00", unitPrice: 80_000 }],
         });
+
+        await setup.db.insert(batchAllocations).values({
+          orderItemId: items[0]!.id,
+          batchId: raceBatch.id,
+          allocatedQuantity: "2.00",
+        });
+        await setup.db
+          .update(batches)
+          .set({
+            availableQuantity: sql`${batches.availableQuantity} - 2.00`,
+          })
+          .where(eq(batches.id, raceBatch.id));
 
         await request(app.getHttpServer())
           .post(`/api/v1/orders/${order.id}/confirm`)
@@ -507,7 +562,7 @@ describe("Orders Pick List Integration", () => {
     // Invariant: INV-ORD-17, INV-ORD-20
     it("enforces UUIDv7 validation, missing-order lookup, and staff RBAC across all roles", async () => {
       const now = Date.now();
-      await createBatch(setup.db, {
+      const batch = await createBatch(setup.db, {
         seasonId,
         productId: tomatoId,
         batchCode: "BATCH-PICK-RBAC",
@@ -518,10 +573,20 @@ describe("Orders Pick List Integration", () => {
         status: BatchStatus.IN_STOCK,
       });
 
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         items: [{ productId: tomatoId, quantity: "2.00", unitPrice: 80_000 }],
       });
+
+      await setup.db.insert(batchAllocations).values({
+        orderItemId: items[0]!.id,
+        batchId: batch.id,
+        allocatedQuantity: "2.00",
+      });
+      await setup.db
+        .update(batches)
+        .set({ availableQuantity: "3.00" })
+        .where(eq(batches.id, batch.id));
 
       await request(app.getHttpServer())
         .post(`/api/v1/orders/${order.id}/confirm`)
