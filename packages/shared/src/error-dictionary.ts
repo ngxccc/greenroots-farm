@@ -53,6 +53,7 @@ export const API_ERROR_CODES = {
   ORDER_PAID_CANCELLATION_FORBIDDEN: "ORDER_PAID_CANCELLATION_FORBIDDEN",
   ORDER_PICK_LIST_STATUS_INVALID: "ORDER_PICK_LIST_STATUS_INVALID",
   ORDER_ACTIVE_ALLOCATIONS_MISSING: "ORDER_ACTIVE_ALLOCATIONS_MISSING",
+  ORDER_PENDING_LIMIT_EXCEEDED: "ORDER_PENDING_LIMIT_EXCEEDED",
   FARMING_LOG_IMMUTABLE: "FARMING_LOG_IMMUTABLE",
   FARMING_LOG_CORRECTION_TARGET_INVALID:
     "FARMING_LOG_CORRECTION_TARGET_INVALID",
@@ -188,6 +189,7 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Chỉ có thể xem phiếu lấy hàng cho đơn đã xác nhận, đang đóng gói hoặc đang giao hàng.",
   [API_ERROR_CODES.ORDER_ACTIVE_ALLOCATIONS_MISSING]:
     "Đơn hàng hiện chưa có dữ liệu phân bổ lô nông sản đang hoạt động.",
+  [API_ERROR_CODES.ORDER_PENDING_LIMIT_EXCEEDED]: `Bạn đang có tối đa ${BUSINESS_RULES.MAX_PENDING_COD_ORDERS_PER_CUSTOMER} đơn hàng COD chờ xác nhận. Vui lòng hoàn tất hoặc hủy bớt đơn trước khi đặt thêm.`,
   [API_ERROR_CODES.FARMING_LOG_IMMUTABLE]:
     "Nhật ký canh tác đã khóa bất biến, không thể chỉnh sửa hoặc xóa.",
   [API_ERROR_CODES.FARMING_LOG_CORRECTION_TARGET_INVALID]:

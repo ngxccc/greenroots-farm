@@ -49,6 +49,7 @@ export const orders = snakeCase.table(
     orderStatus: orderStatusEnum()
       .default(OrderStatus.PENDING_CONFIRMATION)
       .notNull(),
+    reservationExpiresAt: timestamp({ withTimezone: true, mode: "date" }),
   },
   (table) => [
     uniqueIndex("orders_order_code_uidx").on(table.orderCode),
@@ -69,6 +70,11 @@ export const orders = snakeCase.table(
       table.orderStatus,
       table.createdAt,
     ),
+    index("orders_reservation_expires_at_idx")
+      .on(table.reservationExpiresAt)
+      .where(
+        sql`${table.orderStatus} IN ('pending_payment', 'pending_confirmation') AND ${table.reservationExpiresAt} IS NOT NULL`,
+      ),
     check("orders_shipping_fee_non_negative", sql`${table.shippingFee} >= 0`),
     check("orders_subtotal_non_negative", sql`${table.subtotal} >= 0`),
     check(

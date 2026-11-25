@@ -12,6 +12,11 @@ describe("BUSINESS_RULES", () => {
   it("defines the 50,000 VND minimum order value constant", () => {
     expect(BUSINESS_RULES.MIN_ORDER_VALUE_VND).toBe(50_000);
   });
+
+  it("defines COD pending order limit and confirmation timeout constants", () => {
+    expect(BUSINESS_RULES.MAX_PENDING_COD_ORDERS_PER_CUSTOMER).toBe(3);
+    expect(BUSINESS_RULES.COD_CONFIRMATION_TIMEOUT_MINUTES).toBe(120);
+  });
 });
 
 describe("OrderStatus & PaymentStatus", () => {
@@ -62,6 +67,11 @@ describe("resolveSharedApiErrorMessage", () => {
     ).toBe(
       API_ERROR_DICTIONARY[API_ERROR_CODES.ORDER_ACTIVE_ALLOCATIONS_MISSING],
     );
+    expect(
+      resolveSharedApiErrorMessage(
+        API_ERROR_CODES.ORDER_PENDING_LIMIT_EXCEEDED,
+      ),
+    ).toBe(API_ERROR_DICTIONARY[API_ERROR_CODES.ORDER_PENDING_LIMIT_EXCEEDED]);
     expect(
       resolveSharedApiErrorMessage(
         API_ERROR_CODES.FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID,

@@ -1,0 +1,2 @@
+ALTER TABLE "orders" ADD COLUMN "reservation_expires_at" timestamp with time zone;--> statement-breakpoint
+CREATE INDEX "orders_reservation_expires_at_idx" ON "orders" ("reservation_expires_at") WHERE "order_status" IN ('pending_payment', 'pending_confirmation') AND "reservation_expires_at" IS NOT NULL;
