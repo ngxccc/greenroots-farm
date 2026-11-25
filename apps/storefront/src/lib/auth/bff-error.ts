@@ -11,6 +11,7 @@ export interface BffActionFailure {
   readonly ok: false;
   readonly code: string;
   readonly message: string;
+  readonly invalidParams?: ApiProblemDetails["invalidParams"];
 }
 
 /**
@@ -67,6 +68,16 @@ export function extractProblemDetails(
     return buildSyntheticProblem(fallbackCode, errorInstance, status);
   }
 
+  const invalidParams = Array.isArray(record.invalidParams)
+    ? record.invalidParams.filter(
+        (item): item is { readonly name: string; readonly reason: string } =>
+          typeof item === "object" &&
+          item !== null &&
+          typeof (item as { name?: unknown }).name === "string" &&
+          typeof (item as { reason?: unknown }).reason === "string",
+      )
+    : undefined;
+
   return {
     type,
     title,
@@ -74,6 +85,7 @@ export function extractProblemDetails(
     detail,
     instance: errorInstance,
     code: code ?? fallbackCode,
+    ...(invalidParams && invalidParams.length > 0 ? { invalidParams } : {}),
   };
 }
 
@@ -118,6 +130,7 @@ export function buildActionFailure(
     ok: false,
     code: problem.code ?? fallbackCode,
     message: resolveApiErrorMessage(problem),
+    ...(problem.invalidParams ? { invalidParams: problem.invalidParams } : {}),
   };
 }
 

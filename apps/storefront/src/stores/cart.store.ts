@@ -24,6 +24,7 @@ interface CartState {
   streetAddress: string;
   addItem: (product: StorefrontProduct, quantity?: number) => void;
   syncProductSnapshot: (product: StorefrontProduct) => void;
+  syncValidatedPrice: (productId: string, unitPriceVnd: number) => void;
   setQuantity: (productId: string, quantity: number) => void;
   incrementItem: (productId: string) => void;
   decrementItem: (productId: string) => void;
@@ -188,6 +189,15 @@ export const useCartStore = create<CartState>()(
             ),
           };
         }),
+
+      syncValidatedPrice: (productId, unitPriceVnd) =>
+        set((state) => ({
+          items: state.items.map((item) =>
+            item.productId === productId && item.unitPriceVnd !== unitPriceVnd
+              ? { ...item, unitPriceVnd }
+              : item,
+          ),
+        })),
 
       setQuantity: (productId, quantity) =>
         set((state) => {
