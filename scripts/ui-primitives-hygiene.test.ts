@@ -17,6 +17,58 @@ const STOREFRONT_SCAN_ROOTS = [
 ] as const;
 const SHARED_UI_SCAN_ROOT = "packages/ui/src";
 
+const LEGACY_DOM_MOUNT_TEST_ALLOWLIST = new Set([
+  "apps/storefront/src/components/common/header-auth.spec.ts",
+  "apps/storefront/src/features/account/components/account-addresses.spec.ts",
+  "apps/storefront/src/features/account/components/account-profile.spec.ts",
+  "apps/storefront/src/features/orders/components/header-cart-popover.spec.ts",
+  "apps/storefront/src/features/product-detail/components/product-detail-hero.spec.ts",
+]);
+
+function evaluateDomMountTestHygiene(
+  relativePath: string,
+  sourceText: string,
+): string[] {
+  if (
+    !relativePath.endsWith(".spec.ts") &&
+    !relativePath.endsWith(".spec.tsx") &&
+    !relativePath.endsWith(".test.ts") &&
+    !relativePath.endsWith(".test.tsx")
+  ) {
+    return [];
+  }
+  if (LEGACY_DOM_MOUNT_TEST_ALLOWLIST.has(relativePath)) {
+    return [];
+  }
+
+  const sourceFile = ts.createSourceFile(
+    relativePath,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const violations: string[] = [];
+
+  for (const statement of sourceFile.statements) {
+    if (
+      ts.isImportDeclaration(statement) &&
+      ts.isStringLiteral(statement.moduleSpecifier)
+    ) {
+      const specifier = statement.moduleSpecifier.text;
+      if (specifier === "happy-dom" || specifier === "react-dom/client") {
+        const line =
+          sourceFile.getLineAndCharacterOfPosition(statement.getStart()).line +
+          1;
+        violations.push(
+          `Forbidden DOM mount import "${specifier}" at line ${line} (UI-5: unit-test pure logic/stores/actions only; cover UI mounts in Playwright E2E)`,
+        );
+      }
+    }
+  }
+
+  return violations;
+}
+
 const FORBIDDEN_BACKOFFICE_RAW_ELEMENTS = new Set([
   "table",
   "thead",
@@ -565,6 +617,36 @@ describe("Shared UI Primitives Hygiene", () => {
         );
         for (const violation of fileViolations) {
           violations.push(`${path.relative(REPO_ROOT, file)}: ${violation}`);
+        }
+      }
+
+      expect(violations).toEqual([]);
+    });
+
+    it("rejects new happy-dom or react-dom/client mount tests outside the legacy allowlist", () => {
+      expect(
+        evaluateDomMountTestHygiene(
+          "apps/storefront/src/features/orders/components/new-ui.spec.ts",
+          'import { Window } from "happy-dom";\nimport { createRoot } from "react-dom/client";',
+        ),
+      ).toHaveLength(2);
+
+      const violations: string[] = [];
+      for (const relativeRoot of UI_SCAN_ROOTS) {
+        for (const file of collectSourceFiles(
+          path.join(REPO_ROOT, relativeRoot),
+        )) {
+          const relativePath = path
+            .relative(REPO_ROOT, file)
+            .split(path.sep)
+            .join("/");
+          const fileViolations = evaluateDomMountTestHygiene(
+            relativePath,
+            fs.readFileSync(file, "utf8"),
+          );
+          for (const violation of fileViolations) {
+            violations.push(`${relativePath}: ${violation}`);
+          }
         }
       }
 
