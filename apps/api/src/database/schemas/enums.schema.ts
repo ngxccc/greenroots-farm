@@ -1,5 +1,6 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 import {
+  AuthSurface,
   BatchStatus,
   ComplaintResolution,
   ComplaintStatus,
@@ -29,6 +30,7 @@ function enumValues<T extends Record<string, string>>(
 
 export const userRoleEnum = pgEnum("user_role", enumValues(UserRole));
 export const userStatusEnum = pgEnum("user_status", enumValues(UserStatus));
+export const authSurfaceEnum = pgEnum("auth_surface", enumValues(AuthSurface));
 export const staffAuditActionEnum = pgEnum(
   "staff_audit_action",
   enumValues(StaffAuditAction),

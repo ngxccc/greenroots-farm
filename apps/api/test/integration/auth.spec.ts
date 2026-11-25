@@ -20,7 +20,12 @@ import {
 import { truncateAllTables } from "@/database/utils/truncate.util";
 import type { DrizzleDB } from "@/database/database.module";
 import { users, refreshTokens, type User } from "@/database/schemas";
-import { UserRole, UserStatus, API_ERROR_CODES } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  AuthSurface,
+  UserRole,
+  UserStatus,
+} from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import {
   hashPassword,
@@ -167,10 +172,12 @@ describe("Authentication Integration", () => {
     userId: string,
     rawRefreshToken: string,
     expiresInMs = 7 * 24 * 60 * 60 * 1000,
+    surface: AuthSurface = AuthSurface.CUSTOMER,
   ) {
     await db.insert(refreshTokens).values({
       userId,
       token: sha256(rawRefreshToken),
+      surface,
       deviceName: "Mozilla/5.0 Test Suite",
       ipAddress: "127.0.0.1",
       expiresAt: new Date(Date.now() + expiresInMs),
@@ -398,7 +405,7 @@ describe("Authentication Integration", () => {
 
       // Login now succeeds
       const loginRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
 
       expect(loginRes.status).toBe(200);
@@ -556,15 +563,15 @@ describe("Authentication Integration", () => {
     });
   });
 
-  // 4. POST /api/v1/auth/login (5 tests)
-  describe("POST /api/v1/auth/login", () => {
+  // 4. POST /api/v1/auth/customer/login (5 tests)
+  describe("POST /api/v1/auth/customer/login", () => {
     it("logs in with valid verified credentials", async () => {
       const email = "login.success@greenroots.farm";
       const password = "Password123!";
       await seedVerifiedUser(email, password);
 
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
 
       expect(res.status).toBe(200);
@@ -583,7 +590,7 @@ describe("Authentication Integration", () => {
       const user = await seedVerifiedUser(email, password);
 
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
 
       const { accessToken } = (res.body as ApiResponse<LoginData>).data;
@@ -612,7 +619,7 @@ describe("Authentication Integration", () => {
       const before = Date.now();
 
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
 
       const { refreshToken } = (res.body as ApiResponse<LoginData>).data;
@@ -644,7 +651,7 @@ describe("Authentication Integration", () => {
 
       try {
         const spoofRes = await request(getHttpServer())
-          .post("/api/v1/auth/login")
+          .post("/api/v1/auth/customer/login")
           .set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)")
           .set("X-Forwarded-For", "203.0.113.195")
           .send({ email, password });
@@ -661,7 +668,7 @@ describe("Authentication Integration", () => {
         expect(spoofStored?.ipAddress).toBe("127.0.0.1");
 
         const trustedRes = await request(getHttpServer())
-          .post("/api/v1/auth/login")
+          .post("/api/v1/auth/customer/login")
           .set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)")
           .set("X-BFF-Client-IP", "203.0.113.195")
           .set("X-Internal-Proxy-Secret", testSecret)
@@ -689,7 +696,7 @@ describe("Authentication Integration", () => {
       await seedVerifiedUser(email, password);
 
       const loginRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
 
       const { accessToken } = (loginRes.body as ApiResponse<LoginData>).data;
@@ -703,15 +710,15 @@ describe("Authentication Integration", () => {
     });
   });
 
-  // 5. POST /api/v1/auth/refresh (5 tests)
-  describe("POST /api/v1/auth/refresh", () => {
+  // 5. POST /api/v1/auth/customer/refresh (5 tests)
+  describe("POST /api/v1/auth/customer/refresh", () => {
     it("rotates refresh token and issues new token pair", async () => {
       const user = await seedVerifiedUser("refresh.happy@greenroots.farm");
       const initialRawRefreshToken = randomBytes(32).toString("hex");
       await seedRefreshTokenRecord(user.id, initialRawRefreshToken);
 
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: initialRawRefreshToken });
 
       expect(res.status).toBe(200);
@@ -728,7 +735,7 @@ describe("Authentication Integration", () => {
       await seedRefreshTokenRecord(user.id, initialRawRefreshToken);
 
       await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: initialRawRefreshToken });
 
       const [consumedToken] = await db
@@ -747,7 +754,7 @@ describe("Authentication Integration", () => {
       const before = Date.now();
 
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: initialRawRefreshToken });
 
       const { refreshToken: newRefreshToken } = (
@@ -780,7 +787,7 @@ describe("Authentication Integration", () => {
       );
 
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: initialRawRefreshToken });
 
       const { accessToken: newAccessToken } = (
@@ -802,14 +809,14 @@ describe("Authentication Integration", () => {
 
       // First rotation: R1 -> R2
       const res1 = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: r1 });
       expect(res1.status).toBe(200);
       const r2 = (res1.body as ApiResponse<RefreshData>).data.refreshToken;
 
       // Second rotation: R2 -> R3
       const res2 = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: r2 });
       expect(res2.status).toBe(200);
       const r3 = (res2.body as ApiResponse<RefreshData>).data.refreshToken;
@@ -1263,7 +1270,7 @@ describe("Authentication Integration", () => {
       });
 
       const loginRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password: newPassword });
 
       expect(loginRes.status).toBe(200);
@@ -1293,7 +1300,7 @@ describe("Authentication Integration", () => {
       });
 
       const loginRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password: oldPassword });
 
       expect(loginRes.status).toBe(401);
@@ -1670,7 +1677,7 @@ describe("Authentication Integration", () => {
   describe("Login Boundaries", () => {
     it("rejects non-existent email with generic unauthorized error", async () => {
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({
           email: "ghost@greenroots.farm",
           password: "Password123!",
@@ -1686,7 +1693,7 @@ describe("Authentication Integration", () => {
       await seedVerifiedUser(email, "CorrectPassword123!");
 
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({
           email,
           password: "IncorrectPassword456!",
@@ -1705,7 +1712,7 @@ describe("Authentication Integration", () => {
       });
 
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
 
       expect(res.status).toBe(403);
@@ -1719,7 +1726,7 @@ describe("Authentication Integration", () => {
       await seedUnverifiedUser(email, password);
 
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
 
       expect(res.status).toBe(403);
@@ -1729,12 +1736,12 @@ describe("Authentication Integration", () => {
 
     it("rejects oversized password payload and empty body", async () => {
       const emptyRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({});
       expect(emptyRes.status).toBe(400);
 
       const oversizedRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({
           email: "oversized@greenroots.farm",
           password: "a".repeat(10000),
@@ -1744,7 +1751,7 @@ describe("Authentication Integration", () => {
 
     it("rejects SQL injection email payload safely without database error leakage", async () => {
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({
           email: "' OR 1=1 --",
           password: "Password123!",
@@ -1765,7 +1772,7 @@ describe("Authentication Integration", () => {
       await seedRefreshTokenRecord(user.id, rawToken, -3600 * 1000);
 
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: rawToken });
 
       expect(res.status).toBe(401);
@@ -1775,7 +1782,7 @@ describe("Authentication Integration", () => {
 
     it("rejects non-existent or fabricated refresh token", async () => {
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: "f".repeat(64) });
 
       expect(res.status).toBe(401);
@@ -1795,7 +1802,7 @@ describe("Authentication Integration", () => {
       await seedRefreshTokenRecord(user.id, rawToken);
 
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: rawToken });
 
       expect(res.status).toBe(401);
@@ -1809,7 +1816,7 @@ describe("Authentication Integration", () => {
 
     it("rejects malformed or empty refresh token", async () => {
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: "" });
 
       expect(res.status).toBe(400);
@@ -1817,7 +1824,7 @@ describe("Authentication Integration", () => {
 
     it("rejects request with missing body or empty JSON payload", async () => {
       const res = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({});
 
       expect(res.status).toBe(400);
@@ -2211,7 +2218,7 @@ describe("Authentication Integration", () => {
 
       // Unverified login attempt rejected
       const barrierRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
 
       expect(barrierRes.status).toBe(403);
@@ -2226,7 +2233,7 @@ describe("Authentication Integration", () => {
 
       // Login now succeeds
       const loginRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
 
       expect(loginRes.status).toBe(200);
@@ -2242,10 +2249,10 @@ describe("Authentication Integration", () => {
       // Fire 2 concurrent requests with identical refresh token
       const [resA, resB] = await Promise.all([
         request(getHttpServer())
-          .post("/api/v1/auth/refresh")
+          .post("/api/v1/auth/customer/refresh")
           .send({ refreshToken: r1 }),
         request(getHttpServer())
-          .post("/api/v1/auth/refresh")
+          .post("/api/v1/auth/customer/refresh")
           .send({ refreshToken: r1 }),
       ]);
 
@@ -2270,13 +2277,13 @@ describe("Authentication Integration", () => {
 
       // First rotation
       const res1 = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: r1 });
       expect(res1.status).toBe(200);
 
       // Second attempt with old r1
       const res2 = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: r1 });
 
       expect(res2.status).toBe(401);
@@ -2318,7 +2325,7 @@ describe("Authentication Integration", () => {
 
       // Device B refresh token remains functional in DB
       const testBRefreshRes = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: rB });
       expect(testBRefreshRes.status).toBe(200);
 
@@ -2539,7 +2546,7 @@ describe("Authentication Integration", () => {
 
       // Step 3: Customer attempts to log in before verifying email -> Blocked with 403
       const preVerifyLogin = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
       expect(preVerifyLogin.status).toBe(403);
       expect((preVerifyLogin.body as Rfc9457Error).code).toBe(
@@ -2564,7 +2571,7 @@ describe("Authentication Integration", () => {
 
       // Step 5: Customer logs in successfully
       const postVerifyLogin = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
       expect(postVerifyLogin.status).toBe(200);
       const { accessToken } = (postVerifyLogin.body as ApiResponse<LoginData>)
@@ -2584,7 +2591,7 @@ describe("Authentication Integration", () => {
 
       // Step 1: Login on Laptop
       const laptopLogin = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .set("User-Agent", "GreenRoots-Storefront/Desktop")
         .set("X-Forwarded-For", "10.0.0.1")
         .send({ email, password });
@@ -2593,7 +2600,7 @@ describe("Authentication Integration", () => {
 
       // Step 2: Login on Mobile
       const mobileLogin = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .set("User-Agent", "GreenRoots-Storefront/Mobile")
         .set("X-Forwarded-For", "192.168.1.5")
         .send({ email, password });
@@ -2609,7 +2616,7 @@ describe("Authentication Integration", () => {
 
       // Step 4: Mobile session rotates refresh token
       const mobileRefresh = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: mobileTokens.refreshToken });
       expect(mobileRefresh.status).toBe(200);
       const newMobileTokens = (mobileRefresh.body as ApiResponse<RefreshData>)
@@ -2694,13 +2701,13 @@ describe("Authentication Integration", () => {
 
       // Step 6: Old password no longer works
       const oldLoginRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password: oldPassword });
       expect(oldLoginRes.status).toBe(401);
 
       // Step 7: New password works
       const newLoginRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password: newPassword });
       expect(newLoginRes.status).toBe(200);
 
@@ -2722,7 +2729,7 @@ describe("Authentication Integration", () => {
 
       // Step 1: Legitimate user logs in and acquires R1
       const loginRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/customer/login")
         .send({ email, password });
       expect(loginRes.status).toBe(200);
       const { refreshToken: r1 } = (loginRes.body as ApiResponse<LoginData>)
@@ -2733,7 +2740,7 @@ describe("Authentication Integration", () => {
 
       // Step 3: Legitimate user rotates R1 -> R2
       const legitimateRefreshRes = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: r1 });
       expect(legitimateRefreshRes.status).toBe(200);
       const { refreshToken: r2 } = (
@@ -2742,7 +2749,7 @@ describe("Authentication Integration", () => {
 
       // Step 4: Attacker attempts to replay intercepted R1
       const attackerRefreshRes = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: interceptedR1 });
 
       // Immediate 401 rejection due to single-use atomic DELETE ... RETURNING
@@ -2753,7 +2760,7 @@ describe("Authentication Integration", () => {
 
       // Step 5: Legitimate user session with R2 remains intact and valid
       const legitUserCheck = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/customer/refresh")
         .send({ refreshToken: r2 });
       expect(legitUserCheck.status).toBe(200);
       const { accessToken: t3 } = (
@@ -2765,6 +2772,120 @@ describe("Authentication Integration", () => {
         .post("/api/v1/auth/logout-all")
         .set("Authorization", `Bearer ${t3}`);
       expect(emergencyLogoutRes.status).toBe(200);
+    });
+  });
+
+  // =========================================================================
+  // 12. Surface-Scoped Login & Refresh Isolation
+  // =========================================================================
+  describe("Surface-Scoped Login & Refresh", () => {
+    it("rejects staff roles on customer login even when unverified or suspended", async () => {
+      const password = "StaffPassword123!";
+      const staff = await seedVerifiedUser(
+        "staff.surface@greenroots.farm",
+        password,
+        {
+          role: UserRole.SALES,
+          status: UserStatus.SUSPENDED,
+          emailVerified: false,
+        },
+      );
+
+      const res = await request(getHttpServer())
+        .post("/api/v1/auth/customer/login")
+        .send({ email: staff.email, password });
+
+      expect(res.status).toBe(403);
+      expect((res.body as Rfc9457Error).code).toBe(
+        API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+      );
+    });
+
+    it("rejects customer role on staff login and rejects wrong password as invalid credentials", async () => {
+      const password = "CustomerPassword123!";
+      const customer = await seedVerifiedUser(
+        "customer.surface@greenroots.farm",
+        password,
+      );
+
+      const wrongPassRes = await request(getHttpServer())
+        .post("/api/v1/auth/staff/login")
+        .send({ email: customer.email, password: "WrongPassword123!" });
+      expect(wrongPassRes.status).toBe(401);
+      expect((wrongPassRes.body as Rfc9457Error).code).toBe(
+        API_ERROR_CODES.AUTH_INVALID_CREDENTIALS,
+      );
+
+      const forbiddenRes = await request(getHttpServer())
+        .post("/api/v1/auth/staff/login")
+        .send({ email: customer.email, password });
+      expect(forbiddenRes.status).toBe(403);
+      expect((forbiddenRes.body as Rfc9457Error).code).toBe(
+        API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+      );
+    });
+
+    it("authenticates staff on staff login and revokes token on cross-surface refresh", async () => {
+      const password = "StaffPassword123!";
+      const staff = await seedVerifiedUser(
+        "admin.surface@greenroots.farm",
+        password,
+        { role: UserRole.ADMIN },
+      );
+
+      const staffLoginRes = await request(getHttpServer())
+        .post("/api/v1/auth/staff/login")
+        .send({ email: staff.email, password });
+      expect(staffLoginRes.status).toBe(200);
+      const { refreshToken: staffRefresh } = (
+        staffLoginRes.body as ApiResponse<LoginData>
+      ).data;
+
+      // Cross-surface refresh on customer endpoint must return 403 and revoke token
+      const crossRefreshRes = await request(getHttpServer())
+        .post("/api/v1/auth/customer/refresh")
+        .send({ refreshToken: staffRefresh });
+      expect(crossRefreshRes.status).toBe(403);
+      expect((crossRefreshRes.body as Rfc9457Error).code).toBe(
+        API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+      );
+
+      // Replaying the revoked token on staff refresh must now fail with 401
+      const replayRes = await request(getHttpServer())
+        .post("/api/v1/auth/staff/refresh")
+        .send({ refreshToken: staffRefresh });
+      expect(replayRes.status).toBe(401);
+      expect((replayRes.body as Rfc9457Error).code).toBe(
+        API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
+      );
+    });
+
+    it("rejects refresh when user role drifted off the token surface", async () => {
+      const password = "DriftPassword123!";
+      const customer = await seedVerifiedUser(
+        "drift.user@greenroots.farm",
+        password,
+      );
+
+      const loginRes = await request(getHttpServer())
+        .post("/api/v1/auth/customer/login")
+        .send({ email: customer.email, password });
+      expect(loginRes.status).toBe(200);
+      const { refreshToken } = (loginRes.body as ApiResponse<LoginData>).data;
+
+      // Simulate role change in DB
+      await db
+        .update(users)
+        .set({ role: UserRole.SALES })
+        .where(eq(users.id, customer.id));
+
+      const refreshRes = await request(getHttpServer())
+        .post("/api/v1/auth/customer/refresh")
+        .send({ refreshToken });
+      expect(refreshRes.status).toBe(403);
+      expect((refreshRes.body as Rfc9457Error).code).toBe(
+        API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+      );
     });
   });
 });

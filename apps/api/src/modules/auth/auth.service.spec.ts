@@ -6,7 +6,12 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import type { JwtService } from "@nestjs/jwt";
-import { API_ERROR_CODES, UserRole, UserStatus } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  AuthSurface,
+  UserRole,
+  UserStatus,
+} from "@greenroots/shared";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import type { RedisService } from "@/common/services/redis.service";
@@ -371,7 +376,7 @@ describe("AuthService", () => {
         },
       ]);
 
-      const result = await service.login(loginDto, {
+      const result = await service.login(loginDto, AuthSurface.CUSTOMER, {
         deviceName: "Desktop Chrome",
         ipAddress: "192.168.1.1",
       });
@@ -388,10 +393,86 @@ describe("AuthService", () => {
       expect(mockDb.insert).toHaveBeenCalled();
     });
 
+    it("authenticates valid verified staff user on staff surface", async () => {
+      const hashedPassword = await getCachedPasswordHash("Password123!");
+      mockDb.setSelectResult([
+        {
+          id: "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9a",
+          email: "admin@greenroots.farm",
+          fullName: "Admin User",
+          role: UserRole.ADMIN,
+          status: UserStatus.ACTIVE,
+          password: hashedPassword,
+          emailVerified: true,
+        },
+      ]);
+
+      const result = await service.login(loginDto, AuthSurface.STAFF);
+
+      expect(result.accessToken).toBe("mock_jwt_access_token");
+      expect(result.user.role).toBe(UserRole.ADMIN);
+    });
+
+    it("throws ForbiddenException when staff logs in on customer surface even if unverified", async () => {
+      const hashedPassword = await getCachedPasswordHash("Password123!");
+      mockDb.setSelectResult([
+        {
+          id: "staff-id",
+          email: "sales@greenroots.farm",
+          fullName: "Sales Staff",
+          role: UserRole.SALES,
+          status: UserStatus.SUSPENDED,
+          password: hashedPassword,
+          emailVerified: false,
+        },
+      ]);
+
+      try {
+        await service.login(loginDto, AuthSurface.CUSTOMER);
+        expect.unreachable("Expected ForbiddenException");
+      } catch (error) {
+        const forbidden = error as ForbiddenException;
+        expect(forbidden).toBeInstanceOf(ForbiddenException);
+        expect(forbidden.getResponse()).toEqual({
+          code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+          detail: MESSAGES.AUTH.SURFACE_FORBIDDEN,
+        });
+      }
+    });
+
+    it("throws ForbiddenException when customer logs in on staff surface", async () => {
+      const hashedPassword = await getCachedPasswordHash("Password123!");
+      mockDb.setSelectResult([
+        {
+          id: "customer-id",
+          email: "customer@greenroots.farm",
+          fullName: "Farmer Bob",
+          role: UserRole.CUSTOMER,
+          status: UserStatus.ACTIVE,
+          password: hashedPassword,
+          emailVerified: true,
+        },
+      ]);
+
+      try {
+        await service.login(loginDto, AuthSurface.STAFF);
+        expect.unreachable("Expected ForbiddenException");
+      } catch (error) {
+        const forbidden = error as ForbiddenException;
+        expect(forbidden).toBeInstanceOf(ForbiddenException);
+        expect(forbidden.getResponse()).toEqual({
+          code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+          detail: MESSAGES.AUTH.SURFACE_FORBIDDEN,
+        });
+      }
+    });
+
     it("throws UnauthorizedException when user does not exist", () => {
       mockDb.setSelectResult([]);
 
-      expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      expect(service.login(loginDto, AuthSurface.CUSTOMER)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it("throws UnauthorizedException when password does not match", async () => {
@@ -410,7 +491,9 @@ describe("AuthService", () => {
         },
       ]);
 
-      expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      expect(service.login(loginDto, AuthSurface.CUSTOMER)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it("throws ForbiddenException when emailVerified is false", async () => {
@@ -427,9 +510,11 @@ describe("AuthService", () => {
         },
       ]);
 
-      expect(service.login(loginDto)).rejects.toThrow(ForbiddenException);
+      expect(service.login(loginDto, AuthSurface.CUSTOMER)).rejects.toThrow(
+        ForbiddenException,
+      );
       try {
-        await service.login(loginDto);
+        await service.login(loginDto, AuthSurface.CUSTOMER);
       } catch (error) {
         const forbidden = error as ForbiddenException;
         expect(forbidden.getResponse()).toEqual({
@@ -453,9 +538,11 @@ describe("AuthService", () => {
         },
       ]);
 
-      expect(service.login(loginDto)).rejects.toThrow(ForbiddenException);
+      expect(service.login(loginDto, AuthSurface.CUSTOMER)).rejects.toThrow(
+        ForbiddenException,
+      );
       try {
-        await service.login(loginDto);
+        await service.login(loginDto, AuthSurface.CUSTOMER);
       } catch (error) {
         const forbidden = error as ForbiddenException;
         expect(forbidden.getResponse()).toEqual({
@@ -480,6 +567,7 @@ describe("AuthService", () => {
           {
             id: "old-token-id",
             userId: "user-id",
+            surface: AuthSurface.CUSTOMER,
             expiresAt: new Date(Date.now() + 86400000),
           },
         ],
@@ -493,19 +581,81 @@ describe("AuthService", () => {
         ],
       ]);
 
-      const result = await service.refreshToken(refreshDto);
+      const result = await service.refreshToken(
+        refreshDto,
+        AuthSurface.CUSTOMER,
+      );
 
       expect(mockDb.delete).toHaveBeenCalled();
       expect(result.accessToken).toBe("mock_jwt_access_token");
       expect(result.refreshToken).toMatch(/^[0-9a-f]{64}$/);
     });
 
+    it("throws ForbiddenException when refresh token surface mismatches", async () => {
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            id: "staff-token-id",
+            userId: "staff-id",
+            surface: AuthSurface.STAFF,
+            expiresAt: new Date(Date.now() + 86400000),
+          },
+        ],
+      ]);
+
+      try {
+        await service.refreshToken(refreshDto, AuthSurface.CUSTOMER);
+        expect.unreachable("Expected ForbiddenException");
+      } catch (error) {
+        const forbidden = error as ForbiddenException;
+        expect(forbidden).toBeInstanceOf(ForbiddenException);
+        expect(forbidden.getResponse()).toEqual({
+          code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+          detail: MESSAGES.AUTH.SURFACE_FORBIDDEN,
+        });
+      }
+      expect(mockDb.delete).toHaveBeenCalled();
+    });
+
+    it("throws ForbiddenException when user role drifted off the refresh surface", async () => {
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            id: "old-token-id",
+            userId: "user-id",
+            surface: AuthSurface.CUSTOMER,
+            expiresAt: new Date(Date.now() + 86400000),
+          },
+        ],
+        [
+          {
+            id: "user-id",
+            email: "promoted@greenroots.farm",
+            role: UserRole.SALES,
+            status: UserStatus.ACTIVE,
+          },
+        ],
+      ]);
+
+      try {
+        await service.refreshToken(refreshDto, AuthSurface.CUSTOMER);
+        expect.unreachable("Expected ForbiddenException");
+      } catch (error) {
+        const forbidden = error as ForbiddenException;
+        expect(forbidden).toBeInstanceOf(ForbiddenException);
+        expect(forbidden.getResponse()).toEqual({
+          code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+          detail: MESSAGES.AUTH.SURFACE_FORBIDDEN,
+        });
+      }
+    });
+
     it("throws UnauthorizedException when refresh token was already rotated or invalid", () => {
       mockDb.setSelectResultsQueue([[]]);
 
-      expect(service.refreshToken(refreshDto)).rejects.toThrow(
-        UnauthorizedException,
-      );
+      expect(
+        service.refreshToken(refreshDto, AuthSurface.CUSTOMER),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it("throws UnauthorizedException when refresh token is expired", () => {
@@ -514,14 +664,15 @@ describe("AuthService", () => {
           {
             id: "expired-token-id",
             userId: "user-id",
+            surface: AuthSurface.CUSTOMER,
             expiresAt: new Date(Date.now() - 1000),
           },
         ],
       ]);
 
-      expect(service.refreshToken(refreshDto)).rejects.toThrow(
-        UnauthorizedException,
-      );
+      expect(
+        service.refreshToken(refreshDto, AuthSurface.CUSTOMER),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it("throws UnauthorizedException when user is suspended", () => {
@@ -530,6 +681,7 @@ describe("AuthService", () => {
           {
             id: "token-id",
             userId: "user-id",
+            surface: AuthSurface.CUSTOMER,
             expiresAt: new Date(Date.now() + 86400000),
           },
         ],
@@ -543,9 +695,9 @@ describe("AuthService", () => {
         ],
       ]);
 
-      expect(service.refreshToken(refreshDto)).rejects.toThrow(
-        UnauthorizedException,
-      );
+      expect(
+        service.refreshToken(refreshDto, AuthSurface.CUSTOMER),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 

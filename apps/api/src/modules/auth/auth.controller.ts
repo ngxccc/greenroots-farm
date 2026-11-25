@@ -9,6 +9,7 @@ import {
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
+import { AuthSurface } from "@greenroots/shared";
 import {
   ApiAuth,
   ApiBadRequestResponseRfc9457,
@@ -95,48 +96,113 @@ export class AuthController {
 
   @Public()
   @HttpCode(HttpStatus.OK)
-  @Post(AUTH_ROUTES.LOGIN)
+  @Post(AUTH_ROUTES.CUSTOMER_LOGIN)
   @Throttle({
     auth: { limit: 5, ttl: 60000 },
   })
   @ApiOperation({
-    summary: "Authenticate credentials and issue session tokens",
+    summary: "Authenticate customer credentials and issue session tokens",
     description:
-      "Verifies credentials and returns a short-lived access token and refresh token.",
+      "Verifies customer credentials and returns a short-lived access token and customer-bound refresh token.",
   })
   @ApiOkResponseGeneric(LoginResponseDto)
   @ApiUnauthorizedResponseRfc9457()
   @ApiForbiddenResponseRfc9457()
   @ApiTooManyRequestsResponseRfc9457()
-  async login(
+  async customerLogin(
     @Body() dto: LoginDto,
     @Req() req: Request,
   ): Promise<ApiResponse<LoginResponseDto>> {
     const metadata = extractClientMetadata(req);
-    const result = await this.authService.login(dto, metadata);
+    const result = await this.authService.login(
+      dto,
+      AuthSurface.CUSTOMER,
+      metadata,
+    );
     return apiSuccess(result);
   }
 
   @Public()
   @HttpCode(HttpStatus.OK)
-  @Post(AUTH_ROUTES.REFRESH)
+  @Post(AUTH_ROUTES.STAFF_LOGIN)
+  @Throttle({
+    auth: { limit: 5, ttl: 60000 },
+  })
+  @ApiOperation({
+    summary: "Authenticate internal staff credentials and issue session tokens",
+    description:
+      "Verifies internal staff credentials and returns a short-lived access token and staff-bound refresh token.",
+  })
+  @ApiOkResponseGeneric(LoginResponseDto)
+  @ApiUnauthorizedResponseRfc9457()
+  @ApiForbiddenResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
+  async staffLogin(
+    @Body() dto: LoginDto,
+    @Req() req: Request,
+  ): Promise<ApiResponse<LoginResponseDto>> {
+    const metadata = extractClientMetadata(req);
+    const result = await this.authService.login(
+      dto,
+      AuthSurface.STAFF,
+      metadata,
+    );
+    return apiSuccess(result);
+  }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post(AUTH_ROUTES.CUSTOMER_REFRESH)
   @Throttle({
     auth: { limit: 10, ttl: 60000 },
   })
   @ApiOperation({
-    summary: "Rotate refresh token and issue renewed session",
+    summary: "Rotate customer refresh token and issue renewed session",
     description:
-      "Validates single-use refresh token, atomically deletes it, and issues a new pair.",
+      "Validates single-use customer refresh token, atomically deletes it, and issues a new pair.",
   })
   @ApiOkResponseGeneric(RefreshResponseDto)
   @ApiUnauthorizedResponseRfc9457()
+  @ApiForbiddenResponseRfc9457()
   @ApiTooManyRequestsResponseRfc9457()
-  async refresh(
+  async customerRefresh(
     @Body() dto: RefreshTokenDto,
     @Req() req: Request,
   ): Promise<ApiResponse<RefreshResponseDto>> {
     const metadata = extractClientMetadata(req);
-    const result = await this.authService.refreshToken(dto, metadata);
+    const result = await this.authService.refreshToken(
+      dto,
+      AuthSurface.CUSTOMER,
+      metadata,
+    );
+    return apiSuccess(result);
+  }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post(AUTH_ROUTES.STAFF_REFRESH)
+  @Throttle({
+    auth: { limit: 10, ttl: 60000 },
+  })
+  @ApiOperation({
+    summary: "Rotate staff refresh token and issue renewed session",
+    description:
+      "Validates single-use staff refresh token, atomically deletes it, and issues a new pair.",
+  })
+  @ApiOkResponseGeneric(RefreshResponseDto)
+  @ApiUnauthorizedResponseRfc9457()
+  @ApiForbiddenResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
+  async staffRefresh(
+    @Body() dto: RefreshTokenDto,
+    @Req() req: Request,
+  ): Promise<ApiResponse<RefreshResponseDto>> {
+    const metadata = extractClientMetadata(req);
+    const result = await this.authService.refreshToken(
+      dto,
+      AuthSurface.STAFF,
+      metadata,
+    );
     return apiSuccess(result);
   }
 

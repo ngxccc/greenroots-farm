@@ -14,6 +14,7 @@ import type { Server } from "node:http";
 import { and, eq } from "drizzle-orm";
 import {
   API_ERROR_CODES,
+  AuthSurface,
   StaffAuditAction,
   UserRole,
   UserStatus,
@@ -405,7 +406,7 @@ describe("Staff Management Integration", () => {
       });
 
       const unverifiedLogin = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/staff/login")
         .send({
           email: "new.staff@greenroots.farm",
           password: "AnyPassword123!",
@@ -422,7 +423,7 @@ describe("Staff Management Integration", () => {
       expect(resetRes.status).toBe(200);
 
       const loginRes = await request(getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/api/v1/auth/staff/login")
         .send({
           email: "new.staff@greenroots.farm",
           password: "StaffPassword123!",
@@ -826,6 +827,7 @@ describe("Staff Management Integration", () => {
       await db.insert(refreshTokens).values({
         userId: staff.user.id,
         token: sha256(refreshPlain),
+        surface: AuthSurface.STAFF,
         expiresAt: new Date(Date.now() + 3_600_000),
       });
 
@@ -847,7 +849,7 @@ describe("Staff Management Integration", () => {
       expect(accessAfterDemote.status).toBe(401);
 
       const refreshAfterDemote = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/staff/refresh")
         .send({ refreshToken: refreshPlain });
       expect(refreshAfterDemote.status).toBe(401);
 
@@ -862,6 +864,7 @@ describe("Staff Management Integration", () => {
       await db.insert(refreshTokens).values({
         userId: staff.user.id,
         token: sha256(freshRefresh),
+        surface: AuthSurface.STAFF,
         expiresAt: new Date(Date.now() + 3_600_000),
       });
 
@@ -898,6 +901,7 @@ describe("Staff Management Integration", () => {
       await db.insert(refreshTokens).values({
         userId: staff.user.id,
         token: sha256(reactivatedRefresh),
+        surface: AuthSurface.STAFF,
         expiresAt: new Date(Date.now() + 3_600_000),
       });
 
@@ -919,7 +923,7 @@ describe("Staff Management Integration", () => {
       expect(accessAfterDeactivate.status).toBe(401);
 
       const refreshAfterDeactivate = await request(getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/api/v1/auth/staff/refresh")
         .send({ refreshToken: reactivatedRefresh });
       expect(refreshAfterDeactivate.status).toBe(401);
     });
@@ -965,6 +969,7 @@ describe("Staff Management Integration", () => {
       await db.insert(refreshTokens).values({
         userId: activeStaff.user.id,
         token: sha256("c".repeat(64)),
+        surface: AuthSurface.STAFF,
         expiresAt: new Date(Date.now() + 3_600_000),
       });
 

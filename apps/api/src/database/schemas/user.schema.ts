@@ -20,6 +20,7 @@ import {
   UserStatus,
 } from "@greenroots/shared";
 import {
+  authSurfaceEnum,
   staffAuditActionEnum,
   userRoleEnum,
   userStatusEnum,
@@ -64,6 +65,7 @@ export const refreshTokens = snakeCase.table(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     token: varchar({ length: 255 }).notNull(),
+    surface: authSurfaceEnum().notNull(),
     deviceName: varchar({ length: 255 }),
     ipAddress: varchar({ length: 45 }),
     expiresAt: timestamp({ withTimezone: true, mode: "date" }).notNull(),

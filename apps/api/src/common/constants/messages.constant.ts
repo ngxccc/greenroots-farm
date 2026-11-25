@@ -42,6 +42,8 @@ export const MESSAGES = {
       "Your account has been suspended. Please contact customer support.",
     EMAIL_NOT_VERIFIED:
       "Email address is not verified. Please verify your email before logging in.",
+    SURFACE_FORBIDDEN:
+      "Account role is not permitted on this authentication surface.",
     EMAIL_ALREADY_EXISTS: "An account with this email address already exists.",
     VERIFICATION_TOKEN_INVALID: "Verification token is invalid or has expired.",
     RESET_TOKEN_INVALID: "Password reset token is invalid or has expired.",

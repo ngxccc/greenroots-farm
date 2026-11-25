@@ -1,0 +1,61 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "08e4bf6b-b1fc-490d-8e0f-4669b88851ff",
+  "prevIds": ["4ce92d01-5367-4f22-982f-1b7288a6ab9b"],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "auth_surface"],
+      "writes": [
+        "s|enum|public.auth_surface",
+        "n|enum|public.auth_surface",
+        "e|enum|public.auth_surface",
+        "n|type|public.auth_surface"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "refresh_tokens", "surface"],
+      "writes": [
+        "s|col|public.refresh_tokens.surface",
+        "n|col|public.refresh_tokens.surface",
+        "e|col|public.refresh_tokens.surface"
+      ],
+      "reads": [
+        "n|tbl|public.refresh_tokens",
+        "n|sch|public",
+        "n|enum|public.auth_surface"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "auth_surface",
+        "values": ["customer", "staff"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "refresh_tokens",
+        "name": "surface",
+        "type": "auth_surface",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

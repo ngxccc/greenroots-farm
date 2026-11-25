@@ -9,7 +9,13 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import { and, eq, isNull } from "drizzle-orm";
 import { randomBytes, randomUUID } from "node:crypto";
-import { API_ERROR_CODES, UserRole, UserStatus } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  AuthSurface,
+  isStaffRole,
+  UserRole,
+  UserStatus,
+} from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import {
   ACCESS_TOKEN_TTL_SECONDS,
@@ -60,12 +66,26 @@ export class AuthService {
   ) {}
 
   /**
+   * Checks whether a user's role is permitted on the given authentication surface.
+   */
+  private isRoleAllowedForSurface(
+    role: UserRole,
+    surface: AuthSurface,
+  ): boolean {
+    if (surface === AuthSurface.CUSTOMER) {
+      return role === UserRole.CUSTOMER;
+    }
+    return isStaffRole(role);
+  }
+
+  /**
    * Generates a short-lived access token with standard claims and an opaque refresh token.
    */
   private async createTokenSession(
     userId: string,
     email: string,
     role: UserRole,
+    surface: AuthSurface,
     metadata?: ClientMetadata,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const jti = randomUUID();
@@ -83,6 +103,7 @@ export class AuthService {
     await this.db.insert(refreshTokens).values({
       userId,
       token: tokenHash,
+      surface,
       deviceName: metadata?.deviceName ?? null,
       ipAddress: metadata?.ipAddress ?? null,
       expiresAt,
@@ -263,10 +284,11 @@ export class AuthService {
   }
 
   /**
-   * Authenticates credentials, verifying active and verified status before issuing sessions.
+   * Authenticates credentials, verifying surface role, email verification, and active status.
    */
   async login(
     dto: LoginDto,
+    surface: AuthSurface,
     metadata?: ClientMetadata,
   ): Promise<LoginResponseDto> {
     const normalizedEmail = dto.email.toLowerCase().trim();
@@ -300,6 +322,14 @@ export class AuthService {
       });
     }
 
+    // Check surface role before emailVerified/status to prevent cross-surface status leakage.
+    if (!this.isRoleAllowedForSurface(user.role, surface)) {
+      throw new ForbiddenException({
+        code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+        detail: MESSAGES.AUTH.SURFACE_FORBIDDEN,
+      });
+    }
+
     if (!user.emailVerified) {
       throw new ForbiddenException({
         code: API_ERROR_CODES.AUTH_EMAIL_NOT_VERIFIED,
@@ -321,6 +351,7 @@ export class AuthService {
       user.id,
       user.email,
       user.role,
+      surface,
       metadata,
     );
 
@@ -338,10 +369,11 @@ export class AuthService {
   }
 
   /**
-   * Rotates refresh token atomically via DELETE ... RETURNING and issues a new pair.
+   * Rotates surface-bound refresh token atomically via DELETE ... RETURNING and issues a new pair.
    */
   async refreshToken(
     dto: RefreshTokenDto,
+    surface: AuthSurface,
     metadata?: ClientMetadata,
   ): Promise<RefreshResponseDto> {
     const hashedIncoming = sha256(dto.refreshToken);
@@ -352,6 +384,7 @@ export class AuthService {
       .returning({
         id: refreshTokens.id,
         userId: refreshTokens.userId,
+        surface: refreshTokens.surface,
         expiresAt: refreshTokens.expiresAt,
       });
 
@@ -359,6 +392,13 @@ export class AuthService {
       throw new UnauthorizedException({
         code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
         detail: MESSAGES.AUTH.TOKEN_INVALID_OR_EXPIRED,
+      });
+    }
+
+    if (deletedToken.surface !== surface) {
+      throw new ForbiddenException({
+        code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+        detail: MESSAGES.AUTH.SURFACE_FORBIDDEN,
       });
     }
 
@@ -387,10 +427,18 @@ export class AuthService {
       });
     }
 
+    if (!this.isRoleAllowedForSurface(user.role, surface)) {
+      throw new ForbiddenException({
+        code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+        detail: MESSAGES.AUTH.SURFACE_FORBIDDEN,
+      });
+    }
+
     const { accessToken, refreshToken } = await this.createTokenSession(
       user.id,
       user.email,
       user.role,
+      surface,
       metadata,
     );
 
