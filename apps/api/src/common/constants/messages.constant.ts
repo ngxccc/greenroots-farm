@@ -218,6 +218,17 @@ export const MESSAGES = {
     PENDING_LIMIT_EXCEEDED:
       "Maximum number of pending COD orders awaiting confirmation has been reached.",
   },
+  COMPLAINTS: {
+    NOT_ELIGIBLE:
+      "Complaints can only be submitted for delivered or completed orders.",
+    WINDOW_EXPIRED:
+      "The 24-hour post-delivery complaint window has expired for this order.",
+    ALREADY_EXISTS: "A complaint has already been submitted for this order.",
+    MEDIA_INVALID:
+      "Proof media asset is missing on Cloudinary or exceeds allowed size/duration limits.",
+    MEDIA_SERVICE_UNAVAILABLE:
+      "Media verification service is temporarily unavailable.",
+  },
   ADDRESS: {
     NOT_FOUND: "Address not found.",
     LIMIT_REACHED: "You can save at most 10 delivery addresses.",

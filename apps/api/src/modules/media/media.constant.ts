@@ -77,3 +77,9 @@ export const IMAGE_ONLY_MEDIA_FOLDERS: readonly MediaFolder[] = Object.freeze([
   "products",
   "waste_logs",
 ]);
+
+/** Base URL for Cloudinary Admin REST API v1_1. */
+export const CLOUDINARY_ADMIN_API_BASE_URL = "https://api.cloudinary.com/v1_1";
+
+/** Timeout in milliseconds for Cloudinary Admin Resource API metadata verification. */
+export const CLOUDINARY_ADMIN_REQUEST_TIMEOUT_MS = 5_000;

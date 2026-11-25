@@ -4,6 +4,7 @@ import {
   it,
   beforeEach,
   afterEach,
+  mock,
   spyOn,
   setSystemTime,
 } from "bun:test";
@@ -334,6 +335,120 @@ describe("CloudinaryService", () => {
       });
 
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe("verifyComplaintMedia", () => {
+    const originalFetch = globalThis.fetch;
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it("skips remote verification when CLOUDINARY_API_SECRET is not configured", async () => {
+      (env as Record<string, unknown>)["CLOUDINARY_API_SECRET"] = undefined;
+      const fetchMock = mock(() =>
+        Promise.reject(new Error("Should not call fetch")),
+      );
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      await service.verifyComplaintMedia(
+        [
+          `https://res.cloudinary.com/${TEST_CONFIG.CLOUD_NAME}/image/upload/v1/complaints/a.webp`,
+        ],
+        `https://res.cloudinary.com/${TEST_CONFIG.CLOUD_NAME}/video/upload/v1/complaints/v.mp4`,
+      );
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("accepts valid image and video metadata from Cloudinary Admin API", async () => {
+      const fetchMock = mock((url: string) => {
+        if (url.includes("/resources/image/upload/")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ bytes: 2 * 1024 * 1024 }), {
+              status: 200,
+            }),
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ bytes: 10 * 1024 * 1024, duration: 14.5 }),
+            { status: 200 },
+          ),
+        );
+      });
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      await service.verifyComplaintMedia(
+        [
+          `https://res.cloudinary.com/${TEST_CONFIG.CLOUD_NAME}/image/upload/v1/complaints/a.webp`,
+        ],
+        `https://res.cloudinary.com/${TEST_CONFIG.CLOUD_NAME}/video/upload/v1/complaints/v.mp4`,
+      );
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const calledUrls = fetchMock.mock.calls.map(
+        (call) => (call as unknown[])[0] as string,
+      );
+      expect(calledUrls[0]).toContain("/resources/image/upload/complaints/a");
+      expect(calledUrls[1]).toContain("/resources/video/upload/complaints/v");
+    });
+
+    it("rejects video exceeding 15 seconds duration", async () => {
+      globalThis.fetch = mock(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ bytes: 5 * 1024 * 1024, duration: 16 }),
+            {
+              status: 200,
+            },
+          ),
+        ),
+      ) as unknown as typeof fetch;
+
+      let caught: unknown;
+      try {
+        await service.verifyComplaintMedia(
+          [],
+          `https://res.cloudinary.com/${TEST_CONFIG.CLOUD_NAME}/video/upload/v1/complaints/long.mp4`,
+        );
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+    });
+
+    it("rejects missing asset when Cloudinary Admin API reports missing resource", async () => {
+      globalThis.fetch = mock(() =>
+        Promise.resolve(new Response(null, { status: 404 })),
+      ) as unknown as typeof fetch;
+
+      let caught: unknown;
+      try {
+        await service.verifyComplaintMedia([
+          `https://res.cloudinary.com/${TEST_CONFIG.CLOUD_NAME}/image/upload/v1/complaints/missing.webp`,
+        ]);
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+    });
+
+    it("fails closed when Cloudinary Admin API encounters upstream outage", async () => {
+      globalThis.fetch = mock(() =>
+        Promise.resolve(new Response(null, { status: 503 })),
+      ) as unknown as typeof fetch;
+
+      let caught: unknown;
+      try {
+        await service.verifyComplaintMedia([
+          `https://res.cloudinary.com/${TEST_CONFIG.CLOUD_NAME}/image/upload/v1/complaints/err.webp`,
+        ]);
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(Error);
     });
   });
 });

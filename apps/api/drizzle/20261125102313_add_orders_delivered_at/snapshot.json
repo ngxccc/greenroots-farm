@@ -1,0 +1,37 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c1ecda38-5996-40b5-8403-bec4c48ceb37",
+  "prevIds": ["08e4bf6b-b1fc-490d-8e0f-4669b88851ff"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "orders", "delivered_at"],
+      "writes": [
+        "s|col|public.orders.delivered_at",
+        "n|col|public.orders.delivered_at",
+        "e|col|public.orders.delivered_at"
+      ],
+      "reads": ["n|tbl|public.orders", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "orders",
+        "name": "delivered_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

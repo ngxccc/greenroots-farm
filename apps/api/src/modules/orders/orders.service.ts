@@ -483,6 +483,9 @@ export class OrdersService {
         .update(orders)
         .set({
           orderStatus: targetStatus,
+          ...(targetStatus === OrderStatus.DELIVERED
+            ? { deliveredAt: now }
+            : {}),
           updatedAt: now,
         })
         .where(eq(orders.id, orderRow.id))

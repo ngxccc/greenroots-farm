@@ -2,14 +2,25 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { API_ERROR_CODES, type UserRole } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  BUSINESS_RULES,
+  type UserRole,
+} from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { sha256 } from "@/common/utils/crypto.util";
 import { env } from "@/common/config/env.config";
 import type { SignedUploadInput } from "./dto";
-import { FOLDER_PERMISSIONS, MEDIA_CONSTRAINTS } from "./media.constant";
+import {
+  CLOUDINARY_ADMIN_API_BASE_URL,
+  CLOUDINARY_ADMIN_REQUEST_TIMEOUT_MS,
+  FOLDER_PERMISSIONS,
+  MEDIA_CONSTRAINTS,
+  type MediaResourceType,
+} from "./media.constant";
 import type { CloudinarySignatureResult } from "./media.interface";
 
 @Injectable()
@@ -83,5 +94,155 @@ export class CloudinaryService {
       resourceType,
       maxBytes: maxAllowedBytes,
     };
+  }
+
+  /**
+   * Verifies complaint proof images and optional video against Cloudinary's Admin Resource API
+   * outside any database transaction, enforcing actual byte limits and `<= 15s` video duration.
+   * Skips remote HTTP verification when `CLOUDINARY_API_SECRET` is unset in dev/test (`ADR-0009`).
+   */
+  async verifyComplaintMedia(
+    imageUrls: readonly string[],
+    videoUrl?: string | null,
+  ): Promise<void> {
+    if (!env.CLOUDINARY_API_SECRET) {
+      this.logger.warn(
+        "CLOUDINARY_API_SECRET not set; skipping remote Cloudinary metadata verification in development/test",
+      );
+      return;
+    }
+
+    const checks: Promise<void>[] = imageUrls.map((url) =>
+      this.verifyRemoteAsset(url, "image"),
+    );
+
+    if (videoUrl) {
+      checks.push(this.verifyRemoteAsset(videoUrl, "video"));
+    }
+
+    await Promise.all(checks);
+  }
+
+  private async verifyRemoteAsset(
+    rawUrl: string,
+    resourceType: MediaResourceType,
+  ): Promise<void> {
+    const publicId = this.extractPublicId(rawUrl, resourceType);
+    if (!publicId) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.COMPLAINT_MEDIA_INVALID,
+        detail: MESSAGES.COMPLAINTS.MEDIA_INVALID,
+      });
+    }
+
+    const encodedPublicId = publicId
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+    const endpoint = `${CLOUDINARY_ADMIN_API_BASE_URL}/${encodeURIComponent(env.CLOUDINARY_CLOUD_NAME)}/resources/${resourceType}/upload/${encodedPublicId}`;
+    const basicAuth = Buffer.from(
+      `${env.CLOUDINARY_API_KEY}:${env.CLOUDINARY_API_SECRET ?? ""}`,
+    ).toString("base64");
+
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+        },
+        signal: AbortSignal.timeout(CLOUDINARY_ADMIN_REQUEST_TIMEOUT_MS),
+      });
+    } catch {
+      throw new ServiceUnavailableException({
+        code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+        detail: MESSAGES.COMPLAINTS.MEDIA_SERVICE_UNAVAILABLE,
+      });
+    }
+
+    if (response.status === 404) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.COMPLAINT_MEDIA_INVALID,
+        detail: MESSAGES.COMPLAINTS.MEDIA_INVALID,
+      });
+    }
+
+    if (!response.ok) {
+      throw new ServiceUnavailableException({
+        code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+        detail: MESSAGES.COMPLAINTS.MEDIA_SERVICE_UNAVAILABLE,
+      });
+    }
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new ServiceUnavailableException({
+        code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+        detail: MESSAGES.COMPLAINTS.MEDIA_SERVICE_UNAVAILABLE,
+      });
+    }
+
+    const record =
+      typeof payload === "object" && payload !== null
+        ? (payload as Record<string, unknown>)
+        : {};
+    const bytes = record["bytes"];
+    const duration = record["duration"];
+
+    const maxBytes =
+      resourceType === "video"
+        ? MEDIA_CONSTRAINTS.VIDEO.MAX_BYTES
+        : MEDIA_CONSTRAINTS.IMAGE.MAX_BYTES;
+
+    if (typeof bytes !== "number" || bytes <= 0 || bytes > maxBytes) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.COMPLAINT_MEDIA_INVALID,
+        detail: MESSAGES.COMPLAINTS.MEDIA_INVALID,
+      });
+    }
+
+    if (
+      resourceType === "video" &&
+      (typeof duration !== "number" ||
+        duration <= 0 ||
+        duration > BUSINESS_RULES.COMPLAINT_VIDEO_MAX_SECONDS)
+    ) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.COMPLAINT_MEDIA_INVALID,
+        detail: MESSAGES.COMPLAINTS.MEDIA_INVALID,
+      });
+    }
+  }
+
+  private extractPublicId(
+    rawUrl: string,
+    resourceType: MediaResourceType,
+  ): string | null {
+    let parsed: URL;
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      return null;
+    }
+
+    const prefix = `/${env.CLOUDINARY_CLOUD_NAME}/${resourceType}/upload/`;
+    if (!parsed.pathname.startsWith(prefix)) {
+      return null;
+    }
+
+    const remainder = parsed.pathname.slice(prefix.length);
+    const segments = remainder.split("/").filter(Boolean);
+    const withoutVersion = /^v\d+$/.test(segments[0] ?? "")
+      ? segments.slice(1)
+      : segments;
+
+    if (withoutVersion.length === 0) {
+      return null;
+    }
+
+    const joined = withoutVersion.map((s) => decodeURIComponent(s)).join("/");
+    return joined.replace(/\.[^./]+$/, "");
   }
 }

@@ -50,6 +50,7 @@ export const orders = snakeCase.table(
       .default(OrderStatus.PENDING_CONFIRMATION)
       .notNull(),
     reservationExpiresAt: timestamp({ withTimezone: true, mode: "date" }),
+    deliveredAt: timestamp({ withTimezone: true, mode: "date" }),
   },
   (table) => [
     uniqueIndex("orders_order_code_uidx").on(table.orderCode),
