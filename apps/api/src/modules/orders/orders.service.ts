@@ -505,79 +505,44 @@ export class OrdersService {
    */
   async expireStaleReservations(now: Date = new Date()): Promise<number> {
     const hoursThreshold = await this.resolveHoursThreshold();
+    let expiredCount = 0;
 
-    return this.db.transaction(async (tx) => {
-      const expiredOrders = await tx
-        .select({
-          id: orders.id,
-          customerId: orders.customerId,
-          orderStatus: orders.orderStatus,
-          loyaltyPointsUsed: orders.loyaltyPointsUsed,
-        })
-        .from(orders)
-        .where(
-          and(
-            inArray(orders.orderStatus, [
-              OrderStatus.PENDING_PAYMENT,
-              OrderStatus.PENDING_CONFIRMATION,
-            ]),
-            isNotNull(orders.reservationExpiresAt),
-            lte(orders.reservationExpiresAt, now),
-          ),
-        )
-        .orderBy(asc(orders.reservationExpiresAt), asc(orders.id))
-        .limit(EXPIRY_SWEEP_BATCH_SIZE)
-        .for("update", { skipLocked: true });
-
-      if (expiredOrders.length === 0) {
-        return 0;
-      }
-
-      for (const orderRow of expiredOrders) {
-        if (ALLOCATED_CANCELLABLE_STATUSES.includes(orderRow.orderStatus)) {
-          await this.releaseOrderAllocations(
-            tx,
-            orderRow.id,
-            hoursThreshold,
-            now,
-          );
-        }
-
-        if (orderRow.loyaltyPointsUsed > 0) {
-          await this.refundLoyaltyPoints(
-            tx,
-            orderRow.customerId,
-            orderRow.loyaltyPointsUsed,
-          );
-        }
-
-        await tx
-          .update(orders)
-          .set({
-            orderStatus: OrderStatus.CANCELLED,
-            paymentStatus: PaymentStatus.CANCELLED,
-            reservationExpiresAt: null,
-            updatedAt: now,
-          })
-          .where(eq(orders.id, orderRow.id));
-
-        await tx
-          .update(payments)
-          .set({
-            status: PaymentStatus.CANCELLED,
-            updatedAt: now,
-          })
+    // Claim and cancel one expired order per short transaction so lock order strictly stays orders -> batches (id ASC) -> users across the batch.
+    for (let i = 0; i < EXPIRY_SWEEP_BATCH_SIZE; i += 1) {
+      const expiredOne = await this.db.transaction(async (tx) => {
+        const [orderRow] = await tx
+          .select(ORDER_COLUMNS)
+          .from(orders)
           .where(
             and(
-              eq(payments.orderId, orderRow.id),
-              eq(payments.status, PaymentStatus.PENDING),
-              eq(payments.transactionType, PaymentTransactionType.PAYMENT),
+              inArray(orders.orderStatus, [
+                OrderStatus.PENDING_PAYMENT,
+                OrderStatus.PENDING_CONFIRMATION,
+              ]),
+              isNotNull(orders.reservationExpiresAt),
+              lte(orders.reservationExpiresAt, now),
             ),
-          );
+          )
+          .orderBy(asc(orders.reservationExpiresAt), asc(orders.id))
+          .limit(1)
+          .for("update", { skipLocked: true });
+
+        if (!orderRow) {
+          return false;
+        }
+
+        await this.cancelOrderWithinTx(tx, orderRow, hoursThreshold, now);
+        return true;
+      });
+
+      if (!expiredOne) {
+        break;
       }
 
-      return expiredOrders.length;
-    });
+      expiredCount += 1;
+    }
+
+    return expiredCount;
   }
 
   /**

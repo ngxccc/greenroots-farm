@@ -962,7 +962,7 @@ describe("Orders Checkout Integration", () => {
     });
 
     // Invariant: INV-ORD-21
-    it("returns not found for orders owned by another customer and rejects cancellation after confirmation", async () => {
+    it("rejects cancellation when the order belongs to another customer or is already confirmed", async () => {
       const checkoutRes = await request(app.getHttpServer())
         .post("/api/v1/orders/checkout")
         .set(customerHeader)
@@ -1000,7 +1000,7 @@ describe("Orders Checkout Integration", () => {
     });
   });
 
-  describe("OrdersService.expireStaleReservations", () => {
+  describe("Reservation Expiry", () => {
     // Invariant: INV-ORD-22
     it("cancels expired reservations, restores stock and loyalty points, and skips non-expired orders", async () => {
       const ordersService = app.get(OrdersService);

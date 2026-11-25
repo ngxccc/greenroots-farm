@@ -2081,7 +2081,7 @@ describe("OrdersService", () => {
     });
 
     // Invariant: INV-ORD-21
-    it("throws not found when the order does not exist or belongs to another customer", async () => {
+    it("rejects cancellation when the order is missing or belongs to another customer", async () => {
       for (const queued of [[], [buildOrderRow({ customerId: otherUserId })]]) {
         mockDb.setSelectResultsQueue([queued]);
 
@@ -2209,6 +2209,8 @@ describe("OrdersService", () => {
           {
             id: orderId,
             customerId: userId,
+            paymentMethod: PaymentMethod.COD,
+            paymentStatus: PaymentStatus.PENDING,
             orderStatus: OrderStatus.PENDING_CONFIRMATION,
             loyaltyPointsUsed: 100,
           },
@@ -2229,6 +2231,8 @@ describe("OrdersService", () => {
           },
         ],
         [{ id: userId }],
+        [{ id: orderId, orderStatus: OrderStatus.CANCELLED }],
+        [],
       ]);
 
       const expiredCount = await service.expireStaleReservations(now);
@@ -2281,10 +2285,14 @@ describe("OrdersService", () => {
           {
             id: orderId,
             customerId: userId,
+            paymentMethod: PaymentMethod.PAYOS,
+            paymentStatus: PaymentStatus.PENDING,
             orderStatus: OrderStatus.PENDING_PAYMENT,
             loyaltyPointsUsed: 0,
           },
         ],
+        [{ id: orderId, orderStatus: OrderStatus.CANCELLED }],
+        [],
       ]);
 
       const expiredCount = await service.expireStaleReservations(now);

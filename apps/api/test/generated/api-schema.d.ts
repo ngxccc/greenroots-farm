@@ -1023,8 +1023,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Confirm a pending order with atomic FEFO batch allocation
-         * @description Locks candidate sellable batches in ascending ID order, allocates FEFO stock into batch_allocations, transitions the order to confirmed, and returns active allocations idempotently.
+         * Confirm a pending order with pre-allocated FEFO stock
+         * @description Verifies active FEFO batch allocations, clears reservation expiry, and transitions the order to confirmed idempotently.
          */
         post: operations["OrdersController_confirmOrder_v1"];
         delete?: never;
