@@ -1,0 +1,3 @@
+ALTER TABLE "subscription_plans" ADD CONSTRAINT "subscription_plans_price_positive" CHECK ("price" > 0);--> statement-breakpoint
+ALTER TABLE "subscription_plans" ADD CONSTRAINT "subscription_plans_total_deliveries_positive" CHECK ("total_deliveries" > 0);--> statement-breakpoint
+ALTER TABLE "subscription_plans" ADD CONSTRAINT "subscription_plans_weight_per_delivery_kg_positive" CHECK ("weight_per_delivery_kg" > 0);

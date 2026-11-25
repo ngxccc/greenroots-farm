@@ -102,6 +102,8 @@ export const API_ERROR_CODES = {
   PRODUCT_NOT_FOUND: "PRODUCT_NOT_FOUND",
   PRODUCT_SLUG_ALREADY_EXISTS: "PRODUCT_SLUG_ALREADY_EXISTS",
   PRODUCT_PRICE_INVALID: "PRODUCT_PRICE_INVALID",
+  SUBSCRIPTION_PLAN_NOT_FOUND: "SUBSCRIPTION_PLAN_NOT_FOUND",
+  SUBSCRIPTION_PLAN_SLUG_CONFLICT: "SUBSCRIPTION_PLAN_SLUG_CONFLICT",
 
   // Persistence, Concurrency & Database Violations
   CONFLICT_RECORD: "CONFLICT_RECORD",
@@ -282,6 +284,10 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Đường dẫn (slug) này đã tồn tại trên một sản phẩm đang hoạt động.",
   [API_ERROR_CODES.PRODUCT_PRICE_INVALID]:
     "Giá khuyến mãi phải nhỏ hơn hoặc bằng giá gốc và không được âm.",
+  [API_ERROR_CODES.SUBSCRIPTION_PLAN_NOT_FOUND]:
+    "Không tìm thấy gói đăng ký định kỳ yêu cầu.",
+  [API_ERROR_CODES.SUBSCRIPTION_PLAN_SLUG_CONFLICT]:
+    "Đường dẫn này đã tồn tại trên một gói đăng ký đang hoạt động.",
 
   // Persistence & Database
   [API_ERROR_CODES.CONFLICT_RECORD]: "Dữ liệu này đã tồn tại trong hệ thống.",

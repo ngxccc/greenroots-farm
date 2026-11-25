@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -36,6 +37,15 @@ export const subscriptionPlans = snakeCase.table(
       .on(table.slug)
       .where(sql`${table.deletedAt} IS NULL`),
     index("subscription_plans_is_active_idx").on(table.isActive),
+    check("subscription_plans_price_positive", sql`${table.price} > 0`),
+    check(
+      "subscription_plans_total_deliveries_positive",
+      sql`${table.totalDeliveries} > 0`,
+    ),
+    check(
+      "subscription_plans_weight_per_delivery_kg_positive",
+      sql`${table.weightPerDeliveryKg} > 0`,
+    ),
   ],
 );
 

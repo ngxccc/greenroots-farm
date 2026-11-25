@@ -1,0 +1,86 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "b07c3cb7-965f-4f16-a16a-198fda2787e3",
+  "prevIds": ["c1ecda38-5996-40b5-8403-bec4c48ceb37"],
+  "footprints": [
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "subscription_plans"],
+      "writes": [
+        "s|ck|public.subscription_plans.subscription_plans_price_positive",
+        "n|ck|public.subscription_plans.subscription_plans_price_positive",
+        "e|ck|public.subscription_plans.subscription_plans_price_positive",
+        "n|con|public.subscription_plans.subscription_plans_price_positive"
+      ],
+      "reads": [
+        "n|tbl|public.subscription_plans",
+        "n|sch|public",
+        "n|col|public.subscription_plans.price"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "subscription_plans"],
+      "writes": [
+        "s|ck|public.subscription_plans.subscription_plans_total_deliveries_positive",
+        "n|ck|public.subscription_plans.subscription_plans_total_deliveries_positive",
+        "e|ck|public.subscription_plans.subscription_plans_total_deliveries_positive",
+        "n|con|public.subscription_plans.subscription_plans_total_deliveries_positive"
+      ],
+      "reads": [
+        "n|tbl|public.subscription_plans",
+        "n|sch|public",
+        "n|col|public.subscription_plans.total_deliveries"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "subscription_plans"],
+      "writes": [
+        "s|ck|public.subscription_plans.subscription_plans_weight_per_delivery_kg_positive",
+        "n|ck|public.subscription_plans.subscription_plans_weight_per_delivery_kg_positive",
+        "e|ck|public.subscription_plans.subscription_plans_weight_per_delivery_kg_positive",
+        "n|con|public.subscription_plans.subscription_plans_weight_per_delivery_kg_positive"
+      ],
+      "reads": [
+        "n|tbl|public.subscription_plans",
+        "n|sch|public",
+        "n|col|public.subscription_plans.weight_per_delivery_kg"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscription_plans",
+        "name": "subscription_plans_price_positive",
+        "value": "\"price\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscription_plans",
+        "name": "subscription_plans_total_deliveries_positive",
+        "value": "\"total_deliveries\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscription_plans",
+        "name": "subscription_plans_weight_per_delivery_kg_positive",
+        "value": "\"weight_per_delivery_kg\" > 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}
