@@ -854,4 +854,80 @@ describe("Storefront Auth Actions", () => {
       expect(cookieClears).toBe(0);
     });
   });
+
+  describe("client metadata forwarding", () => {
+    it("forwards sanitized client headers across login, profile hydration, and auth actions", async () => {
+      // Invariant: INV-SF-AUTH-10
+      const forwardedHeaders = {
+        "User-Agent": "Mozilla/5.0 Chrome/130.0",
+        "X-BFF-Client-IP": "198.51.100.25",
+        "X-Internal-Proxy-Secret": "test-secret-16-chars",
+      };
+      const readClientHeaders = () => Promise.resolve(forwardedHeaders);
+      const captured: (Record<string, string> | undefined)[] = [];
+
+      await executeLoginAction(
+        { email: "minhanh@email.com", password: "GreenRoots@1" },
+        {
+          readClientHeaders,
+          postLogin: (_body, headers) => {
+            captured.push(headers);
+            return Promise.resolve({
+              data: {
+                data: {
+                  accessToken: "jwt-access-1",
+                  refreshToken: "opaque-refresh-1",
+                  user: {
+                    id: sampleProfile.id,
+                    email: sampleProfile.email,
+                    fullName: sampleProfile.fullName,
+                    role: "customer",
+                    status: "active",
+                  },
+                },
+              },
+            });
+          },
+          saveCookies: () => Promise.resolve(),
+          fetchMe: (_token, headers) => {
+            captured.push(headers);
+            return Promise.resolve({ data: { data: sampleProfile } });
+          },
+        },
+      );
+
+      await executeForgotPasswordAction(
+        { email: "minhanh@email.com" },
+        {
+          readClientHeaders,
+          postForgotPassword: (_body, headers) => {
+            captured.push(headers);
+            return Promise.resolve({ data: { success: true } });
+          },
+        },
+      );
+
+      await executeLogoutAllAction({
+        readClientHeaders,
+        runWithRefresh: (op) =>
+          op().then((res) => ({
+            ...res,
+            refreshOutcome: "not_needed" as const,
+          })),
+        postLogoutAll: (headers) => {
+          captured.push(headers);
+          return Promise.resolve({
+            response: new Response(null, { status: 200 }),
+            data: { success: true },
+          });
+        },
+        clearCookies: () => Promise.resolve(),
+      });
+
+      expect(captured).toHaveLength(4);
+      for (const item of captured) {
+        expect(item).toEqual(forwardedHeaders);
+      }
+    });
+  });
 });

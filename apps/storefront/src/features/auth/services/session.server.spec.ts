@@ -173,6 +173,46 @@ describe("Server Auth Session", () => {
       expect(cleared).toBe(false);
       expect(result.response.status).toBe(401);
     });
+
+    it("forwards Server Action client headers into refreshSingleFlight on 401 retry", async () => {
+      // Invariant: INV-SF-AUTH-10
+      let capturedHeaders: Record<string, string> | undefined;
+      let attempts = 0;
+
+      const result = await runWithServerActionRefresh(
+        () => {
+          attempts++;
+          return Promise.resolve({
+            response: new Response(null, {
+              status: attempts === 1 ? 401 : 200,
+            }),
+          });
+        },
+        {
+          readRefreshToken: () => Promise.resolve("r1"),
+          readClientHeaders: () =>
+            Promise.resolve({
+              "User-Agent": "ActionBrowser/1.0",
+              "X-BFF-Client-IP": "203.0.113.55",
+            }),
+          refresh: (_token, options) => {
+            capturedHeaders = options?.clientHeaders;
+            return Promise.resolve({
+              status: "rotated",
+              accessToken: "a2",
+              refreshToken: "r2",
+            });
+          },
+          applyTokens: () => Promise.resolve(),
+        },
+      );
+
+      expect(result.refreshOutcome).toBe("rotated");
+      expect(capturedHeaders).toEqual({
+        "User-Agent": "ActionBrowser/1.0",
+        "X-BFF-Client-IP": "203.0.113.55",
+      });
+    });
   });
 
   describe("resolveAccountProfileSession", () => {

@@ -284,5 +284,34 @@ describe("Storefront Auth Proxy", () => {
       expect(body.code).toBe("SERVICE_UNAVAILABLE");
       expect(body.type).toBe("/errors/service-unavailable");
     });
+
+    it("forwards sanitized client User-Agent and IP headers into refreshSingleFlight", async () => {
+      // Invariant: INV-SF-AUTH-10
+      let capturedHeaders: Record<string, string> | undefined;
+      const req = new NextRequest("http://localhost:3001/orders/123", {
+        headers: {
+          cookie: "refreshToken=r1",
+          "user-agent": "  Mozilla/5.0 TestBrowser  ",
+          "x-forwarded-for": "127.0.0.1, 198.51.100.77",
+        },
+      });
+
+      const res = await handleStorefrontProxy(req, {
+        isSecure: false,
+        maintenanceMode: false,
+        refresh: (_token, options) => {
+          capturedHeaders = options?.clientHeaders;
+          return Promise.resolve({
+            status: "rotated",
+            accessToken: "a2",
+            refreshToken: "r2",
+          });
+        },
+      });
+
+      expect(res.status).toBe(200);
+      expect(capturedHeaders?.["User-Agent"]).toBe("Mozilla/5.0 TestBrowser");
+      expect(capturedHeaders?.["X-BFF-Client-IP"]).toBe("198.51.100.77");
+    });
   });
 });

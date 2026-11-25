@@ -14,6 +14,7 @@ import {
   actionRefreshedTokenStorage,
   readServerAccessToken,
 } from "@/features/auth/services/server-token";
+import { readServerActionClientHeaders } from "@/features/auth/services/client-headers";
 import { refreshSingleFlight } from "@/features/auth/services/single-flight-refresh";
 
 export type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
@@ -95,6 +96,7 @@ export async function clearServerSessionCookies(): Promise<void> {
  */
 export interface ServerActionRefreshDeps {
   readonly readRefreshToken?: () => Promise<string | undefined>;
+  readonly readClientHeaders?: () => Promise<Record<string, string>>;
   readonly refresh?: typeof refreshSingleFlight;
   readonly applyTokens?: (tokens: SessionTokenPair) => Promise<void>;
   readonly clearTokens?: () => Promise<void>;
@@ -143,8 +145,11 @@ export async function runWithServerActionRefresh<T>(
     return { ...initialResult, refreshOutcome: "missing_refresh_token" };
   }
 
+  const readClientHeaders =
+    deps?.readClientHeaders ?? readServerActionClientHeaders;
+  const clientHeaders = await readClientHeaders();
   const refresh = deps?.refresh ?? refreshSingleFlight;
-  const refreshOutcome = await refresh(refreshToken);
+  const refreshOutcome = await refresh(refreshToken, { clientHeaders });
 
   if (refreshOutcome.status === "rotated") {
     const tokens: SessionTokenPair = {

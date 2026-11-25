@@ -28,6 +28,7 @@ import {
   verifyEmailSchema,
 } from "@/features/auth/schemas/auth-validation";
 import type { SessionTokenPair } from "@/features/auth/services/cookies";
+import { readServerActionClientHeaders } from "@/features/auth/services/client-headers";
 import {
   clearServerSessionCookies,
   runWithServerActionRefresh,
@@ -112,11 +113,15 @@ export type LogoutAllActionResult =
  * Optional dependency overrides for isolated unit testing of `executeUpdateProfileAction`.
  */
 export interface UpdateProfileActionDeps {
-  readonly patchMe?: (body: UpdateProfileDto) => Promise<{
+  readonly patchMe?: (
+    body: UpdateProfileDto,
+    headers?: Record<string, string>,
+  ) => Promise<{
     response: Response;
     data?: { data: StorefrontSessionUser };
     error?: unknown;
   }>;
+  readonly readClientHeaders?: () => Promise<Record<string, string>>;
   readonly runWithRefresh?: typeof runWithServerActionRefresh;
   readonly clearCookies?: () => Promise<void>;
 }
@@ -125,11 +130,12 @@ export interface UpdateProfileActionDeps {
  * Optional dependency overrides for isolated unit testing of `executeLogoutAllAction`.
  */
 export interface LogoutAllActionDeps {
-  readonly postLogoutAll?: () => Promise<{
+  readonly postLogoutAll?: (headers?: Record<string, string>) => Promise<{
     response: Response;
     data?: unknown;
     error?: unknown;
   }>;
+  readonly readClientHeaders?: () => Promise<Record<string, string>>;
   readonly runWithRefresh?: typeof runWithServerActionRefresh;
   readonly clearCookies?: () => Promise<void>;
 }
@@ -138,65 +144,92 @@ export interface LogoutAllActionDeps {
  * Optional dependency overrides for isolated unit testing of `executeLoginAction`.
  */
 export interface LoginActionDeps {
-  readonly postLogin?: (body: LoginDto) => Promise<{
+  readonly postLogin?: (
+    body: LoginDto,
+    headers?: Record<string, string>,
+  ) => Promise<{
     data?: { data: LoginResponseDto };
     error?: unknown;
   }>;
   readonly saveCookies?: (tokens: SessionTokenPair) => Promise<void>;
-  readonly fetchMe?: (accessToken: string) => Promise<{
+  readonly fetchMe?: (
+    accessToken: string,
+    headers?: Record<string, string>,
+  ) => Promise<{
     data?: { data: StorefrontSessionUser };
     error?: unknown;
   }>;
+  readonly readClientHeaders?: () => Promise<Record<string, string>>;
 }
 
 /**
  * Optional dependency overrides for isolated unit testing of `executeRegisterAction`.
  */
 export interface RegisterActionDeps {
-  readonly postRegister?: (body: RegisterDto) => Promise<{
+  readonly postRegister?: (
+    body: RegisterDto,
+    headers?: Record<string, string>,
+  ) => Promise<{
     data?: unknown;
     error?: unknown;
   }>;
+  readonly readClientHeaders?: () => Promise<Record<string, string>>;
 }
 
 /**
  * Optional dependency overrides for isolated unit testing of `executeResendVerificationAction`.
  */
 export interface ResendVerificationActionDeps {
-  readonly postResend?: (body: ResendVerificationDto) => Promise<{
+  readonly postResend?: (
+    body: ResendVerificationDto,
+    headers?: Record<string, string>,
+  ) => Promise<{
     data?: unknown;
     error?: unknown;
   }>;
+  readonly readClientHeaders?: () => Promise<Record<string, string>>;
 }
 
 /**
  * Optional dependency overrides for isolated unit testing of `executeVerifyEmailAction`.
  */
 export interface VerifyEmailActionDeps {
-  readonly postVerify?: (body: VerifyEmailDto) => Promise<{
+  readonly postVerify?: (
+    body: VerifyEmailDto,
+    headers?: Record<string, string>,
+  ) => Promise<{
     data?: unknown;
     error?: unknown;
   }>;
+  readonly readClientHeaders?: () => Promise<Record<string, string>>;
 }
 
 /**
  * Optional dependency overrides for isolated unit testing of `executeForgotPasswordAction`.
  */
 export interface ForgotPasswordActionDeps {
-  readonly postForgotPassword?: (body: ForgotPasswordDto) => Promise<{
+  readonly postForgotPassword?: (
+    body: ForgotPasswordDto,
+    headers?: Record<string, string>,
+  ) => Promise<{
     data?: unknown;
     error?: unknown;
   }>;
+  readonly readClientHeaders?: () => Promise<Record<string, string>>;
 }
 
 /**
  * Optional dependency overrides for isolated unit testing of `executeResetPasswordAction`.
  */
 export interface ResetPasswordActionDeps {
-  readonly postResetPassword?: (body: ResetPasswordDto) => Promise<{
+  readonly postResetPassword?: (
+    body: ResetPasswordDto,
+    headers?: Record<string, string>,
+  ) => Promise<{
     data?: unknown;
     error?: unknown;
   }>;
+  readonly readClientHeaders?: () => Promise<Record<string, string>>;
   readonly clearCookies?: () => Promise<void>;
 }
 
@@ -221,13 +254,17 @@ export async function executeLoginAction(
     );
   }
 
+  const clientHeaders = await (
+    deps?.readClientHeaders ?? readServerActionClientHeaders
+  )();
   const postLogin =
     deps?.postLogin ??
-    ((body: LoginDto) => api.POST("/api/v1/auth/login", { body }));
+    ((body: LoginDto, headers?: Record<string, string>) =>
+      api.POST("/api/v1/auth/login", { body, headers }));
 
   let response: { data?: { data: LoginResponseDto }; error?: unknown };
   try {
-    response = await postLogin(parsed.data);
+    response = await postLogin(parsed.data, clientHeaders);
   } catch {
     return buildNetworkFailure();
   }
@@ -254,14 +291,14 @@ export async function executeLoginAction(
 
   const fetchMe =
     deps?.fetchMe ??
-    ((token: string) =>
+    ((token: string, headers?: Record<string, string>) =>
       api.GET("/api/v1/users/me", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...headers, Authorization: `Bearer ${token}` },
       }));
 
   // Pass the freshly issued bearer token explicitly because cookies() in the same action invocation may lag.
   try {
-    const profileResult = await fetchMe(accessToken);
+    const profileResult = await fetchMe(accessToken, clientHeaders);
     if (!profileResult.error && profileResult.data?.data) {
       return { ok: true, user: profileResult.data.data };
     }
@@ -305,12 +342,16 @@ export async function executeRegisterAction(
     ...(phone ? { phone } : {}),
   };
 
+  const clientHeaders = await (
+    deps?.readClientHeaders ?? readServerActionClientHeaders
+  )();
   const postRegister =
     deps?.postRegister ??
-    ((body: RegisterDto) => api.POST("/api/v1/auth/register", { body }));
+    ((body: RegisterDto, headers?: Record<string, string>) =>
+      api.POST("/api/v1/auth/register", { body, headers }));
 
   try {
-    const response = await postRegister(payload);
+    const response = await postRegister(payload, clientHeaders);
     if (response.error) {
       return buildActionFailure(
         response.error,
@@ -331,7 +372,11 @@ async function executeValidatedVoidAuthPost<TPayload>(params: {
   readonly fallbackErrorCode: ApiErrorCode;
   readonly instance: string;
   readonly successMessage: string;
-  readonly post: (body: TPayload) => Promise<{
+  readonly readClientHeaders?: () => Promise<Record<string, string>>;
+  readonly post: (
+    body: TPayload,
+    headers?: Record<string, string>,
+  ) => Promise<{
     data?: unknown;
     error?: unknown;
   }>;
@@ -346,8 +391,12 @@ async function executeValidatedVoidAuthPost<TPayload>(params: {
     );
   }
 
+  const clientHeaders = await (
+    params.readClientHeaders ?? readServerActionClientHeaders
+  )();
+
   try {
-    const response = await params.post(parsed.data);
+    const response = await params.post(parsed.data, clientHeaders);
     if (response.error) {
       return buildActionFailure(
         response.error,
@@ -383,8 +432,8 @@ export async function executeResendVerificationAction(
 ): Promise<ResendVerificationActionResult> {
   const postResend =
     deps?.postResend ??
-    ((body: ResendVerificationDto) =>
-      api.POST("/api/v1/auth/resend-verification", { body }));
+    ((body: ResendVerificationDto, headers?: Record<string, string>) =>
+      api.POST("/api/v1/auth/resend-verification", { body, headers }));
 
   return executeValidatedVoidAuthPost({
     input,
@@ -394,6 +443,7 @@ export async function executeResendVerificationAction(
     instance: "/resend-verification",
     successMessage:
       "Nếu email đã đăng ký và chưa được xác thực, hệ thống đã gửi liên kết kích hoạt mới. Vui lòng kiểm tra hộp thư hoặc thư mục Spam.",
+    readClientHeaders: deps?.readClientHeaders,
     post: postResend,
   });
 }
@@ -411,7 +461,8 @@ export async function executeVerifyEmailAction(
 ): Promise<VerifyEmailActionResult> {
   const postVerify =
     deps?.postVerify ??
-    ((body: VerifyEmailDto) => api.POST("/api/v1/auth/verify-email", { body }));
+    ((body: VerifyEmailDto, headers?: Record<string, string>) =>
+      api.POST("/api/v1/auth/verify-email", { body, headers }));
 
   return executeValidatedVoidAuthPost({
     input,
@@ -421,6 +472,7 @@ export async function executeVerifyEmailAction(
     instance: "/verify-email",
     successMessage:
       "Xác thực email thành công. Bạn đã có thể đăng nhập vào tài khoản GreenRoots Farm.",
+    readClientHeaders: deps?.readClientHeaders,
     post: postVerify,
   });
 }
@@ -439,8 +491,8 @@ export async function executeForgotPasswordAction(
 ): Promise<ForgotPasswordActionResult> {
   const postForgotPassword =
     deps?.postForgotPassword ??
-    ((body: ForgotPasswordDto) =>
-      api.POST("/api/v1/auth/forgot-password", { body }));
+    ((body: ForgotPasswordDto, headers?: Record<string, string>) =>
+      api.POST("/api/v1/auth/forgot-password", { body, headers }));
 
   return executeValidatedVoidAuthPost({
     input,
@@ -450,6 +502,7 @@ export async function executeForgotPasswordAction(
     instance: "/forgot-password",
     successMessage:
       "Liên kết đặt lại mật khẩu sẽ được gửi vào địa chỉ email nếu tồn tại trên hệ thống. Liên kết có hiệu lực trong 15 phút — vui lòng kiểm tra hộp thư đến hoặc Spam.",
+    readClientHeaders: deps?.readClientHeaders,
     post: postForgotPassword,
   });
 }
@@ -468,8 +521,8 @@ export async function executeResetPasswordAction(
 ): Promise<ResetPasswordActionResult> {
   const postResetPassword =
     deps?.postResetPassword ??
-    ((body: ResetPasswordDto) =>
-      api.POST("/api/v1/auth/reset-password", { body }));
+    ((body: ResetPasswordDto, headers?: Record<string, string>) =>
+      api.POST("/api/v1/auth/reset-password", { body, headers }));
   const clearCookies = deps?.clearCookies ?? clearServerSessionCookies;
 
   return executeValidatedVoidAuthPost({
@@ -480,6 +533,7 @@ export async function executeResetPasswordAction(
     instance: "/reset-password",
     successMessage:
       "Mật khẩu đã được cập nhật thành công. Toàn bộ phiên đăng nhập trước đó trên mọi thiết bị đã được đăng xuất.",
+    readClientHeaders: deps?.readClientHeaders,
     post: postResetPassword,
     onSuccess: clearCookies,
   });
@@ -551,14 +605,21 @@ export async function executeUpdateProfileAction(
     );
   }
 
+  const clientHeaders = await (
+    deps?.readClientHeaders ?? readServerActionClientHeaders
+  )();
   const patchMe =
     deps?.patchMe ??
-    ((body: UpdateProfileDto) => api.PATCH("/api/v1/users/me", { body }));
+    ((body: UpdateProfileDto, headers?: Record<string, string>) =>
+      api.PATCH("/api/v1/users/me", { body, headers }));
   const runWithRefresh = deps?.runWithRefresh ?? runWithServerActionRefresh;
   const clearCookies = deps?.clearCookies ?? clearServerSessionCookies;
 
   try {
-    const result = await runWithRefresh(() => patchMe(parsed.data));
+    const result = await runWithRefresh(
+      () => patchMe(parsed.data, clientHeaders),
+      { readClientHeaders: deps?.readClientHeaders },
+    );
     if (!result.error && result.data?.data) {
       return { ok: true, user: result.data.data };
     }
@@ -600,13 +661,20 @@ export async function executeUpdateProfileAction(
 export async function executeLogoutAllAction(
   deps?: LogoutAllActionDeps,
 ): Promise<LogoutAllActionResult> {
+  const clientHeaders = await (
+    deps?.readClientHeaders ?? readServerActionClientHeaders
+  )();
   const postLogoutAll =
-    deps?.postLogoutAll ?? (() => api.POST("/api/v1/auth/logout-all"));
+    deps?.postLogoutAll ??
+    ((headers?: Record<string, string>) =>
+      api.POST("/api/v1/auth/logout-all", { headers }));
   const runWithRefresh = deps?.runWithRefresh ?? runWithServerActionRefresh;
   const clearCookies = deps?.clearCookies ?? clearServerSessionCookies;
 
   try {
-    const result = await runWithRefresh(postLogoutAll);
+    const result = await runWithRefresh(() => postLogoutAll(clientHeaders), {
+      readClientHeaders: deps?.readClientHeaders,
+    });
 
     if (!result.error && result.response.ok) {
       await clearCookies();

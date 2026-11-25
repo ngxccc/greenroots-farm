@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { env } from "@/env";
+import { buildForwardedClientHeaders } from "@/features/auth/services/client-headers";
 import type { ApiSuccessResponse } from "@/types/api";
 import type { components } from "@/types/api-schema";
 
@@ -23,14 +24,18 @@ export type SingleFlightRefreshResult =
 /**
  * Injectable transport function calling `POST /api/v1/auth/refresh`.
  */
-export type RefreshFetcher = (refreshToken: string) => Promise<Response>;
+export type RefreshFetcher = (
+  refreshToken: string,
+  clientHeaders?: Record<string, string>,
+) => Promise<Response>;
 
 /**
- * Optional clock and transport overrides for deterministic unit testing.
+ * Optional clock, transport, and forwarded client header overrides.
  */
 export interface RefreshSingleFlightOptions {
   readonly fetcher?: RefreshFetcher;
   readonly now?: () => number;
+  readonly clientHeaders?: Record<string, string>;
 }
 
 type RefreshApiEnvelope = ApiSuccessResponse<
@@ -65,10 +70,17 @@ function pruneExpiredGraceMarkers(nowMs: number): void {
   }
 }
 
-async function defaultRefreshFetcher(refreshToken: string): Promise<Response> {
+async function defaultRefreshFetcher(
+  refreshToken: string,
+  clientHeaders?: Record<string, string>,
+): Promise<Response> {
+  const forwarded = clientHeaders ?? buildForwardedClientHeaders(undefined);
   return fetch(`${env.API_BASE_URL}/api/v1/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      ...forwarded,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ refreshToken }),
     cache: "no-store",
     signal: AbortSignal.timeout(REFRESH_FETCH_TIMEOUT_MS),
@@ -80,9 +92,10 @@ async function executeRefresh(
   refreshToken: string,
   fetcher: RefreshFetcher,
   now: () => number,
+  clientHeaders?: Record<string, string>,
 ): Promise<SingleFlightRefreshResult> {
   try {
-    const response = await fetcher(refreshToken);
+    const response = await fetcher(refreshToken, clientHeaders);
 
     if (response.ok) {
       const payload = (await response.json()) as Partial<RefreshApiEnvelope>;
@@ -123,7 +136,7 @@ async function executeRefresh(
  * so single-use refresh tokens (`ADR-0015`) are never self-invalidated by parallel SSR/action calls.
  *
  * @param refreshToken Raw opaque refresh token from `httpOnly` cookie.
- * @param options Optional injectable `fetcher` and `now` clock for deterministic tests.
+ * @param options Optional injectable `fetcher`, `now` clock, and forwarded `clientHeaders`.
  * @returns Rotation outcome indicating whether cookies should be updated, preserved, or cleared.
  */
 export async function refreshSingleFlight(
@@ -153,6 +166,7 @@ export async function refreshSingleFlight(
     refreshToken,
     fetcher,
     now,
+    options?.clientHeaders,
   ).finally(() => {
     inflightRefreshes.delete(digest);
   });

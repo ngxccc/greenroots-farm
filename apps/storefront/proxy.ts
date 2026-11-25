@@ -12,6 +12,7 @@ import {
   sanitizeRedirectPath,
   shouldProactivelyRefresh,
 } from "@/features/auth/services/cookies";
+import { buildForwardedClientHeaders } from "@/features/auth/services/client-headers";
 import { refreshSingleFlight } from "@/features/auth/services/single-flight-refresh";
 
 const SKIP_REFRESH_PATHS = [
@@ -132,7 +133,8 @@ export async function handleStorefrontProxy(
 
   if (canRefresh && refreshToken) {
     const refresh = deps?.refresh ?? refreshSingleFlight;
-    const outcome = await refresh(refreshToken);
+    const clientHeaders = buildForwardedClientHeaders(request.headers);
+    const outcome = await refresh(refreshToken, { clientHeaders });
 
     if (outcome.status === "rotated") {
       requestHeaders.set(REFRESHED_ACCESS_TOKEN_HEADER, outcome.accessToken);

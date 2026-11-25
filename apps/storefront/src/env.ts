@@ -45,6 +45,7 @@ export const env = createEnv({
     MAINTENANCE_MODE: z
       .preprocess((val) => parseMaintenanceFlag(val), z.boolean())
       .default(false),
+    INTERNAL_PROXY_SECRET: z.string().trim().min(16).optional(),
   },
   client: {
     NEXT_PUBLIC_APP_URL: sanitizeUrl("http://localhost:3001"),
@@ -53,6 +54,7 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     API_BASE_URL: process.env.API_BASE_URL,
     MAINTENANCE_MODE: process.env.MAINTENANCE_MODE,
+    INTERNAL_PROXY_SECRET: process.env.INTERNAL_PROXY_SECRET,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   },
   emptyStringAsUndefined: true,

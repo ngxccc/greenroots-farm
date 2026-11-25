@@ -141,5 +141,33 @@ describe("SingleFlightRefresh", () => {
       });
       expect(networkError).toEqual({ status: "transient_error" });
     });
+
+    it("forwards sanitized client headers to the refresh transport", async () => {
+      // Invariant: INV-SF-AUTH-10
+      let receivedHeaders: Record<string, string> | undefined;
+      const clientHeaders = {
+        "User-Agent": "Mozilla/5.0",
+        "X-BFF-Client-IP": "203.0.113.10",
+      };
+
+      const result = await refreshSingleFlight("refresh-with-headers", {
+        clientHeaders,
+        fetcher: (_token, headers) => {
+          receivedHeaders = headers;
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                success: true,
+                data: { accessToken: "access-h", refreshToken: "refresh-h" },
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        },
+      });
+
+      expect(result.status).toBe("rotated");
+      expect(receivedHeaders).toEqual(clientHeaders);
+    });
   });
 });
