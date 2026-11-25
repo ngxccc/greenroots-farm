@@ -20,7 +20,7 @@ This specification defines the Storefront `/verify-email`, `/forgot-password`, a
 - Keep `/verify-email` usable without `?token=` via a standalone resend form (`POST /api/v1/auth/resend-verification`) with 60-second client cooldown and neutral anti-enumeration feedback.
 - Enforce `ForgotPasswordDto.strict()` (`email`-only) on `/forgot-password` with fixed 15-minute anti-enumeration confirmation banners and 60-second client cooldown aligned with backend `@Throttle({ auth: { limit: 3, ttl: 60000 } })`.
 - Enforce full `zPassword()` OWASP rules (`8..128`, `[A-Z]`, `[0-9]`, `[^a-zA-Z0-9]`) on `/reset-password` via a shared `PasswordChecklist` component, reject missing/malformed `?token=` upfront before displaying inputs, clear Storefront `httpOnly` BFF cookies and client auth store on reset success, broadcast `LOGOUT` across tabs, and inform users that all prior sessions have been signed out.
-- Exempt `/verify-email`, `/forgot-password`, and `/reset-password` from proactive token rotation in `apps/storefront/proxy.ts` (`SKIP_REFRESH_PATHS`) and omit `AuthRedirectGate` so already-authenticated customers can still follow recovery links cleanly.
+- Exempt `/verify-email`, `/forgot-password`, and `/reset-password` from proactive token rotation in `apps/storefront/proxy.ts` (`SKIP_REFRESH_PATHS`), redirect authenticated sessions away from `/forgot-password` (`AuthRedirectGate`) and tokenless `/verify-email` (`VerifyEmailGate`) to `/`, and keep tokenized `/verify-email?token=...` and `/reset-password?token=...` links accessible to already-authenticated customers.
 
 ### Non-Goals
 
@@ -36,8 +36,7 @@ graph TD
     Browser["Browser (React 19 + Zustand + BroadcastChannel)"]
     Proxy["Storefront Proxy (SKIP_REFRESH_PATHS includes recovery routes)"]
     AuthLayout["app/(auth)/layout.tsx (Split-Panel Shell)"]
-    SuspensePages["VerifyEmail & ResetPassword Pages (<Suspense> + searchParams)"]
-    ForgotPage["ForgotPassword Page (Static RSC)"]
+    SuspensePages["VerifyEmail, ForgotPassword & ResetPassword Pages (<Suspense> + searchParams)"]
     Actions["Server Actions (verifyEmailAction, resendVerificationAction, forgotPasswordAction, resetPasswordAction)"]
     ApiClient["Server OpenAPI Client (src/lib/api-client.ts, Q28)"]
     Cookies["cookies.ts & session.server.ts (clearServerSessionCookies)"]
@@ -46,8 +45,7 @@ graph TD
     Browser -->|"GET /verify-email, /forgot-password, /reset-password"| Proxy
     Proxy -->|"Bypass proactive refresh"| AuthLayout
     AuthLayout --> SuspensePages
-    AuthLayout --> ForgotPage
-    SuspensePages -->|"Pass parsed ?token= / ?email= prop"| Browser
+    SuspensePages -->|"Pass parsed ?token= / ?email= prop (or redirect authenticated users on /forgot-password & tokenless /verify-email)"| Browser
     Browser -->|"Single-flight POST or form submit"| Actions
     Actions --> ApiClient
     ApiClient -->|"POST /api/v1/auth/*"| API
@@ -57,9 +55,12 @@ graph TD
 
 ### Route, Proxy & Component Boundaries
 
-1. **Proxy & Session Non-Gating**:
+1. **Proxy & Selective Recovery Session Gating**:
    - `apps/storefront/proxy.ts` extends `SKIP_REFRESH_PATHS` to `["/login", "/register", "/verify-email", "/forgot-password", "/reset-password"]`.
-   - Recovery route pages intentionally do **not** wrap forms in `AuthRedirectGate` so customers holding an active or stale Storefront session can still open email verification or password reset links directly.
+   - `/forgot-password` wraps `<ForgotPasswordForm />` in `<AuthRedirectGate>` inside `<Suspense>` (`await connection()` + `getServerSession()`), redirecting authenticated sessions to `sanitizeRedirectPath(redirect)` (default `/`).
+   - `/verify-email` uses `<VerifyEmailGate>` inside `<Suspense>`: when `parseRecoveryTokenParam(resolved.token)` is `null` (missing, empty, or oversized), it checks `getServerSession()` and redirects authenticated sessions to `/`; when a structurally valid candidate `?token=` (`1..64` chars) is present, it skips `getServerSession()` and renders `<VerifyEmailPanel>` directly.
+   - `/reset-password?token=...` remains ungated so authenticated customers can still follow password-reset links from email.
+   - Known limitation (consistent with `/login` and `/register`): because `SKIP_REFRESH_PATHS` bypasses proactive refresh in `proxy.ts`, an authenticated session whose 15-minute `accessToken` has expired (even with a valid `refreshToken`) resolves `getServerSession()` to `null` and is not redirected.
 2. **Stitch Reconciliations**:
    - `x_c_th_c_email/code.html` -> drop `"Đổi địa chỉ email khác"` and floating `#toast`; add full `?token=` loading/success/invalid states and inline `Alert` feedback.
    - `qu_n_m_t_kh_u/code.html` -> narrow input strictly to `Email` (`type="email"`), remove prefilled sample value, replace input echo with fixed anti-enumeration copy, and add 60s resend cooldown.
@@ -67,7 +68,7 @@ graph TD
 3. **Target Files**:
    - `apps/storefront/proxy.ts`
    - `apps/storefront/src/lib/auth/auth-validation.ts` & `auth-actions.ts`
-   - `apps/storefront/src/features/auth/components/password-checklist.tsx`, `auth-footer-links.tsx`, `use-cooldown.ts`, `verify-email-panel.tsx`, `forgot-password-form.tsx`, `reset-password-form.tsx`, and `register-form.tsx`
+   - `apps/storefront/src/features/auth/components/auth-redirect-gate.tsx`, `verify-email-gate.tsx`, `password-checklist.tsx`, `auth-footer-links.tsx`, `use-cooldown.ts`, `verify-email-panel.tsx`, `forgot-password-form.tsx`, `reset-password-form.tsx`, and `register-form.tsx`
    - `apps/storefront/app/(auth)/verify-email/page.tsx`, `forgot-password/page.tsx`, and `reset-password/page.tsx`
 
 ## Operational Flow
@@ -152,29 +153,31 @@ sequenceDiagram
 
 ## Domain Invariant Taxonomy
 
-| Invariant         | Name                                  | Formal Statement                                                                                                                                           | Enforcement Seam                                                           | Verification Test                                                                                |
-| :---------------- | :------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------- |
-| `INV-SF-REC-UI-1` | Client Single-Flight Verification     | `/verify-email?token=` executes strictly in a client effect wrapped in a token-keyed single-flight Promise map, never as an SSR `GET` side effect          | `verifyEmailOnce` & `VerifyEmailPanel`                                     | `verify-email-single-flight.spec.ts` -> concurrent calls share one execution per token           |
-| `INV-SF-REC-UI-2` | Anti-Enumeration Recovery Feedback    | `forgotPasswordAction` and `resendVerificationAction` always surface fixed neutral messages regardless of account existence or verification status         | `executeForgotPasswordAction`, `executeResendVerificationAction`           | `auth-actions.spec.ts` -> neutral 15m/verification copy on `200 OK`, maps `429` safely           |
-| `INV-SF-REC-UI-3` | Strict Recovery DTO & Password Parity | Recovery schemas mirror backend `.strict()` DTOs (`token` `1..64`, `zEmail`, `zPassword` 4 OWASP rules + confirmation match, no phone recovery input)      | `verifyEmailSchema`, `forgotPasswordFormSchema`, `resetPasswordFormSchema` | `auth-validation.spec.ts` -> rejects phone numbers, weak passwords, mismatched confirmation      |
-| `INV-SF-REC-UI-4` | Reset Session Cleanup Parity          | Successful `resetPasswordAction` clears Storefront `httpOnly` cookies server-side before client store reset and cross-tab `LOGOUT` broadcast               | `executeResetPasswordAction` & `ResetPasswordForm`                         | `auth-actions.spec.ts` -> verifies `clearCookies` invoked on success and skipped on error        |
-| `INV-SF-REC-UI-5` | Non-Gated Recovery & Proxy Skip       | Recovery routes remain accessible to logged-in sessions and `proxy.ts` skips proactive token refresh for all three recovery paths                          | `SKIP_REFRESH_PATHS` in `apps/storefront/proxy.ts`                         | `proxy.spec.ts` -> zero refresh calls for `/verify-email`, `/forgot-password`, `/reset-password` |
-| `INV-SF-REC-UI-6` | Missing/Oversized Reset Token Guard   | `/reset-password` rejects absent, whitespace-only, or `> 64`-char `?token=` upfront with a recovery CTA instead of rendering an unusable password form     | `parseRecoveryTokenParam` & `ResetPasswordForm`                            | `auth-validation.spec.ts` -> rejects empty, overlong, and array query token values               |
-| `INV-SF-REC-UI-7` | URL Token Hygiene & `Suspense` Safety | `verify-email` and `reset-password` wrap dynamic `searchParams` readers in `<Suspense>` (`cacheComponents: true`) and strip settled tokens via History API | Route pages + client panels                                                | `bun run check` + `next build`                                                                   |
+| Invariant         | Name                                   | Formal Statement                                                                                                                                                                                                                                     | Enforcement Seam                                                           | Verification Test                                                                           |
+| :---------------- | :------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------ |
+| `INV-SF-REC-UI-1` | Client Single-Flight Verification      | `/verify-email?token=` executes strictly in a client effect wrapped in a token-keyed single-flight Promise map, never as an SSR `GET` side effect                                                                                                    | `verifyEmailOnce` & `VerifyEmailPanel`                                     | `verify-email-single-flight.spec.ts` -> concurrent calls share one execution per token      |
+| `INV-SF-REC-UI-2` | Anti-Enumeration Recovery Feedback     | `forgotPasswordAction` and `resendVerificationAction` always surface fixed neutral messages regardless of account existence or verification status                                                                                                   | `executeForgotPasswordAction`, `executeResendVerificationAction`           | `auth-actions.spec.ts` -> neutral 15m/verification copy on `200 OK`, maps `429` safely      |
+| `INV-SF-REC-UI-3` | Strict Recovery DTO & Password Parity  | Recovery schemas mirror backend `.strict()` DTOs (`token` `1..64`, `zEmail`, `zPassword` 4 OWASP rules + confirmation match, no phone recovery input)                                                                                                | `verifyEmailSchema`, `forgotPasswordFormSchema`, `resetPasswordFormSchema` | `auth-validation.spec.ts` -> rejects phone numbers, weak passwords, mismatched confirmation |
+| `INV-SF-REC-UI-4` | Reset Session Cleanup Parity           | Successful `resetPasswordAction` clears Storefront `httpOnly` cookies server-side before client store reset and cross-tab `LOGOUT` broadcast                                                                                                         | `executeResetPasswordAction` & `ResetPasswordForm`                         | `auth-actions.spec.ts` -> verifies `clearCookies` invoked on success and skipped on error   |
+| `INV-SF-REC-UI-5` | Selective Recovery Gating & Proxy Skip | `/forgot-password` (`AuthRedirectGate`) and tokenless/malformed `/verify-email` (`VerifyEmailGate`) redirect active sessions to `/`; valid `?token=` `/verify-email`, `/reset-password?token=...`, and `SKIP_REFRESH_PATHS` bypass proactive refresh | `AuthRedirectGate`, `VerifyEmailGate`, `SKIP_REFRESH_PATHS`                | `auth-redirect-gate.spec.ts`, `verify-email-gate.spec.ts`, `proxy.spec.ts`                  |
+| `INV-SF-REC-UI-6` | Missing/Oversized Reset Token Guard    | `/reset-password` rejects absent, whitespace-only, or `> 64`-char `?token=` upfront with a recovery CTA instead of rendering an unusable password form                                                                                               | `parseRecoveryTokenParam` & `ResetPasswordForm`                            | `auth-validation.spec.ts` -> rejects empty, overlong, and array query token values          |
+| `INV-SF-REC-UI-7` | URL Token Hygiene & `Suspense` Safety  | `verify-email` and `reset-password` wrap dynamic `searchParams` readers in `<Suspense>` (`cacheComponents: true`) and strip settled tokens via History API                                                                                           | Route pages + client panels                                                | `bun run check` + `next build`                                                              |
 
 ### Edge Cases & Adversarial Matrix
 
-| ID       | Scenario                                                                                    | Expected Behavior                                                                                                                 |
-| :------- | :------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------- |
-| `EDGE-1` | Customer enters `/verify-email` directly with no `?token=` and submits an unverified email  | Form validates email client/server-side, sends resend request, shows neutral anti-enumeration notice + 60s countdown              |
-| `EDGE-2` | Customer enters an **already-verified** or unregistered email on `/verify-email`            | Backend exits `200 OK` silently (`AuthService.resendVerificationEmail`); UI displays neutral notice + `"Quay lại đăng nhập"` hint |
-| `EDGE-3` | Customer clicks `/verify-email?token=<used-or-expired>`                                     | `verifyEmailAction` maps `400 AUTH_VERIFICATION_TOKEN_INVALID`; UI reveals resend email form + login link                         |
-| `EDGE-4` | Customer submits phone number `"0908412679"` on `/forgot-password`                          | `forgotPasswordFormSchema` rejects client-side cleanly before touching API (`email`-only parity)                                  |
-| `EDGE-5` | Customer opens `/reset-password` without `?token=` or with `?token=` exceeding 64 chars     | `parseRecoveryTokenParam` returns `null`; page renders missing/invalid token banner + `/forgot-password` CTA                      |
-| `EDGE-6` | Already-signed-in customer opens `/reset-password?token=...` and completes reset            | Backend revokes global sessions; `resetPasswordAction` clears `accessToken`/`refreshToken`; client broadcasts `"LOGOUT"`          |
-| `ADV-1`  | React 19 StrictMode double-invokes `useEffect` on `/verify-email?token=<valid>`             | `verifyEmailOnce(token)` returns the exact in-flight Promise on the 2nd call; backend receives one `POST` only                    |
-| `ADV-2`  | Attacker spams `/forgot-password` or `/verify-email` resend hitting NestJS `3/min` throttle | Pending disable + 60s client cooldown prevent accidental bursts; API `429` maps to `API_ERROR_DICTIONARY.TOO_MANY_REQUESTS`       |
-| `ADV-3`  | User injects extra keys (`role`, `userId`) or repeated `?token=a&token=b` query arrays      | `.strict()` schemas reject extra keys; `extractFirstQueryValue` handles array params deterministically                            |
+| ID       | Scenario                                                                                       | Expected Behavior                                                                                                                 |
+| :------- | :--------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
+| `EDGE-1` | Customer enters `/verify-email` directly with no `?token=` and submits an unverified email     | Form validates email client/server-side, sends resend request, shows neutral anti-enumeration notice + 60s countdown              |
+| `EDGE-2` | Customer enters an **already-verified** or unregistered email on `/verify-email`               | Backend exits `200 OK` silently (`AuthService.resendVerificationEmail`); UI displays neutral notice + `"Quay lại đăng nhập"` hint |
+| `EDGE-3` | Customer clicks `/verify-email?token=<used-or-expired>`                                        | `verifyEmailAction` maps `400 AUTH_VERIFICATION_TOKEN_INVALID`; UI reveals resend email form + login link                         |
+| `EDGE-4` | Customer submits phone number `"0908412679"` on `/forgot-password`                             | `forgotPasswordFormSchema` rejects client-side cleanly before touching API (`email`-only parity)                                  |
+| `EDGE-5` | Customer opens `/reset-password` without `?token=` or with `?token=` exceeding 64 chars        | `parseRecoveryTokenParam` returns `null`; page renders missing/invalid token banner + `/forgot-password` CTA                      |
+| `EDGE-6` | Already-signed-in customer opens `/reset-password?token=...` and completes reset               | Backend revokes global sessions; `resetPasswordAction` clears `accessToken`/`refreshToken`; client broadcasts `"LOGOUT"`          |
+| `EDGE-7` | Signed-in customer (valid `accessToken`) opens `/forgot-password` or tokenless `/verify-email` | Server gate redirects to `sanitizeRedirectPath(redirect)` (`/forgot-password`) or `/` (tokenless/malformed `/verify-email`)       |
+| `EDGE-8` | Signed-in customer opens `/verify-email?token=<64-hex>` (same or different account)            | `VerifyEmailGate` skips `getServerSession()` and renders `VerifyEmailPanel`; existing session cookies remain untouched            |
+| `ADV-1`  | React 19 StrictMode double-invokes `useEffect` on `/verify-email?token=<valid>`                | `verifyEmailOnce(token)` returns the exact in-flight Promise on the 2nd call; backend receives one `POST` only                    |
+| `ADV-2`  | Attacker spams `/forgot-password` or `/verify-email` resend hitting NestJS `3/min` throttle    | Pending disable + 60s client cooldown prevent accidental bursts; API `429` maps to `API_ERROR_DICTIONARY.TOO_MANY_REQUESTS`       |
+| `ADV-3`  | User injects extra keys (`role`, `userId`) or repeated `?token=a&token=b` query arrays         | `.strict()` schemas reject extra keys; `extractFirstQueryValue` handles array params deterministically                            |
 
 ## Test Matrix
 
@@ -184,3 +187,5 @@ Verification suites in `apps/storefront`:
 - `apps/storefront/src/lib/auth/auth-actions.spec.ts`: `executeVerifyEmailAction`, `executeForgotPasswordAction`, updated `executeResendVerificationAction`, and `executeResetPasswordAction` cookie cleanup behavior.
 - `apps/storefront/src/lib/auth/proxy.spec.ts`: `SKIP_REFRESH_PATHS` coverage for `/verify-email`, `/forgot-password`, and `/reset-password`.
 - `apps/storefront/src/features/auth/components/verify-email-single-flight.spec.ts`: concurrent single-flight deduplication per verification token.
+- `apps/storefront/src/features/auth/components/auth-redirect-gate.spec.ts`: authenticated redirect sanitization and default `/` redirect behavior for `/login`, `/register`, and `/forgot-password`.
+- `apps/storefront/src/features/auth/components/verify-email-gate.spec.ts`: tokenless/malformed-token authenticated redirects, guest standalone/invalid-token rendering, and tokenized session-lookup short-circuit.
