@@ -52,6 +52,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0035-separate-runtime-module-constants-from-pure-interfaces.md` — Compile-time-only `*.interface.ts` boundary, `<module>.constant.ts` ownership, shared `common/constants/` consolidation, and compiler-backed purity test (partially superseding ADR-0011).
 - `docs/adr/0036-storefront-bff-http-only-session-and-singleflight-refresh.md` — Storefront strict BFF `httpOnly` cookie session, Next.js `proxy.ts` proactive refresh, `sha256(refreshToken)` single-flight coalescer with stale-cookie grace marker, `<Suspense>` header hydration, and transitional role policy (`#122`).
 - `docs/adr/0037-bff-client-metadata-forwarding-and-shared-secret-trust-boundary.md` — BFF client `User-Agent` sanitization and `INTERNAL_PROXY_SECRET`-authenticated `X-BFF-Client-IP` forwarding across Storefront auth actions, `proxy.ts`, `session.server.ts`, `client-info.util.ts`, and `CustomThrottlerGuard` (`#183`).
+- `docs/adr/0038-checkout-time-fefo-reservation-and-customer-cancel.md` — Checkout-time FEFO batch allocation (`batches -> users` lock order), per-customer pending COD cap, `reservation_expires_at` `FOR UPDATE SKIP LOCKED` expiry sweep, and pre-confirmation customer self-cancel (amending `ADR-0031` and `ADR-0033`).
 
 ### Context-Scoped Decisions
 
