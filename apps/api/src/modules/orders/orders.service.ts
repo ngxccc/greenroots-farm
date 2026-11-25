@@ -187,6 +187,23 @@ interface ComputedOrderTotals {
   readonly totalAmountVnd: number;
 }
 
+interface PlannedBatchAllocation {
+  readonly productId: string;
+  readonly batchId: string;
+  readonly allocatedQuantity: string;
+}
+
+interface PlannedBatchUpdate {
+  readonly batchId: string;
+  readonly availableQuantity: string;
+  readonly status: BatchStatus;
+}
+
+interface FefoAllocationPlan {
+  readonly allocations: readonly PlannedBatchAllocation[];
+  readonly batchUpdates: readonly PlannedBatchUpdate[];
+}
+
 /**
  * Orchestrates diagnostic cart validation and atomic COD checkout transactions
  * with server-authoritative catalog pricing, MOV enforcement, shipping quotes,
@@ -305,7 +322,7 @@ export class OrdersService {
   }
 
   /**
-   * Confirms a `pending_confirmation` order with atomic FEFO batch allocation under row locks (`ADR-0033`).
+   * Confirms a `pending_confirmation` order that already holds checkout-time FEFO allocations (`ADR-0038`).
    * Naturally idempotent when the order is already `confirmed` (returns active allocations without mutating stock).
    *
    * @param orderId Target order UUIDv7 identifier.
@@ -326,21 +343,31 @@ export class OrdersService {
         });
       }
 
-      const itemRows = await this.fetchOrderItemsWithProduct(tx, [orderRow.id]);
-      if (itemRows.length === 0) {
+      const [activeAllocation] = await tx
+        .select({ id: batchAllocations.id })
+        .from(batchAllocations)
+        .innerJoin(orderItems, eq(batchAllocations.orderItemId, orderItems.id))
+        .where(
+          and(
+            eq(orderItems.orderId, orderRow.id),
+            isNull(batchAllocations.releasedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!activeAllocation) {
         throw new ConflictException({
           code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
-          detail: MESSAGES.ORDERS.INVALID_STATUS_TRANSITION,
+          detail: MESSAGES.ORDERS.ACTIVE_ALLOCATIONS_MISSING,
         });
       }
 
       const now = new Date();
-      await this.allocateFefoForOrder(tx, itemRows, now);
-
       const [updatedOrder] = await tx
         .update(orders)
         .set({
           orderStatus: OrderStatus.CONFIRMED,
+          reservationExpiresAt: null,
           updatedAt: now,
         })
         .where(eq(orders.id, orderRow.id))
@@ -419,6 +446,7 @@ export class OrdersService {
           .set({
             orderStatus: OrderStatus.CANCELLED,
             paymentStatus: PaymentStatus.CANCELLED,
+            reservationExpiresAt: null,
             updatedAt: now,
           })
           .where(eq(orders.id, orderRow.id))
@@ -765,13 +793,15 @@ export class OrdersService {
       readonly yyyymmdd: string;
     },
   ): Promise<OrderProjection> {
-    return this.db.transaction(async (tx) => {
-      // Lock the customer row first to serialize concurrent loyalty-point redemptions under READ COMMITTED.
-      const lockedCustomer = await this.loadActiveCustomer(tx, sub, true);
+    // Fail fast on missing or suspended customer before opening a DB transaction or taking row locks.
+    await this.loadActiveCustomer(this.db, sub, false);
 
+    return this.db.transaction(async (tx) => {
+      const now = new Date();
+      const productIds = params.normalizedItems.map((item) => item.productId);
       const productRows = await this.loadCatalogProductsWithStock(
         tx,
-        params.normalizedItems.map((item) => item.productId),
+        productIds,
       );
       const evaluated = this.evaluateCartItems(
         params.normalizedItems,
@@ -780,15 +810,11 @@ export class OrdersService {
 
       this.assertCheckoutItemsValid(evaluated);
 
-      const totals = this.computeOrderTotals({
-        evaluated,
-        requestedLoyaltyPoints: input.loyaltyPoints,
-        availableRewardPoints: lockedCustomer.rewardPoints,
-        shippingFeeVnd: params.shippingFeeVnd,
-        clientTotalVnd: input.clientTotalVnd,
-      });
-
-      if (totals.subtotalVnd < BUSINESS_RULES.MIN_ORDER_VALUE_VND) {
+      const subtotalVnd = evaluated.reduce(
+        (sum, item) => sum + item.lineTotalVnd,
+        0,
+      );
+      if (subtotalVnd < BUSINESS_RULES.MIN_ORDER_VALUE_VND) {
         throw new UnprocessableEntityException({
           code: API_ERROR_CODES.ORDER_BELOW_MINIMUM_VALUE,
           detail: MESSAGES.ORDERS.BELOW_MINIMUM_VALUE,
@@ -799,12 +825,65 @@ export class OrdersService {
               reason: MESSAGES.ORDERS.BELOW_MINIMUM_VALUE,
               params: {
                 minOrderValueVnd: BUSINESS_RULES.MIN_ORDER_VALUE_VND,
-                currentSubtotalVnd: totals.subtotalVnd,
+                currentSubtotalVnd: subtotalVnd,
               },
             },
           ],
         });
       }
+
+      // Enforce global lock order `batches (id ASC) -> users` to prevent deadlocks with cancel/expiry sweeps (`INV-ORD-19`).
+      const candidateBatches = await this.lockCandidateSellableBatches(
+        tx,
+        productIds,
+        now,
+      );
+      const fefoPlan = this.planFefoAllocations(
+        params.normalizedItems,
+        candidateBatches,
+      );
+
+      // Lock customer unconditionally (even when loyaltyPoints === 0) to serialize pending COD order cap checks (`INV-ORD-20`).
+      const lockedCustomer = await this.loadActiveCustomer(tx, sub, true);
+
+      const [pendingCountRow] = await tx
+        .select({ total: count() })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.customerId, sub),
+            eq(orders.orderStatus, OrderStatus.PENDING_CONFIRMATION),
+            eq(orders.paymentMethod, PaymentMethod.COD),
+          ),
+        );
+      const pendingCount = Number(pendingCountRow?.total ?? 0);
+
+      if (pendingCount >= BUSINESS_RULES.MAX_PENDING_COD_ORDERS_PER_CUSTOMER) {
+        throw new UnprocessableEntityException({
+          code: API_ERROR_CODES.ORDER_PENDING_LIMIT_EXCEEDED,
+          detail: MESSAGES.ORDERS.PENDING_LIMIT_EXCEEDED,
+          invalidParams: [
+            {
+              name: "customerId",
+              code: API_ERROR_CODES.ORDER_PENDING_LIMIT_EXCEEDED,
+              reason: MESSAGES.ORDERS.PENDING_LIMIT_EXCEEDED,
+              params: {
+                maxPendingOrders:
+                  BUSINESS_RULES.MAX_PENDING_COD_ORDERS_PER_CUSTOMER,
+                currentPendingOrders: pendingCount,
+              },
+            },
+          ],
+        });
+      }
+
+      const totals = this.computeOrderTotals({
+        evaluated,
+        requestedLoyaltyPoints: input.loyaltyPoints,
+        availableRewardPoints: lockedCustomer.rewardPoints,
+        shippingFeeVnd: params.shippingFeeVnd,
+        clientTotalVnd: input.clientTotalVnd,
+      });
 
       if (totals.loyaltyPointsUsed > 0) {
         await tx
@@ -815,10 +894,18 @@ export class OrdersService {
           .where(and(eq(users.id, sub), isNull(users.deletedAt)));
       }
 
+      const reservationExpiresAt = new Date(
+        now.getTime() +
+          BUSINESS_RULES.COD_CONFIRMATION_TIMEOUT_MINUTES * 60_000,
+      );
+
       return this.insertOrderAndPaymentRecords(tx, {
         customerId: sub,
         evaluated,
         totals,
+        fefoPlan,
+        now,
+        reservationExpiresAt,
         receiverName: params.receiverName,
         receiverPhone: params.receiverPhone,
         shippingAddress: params.shippingAddress,
@@ -940,6 +1027,9 @@ export class OrdersService {
       readonly customerId: string;
       readonly evaluated: readonly EvaluatedCartItem[];
       readonly totals: ComputedOrderTotals;
+      readonly fefoPlan: FefoAllocationPlan;
+      readonly now: Date;
+      readonly reservationExpiresAt: Date;
       readonly receiverName: string;
       readonly receiverPhone: string;
       readonly shippingAddress: string;
@@ -967,6 +1057,7 @@ export class OrdersService {
         paymentMethod: PaymentMethod.COD,
         paymentStatus: PaymentStatus.PENDING,
         orderStatus: OrderStatus.PENDING_CONFIRMATION,
+        reservationExpiresAt: params.reservationExpiresAt,
       })
       .returning(ORDER_COLUMNS);
 
@@ -991,6 +1082,13 @@ export class OrdersService {
 
     const insertedItemIdByProduct = new Map(
       insertedItems.map((row) => [row.productId, row.id]),
+    );
+
+    await this.applyFefoAllocations(
+      tx,
+      params.fefoPlan,
+      insertedItemIdByProduct,
+      params.now,
     );
 
     await tx.insert(payments).values({
@@ -1256,17 +1354,17 @@ export class OrdersService {
     return orderRow;
   }
 
-  private async allocateFefoForOrder(
+  private async lockCandidateSellableBatches(
     tx: DrizzleTx,
-    itemRows: readonly OrderItemWithProductRow[],
+    productIds: readonly string[],
     now: Date,
-  ): Promise<void> {
-    const sortedProductIds = Array.from(
-      new Set(itemRows.map((item) => item.productId)),
-    ).sort((a, b) => a.localeCompare(b));
+  ): Promise<LockedSellableBatch[]> {
+    const sortedProductIds = Array.from(new Set(productIds)).sort((a, b) =>
+      a.localeCompare(b),
+    );
 
     // Lock all candidate sellable batches across every order item in one ascending-ID query to eliminate crossed-item deadlocks.
-    const candidateBatches: LockedSellableBatch[] = await tx
+    return tx
       .select({
         id: batches.id,
         productId: batches.productId,
@@ -1286,7 +1384,12 @@ export class OrdersService {
       )
       .orderBy(asc(batches.id))
       .for("update");
+  }
 
+  private planFefoAllocations(
+    items: readonly NormalizedCartItem[],
+    candidateBatches: readonly LockedSellableBatch[],
+  ): FefoAllocationPlan {
     const batchesByProduct = new Map<string, LockedSellableBatch[]>();
     const remainingCentsByBatchId = new Map<string, number>();
 
@@ -1310,13 +1413,7 @@ export class OrdersService {
       });
     }
 
-    const allocationsToInsert: {
-      orderItemId: string;
-      batchId: string;
-      allocatedQuantity: string;
-      allocatedAt: Date;
-      releasedAt: null;
-    }[] = [];
+    const allocations: PlannedBatchAllocation[] = [];
     const touchedBatches = new Map<string, LockedSellableBatch>();
     const shortages: {
       productId: string;
@@ -1324,8 +1421,8 @@ export class OrdersService {
       available: number;
     }[] = [];
 
-    for (const item of itemRows) {
-      const requestedCents = this.toQuantityCents(item.quantity);
+    for (const item of items) {
+      const requestedCents = item.quantityCents;
       let remainingNeededCents = requestedCents;
       const productBatches = batchesByProduct.get(item.productId) ?? [];
 
@@ -1358,12 +1455,10 @@ export class OrdersService {
         remainingNeededCents -= takeCents;
         touchedBatches.set(batch.id, batch);
 
-        allocationsToInsert.push({
-          orderItemId: item.id,
+        allocations.push({
+          productId: item.productId,
           batchId: batch.id,
           allocatedQuantity: this.formatQuantityFromCents(takeCents),
-          allocatedAt: now,
-          releasedAt: null,
         });
       }
     }
@@ -1381,23 +1476,55 @@ export class OrdersService {
       });
     }
 
-    if (allocationsToInsert.length > 0) {
-      await tx.insert(batchAllocations).values(allocationsToInsert);
-    }
-
+    const batchUpdates: PlannedBatchUpdate[] = [];
     for (const batch of touchedBatches.values()) {
       const nextAvailableCents = remainingCentsByBatchId.get(batch.id) ?? 0;
-      const nextStatus =
-        nextAvailableCents === 0 ? BatchStatus.SOLD_OUT : batch.status;
+      batchUpdates.push({
+        batchId: batch.id,
+        availableQuantity: this.formatQuantityFromCents(nextAvailableCents),
+        status: nextAvailableCents === 0 ? BatchStatus.SOLD_OUT : batch.status,
+      });
+    }
 
+    return { allocations, batchUpdates };
+  }
+
+  private async applyFefoAllocations(
+    tx: DrizzleTx,
+    plan: FefoAllocationPlan,
+    insertedItemIdByProduct: ReadonlyMap<string, string>,
+    now: Date,
+  ): Promise<void> {
+    if (plan.allocations.length > 0) {
+      await tx.insert(batchAllocations).values(
+        plan.allocations.map((allocation) => {
+          const orderItemId = insertedItemIdByProduct.get(allocation.productId);
+          if (!orderItemId) {
+            throw new Error(
+              `Missing inserted order item for product ${allocation.productId}.`,
+            );
+          }
+
+          return {
+            orderItemId,
+            batchId: allocation.batchId,
+            allocatedQuantity: allocation.allocatedQuantity,
+            allocatedAt: now,
+            releasedAt: null,
+          };
+        }),
+      );
+    }
+
+    for (const update of plan.batchUpdates) {
       await tx
         .update(batches)
         .set({
-          availableQuantity: this.formatQuantityFromCents(nextAvailableCents),
-          status: nextStatus,
+          availableQuantity: update.availableQuantity,
+          status: update.status,
           updatedAt: now,
         })
-        .where(eq(batches.id, batch.id));
+        .where(eq(batches.id, update.batchId));
     }
   }
 

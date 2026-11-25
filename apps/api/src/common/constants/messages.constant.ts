@@ -213,6 +213,8 @@ export const MESSAGES = {
       "Pick list is only available for confirmed, packing, or shipping orders.",
     ACTIVE_ALLOCATIONS_MISSING:
       "Order has no active batch allocations available for picking.",
+    PENDING_LIMIT_EXCEEDED:
+      "Maximum number of pending COD orders awaiting confirmation has been reached.",
   },
   ADDRESS: {
     NOT_FOUND: "Address not found.",

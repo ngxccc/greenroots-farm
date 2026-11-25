@@ -17,6 +17,12 @@ import {
   UserStatus,
 } from "@greenroots/shared";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
+import {
+  batchAllocations,
+  batches,
+  orderItems,
+  orders,
+} from "@/database/schemas";
 import type { FarmSettings } from "@/modules/farms/dto";
 import type { FarmSettingsService } from "@/modules/farms/farm-settings.service";
 import type { AddressService } from "@/modules/users/address.service";
@@ -129,16 +135,19 @@ describe("OrdersService", () => {
     );
   });
 
-  function stubOrderInserts() {
+  function stubOrderInserts(options?: {
+    onInsert?: (table: unknown, values: unknown) => void;
+    onUpdate?: (table: unknown, values: Record<string, unknown>) => void;
+  }) {
     const now = new Date("2026-11-21T03:00:00.000Z");
-    let insertCount = 0;
     const originalInsert = mockDb.insert.bind(mockDb);
+    const originalUpdate = mockDb.update.bind(mockDb);
 
-    mockDb.insert = ((table: unknown) => {
-      insertCount += 1;
-      if (insertCount % 3 === 1) {
-        return {
-          values: () => ({
+    mockDb.insert = ((table: unknown) => ({
+      values: (vals: unknown) => {
+        options?.onInsert?.(table, vals);
+        if (table === orders) {
+          return {
             returning: () =>
               Promise.resolve([
                 {
@@ -161,12 +170,10 @@ describe("OrdersService", () => {
                   updatedAt: now,
                 },
               ]),
-          }),
-        };
-      }
-      if (insertCount % 3 === 2) {
-        return {
-          values: () => ({
+          };
+        }
+        if (table === orderItems) {
+          return {
             returning: () =>
               Promise.resolve([
                 {
@@ -174,11 +181,21 @@ describe("OrdersService", () => {
                   productId: productAId,
                 },
               ]),
-          }),
-        };
-      }
-      return originalInsert(table as never);
-    }) as typeof mockDb.insert;
+          };
+        }
+        return originalInsert(table as never).values(vals as never);
+      },
+    })) as typeof mockDb.insert;
+
+    if (options?.onUpdate) {
+      const onUpdate = options.onUpdate;
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          onUpdate(table, vals);
+          return originalUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+    }
   }
 
   describe("DTO validation", () => {
@@ -473,7 +490,7 @@ describe("OrdersService", () => {
       expect(response.invalidParams[0]?.params?.["maxRadiusKm"]).toBe(25);
     });
 
-    it("rejects suspended customer accounts during checkout", async () => {
+    it("rejects suspended customer accounts during checkout without opening transaction", async () => {
       mockDb.setSelectResultsQueue([
         [{ id: userId, status: UserStatus.SUSPENDED, rewardPoints: 50_000 }],
       ]);
@@ -492,6 +509,7 @@ describe("OrdersService", () => {
       expect(
         (caught as ForbiddenException).getResponse() as { code: string },
       ).toMatchObject({ code: API_ERROR_CODES.AUTH_ACCOUNT_SUSPENDED });
+      expect(mockDb.transaction).not.toHaveBeenCalled();
     });
 
     it("rejects missing or inactive SKU during checkout", async () => {
@@ -603,10 +621,19 @@ describe("OrdersService", () => {
       );
     });
 
-    // Invariant: INV-ORD-1, INV-ORD-5
-    it("creates COD order with recipient snapshot, closed projection, and debug-logs clientTotalVnd mismatch", async () => {
+    // Invariant: INV-ORD-1, INV-ORD-5, INV-ORD-18, INV-ORD-19
+    it("creates COD order with FEFO batch allocations, reservation expiry, recipient snapshot, and debug-logs clientTotalVnd mismatch", async () => {
       const debugSpy = spyOn(Logger.prototype, "debug");
       debugSpy.mockClear();
+
+      const batch1Id = "019fa8bc-8f4d-7000-b366-e691f45cfb61";
+      const batch2Id = "019fa8bc-8f4d-7000-b366-e691f45cfb62";
+      const earlierExp = new Date("2026-11-22T06:00:00.000Z");
+      const laterExp = new Date("2026-11-24T06:00:00.000Z");
+
+      const insertedOrderPayloads: Record<string, unknown>[] = [];
+      const insertedAllocationPayloads: unknown[] = [];
+      const batchUpdates: Record<string, unknown>[] = [];
 
       mockDb.setSelectResultsQueue([
         [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 50_000 }],
@@ -628,14 +655,50 @@ describe("OrdersService", () => {
             availableQuantity: "10.00",
           },
         ],
+        [
+          {
+            id: batch2Id,
+            productId: productAId,
+            batchCode: "BATCH-LATER",
+            expirationDate: laterExp,
+            availableQuantity: "5.00",
+            status: BatchStatus.IN_STOCK,
+          },
+          {
+            id: batch1Id,
+            productId: productAId,
+            batchCode: "BATCH-EARLIER",
+            expirationDate: earlierExp,
+            availableQuantity: "1.50",
+            status: BatchStatus.NEAR_EXPIRY,
+          },
+        ],
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 50_000 }],
+        [{ total: 0 }],
       ]);
-      stubOrderInserts();
+      stubOrderInserts({
+        onInsert: (table, values) => {
+          if (table === orders) {
+            insertedOrderPayloads.push(values as Record<string, unknown>);
+          }
+          if (table === batchAllocations) {
+            insertedAllocationPayloads.push(values);
+          }
+        },
+        onUpdate: (table, values) => {
+          if (table === batches) {
+            batchUpdates.push(values);
+          }
+        },
+      });
 
+      const beforeMs = Date.now();
       const result = await service.checkoutCod(userId, {
         items: [{ productId: productAId, quantity: 2 }],
         loyaltyPoints: 90_000,
         clientTotalVnd: 99_999,
       });
+      const afterMs = Date.now();
 
       expect(result.orderStatus).toBe(OrderStatus.PENDING_CONFIRMATION);
       expect(result.paymentMethod).toBe(PaymentMethod.COD);
@@ -649,6 +712,38 @@ describe("OrdersService", () => {
       expect(result.loyaltyPointsUsed).toBe(50_000);
       expect(result.totalAmountVnd).toBe(175_000);
       expect(result.items).toHaveLength(1);
+
+      const expiresAt = insertedOrderPayloads[0]?.[
+        "reservationExpiresAt"
+      ] as Date;
+      expect(expiresAt).toBeInstanceOf(Date);
+      const timeoutMs =
+        BUSINESS_RULES.COD_CONFIRMATION_TIMEOUT_MINUTES * 60_000;
+      expect(expiresAt.getTime()).toBeGreaterThanOrEqual(beforeMs + timeoutMs);
+      expect(expiresAt.getTime()).toBeLessThanOrEqual(afterMs + timeoutMs);
+
+      const allocRows = insertedAllocationPayloads[0] as {
+        batchId: string;
+        allocatedQuantity: string;
+      }[];
+      expect(allocRows).toHaveLength(2);
+      expect(allocRows[0]).toMatchObject({
+        batchId: batch1Id,
+        allocatedQuantity: "1.50",
+      });
+      expect(allocRows[1]).toMatchObject({
+        batchId: batch2Id,
+        allocatedQuantity: "0.50",
+      });
+      expect(batchUpdates[0]).toMatchObject({
+        availableQuantity: "0.00",
+        status: BatchStatus.SOLD_OUT,
+      });
+      expect(batchUpdates[1]).toMatchObject({
+        availableQuantity: "4.50",
+        status: BatchStatus.IN_STOCK,
+      });
+
       expect(
         debugSpy.mock.calls.some(
           ([msg]) =>
@@ -656,6 +751,110 @@ describe("OrdersService", () => {
             msg.includes("server=175000 client=99999"),
         ),
       ).toBe(true);
+    });
+
+    // Invariant: INV-ORD-18
+    it("rejects checkout with insufficient stock when locked batches cannot fulfill requested quantity", async () => {
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [
+          {
+            id: productAId,
+            name: "Ca chua bi",
+            slug: "ca-chua-bi",
+            imageUrls: null,
+            unit: "kg",
+            basePrice: 80_000,
+            salePrice: null,
+            isActive: true,
+            deletedAt: null,
+            categoryIsActive: true,
+            categoryDeletedAt: null,
+            availableQuantity: "10.00",
+          },
+        ],
+        [
+          {
+            id: "019fa8bc-8f4d-7000-b366-e691f45cfb61",
+            productId: productAId,
+            batchCode: "BATCH-1",
+            expirationDate: new Date("2026-11-24T00:00:00.000Z"),
+            availableQuantity: "1.00",
+            status: BatchStatus.IN_STOCK,
+          },
+        ],
+      ]);
+
+      let caught: unknown;
+      try {
+        await service.checkoutCod(userId, {
+          items: [{ productId: productAId, quantity: 2 }],
+          loyaltyPoints: 0,
+        });
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(ConflictException);
+      expect(
+        (caught as ConflictException).getResponse() as { code: string },
+      ).toMatchObject({ code: API_ERROR_CODES.INSUFFICIENT_STOCK });
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    // Invariant: INV-ORD-20
+    it("rejects checkout when customer has reached maximum pending COD orders", async () => {
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [
+          {
+            id: productAId,
+            name: "Ca chua bi",
+            slug: "ca-chua-bi",
+            imageUrls: null,
+            unit: "kg",
+            basePrice: 80_000,
+            salePrice: null,
+            isActive: true,
+            deletedAt: null,
+            categoryIsActive: true,
+            categoryDeletedAt: null,
+            availableQuantity: "10.00",
+          },
+        ],
+        [
+          {
+            id: "019fa8bc-8f4d-7000-b366-e691f45cfb61",
+            productId: productAId,
+            batchCode: "BATCH-1",
+            expirationDate: new Date("2026-11-24T00:00:00.000Z"),
+            availableQuantity: "10.00",
+            status: BatchStatus.IN_STOCK,
+          },
+        ],
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [{ total: BUSINESS_RULES.MAX_PENDING_COD_ORDERS_PER_CUSTOMER }],
+      ]);
+
+      let caught: unknown;
+      try {
+        await service.checkoutCod(userId, {
+          items: [{ productId: productAId, quantity: 2 }],
+          loyaltyPoints: 0,
+        });
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+      expect(
+        (caught as UnprocessableEntityException).getResponse() as {
+          code: string;
+        },
+      ).toMatchObject({
+        code: API_ERROR_CODES.ORDER_PENDING_LIMIT_EXCEEDED,
+      });
+      expect(mockDb.insert).not.toHaveBeenCalled();
     });
 
     it("retries on orderCode unique violation and succeeds on subsequent attempt", async () => {
@@ -677,11 +876,28 @@ describe("OrdersService", () => {
           availableQuantity: "10.00",
         },
       ];
+      const batchRow = [
+        {
+          id: "019fa8bc-8f4d-7000-b366-e691f45cfb61",
+          productId: productAId,
+          batchCode: "BATCH-1",
+          expirationDate: new Date("2026-11-24T00:00:00.000Z"),
+          availableQuantity: "10.00",
+          status: BatchStatus.IN_STOCK,
+        },
+      ];
+      const pendingCountRow = [{ total: 0 }];
       mockDb.setSelectResultsQueue([
         activeRow,
         productRow,
+        batchRow,
+        activeRow,
+        pendingCountRow,
         activeRow,
         productRow,
+        batchRow,
+        activeRow,
+        pendingCountRow,
       ]);
 
       stubOrderInserts();
@@ -732,17 +948,43 @@ describe("OrdersService", () => {
           availableQuantity: "10.00",
         },
       ];
+      const batchRow = [
+        {
+          id: "019fa8bc-8f4d-7000-b366-e691f45cfb61",
+          productId: productAId,
+          batchCode: "BATCH-1",
+          expirationDate: new Date("2026-11-24T00:00:00.000Z"),
+          availableQuantity: "10.00",
+          status: BatchStatus.IN_STOCK,
+        },
+      ];
+      const pendingCountRow = [{ total: 0 }];
       mockDb.setSelectResultsQueue([
         activeRow,
         productRow,
+        batchRow,
+        activeRow,
+        pendingCountRow,
         activeRow,
         productRow,
+        batchRow,
+        activeRow,
+        pendingCountRow,
         activeRow,
         productRow,
+        batchRow,
+        activeRow,
+        pendingCountRow,
         activeRow,
         productRow,
+        batchRow,
+        activeRow,
+        pendingCountRow,
         activeRow,
         productRow,
+        batchRow,
+        activeRow,
+        pendingCountRow,
       ]);
 
       mockDb.insert = (() => ({
@@ -1039,7 +1281,6 @@ describe("OrdersService", () => {
     const orderId = "019fa8bc-8f4d-7000-b366-e691f45cfb50";
     const itemAId = "019fa8bc-8f4d-7000-b366-e691f45cfb51";
     const batch1Id = "019fa8bc-8f4d-7000-b366-e691f45cfb61";
-    const batch2Id = "019fa8bc-8f4d-7000-b366-e691f45cfb62";
 
     function buildOrderRow(
       overrides: Partial<{
@@ -1142,73 +1383,33 @@ describe("OrdersService", () => {
       }
     });
 
-    // Invariant: INV-ORD-11
-    it("allocates FEFO sorted by expirationDate ASC then id ASC, splitting across batches and marking depleted batches sold_out", async () => {
+    // Invariant: INV-ORD-18
+    it("confirms pending_confirmation order with active allocations and clears reservationExpiresAt", async () => {
       const pendingOrder = buildOrderRow();
       const confirmedOrder = buildOrderRow({
         orderStatus: OrderStatus.CONFIRMED,
       });
-      const earlierExp = new Date("2026-11-22T06:00:00.000Z");
-      const laterExp = new Date("2026-11-24T06:00:00.000Z");
-      const batchUpdates: Record<string, unknown>[] = [];
-      const insertedAllocations: unknown[] = [];
-
-      const origInsert = mockDb.insert.bind(mockDb);
-      mockDb.insert = ((table: unknown) => ({
-        values: (vals: unknown) => {
-          insertedAllocations.push(vals);
-          return origInsert(table as never).values(vals as never);
-        },
-      })) as unknown as typeof mockDb.insert;
+      const exp = new Date("2026-11-23T00:00:00.000Z");
+      const orderUpdates: Record<string, unknown>[] = [];
 
       const origUpdate = mockDb.update.bind(mockDb);
       mockDb.update = ((table: unknown) => ({
         set: (vals: Record<string, unknown>) => {
-          batchUpdates.push(vals);
+          orderUpdates.push(vals);
           return origUpdate(table as never).set(vals as never);
         },
       })) as unknown as typeof mockDb.update;
 
       mockDb.setSelectResultsQueue([
         [pendingOrder],
-        [
-          {
-            id: itemAId,
-            orderId,
-            productId: productAId,
-            quantity: "3.50",
-            unitPrice: 80_000,
-            productName: "Ca chua bi",
-            productSlug: "ca-chua-bi",
-            productImageUrls: null,
-            unit: "kg",
-          },
-        ],
-        [
-          {
-            id: batch2Id,
-            productId: productAId,
-            batchCode: "BATCH-LATER",
-            expirationDate: laterExp,
-            availableQuantity: "5.00",
-            status: BatchStatus.IN_STOCK,
-          },
-          {
-            id: batch1Id,
-            productId: productAId,
-            batchCode: "BATCH-EARLIER",
-            expirationDate: earlierExp,
-            availableQuantity: "2.00",
-            status: BatchStatus.NEAR_EXPIRY,
-          },
-        ],
+        [{ id: "019fa8bc-8f4d-7000-b366-e691f45cfb71" }],
         [confirmedOrder],
         [
           {
             id: itemAId,
             orderId,
             productId: productAId,
-            quantity: "3.50",
+            quantity: "2.00",
             unitPrice: 80_000,
             productName: "Ca chua bi",
             productSlug: "ca-chua-bi",
@@ -1221,18 +1422,9 @@ describe("OrdersService", () => {
             id: "019fa8bc-8f4d-7000-b366-e691f45cfb71",
             orderItemId: itemAId,
             batchId: batch1Id,
-            batchCode: "BATCH-EARLIER",
-            expirationDate: earlierExp,
+            batchCode: "BATCH-20261121-TOMATO-AAAAAA",
+            expirationDate: exp,
             allocatedQuantity: "2.00",
-            releasedAt: null,
-          },
-          {
-            id: "019fa8bc-8f4d-7000-b366-e691f45cfb72",
-            orderItemId: itemAId,
-            batchId: batch2Id,
-            batchCode: "BATCH-LATER",
-            expirationDate: laterExp,
-            allocatedQuantity: "1.50",
             releasedAt: null,
           },
         ],
@@ -1240,143 +1432,18 @@ describe("OrdersService", () => {
 
       const result = await service.confirmOrder(orderId);
       expect(result.orderStatus).toBe(OrderStatus.CONFIRMED);
-
-      const allocRows = insertedAllocations[0] as {
-        batchId: string;
-        allocatedQuantity: string;
-      }[];
-      expect(allocRows).toHaveLength(2);
-      expect(allocRows[0]).toMatchObject({
-        batchId: batch1Id,
-        allocatedQuantity: "2.00",
-      });
-      expect(allocRows[1]).toMatchObject({
-        batchId: batch2Id,
-        allocatedQuantity: "1.50",
-      });
-
-      expect(batchUpdates[0]).toMatchObject({
-        availableQuantity: "0.00",
-        status: BatchStatus.SOLD_OUT,
-      });
-      expect(batchUpdates[1]).toMatchObject({
-        availableQuantity: "3.50",
-        status: BatchStatus.IN_STOCK,
-      });
-    });
-
-    // Invariant: INV-ORD-11
-    it("breaks identical expirationDate ties by ascending batch id during FEFO allocation", async () => {
-      const pendingOrder = buildOrderRow();
-      const confirmedOrder = buildOrderRow({
+      expect(result.items[0]?.allocations).toHaveLength(1);
+      expect(orderUpdates).toHaveLength(1);
+      expect(orderUpdates[0]).toMatchObject({
         orderStatus: OrderStatus.CONFIRMED,
+        reservationExpiresAt: null,
       });
-      const sharedExp = new Date("2026-11-23T06:00:00.000Z");
-      const insertedAllocations: unknown[] = [];
-
-      const origInsert = mockDb.insert.bind(mockDb);
-      mockDb.insert = ((table: unknown) => ({
-        values: (vals: unknown) => {
-          insertedAllocations.push(vals);
-          return origInsert(table as never).values(vals as never);
-        },
-      })) as unknown as typeof mockDb.insert;
-
-      mockDb.setSelectResultsQueue([
-        [pendingOrder],
-        [
-          {
-            id: itemAId,
-            orderId,
-            productId: productAId,
-            quantity: "2.50",
-            unitPrice: 80_000,
-            productName: "Ca chua bi",
-            productSlug: "ca-chua-bi",
-            productImageUrls: null,
-            unit: "kg",
-          },
-        ],
-        [
-          {
-            id: batch2Id,
-            productId: productAId,
-            batchCode: "BATCH-TIE-2",
-            expirationDate: sharedExp,
-            availableQuantity: "2.00",
-            status: BatchStatus.IN_STOCK,
-          },
-          {
-            id: batch1Id,
-            productId: productAId,
-            batchCode: "BATCH-TIE-1",
-            expirationDate: sharedExp,
-            availableQuantity: "2.00",
-            status: BatchStatus.IN_STOCK,
-          },
-        ],
-        [confirmedOrder],
-        [
-          {
-            id: itemAId,
-            orderId,
-            productId: productAId,
-            quantity: "2.50",
-            unitPrice: 80_000,
-            productName: "Ca chua bi",
-            productSlug: "ca-chua-bi",
-            productImageUrls: null,
-            unit: "kg",
-          },
-        ],
-        [],
-      ]);
-
-      await service.confirmOrder(orderId);
-
-      const allocRows = insertedAllocations[0] as {
-        batchId: string;
-        allocatedQuantity: string;
-      }[];
-      expect(allocRows).toHaveLength(2);
-      expect(allocRows[0]).toMatchObject({
-        batchId: batch1Id,
-        allocatedQuantity: "2.00",
-      });
-      expect(allocRows[1]).toMatchObject({
-        batchId: batch2Id,
-        allocatedQuantity: "0.50",
-      });
+      expect(mockDb.insert).not.toHaveBeenCalled();
     });
 
-    // Invariant: INV-ORD-11
-    it("rejects confirmation with shortage details when sellable stock is insufficient", async () => {
-      mockDb.setSelectResultsQueue([
-        [buildOrderRow()],
-        [
-          {
-            id: itemAId,
-            orderId,
-            productId: productAId,
-            quantity: "5.00",
-            unitPrice: 80_000,
-            productName: "Ca chua bi",
-            productSlug: "ca-chua-bi",
-            productImageUrls: null,
-            unit: "kg",
-          },
-        ],
-        [
-          {
-            id: batch1Id,
-            productId: productAId,
-            batchCode: "BATCH-1",
-            expirationDate: new Date("2026-11-24T00:00:00.000Z"),
-            availableQuantity: "3.00",
-            status: BatchStatus.IN_STOCK,
-          },
-        ],
-      ]);
+    // Invariant: INV-ORD-18
+    it("rejects confirmation when pending_confirmation order has no active batch allocations", async () => {
+      mockDb.setSelectResultsQueue([[buildOrderRow()], []]);
 
       let caught: unknown;
       try {
@@ -1387,22 +1454,11 @@ describe("OrdersService", () => {
 
       expect(caught).toBeInstanceOf(ConflictException);
       expect(
-        (caught as ConflictException).getResponse() as Record<string, unknown>,
+        (caught as ConflictException).getResponse() as { code: string },
       ).toMatchObject({
-        code: API_ERROR_CODES.INSUFFICIENT_STOCK,
-        invalidParams: [
-          {
-            name: "items",
-            code: API_ERROR_CODES.INSUFFICIENT_STOCK,
-            params: {
-              productId: productAId,
-              requested: 5,
-              available: 3,
-            },
-          },
-        ],
+        code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
       });
-      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
     });
   });
 
@@ -1625,6 +1681,90 @@ describe("OrdersService", () => {
       expect(batchUpdates[2]).toMatchObject({
         availableQuantity: "4.00",
         status: BatchStatus.IN_STOCK,
+      });
+    });
+
+    // Invariant: INV-ORD-18
+    it("releases active batch allocations and clears reservationExpiresAt when cancelling a pending_confirmation order", async () => {
+      const nowMs = Date.now();
+      const freshAt = new Date(nowMs + 96 * 3_600_000);
+      const batchUpdates: Record<string, unknown>[] = [];
+      const orderUpdates: Record<string, unknown>[] = [];
+
+      const origUpdate = mockDb.update.bind(mockDb);
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          if (table === batches) {
+            batchUpdates.push(vals);
+          }
+          if (table === orders) {
+            orderUpdates.push(vals);
+          }
+          return origUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+
+      const pendingOrder = {
+        id: orderId,
+        customerId: userId,
+        orderCode: "ORD-20261121-ABC123",
+        orderStatus: OrderStatus.PENDING_CONFIRMATION,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PENDING,
+        receiverName: "Nguyen Van An",
+        receiverPhone: "0912345678",
+        shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+        shippingDistanceKm: "5.00",
+        shippingFee: 15_000,
+        subtotal: 160_000,
+        discountAmount: 0,
+        loyaltyPointsUsed: 0,
+        totalAmount: 175_000,
+        createdAt: new Date(nowMs - 3_600_000),
+        updatedAt: new Date(nowMs - 3_600_000),
+      };
+
+      const cancelledOrder = {
+        ...pendingOrder,
+        orderStatus: OrderStatus.CANCELLED,
+        paymentStatus: PaymentStatus.CANCELLED,
+      };
+
+      mockDb.setSelectResultsQueue([
+        [pendingOrder],
+        [
+          {
+            id: "alloc-1",
+            batchId: "batch-1",
+            allocatedQuantity: "2.00",
+          },
+        ],
+        [
+          {
+            id: "batch-1",
+            availableQuantity: "0.00",
+            expirationDate: freshAt,
+            status: BatchStatus.SOLD_OUT,
+          },
+        ],
+        [cancelledOrder],
+        [],
+      ]);
+
+      const result = await service.updateOrderStatus(
+        orderId,
+        OrderStatus.CANCELLED,
+      );
+
+      expect(result.orderStatus).toBe(OrderStatus.CANCELLED);
+      expect(batchUpdates[0]).toMatchObject({
+        availableQuantity: "2.00",
+        status: BatchStatus.IN_STOCK,
+      });
+      expect(orderUpdates[0]).toMatchObject({
+        orderStatus: OrderStatus.CANCELLED,
+        paymentStatus: PaymentStatus.CANCELLED,
+        reservationExpiresAt: null,
       });
     });
   });

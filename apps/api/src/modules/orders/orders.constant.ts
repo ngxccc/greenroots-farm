@@ -54,7 +54,11 @@ export const ORDER_STATUS_TRANSITIONS: ReadonlyMap<
 
 /** Order statuses that hold active FEFO allocations requiring stock restoration upon cancellation. */
 export const ALLOCATED_CANCELLABLE_STATUSES: readonly OrderStatus[] =
-  Object.freeze([OrderStatus.CONFIRMED, OrderStatus.PACKING]);
+  Object.freeze([
+    OrderStatus.PENDING_CONFIRMATION,
+    OrderStatus.CONFIRMED,
+    OrderStatus.PACKING,
+  ]);
 
 /** Order statuses eligible to render an active warehouse pick list (`#87`, `ADR-0033`). */
 export const PICK_LIST_ALLOWED_STATUSES = [
