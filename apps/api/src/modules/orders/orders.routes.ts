@@ -9,6 +9,7 @@ export const ORDERS_ROUTES = Object.freeze({
   CHECKOUT: "checkout",
   ME: "me",
   BY_ID: ":id",
+  CANCEL: ":id/cancel",
   CONFIRM: ":id/confirm",
   STATUS: ":id/status",
   PICK_LIST: ":id/pick-list",

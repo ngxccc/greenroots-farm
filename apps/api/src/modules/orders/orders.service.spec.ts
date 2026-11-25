@@ -1965,4 +1965,203 @@ describe("OrdersService", () => {
       });
     });
   });
+
+  describe("cancelMyOrder", () => {
+    const orderId = "019fa8bc-8f4d-7000-b366-e691f45cfb50";
+    const otherUserId = "019fa8bc-8f4d-7000-b366-e691f45cfb92";
+
+    const buildOrderRow = (overrides?: Partial<Record<string, unknown>>) => {
+      const now = new Date("2026-11-21T03:00:00.000Z");
+      return {
+        id: orderId,
+        customerId: userId,
+        orderCode: "ORD-20261121-CAN01",
+        orderStatus: OrderStatus.PENDING_CONFIRMATION,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PENDING,
+        receiverName: "Nguyen Van An",
+        receiverPhone: "0912345678",
+        shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+        shippingDistanceKm: "5.00",
+        shippingFee: 15_000,
+        subtotal: 160_000,
+        discountAmount: 20_000,
+        loyaltyPointsUsed: 20_000,
+        totalAmount: 155_000,
+        createdAt: now,
+        updatedAt: now,
+        ...overrides,
+      };
+    };
+
+    // Invariant: INV-ORD-21
+    it("cancels an owned pending_confirmation order, releases allocations, refunds loyalty, and returns closed OrderProjection", async () => {
+      const nowMs = Date.now();
+      const freshAt = new Date(nowMs + 96 * 3_600_000);
+      const batchUpdates: Record<string, unknown>[] = [];
+      const orderUpdates: Record<string, unknown>[] = [];
+      const userUpdates: Record<string, unknown>[] = [];
+
+      const origUpdate = mockDb.update.bind(mockDb);
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          if (table === batches) {
+            batchUpdates.push(vals);
+          } else if (table === orders) {
+            orderUpdates.push(vals);
+          } else {
+            userUpdates.push(vals);
+          }
+          return origUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+
+      const pendingOrder = buildOrderRow();
+      const cancelledOrder = buildOrderRow({
+        orderStatus: OrderStatus.CANCELLED,
+        paymentStatus: PaymentStatus.CANCELLED,
+      });
+
+      mockDb.setSelectResultsQueue([
+        [pendingOrder],
+        [
+          {
+            id: "alloc-1",
+            batchId: "batch-1",
+            allocatedQuantity: "2.00",
+          },
+        ],
+        [
+          {
+            id: "batch-1",
+            availableQuantity: "0.00",
+            expirationDate: freshAt,
+            status: BatchStatus.SOLD_OUT,
+          },
+        ],
+        [{ id: userId }],
+        [cancelledOrder],
+        [
+          {
+            id: "item-1",
+            orderId,
+            productId: productAId,
+            quantity: "2.00",
+            unitPrice: 80_000,
+            productName: "Cà chua bi hữu cơ",
+            productSlug: "ca-chua-bi-huu-co",
+            productImageUrls: ["https://cdn.example.com/tomato.jpg"],
+            unit: "kg",
+          },
+        ],
+      ]);
+
+      const result = await service.cancelMyOrder(userId, orderId);
+
+      expect(result.id).toBe(orderId);
+      expect(result.orderStatus).toBe(OrderStatus.CANCELLED);
+      expect(result.paymentStatus).toBe(PaymentStatus.CANCELLED);
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).not.toHaveProperty("allocations");
+      expect(result.items[0]).not.toHaveProperty("batchCode");
+      expect(result).not.toHaveProperty("customerId");
+
+      expect(batchUpdates[0]).toMatchObject({
+        availableQuantity: "2.00",
+        status: BatchStatus.IN_STOCK,
+      });
+      expect(orderUpdates[0]).toMatchObject({
+        orderStatus: OrderStatus.CANCELLED,
+        paymentStatus: PaymentStatus.CANCELLED,
+        reservationExpiresAt: null,
+      });
+      expect(userUpdates.length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Invariant: INV-ORD-21
+    it("throws not found when the order does not exist or belongs to another customer", async () => {
+      for (const queued of [[], [buildOrderRow({ customerId: otherUserId })]]) {
+        mockDb.setSelectResultsQueue([queued]);
+
+        let caught: unknown;
+        try {
+          await service.cancelMyOrder(userId, orderId);
+        } catch (err) {
+          caught = err;
+        }
+
+        expect(caught).toBeInstanceOf(NotFoundException);
+        expect(
+          (caught as NotFoundException).getResponse() as { code: string },
+        ).toMatchObject({
+          code: API_ERROR_CODES.ORDER_NOT_FOUND,
+        });
+      }
+    });
+
+    // Invariant: INV-ORD-21
+    it("rejects cancelling a paid or subscription order", async () => {
+      for (const row of [
+        buildOrderRow({
+          orderStatus: OrderStatus.PENDING_CONFIRMATION,
+          paymentStatus: PaymentStatus.PAID,
+        }),
+        buildOrderRow({
+          orderStatus: OrderStatus.PENDING_CONFIRMATION,
+          paymentMethod: PaymentMethod.SUBSCRIPTION,
+          paymentStatus: PaymentStatus.PENDING,
+        }),
+      ]) {
+        mockDb.setSelectResultsQueue([[row]]);
+
+        let caught: unknown;
+        try {
+          await service.cancelMyOrder(userId, orderId);
+        } catch (err) {
+          caught = err;
+        }
+
+        expect(caught).toBeInstanceOf(UnprocessableEntityException);
+        expect(
+          (caught as UnprocessableEntityException).getResponse() as {
+            code: string;
+          },
+        ).toMatchObject({
+          code: API_ERROR_CODES.ORDER_PAID_CANCELLATION_FORBIDDEN,
+        });
+      }
+    });
+
+    // Invariant: INV-ORD-21
+    it("rejects cancelling when the order is confirmed or in a later status", async () => {
+      for (const disallowedStatus of [
+        OrderStatus.CONFIRMED,
+        OrderStatus.PACKING,
+        OrderStatus.SHIPPING,
+        OrderStatus.DELIVERED,
+        OrderStatus.COMPLETED,
+        OrderStatus.CANCELLED,
+      ]) {
+        mockDb.setSelectResultsQueue([
+          [buildOrderRow({ orderStatus: disallowedStatus })],
+        ]);
+
+        let caught: unknown;
+        try {
+          await service.cancelMyOrder(userId, orderId);
+        } catch (err) {
+          caught = err;
+        }
+
+        expect(caught).toBeInstanceOf(UnprocessableEntityException);
+        expect(
+          (caught as UnprocessableEntityException).getResponse() as {
+            code: string;
+          },
+        ).toMatchObject({
+          code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
+        });
+      }
+    });
+  });
 });

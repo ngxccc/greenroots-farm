@@ -109,6 +109,32 @@ export class OrdersController {
     return apiSuccess(order);
   }
 
+  @Post(ORDERS_ROUTES.CANCEL)
+  @ApiAuth(UserRole.CUSTOMER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Cancel a pending customer order",
+    description:
+      "Cancels an owned order in pending_payment or pending_confirmation status, soft-releasing any FEFO batch allocations, refunding used loyalty points, and cancelling pending payment records.",
+  })
+  @ApiParam({
+    name: "id",
+    type: "string",
+    format: "uuid",
+    description: "Order UUIDv7 identifier",
+  })
+  @ApiOkResponseGeneric(OrderDto)
+  @ApiNotFoundResponseRfc9457()
+  @ApiUnprocessableEntityResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
+  async cancelMyOrder(
+    @CurrentUser("sub") userId: string,
+    @Param("id", new ZodValidationPipe(zUuidV7())) orderId: string,
+  ): Promise<ApiResponse<OrderProjection>> {
+    const cancelled = await this.ordersService.cancelMyOrder(userId, orderId);
+    return apiSuccess(cancelled);
+  }
+
   @Post(ORDERS_ROUTES.VALIDATE_CART)
   @ApiAuth(UserRole.CUSTOMER)
   @HttpCode(HttpStatus.OK)

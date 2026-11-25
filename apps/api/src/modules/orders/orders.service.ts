@@ -322,6 +322,59 @@ export class OrdersService {
   }
 
   /**
+   * Cancels an owned retail order prior to staff confirmation (`ADR-0038`, `INV-ORD-21`).
+   * Throws `404 ORDER_NOT_FOUND` on missing or non-owned orders (`ADR-0032` anti-enumeration),
+   * `422 ORDER_PAID_CANCELLATION_FORBIDDEN` for paid/subscription orders, and
+   * `422 ORDER_INVALID_STATUS_TRANSITION` once the order reaches `confirmed` or later.
+   *
+   * @param sub Authenticated customer UUID from JWT `sub`.
+   * @param orderId Target order UUIDv7 identifier.
+   * @returns Closed `OrderProjection` without internal allocation fields.
+   */
+  async cancelMyOrder(sub: string, orderId: string): Promise<OrderProjection> {
+    const hoursThreshold = await this.resolveHoursThreshold();
+
+    return this.db.transaction(async (tx) => {
+      const orderRow = await this.lockOrderForUpdate(tx, orderId);
+
+      if (orderRow.customerId !== sub) {
+        throw new NotFoundException({
+          code: API_ERROR_CODES.ORDER_NOT_FOUND,
+          detail: MESSAGES.ORDERS.NOT_FOUND,
+        });
+      }
+
+      this.assertOrderCancellablePayment(orderRow);
+
+      if (
+        orderRow.orderStatus !== OrderStatus.PENDING_PAYMENT &&
+        orderRow.orderStatus !== OrderStatus.PENDING_CONFIRMATION
+      ) {
+        throw new UnprocessableEntityException({
+          code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
+          detail: MESSAGES.ORDERS.INVALID_STATUS_TRANSITION,
+        });
+      }
+
+      const cancelledOrder = await this.cancelOrderWithinTx(
+        tx,
+        orderRow,
+        hoursThreshold,
+        new Date(),
+      );
+
+      const itemRows = await this.fetchOrderItemsWithProduct(tx, [
+        cancelledOrder.id,
+      ]);
+
+      return this.mapOrderRowToProjection(
+        cancelledOrder,
+        itemRows.map((row) => this.mapOrderItemProjection(row)),
+      );
+    });
+  }
+
+  /**
    * Confirms a `pending_confirmation` order that already holds checkout-time FEFO allocations (`ADR-0038`).
    * Naturally idempotent when the order is already `confirmed` (returns active allocations without mutating stock).
    *
@@ -414,61 +467,12 @@ export class OrdersService {
       const now = new Date();
 
       if (targetStatus === OrderStatus.CANCELLED) {
-        if (
-          orderRow.paymentStatus === PaymentStatus.PAID ||
-          orderRow.paymentMethod === PaymentMethod.SUBSCRIPTION
-        ) {
-          throw new UnprocessableEntityException({
-            code: API_ERROR_CODES.ORDER_PAID_CANCELLATION_FORBIDDEN,
-            detail: MESSAGES.ORDERS.PAID_CANCELLATION_FORBIDDEN,
-          });
-        }
-
-        if (ALLOCATED_CANCELLABLE_STATUSES.includes(orderRow.orderStatus)) {
-          await this.releaseOrderAllocations(
-            tx,
-            orderRow.id,
-            hoursThreshold ?? BUSINESS_RULES.FLASH_SALE_HOURS_THRESHOLD,
-            now,
-          );
-        }
-
-        if (orderRow.loyaltyPointsUsed > 0) {
-          await this.refundLoyaltyPoints(
-            tx,
-            orderRow.customerId,
-            orderRow.loyaltyPointsUsed,
-          );
-        }
-
-        const [cancelledOrder] = await tx
-          .update(orders)
-          .set({
-            orderStatus: OrderStatus.CANCELLED,
-            paymentStatus: PaymentStatus.CANCELLED,
-            reservationExpiresAt: null,
-            updatedAt: now,
-          })
-          .where(eq(orders.id, orderRow.id))
-          .returning(ORDER_COLUMNS);
-
-        if (!cancelledOrder) {
-          throw new Error("Failed to cancel order record.");
-        }
-
-        await tx
-          .update(payments)
-          .set({
-            status: PaymentStatus.CANCELLED,
-            updatedAt: now,
-          })
-          .where(
-            and(
-              eq(payments.orderId, orderRow.id),
-              eq(payments.status, PaymentStatus.PENDING),
-              eq(payments.transactionType, PaymentTransactionType.PAYMENT),
-            ),
-          );
+        const cancelledOrder = await this.cancelOrderWithinTx(
+          tx,
+          orderRow,
+          hoursThreshold ?? BUSINESS_RULES.FLASH_SALE_HOURS_THRESHOLD,
+          now,
+        );
 
         return this.hydrateStaffOrderProjection(tx, cancelledOrder, "released");
       }
@@ -1332,6 +1336,70 @@ export class OrdersService {
       unitPriceVnd: row.unitPrice,
       lineTotalVnd: this.computeLineTotalVnd(quantityCents, row.unitPrice),
     };
+  }
+
+  private assertOrderCancellablePayment(orderRow: OrderRow): void {
+    if (
+      orderRow.paymentStatus === PaymentStatus.PAID ||
+      orderRow.paymentMethod === PaymentMethod.SUBSCRIPTION
+    ) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.ORDER_PAID_CANCELLATION_FORBIDDEN,
+        detail: MESSAGES.ORDERS.PAID_CANCELLATION_FORBIDDEN,
+      });
+    }
+  }
+
+  private async cancelOrderWithinTx(
+    tx: DrizzleTx,
+    orderRow: OrderRow,
+    hoursThreshold: number,
+    now: Date,
+  ): Promise<OrderRow> {
+    this.assertOrderCancellablePayment(orderRow);
+
+    if (ALLOCATED_CANCELLABLE_STATUSES.includes(orderRow.orderStatus)) {
+      await this.releaseOrderAllocations(tx, orderRow.id, hoursThreshold, now);
+    }
+
+    if (orderRow.loyaltyPointsUsed > 0) {
+      await this.refundLoyaltyPoints(
+        tx,
+        orderRow.customerId,
+        orderRow.loyaltyPointsUsed,
+      );
+    }
+
+    const [cancelledOrder] = await tx
+      .update(orders)
+      .set({
+        orderStatus: OrderStatus.CANCELLED,
+        paymentStatus: PaymentStatus.CANCELLED,
+        reservationExpiresAt: null,
+        updatedAt: now,
+      })
+      .where(eq(orders.id, orderRow.id))
+      .returning(ORDER_COLUMNS);
+
+    if (!cancelledOrder) {
+      throw new Error("Failed to cancel order record.");
+    }
+
+    await tx
+      .update(payments)
+      .set({
+        status: PaymentStatus.CANCELLED,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(payments.orderId, orderRow.id),
+          eq(payments.status, PaymentStatus.PENDING),
+          eq(payments.transactionType, PaymentTransactionType.PAYMENT),
+        ),
+      );
+
+    return cancelledOrder;
   }
 
   private async lockOrderForUpdate(
