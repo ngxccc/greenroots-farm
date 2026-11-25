@@ -22,7 +22,6 @@ import type {
   SubscriptionPlanProjection,
   UpdateSubscriptionPlanInput,
 } from "./dto";
-import { SUBSCRIPTION_PLANS_SLUG_UIDX } from "./subscriptions.constant";
 
 const SUBSCRIPTION_PLAN_COLUMNS = {
   id: subscriptionPlans.id,
@@ -40,6 +39,18 @@ const SUBSCRIPTION_PLAN_COLUMNS = {
 
 type SubscriptionPlanRow = Omit<SubscriptionPlan, "deletedAt">;
 
+function trimHyphens(value: string): string {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === "-") {
+    start += 1;
+  }
+  while (end > start && value[end - 1] === "-") {
+    end -= 1;
+  }
+  return value.slice(start, end);
+}
+
 /**
  * Generates a lowercase kebab-case slug from a Vietnamese or ASCII plan name.
  *
@@ -47,15 +58,14 @@ type SubscriptionPlanRow = Omit<SubscriptionPlan, "deletedAt">;
  * @returns Non-empty kebab-case slug capped at 255 characters.
  */
 export function generateSubscriptionPlanSlug(name: string): string {
-  const normalized = name
+  const collapsed = name
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[đĐ]/g, "d")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 255)
-    .replace(/-+$/g, "");
+    .replace(/[^a-z0-9]+/g, "-");
+
+  const normalized = trimHyphens(trimHyphens(collapsed).slice(0, 255));
 
   return normalized.length > 0 ? normalized : `plan-${Date.now().toString(36)}`;
 }
@@ -221,8 +231,7 @@ export class SubscriptionPlansService {
     const dbError = extractDatabaseErrorDetails(error);
     if (
       dbError.isDatabaseError &&
-      dbError.code === PG_ERROR_CODE.UNIQUE_VIOLATION &&
-      dbError.constraint === SUBSCRIPTION_PLANS_SLUG_UIDX
+      dbError.code === PG_ERROR_CODE.UNIQUE_VIOLATION
     ) {
       throw new ConflictException({
         code: API_ERROR_CODES.SUBSCRIPTION_PLAN_SLUG_CONFLICT,
