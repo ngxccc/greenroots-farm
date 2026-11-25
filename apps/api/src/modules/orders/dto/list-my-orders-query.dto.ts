@@ -10,11 +10,39 @@ import { ORDER_SORT_OPTIONS } from "../orders.constant";
 export const listMyOrdersQuerySchema = z
   .object({
     status: z.enum(OrderStatus).optional(),
+    statuses: z
+      .string()
+      .trim()
+      .min(1)
+      .transform((value) =>
+        Array.from(
+          new Set(
+            value
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean),
+          ),
+        ),
+      )
+      .pipe(
+        z
+          .array(z.enum(OrderStatus))
+          .min(1)
+          .max(Object.values(OrderStatus).length),
+      )
+      .optional(),
     page: zNumericString({ integer: true, min: 1 }).default(1),
     limit: zNumericString({ integer: true, min: 1, max: 100 }).default(20),
     sort: z.enum(ORDER_SORT_OPTIONS).default("createdAt:desc"),
   })
-  .strict();
+  .strict()
+  .refine(
+    (data) => !(data.status !== undefined && data.statuses !== undefined),
+    {
+      message: "Cannot specify both status and statuses query parameters.",
+      path: ["statuses"],
+    },
+  );
 
 /** Validated query parameters for customer order history. */
 export type ListMyOrdersQuery = z.infer<typeof listMyOrdersQuerySchema>;

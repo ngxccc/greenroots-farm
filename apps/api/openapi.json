@@ -9855,6 +9855,15 @@
             }
           },
           {
+            "name": "statuses",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",

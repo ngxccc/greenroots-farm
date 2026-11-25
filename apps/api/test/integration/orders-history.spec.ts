@@ -422,6 +422,30 @@ describe("Orders History Integration", () => {
         "ORD-20261120-000003",
       ]);
 
+      const multiStatusRes = await request(app.getHttpServer())
+        .get(
+          `/api/v1/orders/me?statuses=${OrderStatus.PENDING_CONFIRMATION},${OrderStatus.PACKING}&sort=createdAt:asc`,
+        )
+        .set(customerHeader)
+        .expect(200);
+      const multiStatus = multiStatusRes.body as ApiResponse<
+        OrderResponse[],
+        PaginationMeta
+      >;
+      expect(multiStatus.meta?.total).toBe(3);
+      expect(multiStatus.data.map((o) => o.orderCode)).toEqual([
+        "ORD-20261120-000001",
+        "ORD-20261120-000002",
+        "ORD-20261120-000003",
+      ]);
+
+      await request(app.getHttpServer())
+        .get(
+          `/api/v1/orders/me?status=${OrderStatus.PENDING_CONFIRMATION}&statuses=${OrderStatus.PACKING}`,
+        )
+        .set(customerHeader)
+        .expect(400);
+
       const sortedDescRes = await request(app.getHttpServer())
         .get("/api/v1/orders/me?sort=totalAmount:desc")
         .set(customerHeader)

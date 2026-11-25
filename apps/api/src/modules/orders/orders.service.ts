@@ -218,8 +218,14 @@ export class OrdersService {
   ): Promise<{ items: OrderProjection[]; meta: PaginationMetaDto }> {
     await this.loadActiveCustomer(this.db, sub, false);
 
-    const whereClause = query.status
-      ? and(eq(orders.customerId, sub), eq(orders.orderStatus, query.status))
+    const statusFilter = query.statuses
+      ? inArray(orders.orderStatus, query.statuses)
+      : query.status
+        ? eq(orders.orderStatus, query.status)
+        : undefined;
+
+    const whereClause = statusFilter
+      ? and(eq(orders.customerId, sub), statusFilter)
       : eq(orders.customerId, sub);
 
     const [countRow] = await this.db

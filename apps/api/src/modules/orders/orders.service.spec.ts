@@ -242,6 +242,28 @@ describe("OrdersService", () => {
       expect(
         listMyOrdersQuerySchema.parse({ sort: "createdAt:asc" }).sort,
       ).toBe("createdAt:asc");
+
+      const multiStatus = listMyOrdersQuerySchema.parse({
+        statuses: `${OrderStatus.PENDING_PAYMENT},${OrderStatus.PENDING_CONFIRMATION},${OrderStatus.CONFIRMED}`,
+      });
+      expect(multiStatus.statuses).toEqual([
+        OrderStatus.PENDING_PAYMENT,
+        OrderStatus.PENDING_CONFIRMATION,
+        OrderStatus.CONFIRMED,
+      ]);
+
+      expect(
+        listMyOrdersQuerySchema.safeParse({
+          statuses: "pending_payment,invalid_status",
+        }).success,
+      ).toBe(false);
+
+      expect(
+        listMyOrdersQuerySchema.safeParse({
+          status: OrderStatus.PENDING_CONFIRMATION,
+          statuses: OrderStatus.SHIPPING,
+        }).success,
+      ).toBe(false);
     });
   });
 
@@ -918,6 +940,26 @@ describe("OrdersService", () => {
         expect(res.items).toHaveLength(1);
         expect(res.items[0]?.items).toEqual([]);
       }
+    });
+
+    it("accepts grouped statuses array filter", async () => {
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [{ total: 0 }],
+      ]);
+
+      const res = await service.listMyOrders(userId, {
+        page: 1,
+        limit: 20,
+        sort: "createdAt:desc",
+        statuses: [
+          OrderStatus.PENDING_PAYMENT,
+          OrderStatus.PENDING_CONFIRMATION,
+        ],
+      });
+
+      expect(res.meta.total).toBe(0);
+      expect(res.items).toEqual([]);
     });
   });
 

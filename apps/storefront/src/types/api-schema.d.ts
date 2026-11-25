@@ -9987,6 +9987,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "pending_payment" | "pending_confirmation" | "confirmed" | "packing" | "shipping" | "delivered" | "completed" | "cancelled";
+                statuses?: string;
                 page?: number | string;
                 limit?: number | string;
                 sort?: "createdAt:desc" | "createdAt:asc" | "totalAmount:desc" | "totalAmount:asc";
