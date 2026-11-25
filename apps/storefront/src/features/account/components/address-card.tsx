@@ -12,7 +12,7 @@ import {
 import { CheckCircle2, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
 import { formatVnd } from "@/lib/format";
-import { useShippingQuote } from "@/lib/shipping/use-shipping-quote";
+import { useShippingQuote } from "@/features/shipping/hooks/use-shipping-quote";
 import { useAuthStore } from "@/stores/auth.store";
 import type { CustomerAddress } from "@/features/account/types/address.types";
 

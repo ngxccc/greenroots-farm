@@ -1,6 +1,6 @@
 "use client";
 
-import { clearShippingQuoteCache } from "@/lib/shipping/use-shipping-quote";
+import { clearShippingQuoteCache } from "@/features/shipping/hooks/use-shipping-quote";
 import { broadcastAuthEvent, useAuthStore } from "@/stores/auth.store";
 import { useDeliveryAddressStore } from "@/stores/delivery-address.store";
 

@@ -20,7 +20,7 @@ import {
   ADDRESS_STREET_MAX_LENGTH,
 } from "@/features/account/schemas/address-validation";
 import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
-import { useShippingQuote } from "@/lib/shipping/use-shipping-quote";
+import { useShippingQuote } from "@/features/shipping/hooks/use-shipping-quote";
 import { useAuthStore } from "@/stores/auth.store";
 
 interface DeliveryQuotePreviewProps {

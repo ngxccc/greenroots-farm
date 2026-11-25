@@ -22,7 +22,10 @@ import {
   runWithServerActionRefresh,
   type ServerActionRefreshOutcome,
 } from "@/features/auth/services/session.server";
-import type { ShippingQuote, ShippingQuoteRequest } from "@/lib/shipping";
+import type {
+  ShippingQuote,
+  ShippingQuoteRequest,
+} from "@/features/shipping/types/shipping.types";
 import type { ApiProblemDetails } from "@/types/api";
 
 const SHIPPING_QUOTE_BFF_INSTANCE = "/api/shipping/quote";

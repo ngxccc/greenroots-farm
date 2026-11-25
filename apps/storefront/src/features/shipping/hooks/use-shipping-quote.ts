@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ShippingQuote, ShippingQuoteRequest } from "@/lib/shipping";
+import type {
+  ShippingQuote,
+  ShippingQuoteRequest,
+} from "@/features/shipping/types/shipping.types";
 
 const DEFAULT_QUOTE_ERROR_MESSAGE =
   "Không thể tải phí giao hàng. Vui lòng thử lại.";
