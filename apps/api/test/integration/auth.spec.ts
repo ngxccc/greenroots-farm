@@ -33,6 +33,7 @@ import {
   type CapturedMailTokens,
 } from "../helpers/auth.helper";
 import { RedisService } from "@/common/services/redis.service";
+import { env } from "@/common/config/env.config";
 import type { Redis } from "ioredis";
 
 // Standard response envelope types
@@ -631,25 +632,55 @@ describe("Authentication Integration", () => {
     });
 
     it("captures client deviceName and ipAddress in refresh token record", async () => {
+      // Invariant: INV-SF-AUTH-9
       const email = "login.metadata@greenroots.farm";
       const password = "Password123!";
       await seedVerifiedUser(email, password);
 
-      const res = await request(getHttpServer())
-        .post("/api/v1/auth/login")
-        .set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)")
-        .set("X-Forwarded-For", "203.0.113.195")
-        .send({ email, password });
+      const originalSecret = env.INTERNAL_PROXY_SECRET;
+      const testSecret = "e2e-bff-shared-secret-32-chars!!";
+      (env as { INTERNAL_PROXY_SECRET?: string }).INTERNAL_PROXY_SECRET =
+        testSecret;
 
-      const { refreshToken } = (res.body as ApiResponse<LoginData>).data;
-      const [storedToken] = await db
-        .select()
-        .from(refreshTokens)
-        .where(eq(refreshTokens.token, sha256(refreshToken)))
-        .limit(1);
+      try {
+        const spoofRes = await request(getHttpServer())
+          .post("/api/v1/auth/login")
+          .set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)")
+          .set("X-Forwarded-For", "203.0.113.195")
+          .send({ email, password });
 
-      expect(storedToken?.deviceName).toContain("iPhone");
-      expect(storedToken?.ipAddress).toBe("203.0.113.195");
+        const spoofToken = (spoofRes.body as ApiResponse<LoginData>).data
+          .refreshToken;
+        const [spoofStored] = await db
+          .select()
+          .from(refreshTokens)
+          .where(eq(refreshTokens.token, sha256(spoofToken)))
+          .limit(1);
+
+        expect(spoofStored?.deviceName).toContain("iPhone");
+        expect(spoofStored?.ipAddress).toBe("127.0.0.1");
+
+        const trustedRes = await request(getHttpServer())
+          .post("/api/v1/auth/login")
+          .set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)")
+          .set("X-BFF-Client-IP", "203.0.113.195")
+          .set("X-Internal-Proxy-Secret", testSecret)
+          .send({ email, password });
+
+        const trustedToken = (trustedRes.body as ApiResponse<LoginData>).data
+          .refreshToken;
+        const [trustedStored] = await db
+          .select()
+          .from(refreshTokens)
+          .where(eq(refreshTokens.token, sha256(trustedToken)))
+          .limit(1);
+
+        expect(trustedStored?.deviceName).toContain("iPhone");
+        expect(trustedStored?.ipAddress).toBe("203.0.113.195");
+      } finally {
+        (env as { INTERNAL_PROXY_SECRET?: string }).INTERNAL_PROXY_SECRET =
+          originalSecret;
+      }
     });
 
     it("allows access to protected endpoints using issued access token", async () => {
