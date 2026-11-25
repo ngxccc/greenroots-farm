@@ -25,7 +25,7 @@ import {
 } from "@/common/filters/global-exception.filter";
 import type { ApiResponse } from "@/common/utils/api-response.util";
 import { extractDatabaseErrorDetails } from "@/common/utils/error.util";
-import { farmingLogs } from "@/database/schemas";
+import { farmingLogs, plots, seasons } from "@/database/schemas";
 import {
   createFarm,
   createFarmingLog,
@@ -867,6 +867,183 @@ describe("Farming Logs Integration", () => {
 
       expect(staffRes.status).toBe(201);
       expect(adminRes.status).toBe(201);
+    });
+
+    // Invariant: INV-FLOG-1
+    it("blocks parent season deletion via ON DELETE CASCADE and preserves logs intact", async () => {
+      const season = await createSeason(setup.db, SeasonMother.active());
+      const baseLog = await createFarmingLog(
+        setup.db,
+        FarmingLogMother.watering({
+          seasonId: season.id,
+          staffId: farmStaffUserId,
+          description: "Tưới nước giữ ẩm gốc",
+        }),
+      );
+      const correctionLog = await createFarmingLog(
+        setup.db,
+        FarmingLogMother.correction(baseLog.id, {
+          seasonId: season.id,
+          staffId: farmStaffUserId,
+          description: "Đính chính lượng nước tưới",
+        }),
+      );
+
+      let cascadeDeleteError: unknown;
+      try {
+        await setup.db.delete(seasons).where(eq(seasons.id, season.id));
+      } catch (error) {
+        cascadeDeleteError = error;
+      }
+
+      expect(cascadeDeleteError).toBeDefined();
+      const details = extractDatabaseErrorDetails(cascadeDeleteError);
+      expect(details.code).toBe(PG_ERROR_CODE.RAISE_EXCEPTION);
+      expect(details.message).toContain("FARMING_LOG_IMMUTABLE");
+
+      const [persistedSeason] = await setup.db
+        .select({ id: seasons.id })
+        .from(seasons)
+        .where(eq(seasons.id, season.id));
+      expect(persistedSeason?.id).toBe(season.id);
+
+      const persistedLogs = await setup.db
+        .select({
+          id: farmingLogs.id,
+          description: farmingLogs.description,
+        })
+        .from(farmingLogs)
+        .where(eq(farmingLogs.seasonId, season.id));
+      expect(persistedLogs).toHaveLength(2);
+      expect(persistedLogs.map((row) => row.id)).toEqual(
+        expect.arrayContaining([baseLog.id, correctionLog.id]),
+      );
+    });
+
+    // Invariant: INV-FLOG-1
+    it("blocks parent plot deletion and preserves season and farming logs intact", async () => {
+      const farm = await createFarm(setup.db);
+      const plot = await createPlot(setup.db, {
+        farmId: farm.id,
+        plotCode: "PLOT-IMMUT-GUARD",
+      });
+      const season = await createSeason(
+        setup.db,
+        SeasonMother.active({ plotId: plot.id }),
+      );
+      const log = await createFarmingLog(
+        setup.db,
+        FarmingLogMother.soilTesting({
+          seasonId: season.id,
+          staffId: farmStaffUserId,
+          description: "Đo pH đất trước gieo",
+        }),
+      );
+
+      let plotDeleteError: unknown;
+      try {
+        await setup.db.delete(plots).where(eq(plots.id, plot.id));
+      } catch (error) {
+        plotDeleteError = error;
+      }
+
+      expect(plotDeleteError).toBeDefined();
+      const details = extractDatabaseErrorDetails(plotDeleteError);
+      // PostgreSQL raises 23001 (restrict_violation) for ON DELETE RESTRICT
+      expect(details.code).toBe("23001");
+      expect(details.constraint).toBe("seasons_plot_id_plots_id_fkey");
+
+      const [persistedPlot] = await setup.db
+        .select({ id: plots.id })
+        .from(plots)
+        .where(eq(plots.id, plot.id));
+      const [persistedSeason] = await setup.db
+        .select({ id: seasons.id })
+        .from(seasons)
+        .where(eq(seasons.id, season.id));
+      const [persistedLog] = await setup.db
+        .select({ id: farmingLogs.id })
+        .from(farmingLogs)
+        .where(eq(farmingLogs.id, log.id));
+
+      expect(persistedPlot?.id).toBe(plot.id);
+      expect(persistedSeason?.id).toBe(season.id);
+      expect(persistedLog?.id).toBe(log.id);
+    });
+
+    // Invariant: INV-FLOG-1
+    it("rolls back multi-row UPDATE and DELETE statements atomically without altering persisted logs", async () => {
+      const season = await createSeason(setup.db, SeasonMother.active());
+      const log1 = await createFarmingLog(
+        setup.db,
+        FarmingLogMother.watering({
+          seasonId: season.id,
+          staffId: farmStaffUserId,
+          description: "Bản ghi gốc 1",
+        }),
+      );
+      const log2 = await createFarmingLog(
+        setup.db,
+        FarmingLogMother.correction(log1.id, {
+          seasonId: season.id,
+          staffId: farmStaffUserId,
+          description: "Bản ghi đính chính 2",
+        }),
+      );
+
+      let bulkUpdateError: unknown;
+      try {
+        await setup.db
+          .update(farmingLogs)
+          .set({ description: "Nội dung bị ghi đè hàng loạt" })
+          .where(eq(farmingLogs.seasonId, season.id));
+      } catch (error) {
+        bulkUpdateError = error;
+      }
+
+      expect(bulkUpdateError).toBeDefined();
+      const updateDetails = extractDatabaseErrorDetails(bulkUpdateError);
+      expect(updateDetails.code).toBe(PG_ERROR_CODE.RAISE_EXCEPTION);
+      expect(updateDetails.message).toContain("FARMING_LOG_IMMUTABLE");
+
+      let bulkDeleteError: unknown;
+      try {
+        await setup.db
+          .delete(farmingLogs)
+          .where(eq(farmingLogs.seasonId, season.id));
+      } catch (error) {
+        bulkDeleteError = error;
+      }
+
+      expect(bulkDeleteError).toBeDefined();
+      const deleteDetails = extractDatabaseErrorDetails(bulkDeleteError);
+      expect(deleteDetails.code).toBe(PG_ERROR_CODE.RAISE_EXCEPTION);
+      expect(deleteDetails.message).toContain("FARMING_LOG_IMMUTABLE");
+
+      const persistedLogs = await setup.db
+        .select({
+          id: farmingLogs.id,
+          description: farmingLogs.description,
+          correctsLogId: farmingLogs.correctsLogId,
+        })
+        .from(farmingLogs)
+        .where(eq(farmingLogs.seasonId, season.id));
+
+      expect(persistedLogs).toHaveLength(2);
+      expect(persistedLogs).toEqual(
+        expect.arrayContaining([
+          {
+            id: log1.id,
+            description: "Bản ghi gốc 1",
+            correctsLogId: null,
+          },
+          {
+            id: log2.id,
+            description: "Bản ghi đính chính 2",
+            correctsLogId: log1.id,
+          },
+        ]),
+      );
     });
   });
 });
