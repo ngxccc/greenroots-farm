@@ -9,12 +9,12 @@ import {
   buildServiceUnavailableFailure,
   buildValidationFailure,
   isTransientRefreshFailure,
-} from "@/lib/auth/bff-error";
+} from "@/features/auth/utils/bff-error";
 import {
   clearServerSessionCookies,
   runWithServerActionRefresh,
-} from "@/lib/auth/session.server";
-import { actionRefreshedTokenStorage } from "@/lib/auth/server-token";
+} from "@/features/auth/services/session.server";
+import { actionRefreshedTokenStorage } from "@/features/auth/services/server-token";
 import type {
   CreateCustomerAddressInput,
   CustomerAddress,

@@ -23,12 +23,12 @@ import {
   Package,
   User,
 } from "lucide-react";
-import { performStorefrontLogout } from "@/lib/auth/client-logout";
+import { performStorefrontLogout } from "@/features/auth/utils/client-logout";
 import { getUserInitials } from "@/lib/format";
 import { subscribeAuthEvents, useAuthStore } from "@/stores/auth.store";
 import { useDeliveryAddressStore } from "@/stores/delivery-address.store";
 import type { CustomerAddress } from "@/types/address.types";
-import type { StorefrontSessionUser } from "@/types/auth.types";
+import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 
 interface HeaderAuthControlsProps {
   readonly initialUser: StorefrontSessionUser | null;

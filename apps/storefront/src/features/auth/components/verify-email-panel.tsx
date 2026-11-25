@@ -14,12 +14,12 @@ import {
   type VerifyEmailActionResult,
   resendVerificationAction,
   verifyEmailAction,
-} from "@/lib/auth/auth-actions";
+} from "@/features/auth/actions/auth-actions";
 import {
   RESEND_VERIFICATION_COOLDOWN_SECONDS,
   formatResendCooldownLabel,
   resendVerificationFormSchema,
-} from "@/lib/auth/auth-validation";
+} from "@/features/auth/schemas/auth-validation";
 import { AuthAlertBanner } from "./auth-alert-banner";
 import { AuthFooterLinks } from "./auth-footer-links";
 import {

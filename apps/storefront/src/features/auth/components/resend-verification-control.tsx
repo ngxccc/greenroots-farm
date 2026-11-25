@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { Button } from "@greenroots/ui";
 import { Loader2, Send } from "lucide-react";
-import { resendVerificationAction } from "@/lib/auth/auth-actions";
+import { resendVerificationAction } from "@/features/auth/actions/auth-actions";
 import {
   RESEND_VERIFICATION_COOLDOWN_SECONDS,
   formatResendCooldownLabel,
-} from "@/lib/auth/auth-validation";
+} from "@/features/auth/schemas/auth-validation";
 import { AuthAlertBanner } from "./auth-alert-banner";
 import { AUTH_PRIMARY_BUTTON_CLASS } from "./auth-styles";
 import { useCooldown } from "./use-cooldown";

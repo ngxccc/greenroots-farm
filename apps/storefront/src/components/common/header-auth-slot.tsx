@@ -3,7 +3,7 @@ import { Skeleton } from "@greenroots/ui";
 import {
   getHeaderAddresses,
   getServerSession,
-} from "@/lib/auth/session.server";
+} from "@/features/auth/services/session.server";
 import { HeaderAuthControls } from "./header-auth-controls";
 
 /**

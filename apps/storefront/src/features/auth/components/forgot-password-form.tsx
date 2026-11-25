@@ -3,12 +3,12 @@
 import { useState, type ChangeEvent, type SubmitEvent } from "react";
 import { Button, Input, Label } from "@greenroots/ui";
 import { KeyRound, Loader2, Send } from "lucide-react";
-import { forgotPasswordAction } from "@/lib/auth/auth-actions";
+import { forgotPasswordAction } from "@/features/auth/actions/auth-actions";
 import {
   FORGOT_PASSWORD_COOLDOWN_SECONDS,
   forgotPasswordFormSchema,
   formatForgotPasswordCooldownLabel,
-} from "@/lib/auth/auth-validation";
+} from "@/features/auth/schemas/auth-validation";
 import { AuthAlertBanner } from "./auth-alert-banner";
 import { AuthFooterLinks } from "./auth-footer-links";
 import {

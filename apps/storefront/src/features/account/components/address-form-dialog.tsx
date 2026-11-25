@@ -21,7 +21,7 @@ import {
   buildUpdateAddressDiff,
   createAddressFormSchema,
 } from "@/lib/address/address-validation";
-import { invalidateStorefrontClientSession } from "@/lib/auth/client-logout";
+import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
 import type { CustomerAddress } from "@/types/address.types";
 import { AddressFormFields } from "./address-form-fields";
 

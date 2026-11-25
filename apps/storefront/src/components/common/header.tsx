@@ -19,7 +19,7 @@ import {
   Label,
 } from "@greenroots/ui";
 import { MapPin, Search } from "lucide-react";
-import { invalidateStorefrontClientSession } from "@/lib/auth/client-logout";
+import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
 import { buildProductSearchHref } from "@/lib/navigation";
 import { useShippingQuote } from "@/lib/shipping/use-shipping-quote";
 import { useAuthStore } from "@/stores/auth.store";

@@ -6,7 +6,7 @@ import {
   extractFirstQueryValue,
   parsePrefillEmailParam,
   parseRecoveryTokenParam,
-} from "@/lib/auth/auth-validation";
+} from "@/features/auth/schemas/auth-validation";
 
 export const metadata: Metadata = {
   title: "Xác thực email",

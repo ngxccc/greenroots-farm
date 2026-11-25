@@ -5,8 +5,8 @@ import { useState } from "react";
 import { Button } from "@greenroots/ui";
 import { LogOut } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/common/confirm-action-dialog";
-import { logoutAllAction } from "@/lib/auth/auth-actions";
-import { invalidateStorefrontClientSession } from "@/lib/auth/client-logout";
+import { logoutAllAction } from "@/features/auth/actions/auth-actions";
+import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
 
 interface SecuritySessionsViewProps {
   readonly dialogOpen: boolean;

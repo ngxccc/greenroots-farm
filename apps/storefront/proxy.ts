@@ -11,8 +11,8 @@ import {
   isProtectedStorefrontPath,
   sanitizeRedirectPath,
   shouldProactivelyRefresh,
-} from "@/lib/auth/cookies";
-import { refreshSingleFlight } from "@/lib/auth/single-flight-refresh";
+} from "@/features/auth/services/cookies";
+import { refreshSingleFlight } from "@/features/auth/services/single-flight-refresh";
 
 const SKIP_REFRESH_PATHS = [
   "/login",

@@ -4,7 +4,7 @@ import {
   VN_PHONE_ERROR_MESSAGE,
   VN_PHONE_REGEX,
   normalizeProfileFullName,
-} from "@/lib/auth/auth-validation";
+} from "@/features/auth/schemas/auth-validation";
 import type {
   CreateCustomerAddressInput,
   UpdateCustomerAddressInput,

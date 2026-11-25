@@ -9,11 +9,11 @@ import {
   buildServiceUnavailableFailure,
   buildValidationFailure,
   isTransientRefreshFailure,
-} from "@/lib/auth/bff-error";
+} from "@/features/auth/utils/bff-error";
 import {
   clearServerSessionCookies,
   runWithServerActionRefresh,
-} from "@/lib/auth/session.server";
+} from "@/features/auth/services/session.server";
 import {
   type CheckoutInput,
   checkoutInputSchema,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { VerifyEmailActionResult } from "@/lib/auth/auth-actions";
+import type { VerifyEmailActionResult } from "@/features/auth/actions/auth-actions";
 import { verifyEmailOnce } from "./verify-email-panel";
 
 describe("VerifyEmailPanel Single-Flight", () => {

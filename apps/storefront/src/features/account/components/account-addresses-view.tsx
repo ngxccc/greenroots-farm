@@ -10,11 +10,11 @@ import {
   setDefaultAddressAction,
 } from "@/lib/address/address-actions";
 import { MAX_USER_ADDRESSES } from "@/lib/address/address-validation";
-import { invalidateStorefrontClientSession } from "@/lib/auth/client-logout";
+import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
 import { useAuthStore } from "@/stores/auth.store";
 import { useDeliveryAddressStore } from "@/stores/delivery-address.store";
 import type { CustomerAddress } from "@/types/address.types";
-import type { StorefrontSessionUser } from "@/types/auth.types";
+import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 import { AccountProfileDegradedCard } from "./account-profile-view";
 import { AddressCard } from "./address-card";
 import { AddressFormDialog } from "./address-form-dialog";

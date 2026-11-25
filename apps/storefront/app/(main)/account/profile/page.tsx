@@ -7,7 +7,7 @@ import {
   AccountProfileSkeleton,
   AccountProfileView,
 } from "@/features/account/components/account-profile-view";
-import { getAccountProfileSession } from "@/lib/auth/session.server";
+import { getAccountProfileSession } from "@/features/auth/services/session.server";
 
 export const metadata: Metadata = {
   title: "Hồ sơ & Bảo mật",

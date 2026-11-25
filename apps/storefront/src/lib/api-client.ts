@@ -1,6 +1,6 @@
 import createClient, { type Middleware } from "openapi-fetch";
 import { env } from "@/env";
-import { readServerAccessToken } from "@/lib/auth/server-token";
+import { readServerAccessToken } from "@/features/auth/services/server-token";
 import type { ApiProblemDetails } from "@/types/api";
 import type { paths } from "@/types/api-schema";
 

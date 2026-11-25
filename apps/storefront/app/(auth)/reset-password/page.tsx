@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AuthFormSkeleton } from "@/features/auth/components/auth-redirect-gate";
 import { ResetPasswordForm } from "@/features/auth/components/reset-password-form";
-import { parseRecoveryTokenParam } from "@/lib/auth/auth-validation";
+import { parseRecoveryTokenParam } from "@/features/auth/schemas/auth-validation";
 
 export const metadata: Metadata = {
   title: "Đặt lại mật khẩu",

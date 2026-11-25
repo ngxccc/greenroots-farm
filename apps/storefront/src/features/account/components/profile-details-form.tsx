@@ -12,14 +12,14 @@ import {
   Label,
 } from "@greenroots/ui";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
-import { updateProfileAction } from "@/lib/auth/auth-actions";
+import { updateProfileAction } from "@/features/auth/actions/auth-actions";
 import {
   PROFILE_FULL_NAME_MAX_LENGTH,
   buildUpdateProfileDiff,
-} from "@/lib/auth/auth-validation";
+} from "@/features/auth/schemas/auth-validation";
 import { formatViDate } from "@/lib/format";
 import { broadcastAuthEvent, useAuthStore } from "@/stores/auth.store";
-import type { StorefrontSessionUser } from "@/types/auth.types";
+import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 
 interface ProfileDetailsFormProps {
   readonly user: StorefrontSessionUser;

@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, Circle } from "lucide-react";
-import { evaluatePasswordRules } from "@/lib/auth/auth-validation";
+import { evaluatePasswordRules } from "@/features/auth/schemas/auth-validation";
 
 interface PasswordChecklistProps {
   readonly password: string;

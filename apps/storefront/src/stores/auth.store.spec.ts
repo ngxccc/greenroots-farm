@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { StorefrontSessionUser } from "@/types/auth.types";
+import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 import {
   AUTH_STORAGE_EVENT_KEY,
   broadcastAuthEvent,

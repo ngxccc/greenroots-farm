@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useState, type ChangeEvent, type SubmitEvent } from "react";
 import { Button, Checkbox, Input, Label } from "@greenroots/ui";
 import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
-import { registerAction } from "@/lib/auth/auth-actions";
-import { registerFormSchema } from "@/lib/auth/auth-validation";
-import { sanitizeRedirectPath } from "@/lib/auth/cookies";
+import { registerAction } from "@/features/auth/actions/auth-actions";
+import { registerFormSchema } from "@/features/auth/schemas/auth-validation";
+import { sanitizeRedirectPath } from "@/features/auth/services/cookies";
 import { AuthAlertBanner } from "./auth-alert-banner";
 import {
   AUTH_INPUT_CLASS,

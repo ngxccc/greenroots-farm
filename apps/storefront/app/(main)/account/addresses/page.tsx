@@ -7,7 +7,7 @@ import {
   AccountAddressesSkeleton,
   AccountAddressesView,
 } from "@/features/account/components/account-addresses-view";
-import { getAccountAddressesSession } from "@/lib/auth/session.server";
+import { getAccountAddressesSession } from "@/features/auth/services/session.server";
 
 export const metadata: Metadata = {
   title: "Sổ địa chỉ",

@@ -15,7 +15,7 @@ import {
 } from "@greenroots/ui";
 import { AlertCircle, Home, RefreshCw } from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
-import type { StorefrontSessionUser } from "@/types/auth.types";
+import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 import { LoyaltyBalanceCard } from "./loyalty-balance-card";
 import { ProfileDetailsForm } from "./profile-details-form";
 import { SecuritySessionsCard } from "./security-sessions-card";

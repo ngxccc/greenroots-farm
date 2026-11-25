@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState, type ChangeEvent, type SubmitEvent } from "react";
 import { Button, Input, Label } from "@greenroots/ui";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { loginAction } from "@/lib/auth/auth-actions";
-import { loginFormSchema } from "@/lib/auth/auth-validation";
-import { sanitizeRedirectPath } from "@/lib/auth/cookies";
+import { loginAction } from "@/features/auth/actions/auth-actions";
+import { loginFormSchema } from "@/features/auth/schemas/auth-validation";
+import { sanitizeRedirectPath } from "@/features/auth/services/cookies";
 import { broadcastAuthEvent, useAuthStore } from "@/stores/auth.store";
 import { AuthAlertBanner } from "./auth-alert-banner";
 import {

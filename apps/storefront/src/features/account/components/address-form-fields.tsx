@@ -19,7 +19,7 @@ import {
   ADDRESS_RECEIVER_NAME_MAX_LENGTH,
   ADDRESS_STREET_MAX_LENGTH,
 } from "@/lib/address/address-validation";
-import { invalidateStorefrontClientSession } from "@/lib/auth/client-logout";
+import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
 import { useShippingQuote } from "@/lib/shipping/use-shipping-quote";
 import { useAuthStore } from "@/stores/auth.store";
 

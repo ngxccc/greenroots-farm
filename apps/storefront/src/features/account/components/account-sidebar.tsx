@@ -14,10 +14,10 @@ import {
 } from "@greenroots/ui";
 import { LogOut, PanelLeft } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/common/confirm-action-dialog";
-import { performStorefrontLogout } from "@/lib/auth/client-logout";
+import { performStorefrontLogout } from "@/features/auth/utils/client-logout";
 import { getUserInitials } from "@/lib/format";
 import { useAuthStore } from "@/stores/auth.store";
-import type { StorefrontSessionUser } from "@/types/auth.types";
+import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 
 /**
  * Active customer account sub-route key highlighted in `AccountSidebar`.

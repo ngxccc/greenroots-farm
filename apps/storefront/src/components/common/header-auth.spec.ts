@@ -4,7 +4,7 @@ import path from "node:path";
 import { Window } from "happy-dom";
 import { createElement, useLayoutEffect } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { StorefrontSessionUser } from "@/types/auth.types";
+import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 import { BrandLogo } from "./brand-logo";
 import { shouldShowDeliverySubBar } from "./header";
 import { HeaderAuthView } from "./header-auth-controls";

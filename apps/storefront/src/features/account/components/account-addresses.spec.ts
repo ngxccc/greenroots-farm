@@ -9,7 +9,7 @@ import { AddressDialogPanel } from "@/components/common/address-dialog";
 import { useAuthStore } from "@/stores/auth.store";
 import { useDeliveryAddressStore } from "@/stores/delivery-address.store";
 import type { CustomerAddress } from "@/types/address.types";
-import type { StorefrontSessionUser } from "@/types/auth.types";
+import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 import {
   AccountAddressesListCard,
   buildDeleteAddressConfirmDescription,

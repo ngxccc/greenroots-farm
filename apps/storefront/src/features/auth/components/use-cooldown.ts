@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { decrementCooldownSeconds } from "@/lib/auth/auth-validation";
+import { decrementCooldownSeconds } from "@/features/auth/schemas/auth-validation";
 
 /**
  * Manages a client-side countdown timer clamped at zero for cooldown-protected auth submissions.

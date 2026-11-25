@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { StorefrontSessionUser } from "@/types/auth.types";
+import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 
 export const AUTH_BROADCAST_CHANNEL = "greenroots-auth";
 export const AUTH_STORAGE_EVENT_KEY = "greenroots-auth-event";

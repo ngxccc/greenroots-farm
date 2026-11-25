@@ -9,19 +9,19 @@ import {
   buildSyntheticProblem,
   extractProblemDetails,
   isTransientRefreshFailure,
-} from "@/lib/auth/bff-error";
+} from "@/features/auth/utils/bff-error";
 import {
   REFRESH_TOKEN_COOKIE,
   applySessionCookies,
   clearSessionCookies,
   type SessionTokenPair,
-} from "@/lib/auth/cookies";
-import { isSameOriginMutationRequest } from "@/lib/auth/csrf";
-import { readServerAccessToken } from "@/lib/auth/server-token";
+} from "@/features/auth/services/cookies";
+import { isSameOriginMutationRequest } from "@/features/auth/services/csrf";
+import { readServerAccessToken } from "@/features/auth/services/server-token";
 import {
   runWithServerActionRefresh,
   type ServerActionRefreshOutcome,
-} from "@/lib/auth/session.server";
+} from "@/features/auth/services/session.server";
 import type { ShippingQuote, ShippingQuoteRequest } from "@/lib/shipping";
 import type { ApiProblemDetails } from "@/types/api";
 

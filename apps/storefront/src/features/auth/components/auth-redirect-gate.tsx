@@ -2,9 +2,9 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { Skeleton } from "@greenroots/ui";
-import { sanitizeRedirectPath } from "@/lib/auth/cookies";
-import { getServerSession } from "@/lib/auth/session.server";
-import type { StorefrontSessionUser } from "@/types/auth.types";
+import { sanitizeRedirectPath } from "@/features/auth/services/cookies";
+import { getServerSession } from "@/features/auth/services/session.server";
+import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 
 /**
  * Query parameters supported on Storefront authentication routes.

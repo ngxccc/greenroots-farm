@@ -4,7 +4,7 @@ import {
   AccountSidebar,
   AccountSidebarSkeleton,
 } from "@/features/account/components/account-sidebar";
-import { getAccountProfileSession } from "@/lib/auth/session.server";
+import { getAccountProfileSession } from "@/features/auth/services/session.server";
 
 async function AccountSidebarSlot() {
   // Force per-request dynamic execution before uncached session reads under cacheComponents.
