@@ -76,8 +76,10 @@ Use the harness instead of ad-hoc scripts or manual endpoint probing.
 - Unit-test pure domain logic and calculations.
 - Integration-test database constraints, transactions, HTTP contracts, and payment or idempotency flows.
 - Every bug fix ships with a regression test that fails before the fix.
+- Verify fixes against the real runtime artifact or executed path — never treat "compiles" or proxy mocks alone as proof.
 
 ## 7. Benchmarks
 
 - Live in `benchmarks/` or `test/benchmarks/`, run through one standard command with optional domain filtering.
 - Report `task`, `iterations`, `minMs`, `avgMs`, `p50Ms`, `p95Ms`, `p99Ms`, `opsPerSec` as a table or JSON, with no decoration.
+- Before reporting or acting on a benchmark number, identify what bounds it and rule out measurement artifacts (warmups, limiters, errors, or non-representative inputs).

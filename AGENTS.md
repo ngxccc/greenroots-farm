@@ -13,50 +13,26 @@ GreenRoots Farm — farm-to-customer commerce monorepo (Bun workspaces, TypeScri
 
 ## Repository Layout
 
-| Path              | Purpose                                                     |
-| ----------------- | ----------------------------------------------------------- |
-| `apps/api`        | REST API, domain services, persistence, integrations        |
-| `apps/storefront` | Customer-facing storefront                                  |
-| `apps/backoffice` | Farm operations and admin console                           |
-| `packages/shared` | Enums, business constants, Haversine, JSONB, shared labels  |
-| `packages/ui`     | Shared Shadcn Base UI primitives and Organic Minimalism CSS |
-| `scripts/`        | Release, version sync, and GitHub Actions pinning scripts   |
-| `docs/standards`  | Engineering standards (SSOT)                                |
-| `docs/adr`        | Repo-wide architecture decisions                            |
-| `GLOSSARY-MAP.md` | Entry point for context glossaries and ADRs                 |
+| Path               | Purpose                                                     |
+| ------------------ | ----------------------------------------------------------- |
+| `apps/api`         | REST API, domain services, persistence, integrations        |
+| `apps/api/drizzle` | Forward-only Drizzle PostgreSQL migrations and snapshots    |
+| `apps/storefront`  | Customer-facing storefront                                  |
+| `apps/backoffice`  | Farm operations and admin console                           |
+| `packages/shared`  | Enums, business constants, Haversine, JSONB, shared labels  |
+| `packages/ui`      | Shared Shadcn Base UI primitives and Organic Minimalism CSS |
+| `scripts/`         | Release, version sync, and GitHub Actions pinning scripts   |
+| `docs/standards`   | Engineering standards (SSOT)                                |
+| `docs/adr`         | Repo-wide architecture decisions                            |
+| `GLOSSARY-MAP.md`  | Entry point for context glossaries and ADRs                 |
 
-## Commands
+## Commands & Release
 
-| Command                          | Purpose                                             |
-| -------------------------------- | --------------------------------------------------- |
-| `bun install`                    | Install workspace dependencies                      |
-| `bun run docker:up`              | Start PostgreSQL + Redis                            |
-| `bun run docker:down`            | Stop PostgreSQL + Redis                             |
-| `bun run dev`                    | Run all workspaces in parallel via Bun              |
-| `bun run dev:api`                | Run API in watch mode                               |
-| `bun run dev:storefront`         | Run storefront                                      |
-| `bun run dev:backoffice`         | Run backoffice                                      |
-| `bun run doppler:dev`            | Run all workspaces with Doppler secrets             |
-| `bun run doppler:dev:api`        | Run API with Doppler secrets                        |
-| `bun run doppler:dev:storefront` | Run storefront with Doppler secrets                 |
-| `bun run doppler:dev:backoffice` | Run backoffice with Doppler secrets                 |
-| `bun run types:sync`             | Offline OpenAPI generation & sync TypeScript types  |
-| `bun run check`                  | Type-check + lint all workspaces                    |
-| `bun run test`                   | Run fast unit tests across all workspaces (offline) |
-| `bun run test:e2e`               | Run API E2E integration tests (requires Docker)     |
-| `bun run format`                 | Format with oxfmt                                   |
-
-## Release
-
-- `bun run version:check` — verify every workspace manifest matches the root version.
-- `bun run release` — infer the next version, generate notes, update `CHANGELOG.md`, and open a release PR.
-- `bun run release --dry-run` — print the release plan without changing anything.
-- `bun run actions:pin` — resolve and pin GitHub Actions to immutable commit SHAs.
-- Pushing a `v*` tag, or merging a `chore(release): vX.Y.Z` commit to `main`, runs `.github/workflows/release.yml`.
+Scripts live in root `package.json` (`bun run dev`, `check`, `test`, `test:e2e`, `types:sync`, `format`, `version:check`, `release`, `actions:pin`). Release and workflow rules live in `docs/standards/ci-and-release.md`.
 
 ## Issue Tracking
 
-Issues and specifications live in **GitHub Issues** (`ngxccc/greenroots-farm`). Use the `gh` CLI. See `docs/standards/issue-tracker.md`.
+Issues and specifications live in **GitHub Issues** (`ngxccc/greenroots-farm`). Use the `gh` CLI. See `docs/standards/issue-tracker.md` and `.github/PULL_REQUEST_TEMPLATE.md`.
 
 Every issue is atomic: one outcome, one trust boundary, one transaction or contract. Deferred bundles carry `needs-split` and are listed only in the split tracking issue. Query the register before planning or starting work on a bundle:
 
@@ -64,16 +40,6 @@ Every issue is atomic: one outcome, one trust boundary, one transaction or contr
 gh issue list --state open --label needs-split --limit 100 \
   --json number,title --jq '.[] | "#\(.number) \(.title)"'
 ```
-
-Pull requests use `.github/PULL_REQUEST_TEMPLATE.md`. GitHub automation lives in `.github/workflows/`:
-
-- `.github/workflows/ci.yml` — the pull request quality gate: version consistency, shared/tooling, API, database, and an aggregate `Quality Gate` check.
-- `.github/workflows/labels.yml` + `.github/labeler.yml` — `area:*` labels from changed paths (generated client contracts excluded) and one `type:*` label from the PR title.
-- `.github/release.yml` + `.github/workflows/release.yml` — GitHub Releases on `v*` tags and `chore(release):` merges.
-- `.github/workflows/security.yml` — Trivy, `bun audit`, and CodeQL scans on pull requests, `main`, and a weekly schedule.
-- `.github/dependabot.yml` — grouped weekly dependency updates (Bun ecosystem; security-update PRs are not supported for Bun, so `bun audit` covers that gap).
-- `.github/actions/setup-environment/action.yml` — shared environment bootstrap: runtime, install cache, optional dependency install (`install`), optional Doppler CLI and `DOPPLER_TOKEN` export (`doppler`, `doppler-token`).
-- `.husky/pre-commit` — `check-types` (once `apps/api` exists) plus `lint-staged` on staged files.
 
 ## Engineering Standards
 
@@ -92,6 +58,7 @@ Pull requests use `.github/PULL_REQUEST_TEMPLATE.md`. GitHub automation lives in
 | An issue, spec, or scope decision          | `docs/standards/issue-tracker.md`                 |
 | A glossary term, domain model, or ADR      | `docs/standards/domain-docs.md`                   |
 | A workflow, action, release, or label rule | `docs/standards/ci-and-release.md`                |
+| Reviewing a branch, diff, or PR            | `docs/standards/code-review.md`                   |
 
 Protocol for every implementation task:
 

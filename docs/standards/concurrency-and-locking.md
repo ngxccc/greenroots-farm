@@ -48,3 +48,5 @@ FOR UPDATE;
 - Flash sales admit through a Redis counter or Redlock keyed by batch ID; the authoritative decrement still happens under `SELECT ... FOR UPDATE`.
 - When the Redis admission counter is unavailable, fall back to the database lock path instead of overselling.
 - Reject expired or `sold_out` batches before taking any lock.
+- Commands, lifecycle transitions, and retry loops must converge idempotently to the same end state across crashes or duplicate deliveries.
+- Separate or partition shared mutable state across concurrent actors before serializing access with locks.

@@ -115,7 +115,7 @@ Errors return `application/problem+json` with `{ type, title, status, code, deta
 - Images ≤ 5MB (`image/jpeg`, `image/png`, `image/webp`); videos ≤ 15MB (`video/mp4`, `video/quicktime`, `video/webm`).
 - Oversized payloads return `422` (`INV-MEDIA-1`); an unknown folder or MIME type returns `400`.
 - The backend signs with HMAC SHA-256 over a timestamp using `CLOUDINARY_API_SECRET`; the client uploads directly to Cloudinary, so bytes never pass through API memory.
-- With `CLOUDINARY_API_SECRET` unset, return mock credentials for local and offline runs.
+- With `MEDIA_DRIVER=mock` (or `CLOUDINARY_API_SECRET` unset), return mock credentials and skip remote metadata verification for local and offline runs.
 
 ## 10. Rate Limiting
 

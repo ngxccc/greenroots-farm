@@ -33,4 +33,5 @@ The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. Whatever the tier, it st
 2. Do not run `git commit` until the human approves explicitly.
 3. Do not use `--no-verify` unless the human approves and the reason is recorded.
 4. One logical change per commit: never mix refactoring, formatting, and behavior changes.
-5. Tier 3 changes carry their ADR/RFC link and audit evidence before merge.
+5. Sequence multi-step sweeps or migrations into small verifiable units that each end in a passing check before starting the next.
+6. Tier 3 changes carry their ADR/RFC link and audit evidence before merge.
