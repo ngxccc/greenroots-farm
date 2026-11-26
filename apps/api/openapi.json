@@ -15074,6 +15074,9 @@
           "ward": {
             "type": "string",
             "minLength": 1
+          },
+          "streetName": {
+            "type": "string"
           }
         },
         "required": [

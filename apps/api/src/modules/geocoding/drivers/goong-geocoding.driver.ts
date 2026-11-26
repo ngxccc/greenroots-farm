@@ -110,6 +110,10 @@ export class GoongGeocodingDriver implements GeocodingDriver {
       ) {
         const rawWard =
           item.compound?.commune?.trim() ?? item.compound?.district?.trim();
+        const streetPart = item.description
+          .split(",")
+          .map((s) => s.trim())
+          .find((s) => s.length > 0);
         suggestions.push({
           placeId: item.place_id,
           description: item.description,
@@ -117,6 +121,7 @@ export class GoongGeocodingDriver implements GeocodingDriver {
             rawWard && rawWard.length > 0
               ? rawWard
               : BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
+          ...(streetPart ? { streetName: streetPart } : {}),
         });
       }
     }

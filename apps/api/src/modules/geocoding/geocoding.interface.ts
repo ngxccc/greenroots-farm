@@ -5,6 +5,7 @@ export interface PlaceSuggestion {
   readonly placeId: string;
   readonly description: string;
   readonly ward: string;
+  readonly streetName?: string;
 }
 
 /**

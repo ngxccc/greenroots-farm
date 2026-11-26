@@ -70,6 +70,7 @@ describe("VietmapGeocodingDriver", () => {
           placeId: "auto:abc123",
           description: "197 Trần Phú, Phường Chợ Quán, Thành Phố Hồ Chí Minh",
           ward: "Phường Chợ Quán",
+          streetName: "197 Trần Phú",
         },
       ]);
     });

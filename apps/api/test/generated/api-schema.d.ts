@@ -1633,6 +1633,7 @@ export interface components {
             placeId: string;
             description: string;
             ward: string;
+            streetName?: string;
         };
         FarmSettingsDto: {
             /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */

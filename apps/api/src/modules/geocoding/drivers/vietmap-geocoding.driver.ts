@@ -144,6 +144,7 @@ export class VietmapGeocodingDriver implements GeocodingDriver {
       const refId = item.ref_id?.trim();
       const display = item.display?.trim() ?? item.name?.trim();
       if (refId && refId.length > 0 && display && display.length > 0) {
+        const rawName = item.name?.trim();
         suggestions.push({
           placeId: refId,
           description: display,
@@ -151,6 +152,7 @@ export class VietmapGeocodingDriver implements GeocodingDriver {
             boundaries: item.boundaries,
             address: item.address ?? display,
           }),
+          ...(rawName && rawName.length > 0 ? { streetName: rawName } : {}),
         });
       }
     }

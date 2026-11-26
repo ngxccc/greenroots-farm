@@ -38,11 +38,18 @@ export class MockGeocodingDriver implements GeocodingDriver {
     const results = matches.length > 0 ? matches : MOCK_PLACES.slice(0, 5);
 
     return Promise.resolve(
-      results.map((place) => ({
-        placeId: place.placeId,
-        description: place.formattedAddress,
-        ward: place.ward,
-      })),
+      results.map((place) => {
+        const streetPart = place.formattedAddress
+          .split(",")
+          .map((s) => s.trim())
+          .find((s) => s.length > 0);
+        return {
+          placeId: place.placeId,
+          description: place.formattedAddress,
+          ward: place.ward,
+          ...(streetPart ? { streetName: streetPart } : {}),
+        };
+      }),
     );
   }
 
