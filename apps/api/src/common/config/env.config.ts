@@ -247,6 +247,22 @@ export function parseApiEnvironment(
           "VIETMAP_API_KEY is required when GEOCODING_DRIVER is 'vietmap' in production",
       });
     }
+    if (data.SHIPPING_DRIVER === "goong" && !data.GOONG_API_KEY?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["GOONG_API_KEY"],
+        message:
+          "GOONG_API_KEY is required when SHIPPING_DRIVER is 'goong' in production",
+      });
+    }
+    if (data.SHIPPING_DRIVER === "vietmap" && !data.VIETMAP_API_KEY?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VIETMAP_API_KEY"],
+        message:
+          "VIETMAP_API_KEY is required when SHIPPING_DRIVER is 'vietmap' in production",
+      });
+    }
     if (!rawEnv["CLOUDINARY_CLOUD_NAME"]?.trim()) {
       ctx.addIssue({
         code: "custom",

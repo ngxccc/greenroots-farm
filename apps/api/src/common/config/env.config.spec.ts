@@ -48,6 +48,23 @@ describe("parseApiEnvironment", () => {
     ).toThrow(/RESEND_API_KEY/);
   });
 
+  it("fails fast in production when SHIPPING_DRIVER requires missing provider API keys", () => {
+    // Invariant: INV-GEO-2
+    expect(() =>
+      parseApiEnvironment({
+        ...PROD_BASE_ENV,
+        SHIPPING_DRIVER: "goong",
+      }),
+    ).toThrow(/GOONG_API_KEY/);
+
+    expect(() =>
+      parseApiEnvironment({
+        ...PROD_BASE_ENV,
+        SHIPPING_DRIVER: "vietmap",
+      }),
+    ).toThrow(/VIETMAP_API_KEY/);
+  });
+
   it("fails fast in production when PAYMENT_DRIVER is payos without PayOS credentials", () => {
     // Invariant: INV-PAY-1
     expect(() =>

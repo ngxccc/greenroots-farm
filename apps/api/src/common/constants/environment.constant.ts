@@ -41,7 +41,7 @@ export type PaymentDriverKind = (typeof PAYMENT_DRIVERS)[number];
 /**
  * Shipping calculation driver choices for the API process.
  */
-export const SHIPPING_DRIVERS = ["haversine"] as const;
+export const SHIPPING_DRIVERS = ["haversine", "goong", "vietmap"] as const;
 
 export type ShippingDriverKind = (typeof SHIPPING_DRIVERS)[number];
 
