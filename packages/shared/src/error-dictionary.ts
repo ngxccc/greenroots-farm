@@ -58,10 +58,13 @@ export const API_ERROR_CODES = {
   ORDER_PENDING_LIMIT_EXCEEDED: "ORDER_PENDING_LIMIT_EXCEEDED",
   ORDER_PAYOS_PENDING_LIMIT_EXCEEDED: "ORDER_PAYOS_PENDING_LIMIT_EXCEEDED",
   ORDER_PAYOS_ZERO_AMOUNT: "ORDER_PAYOS_ZERO_AMOUNT",
+  ORDER_PAYMENT_REQUIRED: "ORDER_PAYMENT_REQUIRED",
   PAYMENT_GATEWAY_ERROR: "PAYMENT_GATEWAY_ERROR",
   PAYMENT_WEBHOOK_SIGNATURE_INVALID: "PAYMENT_WEBHOOK_SIGNATURE_INVALID",
   PAYMENT_NOT_FOUND: "PAYMENT_NOT_FOUND",
   PAYMENT_AMOUNT_MISMATCH: "PAYMENT_AMOUNT_MISMATCH",
+  PAYMENT_COD_NOT_ELIGIBLE: "PAYMENT_COD_NOT_ELIGIBLE",
+  PAYMENT_INVALID_STATUS_TRANSITION: "PAYMENT_INVALID_STATUS_TRANSITION",
   ORDER_COMPLAINT_NOT_ELIGIBLE: "ORDER_COMPLAINT_NOT_ELIGIBLE",
   ORDER_COMPLAINT_WINDOW_EXPIRED: "ORDER_COMPLAINT_WINDOW_EXPIRED",
   ORDER_COMPLAINT_ALREADY_EXISTS: "ORDER_COMPLAINT_ALREADY_EXISTS",
@@ -215,6 +218,8 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
   [API_ERROR_CODES.ORDER_PAYOS_PENDING_LIMIT_EXCEEDED]: `Bạn đang có tối đa ${BUSINESS_RULES.MAX_PENDING_PAYOS_ORDERS_PER_CUSTOMER} đơn hàng PayOS chờ thanh toán. Vui lòng thanh toán hoặc hủy bớt đơn trước khi đặt thêm.`,
   [API_ERROR_CODES.ORDER_PAYOS_ZERO_AMOUNT]:
     "Không thể thanh toán qua PayOS cho đơn hàng có tổng thanh toán bằng 0đ.",
+  [API_ERROR_CODES.ORDER_PAYMENT_REQUIRED]:
+    "Đơn hàng cần được xác nhận đã thanh toán trước khi chuyển sang trạng thái hoàn tất.",
   [API_ERROR_CODES.PAYMENT_GATEWAY_ERROR]:
     "Không thể khởi tạo liên kết thanh toán PayOS. Vui lòng thử lại sau.",
   [API_ERROR_CODES.PAYMENT_WEBHOOK_SIGNATURE_INVALID]:
@@ -223,6 +228,10 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Không tìm thấy giao dịch thanh toán tương ứng với mã đơn hàng.",
   [API_ERROR_CODES.PAYMENT_AMOUNT_MISMATCH]:
     "Số tiền thanh toán từ cổng PayOS không khớp với giá trị đơn hàng.",
+  [API_ERROR_CODES.PAYMENT_COD_NOT_ELIGIBLE]:
+    "Giao dịch này không đủ điều kiện xác nhận thu tiền hộ (COD).",
+  [API_ERROR_CODES.PAYMENT_INVALID_STATUS_TRANSITION]:
+    "Trạng thái hiện tại của giao dịch thanh toán không cho phép thực hiện thao tác này.",
   [API_ERROR_CODES.ORDER_COMPLAINT_NOT_ELIGIBLE]:
     "Chỉ có thể gửi khiếu nại cho đơn hàng đã giao thành công.",
   [API_ERROR_CODES.ORDER_COMPLAINT_WINDOW_EXPIRED]: `Đã quá thời hạn ${BUSINESS_RULES.COMPLAINT_WINDOW_HOURS} giờ kể từ lúc giao hàng để gửi khiếu nại.`,
