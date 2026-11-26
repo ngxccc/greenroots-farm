@@ -72,7 +72,7 @@ GreenRoots Farm sells farm-grown produce through a storefront and operates produ
 
 - Money is stored and calculated as integer VND. Never use floating point for money.
 - A batch is sellable only while its status is `in_stock` or `near_expiry` and its expiry timestamp is in the future.
-- An order can transition only along the transitions defined by `OrderStatus` (`pending_payment` -> `pending_confirmation` -> `confirmed` -> `packing` -> `shipping` -> `delivered` -> `completed`, or `cancelled` from pre-shipping states); `completed` and `cancelled` are terminal, and every order in `pending_confirmation`, `confirmed`, `packing`, or `shipping` holds active FEFO `batch_allocations` (`ADR-0038`).
+- An order can transition only along the transitions defined by `OrderStatus` (`pending_payment` -> `confirmed` upon verified PayOS settlement or `pending_confirmation` -> `confirmed` upon staff confirmation, then `confirmed` -> `packing` -> `shipping` -> `delivered` -> `completed`, or `cancelled` from pre-shipping states); `completed` and `cancelled` are terminal, and every order in `pending_payment`, `pending_confirmation`, `confirmed`, `packing`, or `shipping` holds active FEFO `batch_allocations` (`ADR-0038`, `ADR-0042`).
 - A subscription has exactly one active delivery-day selection at a time.
 - A season transitions linearly along `planning -> active -> harvested -> completed` (`completed` is terminal), and each plot allows at most one `active` season at a time.
 - A farming log is strictly append-only (never updated or deleted), and any correction linkage must reference an existing log within the same season.

@@ -56,6 +56,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0039-surface-scoped-authentication-and-refresh-binding.md` — Surface-scoped login/refresh endpoints (`/auth/customer/*`, `/auth/staff/*`), `refresh_tokens.surface` binding, fail-closed cross-surface revocation, `403 AUTH_SURFACE_FORBIDDEN`, and Storefront BFF customer-role defense-in-depth (`#145`; supersedes transitional role policy in `ADR-0036`).
 - `docs/adr/0040-complaint-submission-window-and-media-verification.md` — Immutable `orders.delivered_at` timestamp, 24-hour `delivered`/`completed` complaint eligibility, single-complaint uniqueness (`409`), and out-of-transaction Cloudinary Admin API metadata verification (`<= 5MB` images, `<= 15MB` / `<= 15s` video; extends `ADR-0009`).
 - `docs/adr/0041-subscription-prepaid-activation-and-snapshot-contract.md` — `SubscriptionStatus.PENDING_PAYMENT` prepaid activation gate, upfront `(subscriptionFreeRadiusKm, maxRadiusKm]` shipping fee collection, `receiverName`/`receiverPhone` snapshot columns, DB `CHECK` invariants (`ADR-0005`), and checkout pending cap (`#30`).
+- `docs/adr/0042-payos-checkout-two-phase-reservation-and-webhook-reconciliation.md` — Unified `POST /orders/checkout` PayOS initiation, two-phase TX + compensating cancel around `PaymentDriver.createPaymentLink`, `PENDING_PAYMENT` FEFO reservation & `-> CONFIRMED` transition, server-derived redirect URLs, and fail-closed idempotent webhook reconciliation (`#243`).
 
 ### Context-Scoped Decisions
 
