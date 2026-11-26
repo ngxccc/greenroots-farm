@@ -1,3 +1,14 @@
+import { UserRole } from "@greenroots/shared";
+
+/**
+ * Staff roles authorized to inspect the payment ledger and confirm COD collections (`ADR-0043`).
+ */
+export const PAYMENTS_ALLOWED_ROLES = Object.freeze([
+  UserRole.SALES,
+  UserRole.ADMIN,
+  UserRole.SUPER_ADMIN,
+] as const);
+
 /**
  * NestJS dependency-injection token for the active `PaymentDriver` implementation.
  */

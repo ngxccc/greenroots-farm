@@ -5,6 +5,7 @@ import { PayOSAdapter } from "./drivers/payos.adapter";
 import { PaymentsController } from "./payments.controller";
 import { PAYMENT_DRIVER_TOKEN } from "./payments.constant";
 import type { PaymentDriver } from "./payments.interface";
+import { PaymentsService } from "./payments.service";
 import { PaymentsWebhookService } from "./payments-webhook.service";
 
 type PaymentDriverEnv = Pick<
@@ -55,6 +56,7 @@ export function resolvePaymentDriver(
   providers: [
     MockPaymentDriver,
     PayOSAdapter,
+    PaymentsService,
     PaymentsWebhookService,
     {
       provide: PAYMENT_DRIVER_TOKEN,
