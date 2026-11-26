@@ -111,6 +111,10 @@ export const API_ERROR_CODES = {
   PRODUCT_PRICE_INVALID: "PRODUCT_PRICE_INVALID",
   SUBSCRIPTION_PLAN_NOT_FOUND: "SUBSCRIPTION_PLAN_NOT_FOUND",
   SUBSCRIPTION_PLAN_SLUG_CONFLICT: "SUBSCRIPTION_PLAN_SLUG_CONFLICT",
+  SUBSCRIPTION_PLAN_INACTIVE: "SUBSCRIPTION_PLAN_INACTIVE",
+  SUBSCRIPTION_NOT_FOUND: "SUBSCRIPTION_NOT_FOUND",
+  SUBSCRIPTION_PAYOS_DISABLED: "SUBSCRIPTION_PAYOS_DISABLED",
+  SUBSCRIPTION_PENDING_LIMIT_REACHED: "SUBSCRIPTION_PENDING_LIMIT_REACHED",
 
   // Persistence, Concurrency & Database Violations
   CONFLICT_RECORD: "CONFLICT_RECORD",
@@ -308,6 +312,14 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Không tìm thấy gói đăng ký định kỳ yêu cầu.",
   [API_ERROR_CODES.SUBSCRIPTION_PLAN_SLUG_CONFLICT]:
     "Đường dẫn này đã tồn tại trên một gói đăng ký đang hoạt động.",
+  [API_ERROR_CODES.SUBSCRIPTION_PLAN_INACTIVE]:
+    "Gói đăng ký định kỳ này hiện đã ngừng mở bán.",
+  [API_ERROR_CODES.SUBSCRIPTION_NOT_FOUND]:
+    "Không tìm thấy gói đăng ký định kỳ của bạn.",
+  [API_ERROR_CODES.SUBSCRIPTION_PAYOS_DISABLED]:
+    "Thanh toán trực tuyến PayOS hiện đang tạm ngưng trên hệ thống.",
+  [API_ERROR_CODES.SUBSCRIPTION_PENDING_LIMIT_REACHED]:
+    "Bạn đã đạt giới hạn tối đa gói đăng ký đang chờ thanh toán. Vui lòng hoàn tất hoặc chờ hết hạn trước khi tạo mới.",
 
   // Persistence & Database
   [API_ERROR_CODES.CONFLICT_RECORD]: "Dữ liệu này đã tồn tại trong hệ thống.",

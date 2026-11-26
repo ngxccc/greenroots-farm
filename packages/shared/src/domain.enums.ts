@@ -111,6 +111,7 @@ export const DeliveryDay = {
 export type DeliveryDay = (typeof DeliveryDay)[keyof typeof DeliveryDay];
 
 export const SubscriptionStatus = {
+  PENDING_PAYMENT: "pending_payment",
   ACTIVE: "active",
   PAUSED: "paused",
   COMPLETED: "completed",
