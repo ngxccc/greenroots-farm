@@ -44,7 +44,7 @@ interface UseValidatedCartOptions {
   readonly enabled: boolean;
   readonly items: readonly CartItem[];
   readonly addressId?: string | null;
-  readonly districtCode?: string | null;
+  readonly placeId?: string | null;
   readonly loyaltyPoints?: number;
   readonly debounceMs?: number;
   readonly onSessionInvalidated?: () => void;
@@ -68,7 +68,7 @@ export function useValidatedCart({
   enabled,
   items,
   addressId = null,
-  districtCode = null,
+  placeId = null,
   loyaltyPoints = 0,
   debounceMs = 200,
   onSessionInvalidated,
@@ -106,10 +106,10 @@ export function useValidatedCart({
           productId: item.productId,
           quantity: item.quantity,
         })),
-        addressId: addressId ?? districtCode ?? null,
+        addressId: addressId ?? placeId ?? null,
         loyaltyPoints,
       }),
-    [addressId, districtCode, items, loyaltyPoints],
+    [addressId, placeId, items, loyaltyPoints],
   );
 
   useEffect(() => {
@@ -124,7 +124,7 @@ export function useValidatedCart({
           productId: item.productId,
           quantity: item.quantity,
         })),
-        ...(addressId ? { addressId } : districtCode ? { districtCode } : {}),
+        ...(addressId ? { addressId } : placeId ? { placeId } : {}),
         loyaltyPoints,
       }).then((result) => {
         if (seq !== requestSeqRef.current) {
@@ -174,7 +174,7 @@ export function useValidatedCart({
     addressId,
     currentSignature,
     debounceMs,
-    districtCode,
+    placeId,
     enabled,
     items,
     loyaltyPoints,

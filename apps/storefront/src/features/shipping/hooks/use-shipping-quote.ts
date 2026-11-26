@@ -16,14 +16,14 @@ const inFlightQuoteRequests = new Map<
 >();
 
 /**
- * Builds a deterministic in-memory cache key for `(addressId | districtCode, isSubscription)`.
+ * Builds a deterministic in-memory cache key for `(addressId | placeId, isSubscription)`.
  */
 export function buildShippingQuoteCacheKey(
   input: ShippingQuoteRequest,
 ): string {
   const target = input.addressId
     ? `addr:${input.addressId}`
-    : `dist:${input.districtCode ?? ""}`;
+    : `place:${input.placeId ?? ""}`;
   return `${target}:sub:${String(Boolean(input.isSubscription))}`;
 }
 
@@ -87,7 +87,7 @@ export async function fetchShippingQuoteFromBff(
 export interface UseShippingQuoteOptions {
   readonly enabled: boolean;
   readonly addressId?: string | null;
-  readonly districtCode?: string | null;
+  readonly placeId?: string | null;
   readonly isSubscription?: boolean;
   readonly onSessionInvalidated?: () => void;
 }
@@ -104,29 +104,27 @@ export interface UseShippingQuoteResult {
 
 /**
  * Client hook for fetching server-computed delivery quotes via `POST /api/shipping/quote`
- * with in-memory `(addressId | districtCode, isSubscription)` caching and `AbortController`
- * cancellation to prevent stale responses during rapid district selection.
+ * with in-memory `(addressId | placeId, isSubscription)` caching and `AbortController`
+ * cancellation to prevent stale responses during rapid address selection.
  */
 export function useShippingQuote({
   enabled,
   addressId,
-  districtCode,
+  placeId,
   isSubscription = false,
   onSessionInvalidated,
 }: UseShippingQuoteOptions): UseShippingQuoteResult {
   const normalizedAddressId = addressId ?? null;
-  const normalizedDistrictCode = normalizedAddressId
-    ? null
-    : (districtCode ?? null);
+  const normalizedPlaceId = normalizedAddressId ? null : (placeId ?? null);
 
   const cacheKey = normalizedAddressId
     ? buildShippingQuoteCacheKey({
         addressId: normalizedAddressId,
         isSubscription,
       })
-    : normalizedDistrictCode
+    : normalizedPlaceId
       ? buildShippingQuoteCacheKey({
-          districtCode: normalizedDistrictCode,
+          placeId: normalizedPlaceId,
           isSubscription,
         })
       : null;
@@ -159,7 +157,7 @@ export function useShippingQuote({
 
     const requestBody: ShippingQuoteRequest = normalizedAddressId
       ? { addressId: normalizedAddressId, isSubscription }
-      : { districtCode: normalizedDistrictCode ?? undefined, isSubscription };
+      : { placeId: normalizedPlaceId ?? undefined, isSubscription };
 
     let cancelled = false;
     let requestPromise = inFlightQuoteRequests.get(cacheKey);
@@ -219,7 +217,7 @@ export function useShippingQuote({
     cacheKey,
     reloadNonce,
     normalizedAddressId,
-    normalizedDistrictCode,
+    normalizedPlaceId,
     isSubscription,
   ]);
 

@@ -18,7 +18,7 @@ const sampleAddress: CustomerAddress = {
   receiverName: "Nguyễn Minh Anh",
   phoneNumber: "0908412679",
   streetAddress: "142 Lê Đức Thọ, Phường 15",
-  districtCode: "go-vap",
+  placeId: "mock_place_go_vap",
   district: "Quận Gò Vấp",
   city: "TP. Hồ Chí Minh",
   isDefault: true,
@@ -83,13 +83,13 @@ describe("Storefront Address Actions", () => {
 
   describe("executeCreateAddressAction", () => {
     // Invariant: INV-SF-ADDR-2
-    test("rejects unknown districtCode before calling backend endpoint", async () => {
+    test("rejects blank placeId before calling backend endpoint", async () => {
       let called = false;
       const result = await executeCreateAddressAction(
         {
           receiverName: "Minh Anh",
           phoneNumber: "0908412679",
-          districtCode: "quan-99",
+          placeId: "   ",
           streetAddress: "142 Lê Đức Thọ",
         },
         {
@@ -118,7 +118,7 @@ describe("Storefront Address Actions", () => {
         {
           receiverName: "Minh Anh",
           phoneNumber: "0908 412 679",
-          districtCode: "go-vap",
+          placeId: "mock_place_go_vap",
           streetAddress: "142 Lê Đức Thọ",
         },
         {
@@ -153,7 +153,7 @@ describe("Storefront Address Actions", () => {
         {
           receiverName: "Minh Anh",
           phoneNumber: "0908412679",
-          districtCode: "go-vap",
+          placeId: "mock_place_go_vap",
           streetAddress: "142 Lê Đức Thọ",
         },
         {

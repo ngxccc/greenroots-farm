@@ -33,13 +33,13 @@ const SHIPPING_QUOTE_BFF_INSTANCE = "/api/shipping/quote";
 const shippingQuoteRequestSchema = z
   .object({
     addressId: z.uuid({ version: "v7" }).optional(),
-    districtCode: z.string().trim().min(1).max(50).optional(),
+    placeId: z.string().trim().min(1).max(255).optional(),
     isSubscription: z.boolean().optional().default(false),
   })
   .strict()
   .refine(
-    (data) => Boolean(data.addressId) !== Boolean(data.districtCode),
-    "Provide exactly one of addressId or districtCode.",
+    (data) => Boolean(data.addressId) !== Boolean(data.placeId),
+    "Provide exactly one of addressId or placeId.",
   );
 
 /**
@@ -105,7 +105,7 @@ function resolveStatusFallbackCode(status: number): ApiErrorCode {
     return API_ERROR_CODES.FARM_NOT_FOUND;
   }
   if (status === 422) {
-    return API_ERROR_CODES.DISTRICT_CODE_INVALID;
+    return API_ERROR_CODES.PLACE_ID_INVALID;
   }
   if (status === 429) {
     return API_ERROR_CODES.TOO_MANY_REQUESTS;
@@ -138,7 +138,7 @@ async function defaultReadTokens(): Promise<{
 
 /**
  * Handles `POST /api/shipping/quote` from the Storefront browser client.
- * Enforces same-origin CSRF checks, validates strict XOR `addressId | districtCode` input,
+ * Enforces same-origin CSRF checks, validates strict XOR `addressId | placeId` input,
  * and bridges `httpOnly` access tokens with single-flight refresh to `POST /api/v1/shipping/quote`.
  *
  * @param request Incoming HTTP request.
@@ -197,7 +197,7 @@ export async function handleShippingQuotePost(
         isSubscription: parsed.data.isSubscription,
       }
     : {
-        districtCode: parsed.data.districtCode,
+        placeId: parsed.data.placeId,
         isSubscription: parsed.data.isSubscription,
       };
 

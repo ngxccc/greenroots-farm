@@ -280,7 +280,7 @@ export interface paths {
         put?: never;
         /**
          * Create a customer delivery address
-         * @description Creates a saved delivery address using a validated HCMC districtCode and server-derived centroid coordinates.
+         * @description Creates a saved delivery address using a Goong/mock placeId and server-resolved coordinates.
          */
         post: operations["AddressController_create_v1"];
         delete?: never;
@@ -308,7 +308,7 @@ export interface paths {
         head?: never;
         /**
          * Update a customer delivery address
-         * @description Updates contact or location fields on an owned address and recomputes cached coordinates when districtCode changes.
+         * @description Updates contact or location fields on an owned address and recomputes cached coordinates when placeId changes.
          */
         patch: operations["AddressController_update_v1"];
         trace?: never;
@@ -391,6 +391,26 @@ export interface paths {
          * @description Revokes all active sessions for the target active staff account, writes an audit row, and emails a 24-hour Backoffice reset link.
          */
         post: operations["StaffController_resetCredentials_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geocoding/autocomplete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autocomplete Ho Chi Minh City delivery addresses
+         * @description Returns place suggestions (placeId, description, district) for authenticated customers using Goong Place Autocomplete or deterministic mock fixtures.
+         */
+        get: operations["GeocodingController_autocomplete_v1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1513,7 +1533,7 @@ export interface components {
             receiverName: string;
             phoneNumber: string;
             streetAddress: string;
-            districtCode: string;
+            placeId: string;
             district: string;
             city: string;
             isDefault: boolean;
@@ -1527,7 +1547,7 @@ export interface components {
             /** @example 0912345678 */
             phoneNumber: string;
             streetAddress: string;
-            districtCode: string;
+            placeId: string;
             isDefault?: boolean;
         };
         UpdateAddressDto: {
@@ -1535,7 +1555,7 @@ export interface components {
             /** @example 0912345678 */
             phoneNumber?: string;
             streetAddress?: string;
-            districtCode?: string;
+            placeId?: string;
         };
         PaginationMetaDto: {
             /**
@@ -1608,6 +1628,11 @@ export interface components {
             role?: "guest" | "customer" | "farm_staff" | "sales" | "admin" | "super_admin";
             /** @enum {string} */
             status?: "active" | "inactive" | "suspended";
+        };
+        PlaceSuggestionDto: {
+            placeId: string;
+            description: string;
+            district: string;
         };
         FarmSettingsDto: {
             /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
@@ -2368,7 +2393,7 @@ export interface components {
             }[];
             /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
             addressId?: string;
-            districtCode?: string;
+            placeId?: string;
             /** @default 0 */
             loyaltyPoints: number;
             clientTotalVnd?: number;
@@ -2482,7 +2507,7 @@ export interface components {
         ShippingQuoteRequestDto: {
             /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
             addressId?: string;
-            districtCode?: string;
+            placeId?: string;
             /** @default false */
             isSubscription: boolean;
         };
@@ -5226,6 +5251,155 @@ export interface operations {
                      *       "status": 500,
                      *       "detail": "An unexpected internal server error occurred",
                      *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    GeocodingController_autocomplete_v1: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data: components["schemas"]["PlaceSuggestionDto"][];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Geocoding upstream service temporarily unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/service-unavailable",
+                     *       "title": "Service Unavailable",
+                     *       "status": 503,
+                     *       "detail": "Geocoding service is temporarily unavailable.",
+                     *       "instance": "/api/v1/resource",
+                     *       "code": "GEOCODING_UNAVAILABLE",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
                      *     }

@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type SubmitEvent } from "react";
-import { HCMC_DISTRICTS } from "@greenroots/shared";
 import {
   Button,
   Dialog,
@@ -22,6 +21,7 @@ import {
   createAddressFormSchema,
 } from "@/features/account/schemas/address-validation";
 import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
+import type { PlaceSuggestion } from "@/features/geocoding/types/geocoding.types";
 import type { CustomerAddress } from "@/features/account/types/address.types";
 import { AddressFormFields } from "./address-form-fields";
 
@@ -30,7 +30,9 @@ interface AddressFormDialogViewProps {
   readonly mode: "create" | "edit";
   readonly receiverName: string;
   readonly phoneNumber: string;
-  readonly districtCode: string;
+  readonly placeId: string;
+  readonly selectedPlaceLabel: string;
+  readonly selectedDistrictName?: string;
   readonly streetAddress: string;
   readonly isDefault: boolean;
   readonly lockDefaultChecked?: boolean;
@@ -41,7 +43,7 @@ interface AddressFormDialogViewProps {
   readonly onOpenChange?: (open: boolean) => void;
   readonly onReceiverNameChange: (value: string) => void;
   readonly onPhoneNumberChange: (value: string) => void;
-  readonly onDistrictCodeChange: (value: string) => void;
+  readonly onPlaceSelect: (suggestion: PlaceSuggestion) => void;
   readonly onStreetAddressChange: (value: string) => void;
   readonly onIsDefaultChange: (checked: boolean) => void;
   readonly onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
@@ -56,7 +58,9 @@ export function AddressFormDialogView({
   mode,
   receiverName,
   phoneNumber,
-  districtCode,
+  placeId,
+  selectedPlaceLabel,
+  selectedDistrictName,
   streetAddress,
   isDefault,
   lockDefaultChecked = false,
@@ -67,7 +71,7 @@ export function AddressFormDialogView({
   onOpenChange,
   onReceiverNameChange,
   onPhoneNumberChange,
-  onDistrictCodeChange,
+  onPlaceSelect,
   onStreetAddressChange,
   onIsDefaultChange,
   onSubmit,
@@ -88,7 +92,7 @@ export function AddressFormDialogView({
           </DialogTitle>
           <DialogDescription>
             {isCreate
-              ? "Chọn quận/huyện TP.HCM để hệ thống ước lượng lộ trình giao hỏa tốc từ Urban Hub Bình Thạnh."
+              ? "Tìm và chọn địa chỉ TP.HCM để hệ thống ước lượng lộ trình giao hỏa tốc từ Urban Hub Bình Thạnh."
               : "Chỉnh sửa thông tin người nhận hoặc địa chỉ chi tiết tại TP.HCM."}
           </DialogDescription>
         </DialogHeader>
@@ -98,7 +102,9 @@ export function AddressFormDialogView({
             idPrefix="account-address-form"
             receiverName={receiverName}
             phoneNumber={phoneNumber}
-            districtCode={districtCode}
+            placeId={placeId}
+            selectedPlaceLabel={selectedPlaceLabel}
+            selectedDistrictName={selectedDistrictName}
             streetAddress={streetAddress}
             showDefaultCheckbox={isCreate}
             isDefault={isDefault}
@@ -108,7 +114,7 @@ export function AddressFormDialogView({
             errorMessage={errorMessage}
             onReceiverNameChange={onReceiverNameChange}
             onPhoneNumberChange={onPhoneNumberChange}
-            onDistrictCodeChange={onDistrictCodeChange}
+            onPlaceSelect={onPlaceSelect}
             onStreetAddressChange={onStreetAddressChange}
             onIsDefaultChange={onIsDefaultChange}
           />
@@ -155,8 +161,6 @@ interface AddressFormDialogProps {
   readonly onUpdated: (address: CustomerAddress) => void;
 }
 
-const DEFAULT_DISTRICT_CODE = HCMC_DISTRICTS[0].code;
-
 function AddressFormDialogBody({
   editingAddress,
   existingCount,
@@ -174,8 +178,16 @@ function AddressFormDialogBody({
   const [phoneNumber, setPhoneNumber] = useState(() =>
     editingAddress ? editingAddress.phoneNumber : (defaultPhoneNumber ?? ""),
   );
-  const [districtCode, setDistrictCode] = useState(() =>
-    editingAddress ? editingAddress.districtCode : DEFAULT_DISTRICT_CODE,
+  const [placeId, setPlaceId] = useState(() =>
+    editingAddress ? editingAddress.placeId : "",
+  );
+  const [selectedPlaceLabel, setSelectedPlaceLabel] = useState(() =>
+    editingAddress
+      ? `${editingAddress.streetAddress}, ${editingAddress.district}, ${editingAddress.city}`
+      : "",
+  );
+  const [selectedDistrictName, setSelectedDistrictName] = useState(() =>
+    editingAddress ? editingAddress.district : undefined,
   );
   const [streetAddress, setStreetAddress] = useState(() =>
     editingAddress ? editingAddress.streetAddress : "",
@@ -193,7 +205,7 @@ function AddressFormDialogBody({
     ? buildUpdateAddressDiff(editingAddress, {
         receiverName,
         phoneNumber,
-        districtCode,
+        placeId,
         streetAddress,
       })
     : null;
@@ -206,6 +218,15 @@ function AddressFormDialogBody({
       return;
     }
     onOpenChange(nextOpen);
+  }
+
+  function handlePlaceSelect(suggestion: PlaceSuggestion) {
+    setPlaceId(suggestion.placeId);
+    setSelectedPlaceLabel(suggestion.description);
+    setSelectedDistrictName(suggestion.district);
+    if (!streetAddress.trim()) {
+      setStreetAddress(suggestion.description);
+    }
   }
 
   function handleSessionInvalidated() {
@@ -226,7 +247,7 @@ function AddressFormDialogBody({
       const diff = buildUpdateAddressDiff(editingAddress, {
         receiverName,
         phoneNumber,
-        districtCode,
+        placeId,
         streetAddress,
       });
       if (!diff.ok) {
@@ -263,7 +284,7 @@ function AddressFormDialogBody({
     const parsed = createAddressFormSchema.safeParse({
       receiverName,
       phoneNumber,
-      districtCode,
+      placeId,
       streetAddress,
       isDefault: lockDefaultChecked ? true : isDefault,
     });
@@ -303,7 +324,9 @@ function AddressFormDialogBody({
       mode={mode}
       receiverName={receiverName}
       phoneNumber={phoneNumber}
-      districtCode={districtCode}
+      placeId={placeId}
+      selectedPlaceLabel={selectedPlaceLabel}
+      selectedDistrictName={selectedDistrictName}
       streetAddress={streetAddress}
       isDefault={isDefault}
       lockDefaultChecked={lockDefaultChecked}
@@ -314,7 +337,7 @@ function AddressFormDialogBody({
       onOpenChange={handleOpenChange}
       onReceiverNameChange={setReceiverName}
       onPhoneNumberChange={setPhoneNumber}
-      onDistrictCodeChange={setDistrictCode}
+      onPlaceSelect={handlePlaceSelect}
       onStreetAddressChange={setStreetAddress}
       onIsDefaultChange={setIsDefault}
       onSubmit={(event) => void handleSubmit(event)}

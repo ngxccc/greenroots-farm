@@ -102,7 +102,7 @@ describe("useCartStore", () => {
 
   // Invariant: INV-SF-ADDR-1
   test("excludes streetAddress PII from persisted storage snapshot", () => {
-    useCartStore.getState().setDeliveryDistrict("go-vap", "142 Lê Đức Thọ");
+    useCartStore.setState({ streetAddress: "142 Lê Đức Thọ" });
     const state = useCartStore.getState();
     const persisted = useCartStore.persist
       .getOptions()
@@ -110,9 +110,9 @@ describe("useCartStore", () => {
 
     expect(persisted).toEqual({
       items: [],
-      selectedDistrictCode: "go-vap",
     });
     expect(persisted).not.toHaveProperty("streetAddress");
+    expect(persisted).not.toHaveProperty("selectedDistrictCode");
     expect(persisted).not.toHaveProperty("receiverName");
     expect(persisted).not.toHaveProperty("phoneNumber");
   });

@@ -1,4 +1,4 @@
-import { BUSINESS_RULES, findHcmcDistrictByCode } from "@greenroots/shared";
+import { BUSINESS_RULES } from "@greenroots/shared";
 import { z } from "zod";
 import {
   VN_PHONE_ERROR_MESSAGE,
@@ -27,9 +27,6 @@ export const MAX_USER_ADDRESSES = BUSINESS_RULES.MAX_USER_ADDRESSES;
 
 /**
  * Collapses repeated internal whitespace and trims leading/trailing spacing on address text fields.
- *
- * @param raw Raw text entered by the customer.
- * @returns Single-spaced trimmed string.
  */
 export function normalizeAddressText(raw: string): string {
   return normalizeProfileFullName(raw);
@@ -37,22 +34,9 @@ export function normalizeAddressText(raw: string): string {
 
 /**
  * Strips all whitespace from a required customer phone string before regex validation.
- *
- * @param raw Raw phone number string from form input.
- * @returns Compact phone digit string without whitespace.
  */
 export function normalizeRequiredPhone(raw: string): string {
   return raw.replace(/\s+/g, "").trim();
-}
-
-/**
- * Validates that a candidate `districtCode` belongs to the canonical 24 `HCMC_DISTRICTS` table (`INV-SF-ADDR-2`).
- *
- * @param code Candidate HCMC district identifier.
- * @returns `true` when recognized in `HCMC_DISTRICTS`.
- */
-export function isValidHcmcDistrictCode(code: string): boolean {
-  return findHcmcDistrictByCode(code) !== undefined;
 }
 
 const receiverNameFieldSchema = z
@@ -82,14 +66,11 @@ const streetAddressFieldSchema = z
     message: `Địa chỉ chi tiết không được vượt quá ${ADDRESS_STREET_MAX_LENGTH} ký tự.`,
   });
 
-const districtCodeFieldSchema = z
+const placeIdFieldSchema = z
   .string()
   .trim()
-  .min(1, { message: "Vui lòng chọn quận / huyện tại TP.HCM." })
-  .max(50, { message: "Mã quận / huyện không hợp lệ." })
-  .refine(isValidHcmcDistrictCode, {
-    message: "Quận / huyện không nằm trong khu vực giao hàng TP.HCM.",
-  });
+  .min(1, { message: "Vui lòng chọn địa chỉ từ danh sách gợi ý." })
+  .max(255, { message: "Mã địa điểm không hợp lệ." });
 
 /**
  * Strict schema validating customer delivery address creation inputs (`CreateAddressDto` parity).
@@ -98,7 +79,7 @@ export const createAddressFormSchema = z
   .object({
     receiverName: receiverNameFieldSchema,
     phoneNumber: requiredPhoneFieldSchema,
-    districtCode: districtCodeFieldSchema,
+    placeId: placeIdFieldSchema,
     streetAddress: streetAddressFieldSchema,
     isDefault: z.boolean().optional(),
   })
@@ -111,7 +92,7 @@ export const updateAddressFormSchema = z
   .object({
     receiverName: receiverNameFieldSchema,
     phoneNumber: requiredPhoneFieldSchema,
-    districtCode: districtCodeFieldSchema,
+    placeId: placeIdFieldSchema,
     streetAddress: streetAddressFieldSchema,
   })
   .strict();
@@ -123,7 +104,7 @@ export const updateAddressPatchSchema = z
   .object({
     receiverName: receiverNameFieldSchema.optional(),
     phoneNumber: requiredPhoneFieldSchema.optional(),
-    districtCode: districtCodeFieldSchema.optional(),
+    placeId: placeIdFieldSchema.optional(),
     streetAddress: streetAddressFieldSchema.optional(),
   })
   .strict()
@@ -131,7 +112,7 @@ export const updateAddressPatchSchema = z
     (data) =>
       data.receiverName !== undefined ||
       data.phoneNumber !== undefined ||
-      data.districtCode !== undefined ||
+      data.placeId !== undefined ||
       data.streetAddress !== undefined,
     {
       message: "Vui lòng thay đổi ít nhất một thông tin địa chỉ trước khi lưu.",
@@ -162,7 +143,7 @@ export type CreateAddressFormInput = CreateCustomerAddressInput;
 export interface EditableAddressValues {
   readonly receiverName: string;
   readonly phoneNumber: string;
-  readonly districtCode: string;
+  readonly placeId: string;
   readonly streetAddress: string;
 }
 
@@ -176,10 +157,6 @@ export type AddressDiffResult =
 /**
  * Validates edited address fields and extracts only modified properties against the persisted baseline
  * so empty `{}` `PATCH` submissions are prevented upfront (`INV-SF-ADDR-5`, `EDGE-1`).
- *
- * @param baseline Currently persisted `CustomerAddress` editable fields.
- * @param next Form values submitted by the customer.
- * @returns Minimal changed patch object, `null` when unchanged, or localized error copy.
  */
 export function buildUpdateAddressDiff(
   baseline: EditableAddressValues,
@@ -198,14 +175,14 @@ export function buildUpdateAddressDiff(
   const normalizedBaseline = {
     receiverName: normalizeAddressText(baseline.receiverName),
     phoneNumber: normalizeRequiredPhone(baseline.phoneNumber),
-    districtCode: baseline.districtCode.trim(),
+    placeId: baseline.placeId.trim(),
     streetAddress: normalizeAddressText(baseline.streetAddress),
   };
 
   const patch: {
     receiverName?: string;
     phoneNumber?: string;
-    districtCode?: string;
+    placeId?: string;
     streetAddress?: string;
   } = {};
 
@@ -215,8 +192,8 @@ export function buildUpdateAddressDiff(
   if (parsed.data.phoneNumber !== normalizedBaseline.phoneNumber) {
     patch.phoneNumber = parsed.data.phoneNumber;
   }
-  if (parsed.data.districtCode !== normalizedBaseline.districtCode) {
-    patch.districtCode = parsed.data.districtCode;
+  if (parsed.data.placeId !== normalizedBaseline.placeId) {
+    patch.placeId = parsed.data.placeId;
   }
   if (parsed.data.streetAddress !== normalizedBaseline.streetAddress) {
     patch.streetAddress = parsed.data.streetAddress;

@@ -1,6 +1,6 @@
 "use client";
 
-import { BUSINESS_RULES, HCMC_DISTRICTS } from "@greenroots/shared";
+import { BUSINESS_RULES } from "@greenroots/shared";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { roundQuantity } from "@/lib/format";
@@ -20,7 +20,6 @@ export interface CartItem {
 
 interface CartState {
   items: CartItem[];
-  selectedDistrictCode: string;
   streetAddress: string;
   addItem: (product: StorefrontProduct, quantity?: number) => void;
   syncProductSnapshot: (product: StorefrontProduct) => void;
@@ -30,10 +29,8 @@ interface CartState {
   decrementItem: (productId: string) => void;
   removeItem: (productId: string) => void;
   clearCart: () => void;
-  setDeliveryDistrict: (districtCode: string, streetAddress?: string) => void;
 }
 
-const DEFAULT_DISTRICT_CODE = HCMC_DISTRICTS[0].code;
 const ssrMemoryFallback = new Map<string, string>();
 
 function clampAddableQuantity(requested: number, available: number): number {
@@ -62,7 +59,6 @@ export const useCartStore = create<CartState>()(
   persist(
     (set) => ({
       items: [],
-      selectedDistrictCode: DEFAULT_DISTRICT_CODE,
       streetAddress: "",
 
       addItem: (product, quantity = 1) =>
@@ -255,19 +251,12 @@ export const useCartStore = create<CartState>()(
           items: state.items.filter((item) => item.productId !== productId),
         })),
       clearCart: () => set({ items: [] }),
-
-      setDeliveryDistrict: (districtCode, streetAddress) =>
-        set((state) => ({
-          selectedDistrictCode: districtCode,
-          streetAddress: streetAddress ?? state.streetAddress,
-        })),
     }),
     {
       name: "greenroots-cart-v1",
-      // Persist only non-PII cart items and guest district code so address text never stays in localStorage (INV-SF-ADDR-1).
+      // Persist only non-PII cart items so address text never stays in localStorage (INV-SF-ADDR-1).
       partialize: (state) => ({
         items: state.items,
-        selectedDistrictCode: state.selectedDistrictCode,
       }),
       storage: createJSONStorage(() =>
         typeof window === "undefined"

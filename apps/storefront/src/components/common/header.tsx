@@ -9,7 +9,7 @@ import {
   type ReactNode,
   type SubmitEvent,
 } from "react";
-import { HCMC_DISTRICTS, findHcmcDistrictByCode } from "@greenroots/shared";
+import { BUSINESS_RULES } from "@greenroots/shared";
 import {
   Button,
   InputGroup,
@@ -23,7 +23,6 @@ import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-
 import { buildProductSearchHref } from "@/lib/navigation";
 import { useShippingQuote } from "@/features/shipping/hooks/use-shipping-quote";
 import { useAuthStore } from "@/stores/auth.store";
-import { useCartStore } from "@/stores/cart.store";
 import {
   findActiveDeliveryAddress,
   useDeliveryAddressStore,
@@ -117,9 +116,6 @@ function DeliveryLocationSubBar() {
   const pathname = usePathname();
   const [addressOpen, setAddressOpen] = useState(false);
 
-  const selectedDistrictCode = useCartStore(
-    (state) => state.selectedDistrictCode,
-  );
   const activeUser = useAuthStore((state) => state.user);
   const savedAddresses = useDeliveryAddressStore((state) => state.addresses);
   const selectedAddressId = useDeliveryAddressStore(
@@ -129,16 +125,13 @@ function DeliveryLocationSubBar() {
   const activeSavedAddress = activeUser
     ? findActiveDeliveryAddress(savedAddresses, selectedAddressId)
     : null;
-  const effectiveDistrictCode = activeSavedAddress
-    ? activeSavedAddress.districtCode
-    : selectedDistrictCode;
-  const activeDistrict =
-    findHcmcDistrictByCode(effectiveDistrictCode) ?? HCMC_DISTRICTS[0];
 
   const serverQuote = useShippingQuote({
-    enabled: Boolean(activeUser) && shouldShowDeliverySubBar(pathname),
+    enabled:
+      Boolean(activeUser) &&
+      Boolean(activeSavedAddress?.id) &&
+      shouldShowDeliverySubBar(pathname),
     addressId: activeSavedAddress?.id ?? null,
-    districtCode: activeSavedAddress ? null : activeDistrict.code,
     onSessionInvalidated: invalidateStorefrontClientSession,
   });
 
@@ -147,7 +140,7 @@ function DeliveryLocationSubBar() {
   }
 
   const distanceSuffix =
-    activeUser && serverQuote.quote
+    activeUser && activeSavedAddress && serverQuote.quote
       ? ` (~${serverQuote.quote.roadDistanceKm} km)`
       : "";
 
@@ -163,7 +156,7 @@ function DeliveryLocationSubBar() {
           <span className="min-w-0 truncate font-semibold text-gray-900 tabular-nums">
             {activeSavedAddress
               ? `${activeSavedAddress.streetAddress}, ${activeSavedAddress.district}`
-              : `${activeDistrict.name}, TP.HCM`}
+              : `TP. Hồ Chí Minh (bán kính ${BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM} km)`}
             {distanceSuffix}
           </span>
           <Button

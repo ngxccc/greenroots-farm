@@ -42,7 +42,7 @@ export function AddressCard({
   const isAuthenticated = Boolean(activeUser);
   const serverQuote = useShippingQuote({
     enabled: isAuthenticated,
-    districtCode: address.districtCode,
+    addressId: address.id,
     onSessionInvalidated: invalidateStorefrontClientSession,
   });
 

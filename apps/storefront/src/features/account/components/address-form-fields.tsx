@@ -1,17 +1,12 @@
 "use client";
 
-import { HCMC_DISTRICTS, findHcmcDistrictByCode } from "@greenroots/shared";
+import { BUSINESS_RULES } from "@greenroots/shared";
 import {
   Alert,
   AlertDescription,
   Checkbox,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@greenroots/ui";
 import { AlertCircle, Truck } from "lucide-react";
 import { DeliveryQuoteSummary } from "@/components/common/delivery-quote-summary";
@@ -20,85 +15,60 @@ import {
   ADDRESS_STREET_MAX_LENGTH,
 } from "@/features/account/schemas/address-validation";
 import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
+import { PlaceAutocompleteInput } from "@/features/geocoding/components/place-autocomplete-input";
+import type { PlaceSuggestion } from "@/features/geocoding/types/geocoding.types";
 import { useShippingQuote } from "@/features/shipping/hooks/use-shipping-quote";
+import { formatVnd } from "@/lib/format";
 import { useAuthStore } from "@/stores/auth.store";
 
 interface DeliveryQuotePreviewProps {
-  readonly districtCode: string;
+  readonly placeId?: string | null;
   readonly addressId?: string | null;
+  readonly districtName?: string;
   readonly isSubscription?: boolean;
 }
 
 /**
- * Canonical 24-district Ho Chi Minh City selector using human-readable Vietnamese district labels.
- */
-export function HcmcDistrictSelect({
-  id,
-  value,
-  disabled = false,
-  onValueChange,
-}: {
-  readonly id: string;
-  readonly value: string;
-  readonly disabled?: boolean;
-  readonly onValueChange: (code: string) => void;
-}) {
-  const selectedDistrict = findHcmcDistrictByCode(value);
-
-  return (
-    <Select
-      value={value}
-      disabled={disabled}
-      onValueChange={(nextValue) => {
-        if (nextValue) {
-          onValueChange(nextValue);
-        }
-      }}
-    >
-      <SelectTrigger id={id} className="h-10 w-full bg-white text-sm">
-        <SelectValue placeholder="Chọn quận / huyện">
-          {selectedDistrict?.name ?? value}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent alignItemWithTrigger={false}>
-        {HCMC_DISTRICTS.map((item) => (
-          <SelectItem key={item.code} value={item.code} className="text-sm">
-            {item.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-/**
  * Displays dynamic server-computed delivery quote via `POST /api/shipping/quote` for
- * authenticated customers, or a login prompt for unauthenticated guests.
- *
- * @param props Selected HCMC `districtCode` and optional saved `addressId`.
- * @returns Styled summary card showing distance and VND fee, retry alert, out-of-radius badge, or login prompt.
+ * authenticated customers, or static delivery coverage policy for unauthenticated guests.
  */
 export function DeliveryQuotePreview({
-  districtCode,
+  placeId = null,
   addressId = null,
+  districtName,
   isSubscription = false,
 }: DeliveryQuotePreviewProps) {
   const activeUser = useAuthStore((state) => state.user);
-  const district = findHcmcDistrictByCode(districtCode) ?? HCMC_DISTRICTS[0];
   const isAuthenticated = Boolean(activeUser);
+  const hasTarget = Boolean(addressId) || Boolean(placeId);
 
   const serverQuote = useShippingQuote({
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && hasTarget,
     addressId,
-    districtCode: addressId ? null : district.code,
+    placeId: addressId ? null : placeId,
     isSubscription,
     onSessionInvalidated: invalidateStorefrontClientSession,
   });
 
   if (isAuthenticated) {
+    if (!hasTarget) {
+      return (
+        <div className="flex items-center gap-2 rounded-xl border border-border-subtle bg-surface-warm p-3 text-xs text-gray-600">
+          <Truck
+            className="size-4 shrink-0 text-brand-forest"
+            aria-hidden="true"
+          />
+          <span>
+            Chọn địa chỉ từ danh sách gợi ý để xem khoảng cách và phí giao hàng
+            chính xác.
+          </span>
+        </div>
+      );
+    }
+
     return (
       <DeliveryQuoteSummary
-        districtName={addressId ? undefined : district.name}
+        districtName={addressId ? undefined : districtName}
         quote={serverQuote.quote}
         isLoading={serverQuote.status === "loading"}
         errorMessage={serverQuote.errorMessage}
@@ -111,9 +81,15 @@ export function DeliveryQuotePreview({
     <div className="flex items-center gap-2 rounded-xl border border-border-subtle bg-surface-warm p-3 text-xs text-gray-600">
       <Truck className="size-4 shrink-0 text-brand-forest" aria-hidden="true" />
       <span>
-        Đăng nhập để xem khoảng cách và phí giao hàng chính xác tới{" "}
-        <strong className="font-semibold text-gray-900">{district.name}</strong>
-        .
+        Giao hỏa tốc TP.HCM trong bán kính{" "}
+        <strong className="font-semibold text-gray-900 tabular-nums">
+          {BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM} km
+        </strong>
+        , phí cơ bản từ{" "}
+        <strong className="font-semibold text-gray-900 tabular-nums">
+          {formatVnd(BUSINESS_RULES.SHIPPING.BASE_FEE_VND)}
+        </strong>
+        . Đăng nhập để tính phí chính xác.
       </span>
     </div>
   );
@@ -123,7 +99,9 @@ interface AddressFormFieldsProps {
   readonly idPrefix: string;
   readonly receiverName: string;
   readonly phoneNumber: string;
-  readonly districtCode: string;
+  readonly placeId: string;
+  readonly selectedPlaceLabel?: string;
+  readonly selectedDistrictName?: string;
   readonly streetAddress: string;
   readonly showDefaultCheckbox: boolean;
   readonly isDefault: boolean;
@@ -133,7 +111,7 @@ interface AddressFormFieldsProps {
   readonly errorMessage?: string | null;
   readonly onReceiverNameChange: (value: string) => void;
   readonly onPhoneNumberChange: (value: string) => void;
-  readonly onDistrictCodeChange: (value: string) => void;
+  readonly onPlaceSelect: (suggestion: PlaceSuggestion) => void;
   readonly onStreetAddressChange: (value: string) => void;
   readonly onIsDefaultChange?: (checked: boolean) => void;
 }
@@ -146,7 +124,9 @@ export function AddressFormFields({
   idPrefix,
   receiverName,
   phoneNumber,
-  districtCode,
+  placeId,
+  selectedPlaceLabel = "",
+  selectedDistrictName,
   streetAddress,
   showDefaultCheckbox,
   isDefault,
@@ -156,13 +136,13 @@ export function AddressFormFields({
   errorMessage = null,
   onReceiverNameChange,
   onPhoneNumberChange,
-  onDistrictCodeChange,
+  onPlaceSelect,
   onStreetAddressChange,
   onIsDefaultChange,
 }: AddressFormFieldsProps) {
   const receiverInputId = `${idPrefix}-receiver-name`;
   const phoneInputId = `${idPrefix}-phone-number`;
-  const districtSelectId = `${idPrefix}-district`;
+  const placeInputId = `${idPrefix}-place-search`;
   const streetInputId = `${idPrefix}-street-address`;
   const defaultCheckboxId = `${idPrefix}-default`;
 
@@ -219,16 +199,17 @@ export function AddressFormFields({
 
       <div className="space-y-1.5">
         <Label
-          htmlFor={districtSelectId}
+          htmlFor={placeInputId}
           className="text-xs font-semibold text-gray-800"
         >
-          Quận / Huyện / TP. Thủ Đức (TP.HCM)
+          Tìm địa chỉ tại TP.HCM
         </Label>
-        <HcmcDistrictSelect
-          id={districtSelectId}
-          value={districtCode}
+        <PlaceAutocompleteInput
+          id={placeInputId}
+          selectedPlaceId={placeId}
+          selectedLabel={selectedPlaceLabel}
           disabled={disabled}
-          onValueChange={onDistrictCodeChange}
+          onSelectPlace={onPlaceSelect}
         />
       </div>
 
@@ -237,7 +218,7 @@ export function AddressFormFields({
           htmlFor={streetInputId}
           className="text-xs font-semibold text-gray-800"
         >
-          Địa chỉ chi tiết (Số nhà, tên đường, phường)
+          Địa chỉ chi tiết (Số nhà, hẻm, ghi chú giao hàng)
         </Label>
         <Input
           id={streetInputId}
@@ -246,13 +227,16 @@ export function AddressFormFields({
           maxLength={ADDRESS_STREET_MAX_LENGTH}
           disabled={disabled}
           required
-          placeholder="Ví dụ: 142 Lê Đức Thọ, Phường 15"
+          placeholder="Ví dụ: 142/5 Lê Đức Thọ, Phường 15"
           onChange={(event) => onStreetAddressChange(event.target.value)}
           className="h-10 bg-white text-sm"
         />
       </div>
 
-      <DeliveryQuotePreview districtCode={districtCode} />
+      <DeliveryQuotePreview
+        placeId={placeId || null}
+        districtName={selectedDistrictName}
+      />
 
       {showDefaultCheckbox ? (
         <div className="space-y-1 pt-0.5">

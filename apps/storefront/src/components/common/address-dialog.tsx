@@ -9,7 +9,7 @@ import {
   useState,
   type SubmitEvent,
 } from "react";
-import { HCMC_DISTRICTS } from "@greenroots/shared";
+import { BUSINESS_RULES } from "@greenroots/shared";
 import {
   Alert,
   AlertDescription,
@@ -20,7 +20,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  Label,
   Skeleton,
   buttonVariants,
 } from "@greenroots/ui";
@@ -31,11 +30,11 @@ import {
   MapPin,
   Plus,
   RefreshCw,
+  Truck,
 } from "lucide-react";
 import {
   AddressFormFields,
   DeliveryQuotePreview,
-  HcmcDistrictSelect,
 } from "@/features/account/components/address-form-fields";
 import {
   createAddressAction,
@@ -46,8 +45,9 @@ import {
   createAddressFormSchema,
 } from "@/features/account/schemas/address-validation";
 import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
+import type { PlaceSuggestion } from "@/features/geocoding/types/geocoding.types";
+import { formatVnd } from "@/lib/format";
 import { useAuthStore } from "@/stores/auth.store";
-import { useCartStore } from "@/stores/cart.store";
 import {
   findActiveDeliveryAddress,
   useDeliveryAddressStore,
@@ -67,7 +67,6 @@ interface AddressDialogPanelProps extends AddressDialogProps {
   readonly onRefresh?: () => void;
 }
 
-const DEFAULT_DISTRICT_CODE = HCMC_DISTRICTS[0].code;
 const RPC_CONNECTION_ERROR = "Không thể kết nối tới máy chủ GreenRoots Farm.";
 
 function AddressDialogGuestContent({
@@ -75,38 +74,33 @@ function AddressDialogGuestContent({
 }: {
   readonly onClose: () => void;
 }) {
-  const setDeliveryDistrict = useCartStore(
-    (state) => state.setDeliveryDistrict,
-  );
-  const [draftDistrictCode, setDraftDistrictCode] = useState(
-    () => useCartStore.getState().selectedDistrictCode,
-  );
-
-  function handleSaveDistrict() {
-    setDeliveryDistrict(draftDistrictCode, "");
-    onClose();
-  }
-
   return (
     <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label
-          htmlFor="guest-district-select"
-          className="text-xs font-semibold text-gray-800"
-        >
-          Quận / Huyện / TP. Thủ Đức
-        </Label>
-        <HcmcDistrictSelect
-          id="guest-district-select"
-          value={draftDistrictCode}
-          onValueChange={setDraftDistrictCode}
+      <div className="flex items-start gap-2.5 rounded-xl border border-border-subtle bg-surface-warm p-3 text-xs text-gray-700">
+        <Truck
+          className="mt-0.5 size-4 shrink-0 text-brand-forest"
+          aria-hidden="true"
         />
+        <div className="space-y-1">
+          <p className="font-semibold text-gray-900">
+            Chính sách giao hàng TP. Hồ Chí Minh
+          </p>
+          <p className="text-gray-600">
+            Giao hỏa tốc trong bán kính tối đa{" "}
+            <strong className="font-semibold text-gray-900 tabular-nums">
+              {BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM} km
+            </strong>{" "}
+            từ nông trại, phí cơ bản từ{" "}
+            <strong className="font-semibold text-gray-900 tabular-nums">
+              {formatVnd(BUSINESS_RULES.SHIPPING.BASE_FEE_VND)}
+            </strong>
+            .
+          </p>
+        </div>
       </div>
 
-      <DeliveryQuotePreview districtCode={draftDistrictCode} />
-
-      <div className="flex items-center justify-between gap-2 rounded-lg border border-border-subtle bg-surface-warm px-3 py-2 text-xs text-gray-600">
-        <span>Đăng nhập để chọn nhanh từ sổ địa chỉ đã lưu.</span>
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-border-subtle bg-white px-3 py-2 text-xs text-gray-600">
+        <span>Đăng nhập để tìm địa chỉ và tính phí giao hàng chính xác.</span>
         <Link
           href="/login"
           onClick={onClose}
@@ -124,13 +118,6 @@ function AddressDialogGuestContent({
           className="cursor-pointer"
         >
           Đóng
-        </Button>
-        <Button
-          type="button"
-          onClick={handleSaveDistrict}
-          className="cursor-pointer border-brand-forest bg-brand-forest font-bold text-white hover:border-brand-dark hover:bg-brand-dark"
-        >
-          Xác nhận khu vực
         </Button>
       </div>
     </div>
@@ -181,7 +168,11 @@ function AddressDialogAuthenticatedContent({
 
   const [newReceiverName, setNewReceiverName] = useState(user.fullName);
   const [newPhoneNumber, setNewPhoneNumber] = useState(user.phone ?? "");
-  const [newDistrictCode, setNewDistrictCode] = useState(DEFAULT_DISTRICT_CODE);
+  const [newPlaceId, setNewPlaceId] = useState("");
+  const [newPlaceLabel, setNewPlaceLabel] = useState("");
+  const [newDistrictName, setNewDistrictName] = useState<string | undefined>(
+    undefined,
+  );
   const [newStreetAddress, setNewStreetAddress] = useState("");
   const [newIsDefault, setNewIsDefault] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -263,10 +254,21 @@ function AddressDialogAuthenticatedContent({
     setSubmitError(null);
     setNewReceiverName(user.fullName);
     setNewPhoneNumber(user.phone ?? "");
-    setNewDistrictCode(DEFAULT_DISTRICT_CODE);
+    setNewPlaceId("");
+    setNewPlaceLabel("");
+    setNewDistrictName(undefined);
     setNewStreetAddress("");
     setNewIsDefault(savedAddresses.length === 0);
     onModeChange("create");
+  }
+
+  function handlePlaceSelect(suggestion: PlaceSuggestion) {
+    setNewPlaceId(suggestion.placeId);
+    setNewPlaceLabel(suggestion.description);
+    setNewDistrictName(suggestion.district);
+    if (!newStreetAddress.trim()) {
+      setNewStreetAddress(suggestion.description);
+    }
   }
 
   function handleConfirmSelection() {
@@ -287,7 +289,7 @@ function AddressDialogAuthenticatedContent({
     const parsed = createAddressFormSchema.safeParse({
       receiverName: newReceiverName,
       phoneNumber: newPhoneNumber,
-      districtCode: newDistrictCode,
+      placeId: newPlaceId,
       streetAddress: newStreetAddress,
       isDefault: lockDefault ? true : newIsDefault,
     });
@@ -325,10 +327,6 @@ function AddressDialogAuthenticatedContent({
   const reachedCap = savedAddresses.length >= MAX_USER_ADDRESSES;
   const selectedSavedAddress: CustomerAddress | null =
     findActiveDeliveryAddress(savedAddresses, draftAddressId);
-  const previewDistrictCode =
-    mode === "create"
-      ? newDistrictCode
-      : (selectedSavedAddress?.districtCode ?? DEFAULT_DISTRICT_CODE);
 
   if (mode === "create") {
     return (
@@ -341,7 +339,9 @@ function AddressDialogAuthenticatedContent({
           idPrefix="header-dialog-address"
           receiverName={newReceiverName}
           phoneNumber={newPhoneNumber}
-          districtCode={newDistrictCode}
+          placeId={newPlaceId}
+          selectedPlaceLabel={newPlaceLabel}
+          selectedDistrictName={newDistrictName}
           streetAddress={newStreetAddress}
           showDefaultCheckbox={true}
           isDefault={newIsDefault}
@@ -350,7 +350,7 @@ function AddressDialogAuthenticatedContent({
           errorMessage={submitError}
           onReceiverNameChange={setNewReceiverName}
           onPhoneNumberChange={setNewPhoneNumber}
-          onDistrictCodeChange={setNewDistrictCode}
+          onPlaceSelect={handlePlaceSelect}
           onStreetAddressChange={setNewStreetAddress}
           onIsDefaultChange={setNewIsDefault}
         />
@@ -505,10 +505,7 @@ function AddressDialogAuthenticatedContent({
             })}
           </div>
 
-          <DeliveryQuotePreview
-            districtCode={previewDistrictCode}
-            addressId={selectedSavedAddress?.id ?? null}
-          />
+          <DeliveryQuotePreview addressId={selectedSavedAddress?.id ?? null} />
         </>
       )}
 
@@ -598,7 +595,7 @@ export function AddressDialogPanel({
                 ? "Thêm địa chỉ nhận hàng mới"
                 : activeUser
                   ? "Chọn địa chỉ giao hàng"
-                  : "Chọn khu vực giao hàng TP.HCM"}
+                  : "Phạm vi giao hàng TP.HCM"}
             </span>
           </DialogTitle>
           <DialogDescription className="text-gray-500">
@@ -632,7 +629,7 @@ export function AddressDialogPanel({
 /**
  * Interactive header/storefront delivery location dialog supporting both:
  * - Authenticated customers picking from or quick-adding to their saved HCMC address book (BFF-backed).
- * - Guest visitors selecting a canonical HCMC district code (`INV-SF-ADDR-1` zero PII in `localStorage`).
+ * - Guest visitors viewing static delivery radius and base fee policy (`INV-SF-ADDR-1` zero PII in `localStorage`).
  */
 export function AddressDialog(props: AddressDialogProps) {
   const router = useRouter();

@@ -44,15 +44,14 @@ export const validateCartInputSchema = z
         `Tối đa ${MAX_CART_LINE_ITEMS} sản phẩm mỗi đơn.`,
       ),
     addressId: z.uuid("Mã địa chỉ không hợp lệ.").optional(),
-    districtCode: z.string().min(1).optional(),
+    placeId: z.string().min(1).max(255).optional(),
     loyaltyPoints: z.number().int().nonnegative().default(0),
     clientTotalVnd: z.number().int().nonnegative().optional(),
   })
   .strict()
   .refine(
-    (data) =>
-      !(data.addressId !== undefined && data.districtCode !== undefined),
-    "Không thể truyền đồng thời mã địa chỉ và mã quận/huyện.",
+    (data) => !(data.addressId !== undefined && data.placeId !== undefined),
+    "Không thể truyền đồng thời mã địa chỉ và mã địa điểm.",
   );
 
 /**

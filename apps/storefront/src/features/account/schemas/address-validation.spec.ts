@@ -25,11 +25,11 @@ describe("Storefront Address Validation", () => {
 
   describe("createAddressFormSchema", () => {
     // Invariant: INV-SF-ADDR-2
-    test("accepts valid HCMC district code and normalizes receiver and street text", () => {
+    test("accepts valid placeId and normalizes receiver and street text", () => {
       const result = createAddressFormSchema.safeParse({
         receiverName: "  Nguyễn   Minh Anh ",
         phoneNumber: "0908 412 679",
-        districtCode: "go-vap",
+        placeId: "mock_place_go_vap",
         streetAddress: "  142   Lê Đức Thọ, Phường 15 ",
         isDefault: true,
       });
@@ -39,27 +39,27 @@ describe("Storefront Address Validation", () => {
         expect(result.data).toEqual({
           receiverName: "Nguyễn Minh Anh",
           phoneNumber: "0908412679",
-          districtCode: "go-vap",
+          placeId: "mock_place_go_vap",
           streetAddress: "142 Lê Đức Thọ, Phường 15",
           isDefault: true,
         });
       }
     });
 
-    // Invariant: INV-SF-ADDR-2
-    test("rejects unknown districtCode outside HCMC_DISTRICTS and client coordinate injection", () => {
-      const unknownDistrict = createAddressFormSchema.safeParse({
+    // Invariant: INV-ADDR-1, INV-SF-ADDR-2
+    test("rejects blank placeId and client coordinate injection", () => {
+      const blankPlace = createAddressFormSchema.safeParse({
         receiverName: "Minh Anh",
         phoneNumber: "0908412679",
-        districtCode: "760",
+        placeId: "   ",
         streetAddress: "142 Lê Đức Thọ",
       });
-      expect(unknownDistrict.success).toBe(false);
+      expect(blankPlace.success).toBe(false);
 
       const injectedCoords = createAddressFormSchema.safeParse({
         receiverName: "Minh Anh",
         phoneNumber: "0908412679",
-        districtCode: "quan-1",
+        placeId: "mock_place_quan_1",
         streetAddress: "142 Lê Lợi",
         latitude: 10.77,
       });
@@ -70,7 +70,7 @@ describe("Storefront Address Validation", () => {
       const result = createAddressFormSchema.safeParse({
         receiverName: "Minh Anh",
         phoneNumber: "0123456789",
-        districtCode: "quan-1",
+        placeId: "mock_place_quan_1",
         streetAddress: "142 Lê Lợi",
       });
       expect(result.success).toBe(false);
@@ -95,7 +95,7 @@ describe("Storefront Address Validation", () => {
     const baseline = {
       receiverName: "Nguyễn Minh Anh",
       phoneNumber: "0908412679",
-      districtCode: "go-vap",
+      placeId: "mock_place_go_vap",
       streetAddress: "142 Lê Đức Thọ, P.15",
     };
 
@@ -103,7 +103,7 @@ describe("Storefront Address Validation", () => {
       const result = buildUpdateAddressDiff(baseline, {
         receiverName: "  Nguyễn   Minh Anh ",
         phoneNumber: "0908 412 679",
-        districtCode: "go-vap",
+        placeId: "mock_place_go_vap",
         streetAddress: " 142   Lê Đức Thọ, P.15 ",
       });
 
@@ -115,7 +115,7 @@ describe("Storefront Address Validation", () => {
       const result = buildUpdateAddressDiff(baseline, {
         receiverName: "Nguyễn Minh Anh",
         phoneNumber: "0909 000 005",
-        districtCode: "quan-1",
+        placeId: "mock_place_quan_1",
         streetAddress: "142 Lê Đức Thọ, P.15",
       });
 
@@ -123,7 +123,7 @@ describe("Storefront Address Validation", () => {
         ok: true,
         patch: {
           phoneNumber: "0909000005",
-          districtCode: "quan-1",
+          placeId: "mock_place_quan_1",
         },
       });
     });

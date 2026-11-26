@@ -33,7 +33,7 @@ describe("ShippingQuoteHandler", () => {
       // Invariant: INV-SF-AUTH-7
       let backendCalled = false;
       const req = makeQuoteRequest(
-        { districtCode: "QUAN_1" },
+        { placeId: "mock_place_quan_1" },
         "https://attacker.example",
       );
 
@@ -57,11 +57,11 @@ describe("ShippingQuoteHandler", () => {
       expect(backendCalled).toBe(false);
     });
 
-    it("rejects payloads providing both addressId and districtCode", async () => {
+    it("rejects payloads providing both addressId and placeId", async () => {
       let backendCalled = false;
       const req = makeQuoteRequest({
         addressId: "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f",
-        districtCode: "QUAN_1",
+        placeId: "mock_place_quan_1",
       });
 
       const res = await handleShippingQuotePost(req, {
@@ -108,7 +108,7 @@ describe("ShippingQuoteHandler", () => {
 
     it("rejects unauthenticated requests when both access and refresh cookies are missing", async () => {
       let backendCalled = false;
-      const req = makeQuoteRequest({ districtCode: "QUAN_1" });
+      const req = makeQuoteRequest({ placeId: "mock_place_quan_1" });
 
       const res = await handleShippingQuotePost(req, {
         allowedAppUrl: "http://localhost:3001",
@@ -135,7 +135,7 @@ describe("ShippingQuoteHandler", () => {
 
     it("rotates session via refresh flow when access cookie is missing but refresh cookie exists", async () => {
       // Invariant: ADR-0036
-      const req = makeQuoteRequest({ districtCode: "QUAN_1" });
+      const req = makeQuoteRequest({ placeId: "mock_place_quan_1" });
 
       const res = await handleShippingQuotePost(req, {
         allowedAppUrl: "http://localhost:3001",
@@ -162,10 +162,10 @@ describe("ShippingQuoteHandler", () => {
       expect(body.data).toEqual(SAMPLE_QUOTE);
     });
 
-    it("forwards valid districtCode requests and returns server quote payload", async () => {
+    it("forwards valid placeId requests and returns server quote payload", async () => {
       let capturedBody: unknown = null;
       const req = makeQuoteRequest({
-        districtCode: "QUAN_1",
+        placeId: "mock_place_quan_1",
         isSubscription: false,
       });
 
@@ -188,7 +188,7 @@ describe("ShippingQuoteHandler", () => {
 
       expect(res.status).toBe(200);
       expect(capturedBody).toEqual({
-        districtCode: "QUAN_1",
+        placeId: "mock_place_quan_1",
         isSubscription: false,
       });
     });
@@ -229,7 +229,7 @@ describe("ShippingQuoteHandler", () => {
 
     it("preserves session and returns fallback error when refresh fails transiently", async () => {
       // Invariant: ADR-0036
-      const req = makeQuoteRequest({ districtCode: "QUAN_1" });
+      const req = makeQuoteRequest({ placeId: "mock_place_quan_1" });
 
       const res = await handleShippingQuotePost(req, {
         allowedAppUrl: "http://localhost:3001",
@@ -260,7 +260,7 @@ describe("ShippingQuoteHandler", () => {
     });
 
     it("marks session invalidated and clears cookies when refresh fails permanently", async () => {
-      const req = makeQuoteRequest({ districtCode: "QUAN_1" });
+      const req = makeQuoteRequest({ placeId: "mock_place_quan_1" });
 
       const res = await handleShippingQuotePost(req, {
         allowedAppUrl: "http://localhost:3001",
@@ -294,7 +294,7 @@ describe("ShippingQuoteHandler", () => {
     });
 
     it("returns degraded problem envelope when backend request throws", async () => {
-      const req = makeQuoteRequest({ districtCode: "QUAN_1" });
+      const req = makeQuoteRequest({ placeId: "mock_place_quan_1" });
 
       const res = await handleShippingQuotePost(req, {
         allowedAppUrl: "http://localhost:3001",

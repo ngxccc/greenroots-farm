@@ -6,7 +6,7 @@ import type { components } from "@/types/api-schema";
 export type ShippingQuote = components["schemas"]["ShippingQuoteDto"];
 
 /**
- * Request payload accepted by `POST /api/v1/shipping/quote` (`addressId` XOR `districtCode`).
+ * Request payload accepted by `POST /api/v1/shipping/quote` (`addressId` XOR `placeId`).
  */
 export type ShippingQuoteRequest =
   components["schemas"]["ShippingQuoteRequestDto"];

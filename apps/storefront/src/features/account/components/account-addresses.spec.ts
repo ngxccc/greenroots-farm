@@ -55,7 +55,7 @@ const defaultAddress: CustomerAddress = {
   receiverName: "Nguyễn Minh Anh",
   phoneNumber: "0908412679",
   streetAddress: "142 Lê Đức Thọ, Phường 15",
-  districtCode: "go-vap",
+  placeId: "mock_place_go_vap",
   district: "Quận Gò Vấp",
   city: "TP. Hồ Chí Minh",
   isDefault: true,
@@ -69,7 +69,7 @@ const secondaryAddress: CustomerAddress = {
   receiverName: "Trần Hoàng Nam",
   phoneNumber: "0912345678",
   streetAddress: "72 Nguyễn Thị Minh Khai, Phường Bến Nghé",
-  districtCode: "quan-1",
+  placeId: "mock_place_quan_1",
   district: "Quận 1",
   isDefault: false,
 };
@@ -271,7 +271,7 @@ describe("Storefront Account Addresses Components", () => {
 
   describe("AddressDialogPanel", () => {
     // Invariant: INV-SF-ADDR-1
-    it("renders guest district selector without invoking protected address actions", async () => {
+    it("renders guest delivery policy without invoking protected address actions", async () => {
       let protectedCalls = 0;
 
       await withHappyDom(async (win) => {
@@ -299,8 +299,8 @@ describe("Storefront Account Addresses Components", () => {
 
         const bodyHtml = win.document.body.innerHTML;
         expect(protectedCalls).toBe(0);
-        expect(bodyHtml).toContain("Chọn khu vực giao hàng TP.HCM");
-        expect(bodyHtml).toContain("Xác nhận khu vực");
+        expect(bodyHtml).toContain("Phạm vi giao hàng TP.HCM");
+        expect(bodyHtml).toContain("Chính sách giao hàng TP. Hồ Chí Minh");
         expect(bodyHtml).toContain('href="/login"');
 
         await act(async () => {
@@ -396,38 +396,114 @@ describe("Storefront Account Addresses Components", () => {
             await Promise.resolve();
           });
 
-          const streetInput = win.document.querySelector(
-            "#header-dialog-address-street-address",
-          ) as unknown as HTMLInputElement | null;
-          expect(streetInput).not.toBeNull();
-          if (streetInput) {
-            const valueSetter = Object.getOwnPropertyDescriptor(
-              win.HTMLInputElement.prototype,
-              "value",
-            )?.set;
-            await act(async () => {
-              valueSetter?.call(streetInput, "99 Nguyễn Văn Cừ");
-              streetInput.dispatchEvent(
-                new win.Event("input", { bubbles: true }) as unknown as Event,
+          const originalFetch = globalThis.fetch;
+          globalThis.fetch = ((url: string | URL | Request) => {
+            const href =
+              typeof url === "string"
+                ? url
+                : url instanceof URL
+                  ? url.href
+                  : url.url;
+            if (href.includes("/api/geocoding/autocomplete")) {
+              return Promise.resolve(
+                new Response(
+                  JSON.stringify({
+                    success: true,
+                    data: [
+                      {
+                        placeId: "mock_place_quan_1",
+                        description:
+                          "99 Nguyễn Văn Cừ, Quận 1, TP. Hồ Chí Minh",
+                        district: "Quận 1",
+                      },
+                    ],
+                  }),
+                  { status: 200 },
+                ),
               );
+            }
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  success: true,
+                  data: {
+                    straightLineKm: 4.5,
+                    roadDistanceKm: 5.85,
+                    feeVnd: 30000,
+                    isDeliverable: true,
+                    isFreeShipping: false,
+                    maxRadiusKm: 25,
+                    subscriptionFreeRadiusKm: 20,
+                  },
+                }),
+                { status: 200 },
+              ),
+            );
+          }) as typeof fetch;
+
+          try {
+            const placeInput = win.document.querySelector(
+              "#header-dialog-address-place-search",
+            ) as unknown as HTMLInputElement | null;
+            expect(placeInput).not.toBeNull();
+            if (placeInput) {
+              const valueSetter = Object.getOwnPropertyDescriptor(
+                win.HTMLInputElement.prototype,
+                "value",
+              )?.set;
+              await act(async () => {
+                valueSetter?.call(placeInput, "Nguyen Van Cu");
+                placeInput.dispatchEvent(
+                  new win.Event("input", { bubbles: true }) as unknown as Event,
+                );
+                await new Promise((r) => setTimeout(r, 350));
+              });
+            }
+
+            const optionBtn = win.document.querySelector(
+              '[role="option"]',
+            ) as unknown as HTMLElement | null;
+            expect(optionBtn).not.toBeNull();
+            await act(async () => {
+              optionBtn?.click();
               await Promise.resolve();
             });
-          }
 
-          const form = win.document.querySelector(
-            "form",
-          ) as unknown as HTMLFormElement | null;
-          expect(form).not.toBeNull();
-          await act(async () => {
-            form?.dispatchEvent(
-              new win.Event("submit", {
-                bubbles: true,
-                cancelable: true,
-              }) as unknown as Event,
-            );
-            await Promise.resolve();
-            await Promise.resolve();
-          });
+            const streetInput = win.document.querySelector(
+              "#header-dialog-address-street-address",
+            ) as unknown as HTMLInputElement | null;
+            expect(streetInput).not.toBeNull();
+            if (streetInput) {
+              const valueSetter = Object.getOwnPropertyDescriptor(
+                win.HTMLInputElement.prototype,
+                "value",
+              )?.set;
+              await act(async () => {
+                valueSetter?.call(streetInput, "99 Nguyễn Văn Cừ");
+                streetInput.dispatchEvent(
+                  new win.Event("input", { bubbles: true }) as unknown as Event,
+                );
+                await Promise.resolve();
+              });
+            }
+
+            const form = win.document.querySelector(
+              "form",
+            ) as unknown as HTMLFormElement | null;
+            expect(form).not.toBeNull();
+            await act(async () => {
+              form?.dispatchEvent(
+                new win.Event("submit", {
+                  bubbles: true,
+                  cancelable: true,
+                }) as unknown as Event,
+              );
+              await Promise.resolve();
+              await Promise.resolve();
+            });
+          } finally {
+            globalThis.fetch = originalFetch;
+          }
 
           expect(openEvents).toContain(false);
           expect(useDeliveryAddressStore.getState().selectedAddressId).toBe(
@@ -462,7 +538,8 @@ describe("Storefront Account Addresses Components", () => {
               mode: "create",
               receiverName: "Nguyễn Minh Anh",
               phoneNumber: "0908412679",
-              districtCode: "go-vap",
+              placeId: "mock_place_go_vap",
+              selectedPlaceLabel: "142 Lê Đức Thọ, Quận Gò Vấp",
               streetAddress: "142 Lê Đức Thọ",
               isDefault: true,
               lockDefaultChecked: true,
@@ -471,7 +548,7 @@ describe("Storefront Account Addresses Components", () => {
               errorMessage: null,
               onReceiverNameChange: () => undefined,
               onPhoneNumberChange: () => undefined,
-              onDistrictCodeChange: () => undefined,
+              onPlaceSelect: () => undefined,
               onStreetAddressChange: () => undefined,
               onIsDefaultChange: () => undefined,
               onSubmit: (event) => event.preventDefault(),
@@ -492,7 +569,8 @@ describe("Storefront Account Addresses Components", () => {
               mode: "edit",
               receiverName: "Nguyễn Minh Anh",
               phoneNumber: "0908412679",
-              districtCode: "go-vap",
+              placeId: "mock_place_go_vap",
+              selectedPlaceLabel: "142 Lê Đức Thọ, Quận Gò Vấp",
               streetAddress: "142 Lê Đức Thọ",
               isDefault: true,
               isEditingDefault: true,
@@ -501,7 +579,7 @@ describe("Storefront Account Addresses Components", () => {
               errorMessage: null,
               onReceiverNameChange: () => undefined,
               onPhoneNumberChange: () => undefined,
-              onDistrictCodeChange: () => undefined,
+              onPlaceSelect: () => undefined,
               onStreetAddressChange: () => undefined,
               onIsDefaultChange: () => undefined,
               onSubmit: (event) => event.preventDefault(),

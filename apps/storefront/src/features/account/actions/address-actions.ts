@@ -211,7 +211,7 @@ export async function executeListAddressesAction(
  *
  * @param input Validated receiver, phone, district code, street address, and optional `isDefault` flag.
  * @param deps Optional injectable adapters for isolated unit testing.
- * @returns Persisted `CustomerAddress` or localized RFC 9457 error (`ADDRESS_LIMIT_REACHED`, `DISTRICT_CODE_INVALID`).
+ * @returns Persisted `CustomerAddress` or localized RFC 9457 error (`ADDRESS_LIMIT_REACHED`, `PLACE_ID_INVALID`, `GEOCODING_UNAVAILABLE`).
  */
 export async function executeCreateAddressAction(
   input: CreateCustomerAddressInput,

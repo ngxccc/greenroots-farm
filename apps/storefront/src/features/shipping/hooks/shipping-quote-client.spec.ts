@@ -14,7 +14,7 @@ afterEach(() => {
 
 describe("ShippingQuoteClient", () => {
   describe("buildShippingQuoteCacheKey", () => {
-    it("separates addressId and districtCode keys with subscription flag", () => {
+    it("separates addressId and placeId keys with subscription flag", () => {
       expect(
         buildShippingQuoteCacheKey({
           addressId: "addr-1",
@@ -24,10 +24,10 @@ describe("ShippingQuoteClient", () => {
 
       expect(
         buildShippingQuoteCacheKey({
-          districtCode: "QUAN_1",
+          placeId: "mock_place_quan_1",
           isSubscription: true,
         }),
-      ).toBe("dist:QUAN_1:sub:true");
+      ).toBe("place:mock_place_quan_1:sub:true");
     });
   });
 
@@ -52,7 +52,7 @@ describe("ShippingQuoteClient", () => {
         )) as unknown as typeof fetch;
 
       const result = await fetchShippingQuoteFromBff({
-        districtCode: "QUAN_1",
+        placeId: "mock_place_quan_1",
         isSubscription: true,
       });
 
@@ -102,7 +102,7 @@ describe("ShippingQuoteClient", () => {
         )) as unknown as typeof fetch;
 
       const result = await fetchShippingQuoteFromBff({
-        districtCode: "QUAN_1",
+        placeId: "mock_place_quan_1",
         isSubscription: false,
       });
 

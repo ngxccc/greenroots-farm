@@ -47,9 +47,6 @@ export function CartPageView() {
     () => (isHydrated ? storedItems : []),
     [isHydrated, storedItems],
   );
-  const selectedDistrictCode = useCartStore(
-    (state) => state.selectedDistrictCode,
-  );
   const incrementItem = useCartStore((state) => state.incrementItem);
   const decrementItem = useCartStore((state) => state.decrementItem);
   const setQuantity = useCartStore((state) => state.setQuantity);
@@ -67,7 +64,6 @@ export function CartPageView() {
     enabled: isHydrated && isCustomer,
     items,
     addressId: selectedAddressId,
-    districtCode: selectedDistrictCode,
     debounceMs: 250,
     onSessionInvalidated: clearSession,
   });
