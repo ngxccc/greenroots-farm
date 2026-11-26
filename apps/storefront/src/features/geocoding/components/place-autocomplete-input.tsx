@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type KeyboardEvent, useState } from "react";
 import { Alert, AlertDescription, Button, Input } from "@greenroots/ui";
 import { AlertCircle, Loader2, MapPin, Search } from "lucide-react";
 import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
@@ -28,8 +28,17 @@ export function PlaceAutocompleteInput({
   onSelectPlace,
 }: PlaceAutocompleteInputProps) {
   const activeUser = useAuthStore((state) => state.user);
+  const [prevSelectedLabel, setPrevSelectedLabel] = useState(selectedLabel);
   const [query, setQuery] = useState(selectedLabel);
   const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  if (selectedLabel !== prevSelectedLabel) {
+    setPrevSelectedLabel(selectedLabel);
+    setQuery(selectedLabel);
+    setIsOpen(false);
+    setActiveIndex(-1);
+  }
 
   const isAuthenticated = Boolean(activeUser);
   const { status, suggestions, errorMessage } = usePlaceAutocomplete({
@@ -43,11 +52,52 @@ export function PlaceAutocompleteInput({
     isOpen &&
     query.trim().length >= 3 &&
     (status === "loading" || status === "success" || status === "error");
+  const isListboxOpen = showDropdown && status === "success";
+  const listboxId = `${id}-listbox`;
+  const activeOptionId =
+    isListboxOpen && activeIndex >= 0 && suggestions[activeIndex]
+      ? `${id}-option-${activeIndex}`
+      : undefined;
 
   function handleSelect(suggestion: PlaceSuggestion) {
     setQuery(suggestion.description);
     setIsOpen(false);
+    setActiveIndex(-1);
     onSelectPlace(suggestion);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!isListboxOpen || suggestions.length === 0) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        setActiveIndex(-1);
+      }
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+      return;
+    }
+
+    if (event.key === "Enter" && activeIndex >= 0 && suggestions[activeIndex]) {
+      event.preventDefault();
+      handleSelect(suggestions[activeIndex]);
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setIsOpen(false);
+      setActiveIndex(-1);
+    }
   }
 
   return (
@@ -60,6 +110,11 @@ export function PlaceAutocompleteInput({
         <Input
           id={id}
           type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={isListboxOpen}
+          aria-controls={isListboxOpen ? listboxId : undefined}
+          aria-activedescendant={activeOptionId}
           value={query}
           disabled={disabled || !isAuthenticated}
           autoComplete="off"
@@ -67,12 +122,14 @@ export function PlaceAutocompleteInput({
           onChange={(event) => {
             setQuery(event.target.value);
             setIsOpen(true);
+            setActiveIndex(-1);
           }}
           onFocus={() => {
             if (query.trim().length >= 3) {
               setIsOpen(true);
             }
           }}
+          onKeyDown={handleKeyDown}
           className="h-10 bg-white pr-9 pl-9 text-sm"
         />
         {status === "loading" ? (
@@ -99,8 +156,9 @@ export function PlaceAutocompleteInput({
         </Alert>
       ) : null}
 
-      {showDropdown && status === "success" ? (
+      {isListboxOpen ? (
         <div
+          id={listboxId}
           role="listbox"
           aria-label="Gợi ý địa chỉ TP.HCM"
           className="max-h-56 overflow-y-auto rounded-xl border border-border-subtle bg-white p-1 shadow-lg"
@@ -110,24 +168,29 @@ export function PlaceAutocompleteInput({
               Không tìm thấy địa chỉ phù hợp. Vui lòng thử từ khóa khác.
             </p>
           ) : (
-            suggestions.map((item) => (
-              <Button
-                key={item.placeId}
-                type="button"
-                variant="ghost"
-                role="option"
-                aria-selected={item.placeId === selectedPlaceId}
-                onClick={() => handleSelect(item)}
-                className="h-auto w-full cursor-pointer flex-col items-start justify-start gap-0.5 rounded-lg px-3 py-2 text-left whitespace-normal hover:bg-surface-warm"
-              >
-                <span className="text-xs font-medium text-gray-900">
-                  {item.description}
-                </span>
-                <span className="text-[11px] text-gray-500">
-                  {item.district}
-                </span>
-              </Button>
-            ))
+            suggestions.map((item, index) => {
+              const isSelected =
+                item.placeId === selectedPlaceId || index === activeIndex;
+              return (
+                <Button
+                  key={item.placeId}
+                  id={`${id}-option-${index}`}
+                  type="button"
+                  variant="ghost"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => handleSelect(item)}
+                  className="h-auto w-full cursor-pointer flex-col items-start justify-start gap-0.5 rounded-lg px-3 py-2 text-left whitespace-normal hover:bg-surface-warm aria-selected:bg-surface-warm"
+                >
+                  <span className="text-xs font-medium text-gray-900">
+                    {item.description}
+                  </span>
+                  <span className="text-[11px] text-gray-500">
+                    {item.district}
+                  </span>
+                </Button>
+              );
+            })
           )}
         </div>
       ) : null}

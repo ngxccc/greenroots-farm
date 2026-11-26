@@ -1144,7 +1144,7 @@ export interface paths {
         put?: never;
         /**
          * Calculate shipping delivery quote
-         * @description Calculates server-authoritative straight-line distance, road distance, deliverability, and integer VND fee from dynamic farm settings for an owned address or HCMC district code.
+         * @description Calculates server-authoritative straight-line distance, road distance, deliverability, and integer VND fee from dynamic farm settings for an owned address or Goong placeId.
          */
         post: operations["ShippingController_quote_v1"];
         delete?: never;
@@ -4263,6 +4263,27 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
                 };
             };
+            /** @description Geocoding upstream service temporarily unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/service-unavailable",
+                     *       "title": "Service Unavailable",
+                     *       "status": 503,
+                     *       "detail": "Geocoding service is temporarily unavailable.",
+                     *       "instance": "/api/v1/resource",
+                     *       "code": "GEOCODING_UNAVAILABLE",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
         };
     };
     AddressController_remove_v1: {
@@ -4535,6 +4556,27 @@ export interface operations {
                      *       "status": 500,
                      *       "detail": "An unexpected internal server error occurred",
                      *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Geocoding upstream service temporarily unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/service-unavailable",
+                     *       "title": "Service Unavailable",
+                     *       "status": 503,
+                     *       "detail": "Geocoding service is temporarily unavailable.",
+                     *       "instance": "/api/v1/resource",
+                     *       "code": "GEOCODING_UNAVAILABLE",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
                      *     }
@@ -11476,6 +11518,27 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
                 };
             };
+            /** @description Geocoding upstream service temporarily unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/service-unavailable",
+                     *       "title": "Service Unavailable",
+                     *       "status": 503,
+                     *       "detail": "Geocoding service is temporarily unavailable.",
+                     *       "instance": "/api/v1/resource",
+                     *       "code": "GEOCODING_UNAVAILABLE",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
         };
     };
     OrdersController_checkout_v1: {
@@ -12403,6 +12466,27 @@ export interface operations {
                      *       "status": 500,
                      *       "detail": "An unexpected internal server error occurred",
                      *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Geocoding upstream service temporarily unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/service-unavailable",
+                     *       "title": "Service Unavailable",
+                     *       "status": 503,
+                     *       "detail": "Geocoding service is temporarily unavailable.",
+                     *       "instance": "/api/v1/resource",
+                     *       "code": "GEOCODING_UNAVAILABLE",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
                      *     }
