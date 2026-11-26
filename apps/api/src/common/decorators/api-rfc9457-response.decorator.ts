@@ -221,3 +221,23 @@ export function ApiInternalServerErrorResponseRfc9457(options?: {
     code: options?.code,
   });
 }
+
+/**
+ * Documents a 503 Service Unavailable RFC 9457 error response.
+ */
+export function ApiServiceUnavailableResponseRfc9457(options?: {
+  description?: string;
+  detail?: string;
+  code?: string;
+}) {
+  return ApiRfc9457Response({
+    status: HttpStatus.SERVICE_UNAVAILABLE,
+    description:
+      options?.description ?? "Upstream service temporarily unavailable",
+    title: "Service Unavailable",
+    detail:
+      options?.detail ?? "Service is temporarily unavailable. Please retry.",
+    typeSlug: ERROR_SLUGS.SERVICE_UNAVAILABLE,
+    code: options?.code,
+  });
+}

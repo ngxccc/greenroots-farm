@@ -11,7 +11,7 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiHeader, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { UserRole } from "@greenroots/shared";
+import { API_ERROR_CODES, UserRole } from "@greenroots/shared";
 import { IDEMPOTENCY_HEADER_NAME } from "@/common/constants/idempotency.constant";
 import { ERROR_SLUGS, MESSAGES } from "@/common/constants/messages.constant";
 import {
@@ -25,6 +25,7 @@ import {
   ApiOkResponseGeneric,
   ApiOkResponsePaginated,
   ApiRfc9457Response,
+  ApiServiceUnavailableResponseRfc9457,
   ApiTooManyRequestsResponseRfc9457,
   ApiUnprocessableEntityResponseRfc9457,
   CurrentUser,
@@ -147,6 +148,11 @@ export class OrdersController {
   @ApiNotFoundResponseRfc9457()
   @ApiUnprocessableEntityResponseRfc9457()
   @ApiTooManyRequestsResponseRfc9457()
+  @ApiServiceUnavailableResponseRfc9457({
+    description: "Geocoding upstream service temporarily unavailable",
+    detail: MESSAGES.GEOCODING.UNAVAILABLE,
+    code: API_ERROR_CODES.GEOCODING_UNAVAILABLE,
+  })
   async validateCart(
     @CurrentUser("sub") userId: string,
     @Body() dto: ValidateCartRequestDto,

@@ -1,12 +1,14 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
-import { UserRole } from "@greenroots/shared";
+import { API_ERROR_CODES, UserRole } from "@greenroots/shared";
+import { MESSAGES } from "@/common/constants/messages.constant";
 import {
   ApiAuth,
   ApiBadRequestResponseRfc9457,
   ApiInternalServerErrorResponseRfc9457,
   ApiNotFoundResponseRfc9457,
   ApiOkResponseGeneric,
+  ApiServiceUnavailableResponseRfc9457,
   ApiTooManyRequestsResponseRfc9457,
   ApiUnprocessableEntityResponseRfc9457,
   CurrentUser,
@@ -36,12 +38,17 @@ export class ShippingController {
   @ApiOperation({
     summary: "Calculate shipping delivery quote",
     description:
-      "Calculates server-authoritative straight-line distance, road distance, deliverability, and integer VND fee from dynamic farm settings for an owned address or HCMC district code.",
+      "Calculates server-authoritative straight-line distance, road distance, deliverability, and integer VND fee from dynamic farm settings for an owned address or Goong placeId.",
   })
   @ApiOkResponseGeneric(ShippingQuoteDto)
   @ApiNotFoundResponseRfc9457()
   @ApiUnprocessableEntityResponseRfc9457()
   @ApiTooManyRequestsResponseRfc9457()
+  @ApiServiceUnavailableResponseRfc9457({
+    description: "Geocoding upstream service temporarily unavailable",
+    detail: MESSAGES.GEOCODING.UNAVAILABLE,
+    code: API_ERROR_CODES.GEOCODING_UNAVAILABLE,
+  })
   async quote(
     @CurrentUser("sub") userId: string,
     @Body() dto: ShippingQuoteRequestDto,

@@ -15,7 +15,8 @@ import {
   ApiParam,
   ApiTags,
 } from "@nestjs/swagger";
-import { UserRole } from "@greenroots/shared";
+import { API_ERROR_CODES, UserRole } from "@greenroots/shared";
+import { MESSAGES } from "@/common/constants/messages.constant";
 import {
   ApiAuth,
   ApiBadRequestResponseRfc9457,
@@ -23,6 +24,7 @@ import {
   ApiInternalServerErrorResponseRfc9457,
   ApiNotFoundResponseRfc9457,
   ApiOkResponseGeneric,
+  ApiServiceUnavailableResponseRfc9457,
   ApiUnprocessableEntityResponseRfc9457,
   CurrentUser,
 } from "@/common/decorators";
@@ -72,6 +74,11 @@ export class AddressController {
   })
   @ApiCreatedResponseGeneric(AddressDto)
   @ApiUnprocessableEntityResponseRfc9457()
+  @ApiServiceUnavailableResponseRfc9457({
+    description: "Geocoding upstream service temporarily unavailable",
+    detail: MESSAGES.GEOCODING.UNAVAILABLE,
+    code: API_ERROR_CODES.GEOCODING_UNAVAILABLE,
+  })
   async create(
     @CurrentUser("sub") userId: string,
     @Body() dto: CreateAddressDto,
@@ -95,6 +102,11 @@ export class AddressController {
   @ApiOkResponseGeneric(AddressDto)
   @ApiNotFoundResponseRfc9457()
   @ApiUnprocessableEntityResponseRfc9457()
+  @ApiServiceUnavailableResponseRfc9457({
+    description: "Geocoding upstream service temporarily unavailable",
+    detail: MESSAGES.GEOCODING.UNAVAILABLE,
+    code: API_ERROR_CODES.GEOCODING_UNAVAILABLE,
+  })
   async update(
     @CurrentUser("sub") userId: string,
     @Param("id", new ZodValidationPipe(zUuidV7())) id: string,

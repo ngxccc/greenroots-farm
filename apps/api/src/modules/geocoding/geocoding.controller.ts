@@ -1,4 +1,4 @@
-import { Controller, Get, HttpStatus, Query } from "@nestjs/common";
+import { Controller, Get, Query } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { API_ERROR_CODES, UserRole } from "@greenroots/shared";
@@ -7,10 +7,10 @@ import {
   ApiBadRequestResponseRfc9457,
   ApiInternalServerErrorResponseRfc9457,
   ApiOkResponseGeneric,
-  ApiRfc9457Response,
+  ApiServiceUnavailableResponseRfc9457,
   ApiTooManyRequestsResponseRfc9457,
 } from "@/common/decorators";
-import { ERROR_SLUGS, MESSAGES } from "@/common/constants/messages.constant";
+import { MESSAGES } from "@/common/constants/messages.constant";
 import { apiSuccess, type ApiResponse } from "@/common/utils/api-response.util";
 import { AutocompleteQueryDto, PlaceSuggestionDto } from "./dto";
 import {
@@ -46,12 +46,9 @@ export class GeocodingController {
   })
   @ApiOkResponseGeneric(PlaceSuggestionDto, { isArray: true })
   @ApiTooManyRequestsResponseRfc9457()
-  @ApiRfc9457Response({
-    status: HttpStatus.SERVICE_UNAVAILABLE,
-    title: "Service Unavailable",
+  @ApiServiceUnavailableResponseRfc9457({
     description: "Geocoding upstream service temporarily unavailable",
     detail: MESSAGES.GEOCODING.UNAVAILABLE,
-    typeSlug: ERROR_SLUGS.SERVICE_UNAVAILABLE,
     code: API_ERROR_CODES.GEOCODING_UNAVAILABLE,
   })
   async autocomplete(

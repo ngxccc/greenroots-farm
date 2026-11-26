@@ -1888,6 +1888,26 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Geocoding upstream service temporarily unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/service-unavailable",
+                  "title": "Service Unavailable",
+                  "status": 503,
+                  "detail": "Geocoding service is temporarily unavailable.",
+                  "instance": "/api/v1/resource",
+                  "code": "GEOCODING_UNAVAILABLE",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2065,6 +2085,26 @@
                   "status": 500,
                   "detail": "An unexpected internal server error occurred",
                   "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Geocoding upstream service temporarily unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/service-unavailable",
+                  "title": "Service Unavailable",
+                  "status": 503,
+                  "detail": "Geocoding service is temporarily unavailable.",
+                  "instance": "/api/v1/resource",
+                  "code": "GEOCODING_UNAVAILABLE",
                   "invalidParams": [],
                   "timestamp": "2026-11-16T00:00:00.000Z"
                 }
@@ -11094,6 +11134,26 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Geocoding upstream service temporarily unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/service-unavailable",
+                  "title": "Service Unavailable",
+                  "status": 503,
+                  "detail": "Geocoding service is temporarily unavailable.",
+                  "instance": "/api/v1/resource",
+                  "code": "GEOCODING_UNAVAILABLE",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -11969,7 +12029,7 @@
     },
     "/api/v1/shipping/quote": {
       "post": {
-        "description": "Calculates server-authoritative straight-line distance, road distance, deliverability, and integer VND fee from dynamic farm settings for an owned address or HCMC district code.",
+        "description": "Calculates server-authoritative straight-line distance, road distance, deliverability, and integer VND fee from dynamic farm settings for an owned address or Goong placeId.",
         "operationId": "ShippingController_quote_v1",
         "parameters": [],
         "requestBody": {
@@ -12139,6 +12199,26 @@
                   "status": 500,
                   "detail": "An unexpected internal server error occurred",
                   "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Geocoding upstream service temporarily unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/service-unavailable",
+                  "title": "Service Unavailable",
+                  "status": 503,
+                  "detail": "Geocoding service is temporarily unavailable.",
+                  "instance": "/api/v1/resource",
+                  "code": "GEOCODING_UNAVAILABLE",
                   "invalidParams": [],
                   "timestamp": "2026-11-16T00:00:00.000Z"
                 }

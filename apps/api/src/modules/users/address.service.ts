@@ -200,7 +200,7 @@ export class AddressService {
   }
 
   /**
-   * Updates mutable content fields on an owned address and recomputes cached coordinates on district change.
+   * Updates mutable content fields on an owned address and recomputes cached coordinates on placeId change.
    *
    * @param sub Authenticated user ID from JWT `sub`.
    * @param addressId Target address UUIDv7 identifier.
