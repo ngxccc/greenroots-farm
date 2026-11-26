@@ -223,6 +223,61 @@ export function calculateRoadDistanceKm(
 }
 
 /**
+ * Calculates a delivery quote in integer VND from precomputed straight-line and
+ * road distances using the active farm shipping configuration.
+ *
+ * @param straightLineKm Straight-line Haversine distance in kilometers.
+ * @param roadDistanceKm Road distance in kilometers (detour-estimated or routing API).
+ * @param config Active shipping pricing and radius thresholds.
+ * @param options Delivery quote options such as `isSubscription`.
+ * @returns Delivery quote with integer VND fee when deliverable or `feeVnd: null` otherwise.
+ */
+export function calculateDeliveryQuoteFromRoadDistance(
+  straightLineKm: number,
+  roadDistanceKm: number,
+  config: ShippingQuoteConfig,
+  options: DeliveryQuoteOptions = {},
+): DeliveryQuote {
+  const { maxRadiusKm, subscriptionFreeRadiusKm } = config;
+  const normalizedRoadKm = Number(roadDistanceKm.toFixed(2));
+
+  // Enforce maxRadiusKm before subscription free-tier rules so misconfigured settings cannot exceed max radius.
+  if (normalizedRoadKm > maxRadiusKm) {
+    return {
+      straightLineKm,
+      roadDistanceKm: normalizedRoadKm,
+      feeVnd: null,
+      isDeliverable: false,
+      isFreeShipping: false,
+    };
+  }
+
+  if (options.isSubscription && normalizedRoadKm <= subscriptionFreeRadiusKm) {
+    return {
+      straightLineKm,
+      roadDistanceKm: normalizedRoadKm,
+      feeVnd: 0,
+      isDeliverable: true,
+      isFreeShipping: true,
+    };
+  }
+
+  const extraKm = Math.max(
+    0,
+    Math.ceil(normalizedRoadKm - config.freeKmThreshold),
+  );
+  const feeVnd = config.baseFeeVnd + extraKm * config.perKmRateVnd;
+
+  return {
+    straightLineKm,
+    roadDistanceKm: normalizedRoadKm,
+    feeVnd,
+    isDeliverable: true,
+    isFreeShipping: feeVnd === 0,
+  };
+}
+
+/**
  * Calculates a delivery quote in integer VND and checks radius eligibility
  * using explicit origin coordinates and shipping configuration.
  *
@@ -238,8 +293,6 @@ export function calculateDeliveryQuote(
   config: ShippingQuoteConfig,
   options: DeliveryQuoteOptions = {},
 ): DeliveryQuote {
-  const { maxRadiusKm, subscriptionFreeRadiusKm } = config;
-
   const straightLineKm = calculateHaversineDistanceKm(
     origin.latitude,
     origin.longitude,
@@ -251,38 +304,10 @@ export function calculateDeliveryQuote(
     (straightLineKm * config.detourFactor).toFixed(2),
   );
 
-  // Enforce maxRadiusKm before subscription free-tier rules so misconfigured settings cannot exceed max radius.
-  if (roadDistanceKm > maxRadiusKm) {
-    return {
-      straightLineKm,
-      roadDistanceKm,
-      feeVnd: null,
-      isDeliverable: false,
-      isFreeShipping: false,
-    };
-  }
-
-  if (options.isSubscription && roadDistanceKm <= subscriptionFreeRadiusKm) {
-    return {
-      straightLineKm,
-      roadDistanceKm,
-      feeVnd: 0,
-      isDeliverable: true,
-      isFreeShipping: true,
-    };
-  }
-
-  const extraKm = Math.max(
-    0,
-    Math.ceil(roadDistanceKm - config.freeKmThreshold),
-  );
-  const feeVnd = config.baseFeeVnd + extraKm * config.perKmRateVnd;
-
-  return {
+  return calculateDeliveryQuoteFromRoadDistance(
     straightLineKm,
     roadDistanceKm,
-    feeVnd,
-    isDeliverable: true,
-    isFreeShipping: feeVnd === 0,
-  };
+    config,
+    options,
+  );
 }
