@@ -11,14 +11,16 @@ import {
   API_ERROR_CODES,
   OrderStatus,
   PaymentStatus,
+  SubscriptionStatus,
   type PaymentRawPayload,
 } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import {
   DATABASE_CONNECTION,
   type DrizzleDB,
+  type DrizzleTx,
 } from "@/database/database.module";
-import { orders, payments } from "@/database/schemas";
+import { orders, payments, subscriptions } from "@/database/schemas";
 import { PAYMENT_DRIVER_TOKEN } from "./payments.constant";
 import type { PaymentDriver, PayosWebhookPayload } from "./payments.interface";
 
@@ -70,17 +72,34 @@ export class PaymentsWebhookService {
         .select({
           id: payments.id,
           orderId: payments.orderId,
+          subscriptionId: payments.subscriptionId,
         })
         .from(payments)
         .where(eq(payments.orderCode, verified.orderCode))
         .limit(1);
 
-      if (!paymentLookup?.orderId) {
+      if (
+        !paymentLookup ||
+        (!paymentLookup.orderId && !paymentLookup.subscriptionId)
+      ) {
         throw new NotFoundException({
           code: API_ERROR_CODES.PAYMENT_NOT_FOUND,
           detail: MESSAGES.PAYMENTS.NOT_FOUND,
         });
       }
+
+      if (paymentLookup.subscriptionId && !paymentLookup.orderId) {
+        return this.reconcileSubscriptionPayment(
+          tx,
+          paymentLookup.id,
+          paymentLookup.subscriptionId,
+          payload,
+          verified,
+          now,
+        );
+      }
+
+      const orderId = paymentLookup.orderId!;
 
       // Lock `orders` before `payments` consistently to prevent deadlocks with cancel/expiry flows (`ADR-0042`).
       const [lockedOrder] = await tx
@@ -90,7 +109,7 @@ export class PaymentsWebhookService {
           orderStatus: orders.orderStatus,
         })
         .from(orders)
-        .where(eq(orders.id, paymentLookup.orderId))
+        .where(eq(orders.id, orderId))
         .for("update");
 
       if (!lockedOrder) {
@@ -100,64 +119,21 @@ export class PaymentsWebhookService {
         });
       }
 
-      const [lockedPayment] = await tx
-        .select({
-          id: payments.id,
-          amount: payments.amount,
-          status: payments.status,
-          referenceCode: payments.referenceCode,
-        })
-        .from(payments)
-        .where(eq(payments.id, paymentLookup.id))
-        .for("update");
-
-      if (!lockedPayment) {
-        throw new NotFoundException({
-          code: API_ERROR_CODES.PAYMENT_NOT_FOUND,
-          detail: MESSAGES.PAYMENTS.NOT_FOUND,
-        });
-      }
-
-      if (
-        lockedPayment.status === PaymentStatus.PAID ||
-        (verified.reference.length > 0 &&
-          lockedPayment.referenceCode === verified.reference)
-      ) {
-        return { received: true };
-      }
-
-      if (payload.code !== "00" || verified.code !== "00") {
-        return { received: true };
-      }
-
-      if (verified.amountVnd !== lockedPayment.amount) {
-        throw new UnprocessableEntityException({
-          code: API_ERROR_CODES.PAYMENT_AMOUNT_MISMATCH,
-          detail: MESSAGES.PAYMENTS.AMOUNT_MISMATCH,
-        });
-      }
-
-      const paidAt = parsePayosTransactionDate(
-        verified.transactionDateTime,
+      const settled = await this.lockAndSettlePayment(
+        tx,
+        paymentLookup.id,
+        payload,
+        verified,
         now,
       );
-      const rawPayload = payload as unknown as PaymentRawPayload;
-
-      await tx
-        .update(payments)
-        .set({
-          status: PaymentStatus.PAID,
-          referenceCode: verified.reference || null,
-          rawPayload,
-          paidAt,
-          updatedAt: now,
-        })
-        .where(eq(payments.id, lockedPayment.id));
+      if (!settled.shouldTransitionTarget) {
+        return { received: true };
+      }
 
       // Never resurrect a cancelled order; record paid evidence for manual refund reconciliation (`ADR-0042`).
       if (lockedOrder.orderStatus === OrderStatus.CANCELLED) {
         this.logger.error(
-          `Late PayOS PAID webhook received for cancelled orderId=${lockedOrder.id} orderCode=${lockedOrder.orderCode} paymentId=${lockedPayment.id} amountVnd=${verified.amountVnd}; manual refund reconciliation required.`,
+          `Late PayOS PAID webhook received for cancelled orderId=${lockedOrder.id} orderCode=${lockedOrder.orderCode} paymentId=${settled.paymentId} amountVnd=${verified.amountVnd}; manual refund reconciliation required.`,
         );
         return { received: true };
       }
@@ -181,5 +157,130 @@ export class PaymentsWebhookService {
 
       return { received: true };
     });
+  }
+
+  private async reconcileSubscriptionPayment(
+    tx: DrizzleTx,
+    paymentId: string,
+    subscriptionId: string,
+    payload: PayosWebhookPayload,
+    verified: Awaited<ReturnType<PaymentDriver["verifyWebhook"]>>,
+    now: Date,
+  ): Promise<{ received: true }> {
+    // Lock `subscriptions` before `payments` consistently to prevent deadlocks with cancel/expiry flows (`ADR-0041`).
+    const [lockedSubscription] = await tx
+      .select({
+        id: subscriptions.id,
+        subscriptionCode: subscriptions.subscriptionCode,
+        status: subscriptions.status,
+      })
+      .from(subscriptions)
+      .where(eq(subscriptions.id, subscriptionId))
+      .for("update");
+
+    if (!lockedSubscription) {
+      throw new NotFoundException({
+        code: API_ERROR_CODES.PAYMENT_NOT_FOUND,
+        detail: MESSAGES.PAYMENTS.NOT_FOUND,
+      });
+    }
+
+    const settled = await this.lockAndSettlePayment(
+      tx,
+      paymentId,
+      payload,
+      verified,
+      now,
+    );
+    if (!settled.shouldTransitionTarget) {
+      return { received: true };
+    }
+
+    // Never resurrect a cancelled subscription; record paid evidence for manual refund reconciliation (`ADR-0041`).
+    if (lockedSubscription.status === SubscriptionStatus.CANCELLED) {
+      this.logger.error(
+        `Late PayOS PAID webhook received for cancelled subscriptionId=${lockedSubscription.id} subscriptionCode=${lockedSubscription.subscriptionCode} paymentId=${settled.paymentId} amountVnd=${verified.amountVnd}; manual refund reconciliation required.`,
+      );
+      return { received: true };
+    }
+
+    if (lockedSubscription.status !== SubscriptionStatus.PENDING_PAYMENT) {
+      this.logger.warn(
+        `PayOS PAID webhook received for subscriptionId=${lockedSubscription.id} subscriptionCode=${lockedSubscription.subscriptionCode} in unexpected status=${lockedSubscription.status}; skipping status transition.`,
+      );
+      return { received: true };
+    }
+
+    await tx
+      .update(subscriptions)
+      .set({
+        status: SubscriptionStatus.ACTIVE,
+        reservationExpiresAt: null,
+        updatedAt: now,
+      })
+      .where(eq(subscriptions.id, lockedSubscription.id));
+
+    return { received: true };
+  }
+
+  private async lockAndSettlePayment(
+    tx: DrizzleTx,
+    paymentId: string,
+    payload: PayosWebhookPayload,
+    verified: Awaited<ReturnType<PaymentDriver["verifyWebhook"]>>,
+    now: Date,
+  ): Promise<{ paymentId: string; shouldTransitionTarget: boolean }> {
+    const [lockedPayment] = await tx
+      .select({
+        id: payments.id,
+        amount: payments.amount,
+        status: payments.status,
+        referenceCode: payments.referenceCode,
+      })
+      .from(payments)
+      .where(eq(payments.id, paymentId))
+      .for("update");
+
+    if (!lockedPayment) {
+      throw new NotFoundException({
+        code: API_ERROR_CODES.PAYMENT_NOT_FOUND,
+        detail: MESSAGES.PAYMENTS.NOT_FOUND,
+      });
+    }
+
+    if (
+      lockedPayment.status === PaymentStatus.PAID ||
+      (verified.reference.length > 0 &&
+        lockedPayment.referenceCode === verified.reference)
+    ) {
+      return { paymentId: lockedPayment.id, shouldTransitionTarget: false };
+    }
+
+    if (payload.code !== "00" || verified.code !== "00") {
+      return { paymentId: lockedPayment.id, shouldTransitionTarget: false };
+    }
+
+    if (verified.amountVnd !== lockedPayment.amount) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.PAYMENT_AMOUNT_MISMATCH,
+        detail: MESSAGES.PAYMENTS.AMOUNT_MISMATCH,
+      });
+    }
+
+    const paidAt = parsePayosTransactionDate(verified.transactionDateTime, now);
+    const rawPayload = payload as unknown as PaymentRawPayload;
+
+    await tx
+      .update(payments)
+      .set({
+        status: PaymentStatus.PAID,
+        referenceCode: verified.reference || null,
+        rawPayload,
+        paidAt,
+        updatedAt: now,
+      })
+      .where(eq(payments.id, lockedPayment.id));
+
+    return { paymentId: lockedPayment.id, shouldTransitionTarget: true };
   }
 }

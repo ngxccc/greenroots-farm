@@ -1,4 +1,4 @@
-import { randomBytes, randomInt } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import {
   BadGatewayException,
   BadRequestException,
@@ -60,7 +60,11 @@ import {
 } from "@/database/schemas";
 import { LIVE_AVAILABLE_QUANTITY_EXPR } from "@/modules/catalog/products.service";
 import { FarmSettingsService } from "@/modules/farms/farm-settings.service";
-import { PAYMENT_DRIVER_TOKEN } from "@/modules/payments/payments.constant";
+import {
+  PAYMENT_DRIVER_TOKEN,
+  PAYMENT_ORDER_CODE_UIDX,
+} from "@/modules/payments/payments.constant";
+import { generatePayosOrderCode } from "@/modules/payments/payos.util";
 import type { PaymentDriver } from "@/modules/payments/payments.interface";
 import { AddressService } from "@/modules/users/address.service";
 import type {
@@ -1152,9 +1156,7 @@ export class OrdersService {
       const reservationExpiresAt = new Date(
         now.getTime() + timeoutMinutes * 60_000,
       );
-      const paymentOrderCode = isPayos
-        ? this.generatePayosOrderCode(now)
-        : null;
+      const paymentOrderCode = isPayos ? generatePayosOrderCode(now) : null;
 
       return this.insertOrderAndPaymentRecords(tx, {
         customerId: sub,
@@ -2171,11 +2173,6 @@ export class OrdersService {
     };
   }
 
-  private generatePayosOrderCode(now: Date): number {
-    const epochSeconds = Math.floor(now.getTime() / 1000);
-    return epochSeconds * 1_000_000 + randomInt(0, 1_000_000);
-  }
-
   private computeLineTotalVnd(
     quantityCents: number,
     unitPriceVnd: number,
@@ -2225,7 +2222,7 @@ export class OrdersService {
     return (
       details.isDatabaseError &&
       details.code === PG_ERROR_CODE.UNIQUE_VIOLATION &&
-      details.constraint === "payments_order_code_uidx"
+      details.constraint === PAYMENT_ORDER_CODE_UIDX
     );
   }
 }

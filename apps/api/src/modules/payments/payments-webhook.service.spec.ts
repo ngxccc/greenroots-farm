@@ -8,8 +8,9 @@ import {
   API_ERROR_CODES,
   OrderStatus,
   PaymentStatus,
+  SubscriptionStatus,
 } from "@greenroots/shared";
-import { orders, payments } from "@/database/schemas";
+import { orders, payments, subscriptions } from "@/database/schemas";
 import { createMockDb } from "../../../test/mocks/mock-database";
 import { MockPaymentDriver } from "./drivers/mock-payment.driver";
 import type { PayosWebhookPayload } from "./payments.interface";
@@ -344,6 +345,139 @@ describe("PaymentsWebhookService", () => {
       expect(result).toEqual({ received: true });
       expect(paymentUpdates).toHaveLength(1);
       expect(orderUpdates).toHaveLength(0);
+    });
+
+    // Invariant: INV-SUB-1
+    it("activates pending_payment subscription and clears reservationExpiresAt on verified paid webhook", async () => {
+      const subscriptionId = "019fa8bc-8f4d-7000-b366-e691f45cfb70";
+      const paymentUpdates: Record<string, unknown>[] = [];
+      const subscriptionUpdates: Record<string, unknown>[] = [];
+      const origUpdate = mockDb.update.bind(mockDb);
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          if (table === payments) paymentUpdates.push(vals);
+          if (table === subscriptions) subscriptionUpdates.push(vals);
+          return origUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+
+      mockDb.setSelectResultsQueue([
+        [{ id: paymentId, orderId: null, subscriptionId }],
+        [
+          {
+            id: subscriptionId,
+            subscriptionCode: "SUB-20261126-ABCDEF",
+            status: SubscriptionStatus.PENDING_PAYMENT,
+          },
+        ],
+        [
+          {
+            id: paymentId,
+            amount: 185_000,
+            status: PaymentStatus.PENDING,
+            referenceCode: null,
+          },
+        ],
+      ]);
+
+      const result = await service.handlePayosWebhook(validPayload);
+
+      expect(result).toEqual({ received: true });
+      expect(paymentUpdates).toHaveLength(1);
+      expect(paymentUpdates[0]).toMatchObject({
+        status: PaymentStatus.PAID,
+        referenceCode: "FT26330123456",
+      });
+      expect(subscriptionUpdates).toHaveLength(1);
+      expect(subscriptionUpdates[0]).toMatchObject({
+        status: SubscriptionStatus.ACTIVE,
+        reservationExpiresAt: null,
+      });
+    });
+
+    it("refuses to resurrect cancelled subscription while recording paid payment evidence", async () => {
+      const subscriptionId = "019fa8bc-8f4d-7000-b366-e691f45cfb70";
+      const paymentUpdates: Record<string, unknown>[] = [];
+      const subscriptionUpdates: Record<string, unknown>[] = [];
+      const origUpdate = mockDb.update.bind(mockDb);
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          if (table === payments) paymentUpdates.push(vals);
+          if (table === subscriptions) subscriptionUpdates.push(vals);
+          return origUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+
+      mockDb.setSelectResultsQueue([
+        [{ id: paymentId, orderId: null, subscriptionId }],
+        [
+          {
+            id: subscriptionId,
+            subscriptionCode: "SUB-20261126-ABCDEF",
+            status: SubscriptionStatus.CANCELLED,
+          },
+        ],
+        [
+          {
+            id: paymentId,
+            amount: 185_000,
+            status: PaymentStatus.PENDING,
+            referenceCode: null,
+          },
+        ],
+      ]);
+
+      const result = await service.handlePayosWebhook(validPayload);
+
+      expect(result).toEqual({ received: true });
+      expect(paymentUpdates).toHaveLength(1);
+      expect(subscriptionUpdates).toHaveLength(0);
+    });
+
+    it("fails closed on verified amount mismatch without mutating subscription or payment", async () => {
+      const subscriptionId = "019fa8bc-8f4d-7000-b366-e691f45cfb70";
+      const updates: unknown[] = [];
+      const origUpdate = mockDb.update.bind(mockDb);
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          updates.push({ table, vals });
+          return origUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+
+      mockDb.setSelectResultsQueue([
+        [{ id: paymentId, orderId: null, subscriptionId }],
+        [
+          {
+            id: subscriptionId,
+            subscriptionCode: "SUB-20261126-ABCDEF",
+            status: SubscriptionStatus.PENDING_PAYMENT,
+          },
+        ],
+        [
+          {
+            id: paymentId,
+            amount: 200_000,
+            status: PaymentStatus.PENDING,
+            referenceCode: null,
+          },
+        ],
+      ]);
+
+      let caught: unknown;
+      try {
+        await service.handlePayosWebhook(validPayload);
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+      expect(
+        (caught as UnprocessableEntityException).getResponse(),
+      ).toMatchObject({
+        code: API_ERROR_CODES.PAYMENT_AMOUNT_MISMATCH,
+      });
+      expect(updates).toHaveLength(0);
     });
   });
 });
