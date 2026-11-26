@@ -3,7 +3,9 @@ import { env } from "@/common/config/env.config";
 import { FarmsModule } from "@/modules/farms/farms.module";
 import { GeocodingModule } from "@/modules/geocoding/geocoding.module";
 import { UsersModule } from "@/modules/users/users.module";
+import { GoongShippingDriver } from "./drivers/goong-shipping.driver";
 import { HaversineShippingDriver } from "./drivers/haversine-shipping.driver";
+import { VietmapShippingDriver } from "./drivers/vietmap-shipping.driver";
 import { ShippingController } from "./shipping.controller";
 import { SHIPPING_DRIVER_TOKEN } from "./shipping.constant";
 import { ShippingService } from "./shipping.service";
@@ -17,14 +19,28 @@ import { ShippingService } from "./shipping.service";
   controllers: [ShippingController],
   providers: [
     HaversineShippingDriver,
+    GoongShippingDriver,
+    VietmapShippingDriver,
     {
       provide: SHIPPING_DRIVER_TOKEN,
-      useFactory: (haversine: HaversineShippingDriver) => {
-        // Only the offline Haversine driver exists today; branch on env.SHIPPING_DRIVER when live adapters land.
-        void env.SHIPPING_DRIVER;
+      useFactory: (
+        haversine: HaversineShippingDriver,
+        goong: GoongShippingDriver,
+        vietmap: VietmapShippingDriver,
+      ) => {
+        if (env.SHIPPING_DRIVER === "goong") {
+          return goong;
+        }
+        if (env.SHIPPING_DRIVER === "vietmap") {
+          return vietmap;
+        }
         return haversine;
       },
-      inject: [HaversineShippingDriver],
+      inject: [
+        HaversineShippingDriver,
+        GoongShippingDriver,
+        VietmapShippingDriver,
+      ],
     },
     ShippingService,
   ],
