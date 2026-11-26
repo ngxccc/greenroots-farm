@@ -48,7 +48,7 @@ export type ShippingDriverKind = (typeof SHIPPING_DRIVERS)[number];
 /**
  * Geocoding driver choices for the API process.
  */
-export const GEOCODING_DRIVERS = ["mock", "goong"] as const;
+export const GEOCODING_DRIVERS = ["mock", "goong", "vietmap"] as const;
 
 export type GeocodingDriverKind = (typeof GEOCODING_DRIVERS)[number];
 

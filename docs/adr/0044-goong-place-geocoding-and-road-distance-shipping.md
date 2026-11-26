@@ -20,9 +20,9 @@ deciders: ngxccc
 - **Breaking removal of `districtCode` in favor of `placeId`**:
   - Remove `district_code` from `user_addresses` and remove `districtCode` from `AddressDto`, `CreateAddressDto`, `UpdateAddressDto`, `ShippingQuoteRequestDto` (`addressId` XOR `placeId`), `ValidateCartDto`, and `apps/storefront` (`HcmcDistrictSelect` and guest district picker).
   - Add `place_id` (`varchar(255) NOT NULL`) to `user_addresses` and make `latitude`/`longitude` `NOT NULL`, while keeping `district` (`varchar(100) NOT NULL`) populated server-side from Goong `compound.district` for operational grouping.
-- **Server-side `GeocodingDriver` seam (`GEOCODING_DRIVER=goong|mock`)**:
+- **Server-side `GeocodingDriver` seam (`GEOCODING_DRIVER=goong|vietmap|mock`)**:
   - Client payloads MUST NEVER supply `latitude` or `longitude` (`INV-ADDR-1` preserved from `ADR-0018`).
-  - `GoongGeocodingDriver` exposes `GET /api/v1/geocoding/autocomplete` behind `@ApiAuth(UserRole.CUSTOMER)` and strict throttling, and resolves `placeId` server-side via Goong Place Detail with Redis caching (24h autocomplete, 14d place detail).
+  - `GoongGeocodingDriver` and `VietmapGeocodingDriver` (Vietmap Maps API v4 `/api/autocomplete/v4` + `/api/place/v4` via `VIETMAP_API_KEY`) expose `GET /api/v1/geocoding/autocomplete` behind `@ApiAuth(UserRole.CUSTOMER)` and strict throttling, and resolve `placeId` server-side with Redis caching (24h autocomplete, 14d place detail).
   - `MockGeocodingDriver` resolves a deterministic `MOCK_PLACES` table for offline development and E2E suites.
 - **Asymmetric resilience (`GoongShippingDriver` fallback vs. `GeocodingService` fail-closed)**:
   - `GoongShippingDriver` (`SHIPPING_DRIVER=goong`) computes real road distances via Goong Distance Matrix (`vehicle=bike`), caches results in Redis keyed by `farm_ver` and coordinates (24h TTL), and automatically falls back to `HaversineShippingDriver` on timeout (>3000ms), `429`, or `5xx` so checkout never fails due to routing outages.
