@@ -2,8 +2,10 @@ import { Module } from "@nestjs/common";
 import { env, type ApiEnvironment } from "@/common/config/env.config";
 import { MockPaymentDriver } from "./drivers/mock-payment.driver";
 import { PayOSAdapter } from "./drivers/payos.adapter";
+import { PaymentsController } from "./payments.controller";
 import { PAYMENT_DRIVER_TOKEN } from "./payments.constant";
 import type { PaymentDriver } from "./payments.interface";
+import { PaymentsWebhookService } from "./payments-webhook.service";
 
 type PaymentDriverEnv = Pick<
   ApiEnvironment,
@@ -49,9 +51,11 @@ export function resolvePaymentDriver(
  * Provides and exports the `PAYMENT_DRIVER_TOKEN` seam for checkout, webhook, and expiry flows.
  */
 @Module({
+  controllers: [PaymentsController],
   providers: [
     MockPaymentDriver,
     PayOSAdapter,
+    PaymentsWebhookService,
     {
       provide: PAYMENT_DRIVER_TOKEN,
       useFactory: (mock: MockPaymentDriver, payos: PayOSAdapter) =>

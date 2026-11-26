@@ -36,6 +36,8 @@ export const orderSchema = z.object({
   discountAmountVnd: z.number().int().nonnegative(),
   loyaltyPointsUsed: z.number().int().nonnegative(),
   totalAmountVnd: z.number().int().nonnegative(),
+  paymentUrl: z.string().nullable(),
+  reservationExpiresAt: z.iso.datetime().nullable(),
   items: z.array(orderItemSchema),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),

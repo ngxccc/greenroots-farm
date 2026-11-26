@@ -27,6 +27,7 @@ import {
 } from "@/database/schemas";
 import type { FarmSettings } from "@/modules/farms/dto";
 import type { FarmSettingsService } from "@/modules/farms/farm-settings.service";
+import { MockPaymentDriver } from "@/modules/payments/drivers/mock-payment.driver";
 import type { AddressService } from "@/modules/users/address.service";
 import type { ResolvedQuoteAddress } from "@/modules/users/users.interface";
 import { createMockDb } from "../../../test/mocks/mock-database";
@@ -134,6 +135,7 @@ describe("OrdersService", () => {
       {
         getSettings: getSettingsMock,
       } as unknown as FarmSettingsService,
+      new MockPaymentDriver(),
     );
   });
 
@@ -1018,6 +1020,141 @@ describe("OrdersService", () => {
     });
   });
 
+  describe("checkoutPayos", () => {
+    it("rejects PayOS checkout when farm PayOS setting is disabled", async () => {
+      getSettingsMock.mockResolvedValueOnce({
+        ...baseSettings,
+        isPayosEnabled: false,
+      });
+
+      let caught: unknown;
+      try {
+        await service.checkout(userId, {
+          items: [{ productId: productAId, quantity: 2 }],
+          loyaltyPoints: 0,
+          paymentMethod: PaymentMethod.PAYOS,
+        });
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+      expect(
+        (caught as UnprocessableEntityException).getResponse(),
+      ).toMatchObject({
+        code: API_ERROR_CODES.ORDER_PAYOS_DISABLED,
+      });
+    });
+
+    it("rejects PayOS checkout when totalAmountVnd is zero after loyalty redemption", async () => {
+      quoteForCoordinatesMock.mockResolvedValueOnce({
+        ...deliverableQuote,
+        feeVnd: 0,
+      });
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 200_000 }],
+        [
+          {
+            id: productAId,
+            name: "Ca chua bi",
+            slug: "ca-chua-bi",
+            imageUrls: [],
+            unit: "kg",
+            basePrice: 50_000,
+            salePrice: null,
+            isActive: true,
+            deletedAt: null,
+            categoryIsActive: true,
+            categoryDeletedAt: null,
+            availableQuantity: "10.00",
+          },
+        ],
+        [
+          {
+            id: "019fa8bc-8f4d-7000-b366-e691f45cfb80",
+            productId: productAId,
+            batchCode: "BATCH-001",
+            expirationDate: new Date(Date.now() + 72 * 60 * 60_000),
+            availableQuantity: "10.00",
+            status: BatchStatus.IN_STOCK,
+          },
+        ],
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 200_000 }],
+        [{ total: 0 }],
+      ]);
+
+      let caught: unknown;
+      try {
+        await service.checkout(userId, {
+          items: [{ productId: productAId, quantity: 1 }],
+          loyaltyPoints: 50_000,
+          paymentMethod: PaymentMethod.PAYOS,
+        });
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+      expect(
+        (caught as UnprocessableEntityException).getResponse(),
+      ).toMatchObject({
+        code: API_ERROR_CODES.ORDER_PAYOS_ZERO_AMOUNT,
+      });
+    });
+
+    it("rejects PayOS checkout when customer has reached maximum pending PayOS orders", async () => {
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [
+          {
+            id: productAId,
+            name: "Ca chua bi",
+            slug: "ca-chua-bi",
+            imageUrls: [],
+            unit: "kg",
+            basePrice: 80_000,
+            salePrice: null,
+            isActive: true,
+            deletedAt: null,
+            categoryIsActive: true,
+            categoryDeletedAt: null,
+            availableQuantity: "10.00",
+          },
+        ],
+        [
+          {
+            id: "019fa8bc-8f4d-7000-b366-e691f45cfb80",
+            productId: productAId,
+            batchCode: "BATCH-001",
+            expirationDate: new Date(Date.now() + 72 * 60 * 60_000),
+            availableQuantity: "10.00",
+            status: BatchStatus.IN_STOCK,
+          },
+        ],
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [{ total: BUSINESS_RULES.MAX_PENDING_PAYOS_ORDERS_PER_CUSTOMER }],
+      ]);
+
+      let caught: unknown;
+      try {
+        await service.checkout(userId, {
+          items: [{ productId: productAId, quantity: 2 }],
+          loyaltyPoints: 0,
+          paymentMethod: PaymentMethod.PAYOS,
+        });
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+      expect(
+        (caught as UnprocessableEntityException).getResponse(),
+      ).toMatchObject({
+        code: API_ERROR_CODES.ORDER_PAYOS_PENDING_LIMIT_EXCEEDED,
+      });
+    });
+  });
+
   describe("listMyOrders", () => {
     it("short-circuits item hydration when total is zero or offset exceeds total", async () => {
       mockDb.setSelectResultsQueue([
@@ -1128,6 +1265,8 @@ describe("OrdersService", () => {
         discountAmountVnd: 0,
         loyaltyPointsUsed: 0,
         totalAmountVnd: 185_000,
+        paymentUrl: null,
+        reservationExpiresAt: null,
         items: [
           {
             id: "019fa8bc-8f4d-7000-b366-e691f45cfb51",
@@ -2291,6 +2430,7 @@ describe("OrdersService", () => {
             loyaltyPointsUsed: 0,
           },
         ],
+        [],
         [{ id: orderId, orderStatus: OrderStatus.CANCELLED }],
         [],
       ]);

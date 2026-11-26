@@ -57,6 +57,7 @@ export const ORDER_STATUS_TRANSITIONS: ReadonlyMap<
 /** Order statuses that hold active FEFO allocations requiring stock restoration upon cancellation. */
 export const ALLOCATED_CANCELLABLE_STATUSES: readonly OrderStatus[] =
   Object.freeze([
+    OrderStatus.PENDING_PAYMENT,
     OrderStatus.PENDING_CONFIRMATION,
     OrderStatus.CONFIRMED,
     OrderStatus.PACKING,

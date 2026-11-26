@@ -632,7 +632,7 @@ describe("Orders History Integration", () => {
       expect(order["subscriptionId"]).toBeUndefined();
       expect(order["batchAllocations"]).toBeUndefined();
       expect(order["rawPayload"]).toBeUndefined();
-      expect(order["paymentUrl"]).toBeUndefined();
+      expect(order["paymentUrl"]).toBeNull();
       expect(order["referenceCode"]).toBeUndefined();
       expect(order["verifiedBy"]).toBeUndefined();
       expect(order["costPrice"]).toBeUndefined();
@@ -747,7 +747,7 @@ describe("Orders History Integration", () => {
       expect(rawRecord["subscriptionId"]).toBeUndefined();
       expect(rawRecord["batchAllocations"]).toBeUndefined();
       expect(rawRecord["rawPayload"]).toBeUndefined();
-      expect(rawRecord["paymentUrl"]).toBeUndefined();
+      expect(rawRecord["paymentUrl"]).toBeNull();
       expect(rawRecord["referenceCode"]).toBeUndefined();
       expect(rawRecord["verifiedBy"]).toBeUndefined();
     });

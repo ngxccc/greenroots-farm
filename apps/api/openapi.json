@@ -10933,7 +10933,7 @@
     },
     "/api/v1/orders/checkout": {
       "post": {
-        "description": "Atomically creates a COD order in pending_confirmation with server-recomputed pricing, enforced minimum order value, delivery radius validation, serialized loyalty-point deduction, and paired payment ledger record.",
+        "description": "Atomically creates a COD (pending_confirmation) or PayOS (pending_payment with checkout link) order with server-recomputed pricing, enforced minimum order value, delivery radius validation, serialized loyalty-point deduction, FEFO batch reservation, and paired payment ledger record.",
         "operationId": "OrdersController_checkout_v1",
         "parameters": [
           {
@@ -11139,6 +11139,25 @@
               }
             }
           },
+          "502": {
+            "description": "Payment gateway link creation failed (Bad Gateway)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-gateway",
+                  "title": "Bad Gateway",
+                  "status": 502,
+                  "detail": "Failed to create PayOS payment link with upstream gateway.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Idempotency store unavailable (Service Unavailable)",
             "content": {
@@ -11164,7 +11183,7 @@
             "bearer": []
           }
         ],
-        "summary": "Place a Cash-on-Delivery retail order",
+        "summary": "Place a retail COD or PayOS order",
         "tags": [
           "orders"
         ]
@@ -11959,6 +11978,153 @@
         "summary": "Calculate shipping delivery quote",
         "tags": [
           "shipping"
+        ]
+      }
+    },
+    "/api/v1/payments/payos/webhook": {
+      "post": {
+        "description": "Public webhook receiver that verifies PayOS HMAC-SHA256 signatures and idempotently settles pending PayOS orders.",
+        "operationId": "PaymentsController_handlePayosWebhook_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayosWebhookRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponseDto"
+                    },
+                    {
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PayosWebhookResponseDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid token (Unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unauthorized",
+                  "title": "Unauthorized",
+                  "status": 401,
+                  "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (Not Found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/not-found",
+                  "title": "Not Found",
+                  "status": 404,
+                  "detail": "The requested resource could not be found",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Semantic validation failure (Unprocessable Entity)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unprocessable-entity",
+                  "title": "Unprocessable Entity",
+                  "status": 422,
+                  "detail": "The request was well-formed but could not be processed due to semantic errors",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reconcile PayOS HMAC-SHA256 payment webhook",
+        "tags": [
+          "Payments"
         ]
       }
     },
@@ -16286,6 +16452,24 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "paymentUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reservationExpiresAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "items": {
             "type": "array",
             "items": {
@@ -16370,6 +16554,8 @@
           "discountAmountVnd",
           "loyaltyPointsUsed",
           "totalAmountVnd",
+          "paymentUrl",
+          "reservationExpiresAt",
           "items",
           "createdAt",
           "updatedAt"
@@ -16665,6 +16851,14 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "paymentMethod": {
+            "default": "cod",
+            "type": "string",
+            "enum": [
+              "cod",
+              "payos"
+            ]
           }
         },
         "required": [
@@ -16751,6 +16945,24 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "paymentUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reservationExpiresAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "items": {
             "type": "array",
@@ -16892,6 +17104,8 @@
           "discountAmountVnd",
           "loyaltyPointsUsed",
           "totalAmountVnd",
+          "paymentUrl",
+          "reservationExpiresAt",
           "items",
           "createdAt",
           "updatedAt",
@@ -17079,6 +17293,48 @@
             "type": "boolean"
           }
         },
+        "additionalProperties": false
+      },
+      "PayosWebhookResponseDto": {
+        "type": "object",
+        "properties": {
+          "received": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "received"
+        ]
+      },
+      "PayosWebhookRequestDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "signature": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "desc",
+          "data"
+        ],
         "additionalProperties": false
       },
       "SubscriptionPlanDto": {

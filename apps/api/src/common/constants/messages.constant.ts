@@ -205,6 +205,8 @@ export const MESSAGES = {
     BELOW_MINIMUM_VALUE:
       "Order merchandise subtotal is below the minimum order value.",
     COD_DISABLED: "Cash on delivery is currently disabled in farm settings.",
+    PAYOS_DISABLED:
+      "PayOS online payment is currently disabled in farm settings.",
     INSUFFICIENT_STOCK:
       "Requested quantity exceeds available sellable batch stock.",
     OUT_OF_DELIVERY_RADIUS:
@@ -223,6 +225,20 @@ export const MESSAGES = {
       "Order has no active batch allocations available for picking.",
     PENDING_LIMIT_EXCEEDED:
       "Maximum number of pending COD orders awaiting confirmation has been reached.",
+    PAYOS_PENDING_LIMIT_EXCEEDED:
+      "Maximum number of pending PayOS orders awaiting payment has been reached.",
+    PAYOS_ZERO_AMOUNT:
+      "PayOS checkout requires a positive total amount greater than 0 VND.",
+  },
+  PAYMENTS: {
+    GATEWAY_ERROR: "Failed to create PayOS payment link with upstream gateway.",
+    WEBHOOK_SIGNATURE_INVALID:
+      "PayOS webhook HMAC-SHA256 signature verification failed.",
+    NOT_FOUND: "Payment record for the given PayOS orderCode was not found.",
+    AMOUNT_MISMATCH:
+      "Verified PayOS webhook amount does not match the recorded payment amount.",
+    ORDER_CODE_GENERATION_EXHAUSTED:
+      "Failed to allocate a unique numeric PayOS orderCode after maximum retries.",
   },
   COMPLAINTS: {
     NOT_ELIGIBLE:
@@ -286,6 +302,7 @@ export const ERROR_SLUGS = {
   UNPROCESSABLE_ENTITY: "unprocessable-entity",
   TOO_MANY_REQUESTS: "too-many-requests",
   INTERNAL_SERVER_ERROR: "internal-server-error",
+  BAD_GATEWAY: "bad-gateway",
   SERVICE_UNAVAILABLE: "service-unavailable",
   GATEWAY_TIMEOUT: "gateway-timeout",
 } as const;

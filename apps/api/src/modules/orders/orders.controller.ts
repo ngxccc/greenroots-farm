@@ -159,9 +159,9 @@ export class OrdersController {
   @ApiAuth(UserRole.CUSTOMER)
   @Idempotent({ required: true })
   @ApiOperation({
-    summary: "Place a Cash-on-Delivery retail order",
+    summary: "Place a retail COD or PayOS order",
     description:
-      "Atomically creates a COD order in pending_confirmation with server-recomputed pricing, enforced minimum order value, delivery radius validation, serialized loyalty-point deduction, and paired payment ledger record.",
+      "Atomically creates a COD (pending_confirmation) or PayOS (pending_payment with checkout link) order with server-recomputed pricing, enforced minimum order value, delivery radius validation, serialized loyalty-point deduction, FEFO batch reservation, and paired payment ledger record.",
   })
   @ApiHeader({
     name: IDEMPOTENCY_HEADER_NAME,
@@ -176,6 +176,13 @@ export class OrdersController {
   @ApiUnprocessableEntityResponseRfc9457()
   @ApiTooManyRequestsResponseRfc9457()
   @ApiRfc9457Response({
+    status: HttpStatus.BAD_GATEWAY,
+    description: "Payment gateway link creation failed (Bad Gateway)",
+    title: "Bad Gateway",
+    detail: MESSAGES.PAYMENTS.GATEWAY_ERROR,
+    typeSlug: ERROR_SLUGS.BAD_GATEWAY,
+  })
+  @ApiRfc9457Response({
     status: HttpStatus.SERVICE_UNAVAILABLE,
     description: "Idempotency store unavailable (Service Unavailable)",
     title: "Service Unavailable",
@@ -186,7 +193,7 @@ export class OrdersController {
     @CurrentUser("sub") userId: string,
     @Body() dto: CheckoutRequestDto,
   ): Promise<ApiResponse<OrderProjection>> {
-    const created = await this.ordersService.checkoutCod(userId, dto);
+    const created = await this.ordersService.checkout(userId, dto);
     return apiSuccess(created);
   }
 

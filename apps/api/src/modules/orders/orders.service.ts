@@ -1,5 +1,6 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import {
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -59,6 +60,8 @@ import {
 } from "@/database/schemas";
 import { LIVE_AVAILABLE_QUANTITY_EXPR } from "@/modules/catalog/products.service";
 import { FarmSettingsService } from "@/modules/farms/farm-settings.service";
+import { PAYMENT_DRIVER_TOKEN } from "@/modules/payments/payments.constant";
+import type { PaymentDriver } from "@/modules/payments/payments.interface";
 import { AddressService } from "@/modules/users/address.service";
 import type {
   BatchAllocationSummaryProjection,
@@ -107,6 +110,7 @@ const ORDER_COLUMNS = {
   orderStatus: orders.orderStatus,
   paymentMethod: orders.paymentMethod,
   paymentStatus: orders.paymentStatus,
+  reservationExpiresAt: orders.reservationExpiresAt,
   receiverName: orders.receiverName,
   receiverPhone: orders.receiverPhone,
   shippingAddress: orders.shippingAddress,
@@ -221,6 +225,8 @@ export class OrdersService {
     private readonly addressService: AddressService,
     private readonly shippingService: ShippingService,
     private readonly farmSettingsService: FarmSettingsService,
+    @Inject(PAYMENT_DRIVER_TOKEN)
+    private readonly paymentDriver: PaymentDriver,
   ) {}
 
   /**
@@ -280,10 +286,16 @@ export class OrdersService {
     const itemsByOrderId = await this.hydrateOrderItemsByOrderIds(
       orderRows.map((row) => row.id),
     );
+    const paymentUrlsByOrderId =
+      await this.hydratePendingPaymentUrls(orderRows);
 
     return {
       items: orderRows.map((row) =>
-        this.mapOrderRowToProjection(row, itemsByOrderId.get(row.id) ?? []),
+        this.mapOrderRowToProjection(
+          row,
+          itemsByOrderId.get(row.id) ?? [],
+          paymentUrlsByOrderId.get(row.id) ?? null,
+        ),
       ),
       meta,
     };
@@ -316,10 +328,14 @@ export class OrdersService {
     const itemsByOrderId = await this.hydrateOrderItemsByOrderIds([
       orderRow.id,
     ]);
+    const paymentUrlsByOrderId = await this.hydratePendingPaymentUrls([
+      orderRow,
+    ]);
 
     return this.mapOrderRowToProjection(
       orderRow,
       itemsByOrderId.get(orderRow.id) ?? [],
+      paymentUrlsByOrderId.get(orderRow.id) ?? null,
     );
   }
 
@@ -751,7 +767,24 @@ export class OrdersService {
   }
 
   /**
-   * Places a Cash-on-Delivery order atomically with server-recomputed pricing,
+   * Executes retail checkout for COD or PayOS (`ADR-0031`, `ADR-0038`, `ADR-0042`).
+   *
+   * @param sub Authenticated customer UUID from JWT `sub`.
+   * @param input Validated checkout payload.
+   * @returns Closed `OrderProjection` (with `paymentUrl` populated for PayOS).
+   */
+  async checkout(
+    sub: string,
+    input: CheckoutRequestInput,
+  ): Promise<OrderProjection> {
+    if (input.paymentMethod === PaymentMethod.PAYOS) {
+      return this.checkoutPayos(sub, input);
+    }
+    return this.checkoutCod(sub, input);
+  }
+
+  /**
+   * Executes an atomic COD checkout transaction with server-authoritative pricing,
    * MOV enforcement, delivery radius check, serialized loyalty deduction, and
    * paired `payments` ledger creation.
    *
@@ -761,12 +794,121 @@ export class OrdersService {
    */
   async checkoutCod(
     sub: string,
+    input: Omit<CheckoutRequestInput, "paymentMethod"> & {
+      paymentMethod?: CheckoutRequestInput["paymentMethod"];
+    },
+  ): Promise<OrderProjection> {
+    const normalizedInput: CheckoutRequestInput = {
+      ...input,
+      paymentMethod: PaymentMethod.COD,
+    };
+    const context = await this.prepareCheckoutContext(
+      sub,
+      normalizedInput,
+      PaymentMethod.COD,
+    );
+    const result = await this.runCheckoutReservationWithRetry(
+      sub,
+      normalizedInput,
+      context,
+      PaymentMethod.COD,
+    );
+    return result.projection;
+  }
+
+  /**
+   * Executes two-phase PayOS checkout (`ADR-0042`):
+   * TX1 reserves FEFO stock and inserts `PENDING_PAYMENT` order/payment,
+   * `PaymentDriver.createPaymentLink` runs outside any DB transaction, and
+   * TX2 persists `paymentUrl` (or compensating cancellation marks `FAILED` and throws `502`).
+   */
+  private async checkoutPayos(
+    sub: string,
     input: CheckoutRequestInput,
   ): Promise<OrderProjection> {
+    const context = await this.prepareCheckoutContext(
+      sub,
+      input,
+      PaymentMethod.PAYOS,
+    );
+    const tx1 = await this.runCheckoutReservationWithRetry(
+      sub,
+      input,
+      context,
+      PaymentMethod.PAYOS,
+    );
+
+    const storefrontOrigin = env.STOREFRONT_URL;
+    const returnUrl = `${storefrontOrigin}/orders/${tx1.projection.id}?payment=success`;
+    const cancelUrl = `${storefrontOrigin}/orders/${tx1.projection.id}?payment=cancelled`;
+    const expiredAt = Math.floor(tx1.reservationExpiresAt.getTime() / 1000);
+
+    try {
+      const link = await this.paymentDriver.createPaymentLink({
+        orderCode: tx1.paymentOrderCode!,
+        amountVnd: tx1.projection.totalAmountVnd,
+        description: tx1.projection.orderCode,
+        returnUrl,
+        cancelUrl,
+        expiredAt,
+      });
+
+      await this.db
+        .update(payments)
+        .set({
+          paymentUrl: link.checkoutUrl,
+          updatedAt: new Date(),
+        })
+        .where(eq(payments.id, tx1.paymentId));
+
+      return {
+        ...tx1.projection,
+        paymentUrl: link.checkoutUrl,
+      };
+    } catch (error) {
+      this.logger.error(
+        `PayOS createPaymentLink failed for orderId=${tx1.projection.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await this.compensateFailedPayosCheckout(tx1.projection.id);
+      throw new BadGatewayException({
+        code: API_ERROR_CODES.PAYMENT_GATEWAY_ERROR,
+        detail: MESSAGES.PAYMENTS.GATEWAY_ERROR,
+      });
+    }
+  }
+
+  private async compensateFailedPayosCheckout(orderId: string): Promise<void> {
+    const hoursThreshold = await this.resolveHoursThreshold();
+    await this.db.transaction(async (tx) => {
+      const orderRow = await this.lockOrderForUpdate(tx, orderId);
+      if (orderRow.orderStatus === OrderStatus.CANCELLED) {
+        return;
+      }
+      await this.cancelOrderWithinTx(
+        tx,
+        orderRow,
+        hoursThreshold,
+        new Date(),
+        PaymentStatus.FAILED,
+      );
+    });
+  }
+
+  private async prepareCheckoutContext(
+    sub: string,
+    input: CheckoutRequestInput,
+    paymentMethod: typeof PaymentMethod.COD | typeof PaymentMethod.PAYOS,
+  ) {
     const normalizedItems = this.normalizeCartItems(input.items);
 
     const settings = await this.farmSettingsService.getSettings();
-    if (!settings.isCodEnabled) {
+    if (paymentMethod === PaymentMethod.PAYOS && !settings.isPayosEnabled) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.ORDER_PAYOS_DISABLED,
+        detail: MESSAGES.ORDERS.PAYOS_DISABLED,
+      });
+    }
+    if (paymentMethod === PaymentMethod.COD && !settings.isCodEnabled) {
       throw new UnprocessableEntityException({
         code: API_ERROR_CODES.ORDER_COD_DISABLED,
         detail: MESSAGES.ORDERS.COD_DISABLED,
@@ -803,10 +945,33 @@ export class OrdersService {
       });
     }
 
-    const shippingFeeVnd = shippingQuote.feeVnd;
-    const shippingDistanceKmStr = shippingQuote.roadDistanceKm.toFixed(2);
-    const yyyymmdd = this.formatCalendarDateVn(new Date()).replaceAll("-", "");
+    return {
+      normalizedItems,
+      shippingFeeVnd: shippingQuote.feeVnd,
+      receiverName: resolvedAddress.receiverName,
+      receiverPhone: resolvedAddress.phoneNumber,
+      shippingAddress: resolvedAddress.formattedAddress,
+      shippingDistanceKm: shippingQuote.roadDistanceKm,
+      shippingDistanceKmStr: shippingQuote.roadDistanceKm.toFixed(2),
+      yyyymmdd: this.formatCalendarDateVn(new Date()).replaceAll("-", ""),
+    };
+  }
 
+  private async runCheckoutReservationWithRetry(
+    sub: string,
+    input: CheckoutRequestInput,
+    context: {
+      readonly normalizedItems: readonly NormalizedCartItem[];
+      readonly shippingFeeVnd: number;
+      readonly receiverName: string;
+      readonly receiverPhone: string;
+      readonly shippingAddress: string;
+      readonly shippingDistanceKm: number;
+      readonly shippingDistanceKmStr: string;
+      readonly yyyymmdd: string;
+    },
+    paymentMethod: typeof PaymentMethod.COD | typeof PaymentMethod.PAYOS,
+  ) {
     for (
       let attempt = 1;
       attempt <= ORDER_CODE_MAX_GENERATION_ATTEMPTS;
@@ -814,17 +979,15 @@ export class OrdersService {
     ) {
       try {
         return await this.executeCheckoutTransaction(sub, input, {
-          normalizedItems,
-          shippingFeeVnd,
-          receiverName: resolvedAddress.receiverName,
-          receiverPhone: resolvedAddress.phoneNumber,
-          shippingAddress: resolvedAddress.formattedAddress,
-          shippingDistanceKm: shippingQuote.roadDistanceKm,
-          shippingDistanceKmStr,
-          yyyymmdd,
+          ...context,
+          paymentMethod,
         });
       } catch (error) {
-        if (this.isOrderCodeUniqueViolation(error)) {
+        if (
+          this.isOrderCodeUniqueViolation(error) ||
+          (paymentMethod === PaymentMethod.PAYOS &&
+            this.isPaymentOrderCodeUniqueViolation(error))
+        ) {
           continue;
         }
         throw error;
@@ -833,7 +996,10 @@ export class OrdersService {
 
     throw new ConflictException({
       code: API_ERROR_CODES.CONFLICT_RECORD,
-      detail: MESSAGES.ORDERS.CODE_GENERATION_EXHAUSTED,
+      detail:
+        paymentMethod === PaymentMethod.PAYOS
+          ? MESSAGES.PAYMENTS.ORDER_CODE_GENERATION_EXHAUSTED
+          : MESSAGES.ORDERS.CODE_GENERATION_EXHAUSTED,
     });
   }
 
@@ -849,8 +1015,16 @@ export class OrdersService {
       readonly shippingDistanceKm: number;
       readonly shippingDistanceKmStr: string;
       readonly yyyymmdd: string;
+      readonly paymentMethod:
+        | typeof PaymentMethod.COD
+        | typeof PaymentMethod.PAYOS;
     },
-  ): Promise<OrderProjection> {
+  ): Promise<{
+    projection: OrderProjection;
+    paymentId: string;
+    paymentOrderCode: number | null;
+    reservationExpiresAt: Date;
+  }> {
     // Fail fast on missing or suspended customer before opening a DB transaction or taking row locks.
     await this.loadActiveCustomer(this.db, sub, false);
 
@@ -901,8 +1075,22 @@ export class OrdersService {
         candidateBatches,
       );
 
-      // Lock customer unconditionally (even when loyaltyPoints === 0) to serialize pending COD order cap checks (`INV-ORD-20`).
+      // Lock customer unconditionally (even when loyaltyPoints === 0) to serialize pending order cap checks (`INV-ORD-20`).
       const lockedCustomer = await this.loadActiveCustomer(tx, sub, true);
+
+      const isPayos = params.paymentMethod === PaymentMethod.PAYOS;
+      const pendingStatus = isPayos
+        ? OrderStatus.PENDING_PAYMENT
+        : OrderStatus.PENDING_CONFIRMATION;
+      const maxPending = isPayos
+        ? BUSINESS_RULES.MAX_PENDING_PAYOS_ORDERS_PER_CUSTOMER
+        : BUSINESS_RULES.MAX_PENDING_COD_ORDERS_PER_CUSTOMER;
+      const limitCode = isPayos
+        ? API_ERROR_CODES.ORDER_PAYOS_PENDING_LIMIT_EXCEEDED
+        : API_ERROR_CODES.ORDER_PENDING_LIMIT_EXCEEDED;
+      const limitDetail = isPayos
+        ? MESSAGES.ORDERS.PAYOS_PENDING_LIMIT_EXCEEDED
+        : MESSAGES.ORDERS.PENDING_LIMIT_EXCEEDED;
 
       const [pendingCountRow] = await tx
         .select({ total: count() })
@@ -910,24 +1098,23 @@ export class OrdersService {
         .where(
           and(
             eq(orders.customerId, sub),
-            eq(orders.orderStatus, OrderStatus.PENDING_CONFIRMATION),
-            eq(orders.paymentMethod, PaymentMethod.COD),
+            eq(orders.orderStatus, pendingStatus),
+            eq(orders.paymentMethod, params.paymentMethod),
           ),
         );
       const pendingCount = Number(pendingCountRow?.total ?? 0);
 
-      if (pendingCount >= BUSINESS_RULES.MAX_PENDING_COD_ORDERS_PER_CUSTOMER) {
+      if (pendingCount >= maxPending) {
         throw new UnprocessableEntityException({
-          code: API_ERROR_CODES.ORDER_PENDING_LIMIT_EXCEEDED,
-          detail: MESSAGES.ORDERS.PENDING_LIMIT_EXCEEDED,
+          code: limitCode,
+          detail: limitDetail,
           invalidParams: [
             {
               name: "customerId",
-              code: API_ERROR_CODES.ORDER_PENDING_LIMIT_EXCEEDED,
-              reason: MESSAGES.ORDERS.PENDING_LIMIT_EXCEEDED,
+              code: limitCode,
+              reason: limitDetail,
               params: {
-                maxPendingOrders:
-                  BUSINESS_RULES.MAX_PENDING_COD_ORDERS_PER_CUSTOMER,
+                maxPendingOrders: maxPending,
                 currentPendingOrders: pendingCount,
               },
             },
@@ -943,6 +1130,13 @@ export class OrdersService {
         clientTotalVnd: input.clientTotalVnd,
       });
 
+      if (isPayos && totals.totalAmountVnd <= 0) {
+        throw new UnprocessableEntityException({
+          code: API_ERROR_CODES.ORDER_PAYOS_ZERO_AMOUNT,
+          detail: MESSAGES.ORDERS.PAYOS_ZERO_AMOUNT,
+        });
+      }
+
       if (totals.loyaltyPointsUsed > 0) {
         await tx
           .update(users)
@@ -952,10 +1146,15 @@ export class OrdersService {
           .where(and(eq(users.id, sub), isNull(users.deletedAt)));
       }
 
+      const timeoutMinutes = isPayos
+        ? BUSINESS_RULES.ORDER_PAYMENT_TIMEOUT_MINUTES
+        : BUSINESS_RULES.COD_CONFIRMATION_TIMEOUT_MINUTES;
       const reservationExpiresAt = new Date(
-        now.getTime() +
-          BUSINESS_RULES.COD_CONFIRMATION_TIMEOUT_MINUTES * 60_000,
+        now.getTime() + timeoutMinutes * 60_000,
       );
+      const paymentOrderCode = isPayos
+        ? this.generatePayosOrderCode(now)
+        : null;
 
       return this.insertOrderAndPaymentRecords(tx, {
         customerId: sub,
@@ -971,6 +1170,9 @@ export class OrdersService {
         shippingDistanceKmStr: params.shippingDistanceKmStr,
         shippingFeeVnd: params.shippingFeeVnd,
         yyyymmdd: params.yyyymmdd,
+        paymentMethod: params.paymentMethod,
+        orderStatus: pendingStatus,
+        paymentOrderCode,
       });
     });
   }
@@ -1095,8 +1297,18 @@ export class OrdersService {
       readonly shippingDistanceKmStr: string;
       readonly shippingFeeVnd: number;
       readonly yyyymmdd: string;
+      readonly paymentMethod:
+        | typeof PaymentMethod.COD
+        | typeof PaymentMethod.PAYOS;
+      readonly orderStatus: OrderStatus;
+      readonly paymentOrderCode: number | null;
     },
-  ): Promise<OrderProjection> {
+  ): Promise<{
+    projection: OrderProjection;
+    paymentId: string;
+    paymentOrderCode: number | null;
+    reservationExpiresAt: Date;
+  }> {
     const orderCode = this.buildOrderCode(params.yyyymmdd);
     const [createdOrder] = await tx
       .insert(orders)
@@ -1112,9 +1324,9 @@ export class OrdersService {
         discountAmount: params.totals.discountAmountVnd,
         loyaltyPointsUsed: params.totals.loyaltyPointsUsed,
         totalAmount: params.totals.totalAmountVnd,
-        paymentMethod: PaymentMethod.COD,
+        paymentMethod: params.paymentMethod,
         paymentStatus: PaymentStatus.PENDING,
-        orderStatus: OrderStatus.PENDING_CONFIRMATION,
+        orderStatus: params.orderStatus,
         reservationExpiresAt: params.reservationExpiresAt,
       })
       .returning(ORDER_COLUMNS);
@@ -1149,13 +1361,22 @@ export class OrdersService {
       params.now,
     );
 
-    await tx.insert(payments).values({
-      orderId: createdOrder.id,
-      amount: params.totals.totalAmountVnd,
-      paymentMethod: PaymentMethod.COD,
-      status: PaymentStatus.PENDING,
-      transactionType: PaymentTransactionType.PAYMENT,
-    });
+    const [createdPayment] = await tx
+      .insert(payments)
+      .values({
+        orderId: createdOrder.id,
+        amount: params.totals.totalAmountVnd,
+        paymentMethod: params.paymentMethod,
+        status: PaymentStatus.PENDING,
+        transactionType: PaymentTransactionType.PAYMENT,
+        orderCode: params.paymentOrderCode,
+      })
+      .returning({ id: payments.id });
+
+    if (params.paymentMethod === PaymentMethod.PAYOS && !createdPayment) {
+      throw new Error("Failed to insert payment record.");
+    }
+    const paymentId = createdPayment?.id ?? "";
 
     const projectedItems: OrderItemProjection[] = params.evaluated.map(
       (item) => ({
@@ -1171,7 +1392,12 @@ export class OrdersService {
       }),
     );
 
-    return this.mapOrderRowToProjection(createdOrder, projectedItems);
+    return {
+      projection: this.mapOrderRowToProjection(createdOrder, projectedItems),
+      paymentId,
+      paymentOrderCode: params.paymentOrderCode,
+      reservationExpiresAt: params.reservationExpiresAt,
+    };
   }
 
   private async resolveCartValidationShipping(
@@ -1409,6 +1635,7 @@ export class OrdersService {
     orderRow: OrderRow,
     hoursThreshold: number,
     now: Date,
+    terminalPaymentStatus: PaymentStatus = PaymentStatus.CANCELLED,
   ): Promise<OrderRow> {
     this.assertOrderCancellablePayment(orderRow);
 
@@ -1428,7 +1655,7 @@ export class OrdersService {
       .update(orders)
       .set({
         orderStatus: OrderStatus.CANCELLED,
-        paymentStatus: PaymentStatus.CANCELLED,
+        paymentStatus: terminalPaymentStatus,
         reservationExpiresAt: null,
         updatedAt: now,
       })
@@ -1442,7 +1669,7 @@ export class OrdersService {
     await tx
       .update(payments)
       .set({
-        status: PaymentStatus.CANCELLED,
+        status: terminalPaymentStatus,
         updatedAt: now,
       })
       .where(
@@ -1879,9 +2106,44 @@ export class OrdersService {
     return (cents / 100).toFixed(2);
   }
 
+  private async hydratePendingPaymentUrls(
+    orderRows: readonly OrderRow[],
+  ): Promise<Map<string, string | null>> {
+    const pendingIds = orderRows
+      .filter((row) => row.orderStatus === OrderStatus.PENDING_PAYMENT)
+      .map((row) => row.id);
+
+    const result = new Map<string, string | null>();
+    if (pendingIds.length === 0) {
+      return result;
+    }
+
+    const paymentRows = await this.db
+      .select({
+        orderId: payments.orderId,
+        paymentUrl: payments.paymentUrl,
+      })
+      .from(payments)
+      .where(
+        and(
+          inArray(payments.orderId, pendingIds),
+          eq(payments.transactionType, PaymentTransactionType.PAYMENT),
+        ),
+      );
+
+    for (const row of paymentRows) {
+      if (row.orderId) {
+        result.set(row.orderId, row.paymentUrl);
+      }
+    }
+
+    return result;
+  }
+
   private mapOrderRowToProjection(
     row: OrderRow,
     items: OrderItemProjection[],
+    paymentUrl: string | null = null,
   ): OrderProjection {
     return {
       id: row.id,
@@ -1898,10 +2160,20 @@ export class OrdersService {
       discountAmountVnd: row.discountAmount,
       loyaltyPointsUsed: row.loyaltyPointsUsed,
       totalAmountVnd: row.totalAmount,
+      paymentUrl:
+        row.orderStatus === OrderStatus.PENDING_PAYMENT ? paymentUrl : null,
+      reservationExpiresAt: row.reservationExpiresAt
+        ? row.reservationExpiresAt.toISOString()
+        : null,
       items,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
+  }
+
+  private generatePayosOrderCode(now: Date): number {
+    const epochSeconds = Math.floor(now.getTime() / 1000);
+    return epochSeconds * 1_000_000 + randomInt(0, 1_000_000);
   }
 
   private computeLineTotalVnd(
@@ -1945,6 +2217,15 @@ export class OrdersService {
       details.isDatabaseError &&
       details.code === PG_ERROR_CODE.UNIQUE_VIOLATION &&
       details.constraint === "orders_order_code_uidx"
+    );
+  }
+
+  private isPaymentOrderCodeUniqueViolation(error: unknown): boolean {
+    const details = extractDatabaseErrorDetails(error);
+    return (
+      details.isDatabaseError &&
+      details.code === PG_ERROR_CODE.UNIQUE_VIOLATION &&
+      details.constraint === "payments_order_code_uidx"
     );
   }
 }

@@ -1,5 +1,6 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
+import { PaymentMethod } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { zUuidV7 } from "@/common/schemas/zod-primitives";
 import { MAX_CART_LINE_ITEMS } from "../orders.constant";
@@ -17,6 +18,9 @@ export const checkoutRequestSchema = z
     addressId: zUuidV7().optional(),
     loyaltyPoints: z.number().int().nonnegative().default(0),
     clientTotalVnd: z.number().int().nonnegative().optional(),
+    paymentMethod: z
+      .enum([PaymentMethod.COD, PaymentMethod.PAYOS])
+      .default(PaymentMethod.COD),
   })
   .strict();
 
