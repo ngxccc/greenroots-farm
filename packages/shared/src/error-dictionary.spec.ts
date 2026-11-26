@@ -13,8 +13,9 @@ describe("BUSINESS_RULES", () => {
     expect(BUSINESS_RULES.MIN_ORDER_VALUE_VND).toBe(50_000);
   });
 
-  it("defines COD pending order limit and confirmation timeout constants", () => {
+  it("defines COD and PayOS pending order limits and confirmation timeout constants", () => {
     expect(BUSINESS_RULES.MAX_PENDING_COD_ORDERS_PER_CUSTOMER).toBe(3);
+    expect(BUSINESS_RULES.MAX_PENDING_PAYOS_ORDERS_PER_CUSTOMER).toBe(3);
     expect(BUSINESS_RULES.COD_CONFIRMATION_TIMEOUT_MINUTES).toBe(120);
   });
 });

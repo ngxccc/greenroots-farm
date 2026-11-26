@@ -49,12 +49,19 @@ export const API_ERROR_CODES = {
   OUT_OF_DELIVERY_RADIUS: "OUT_OF_DELIVERY_RADIUS",
   ORDER_BELOW_MINIMUM_VALUE: "ORDER_BELOW_MINIMUM_VALUE",
   ORDER_COD_DISABLED: "ORDER_COD_DISABLED",
+  ORDER_PAYOS_DISABLED: "ORDER_PAYOS_DISABLED",
   ORDER_NOT_FOUND: "ORDER_NOT_FOUND",
   ORDER_INVALID_STATUS_TRANSITION: "ORDER_INVALID_STATUS_TRANSITION",
   ORDER_PAID_CANCELLATION_FORBIDDEN: "ORDER_PAID_CANCELLATION_FORBIDDEN",
   ORDER_PICK_LIST_STATUS_INVALID: "ORDER_PICK_LIST_STATUS_INVALID",
   ORDER_ACTIVE_ALLOCATIONS_MISSING: "ORDER_ACTIVE_ALLOCATIONS_MISSING",
   ORDER_PENDING_LIMIT_EXCEEDED: "ORDER_PENDING_LIMIT_EXCEEDED",
+  ORDER_PAYOS_PENDING_LIMIT_EXCEEDED: "ORDER_PAYOS_PENDING_LIMIT_EXCEEDED",
+  ORDER_PAYOS_ZERO_AMOUNT: "ORDER_PAYOS_ZERO_AMOUNT",
+  PAYMENT_GATEWAY_ERROR: "PAYMENT_GATEWAY_ERROR",
+  PAYMENT_WEBHOOK_SIGNATURE_INVALID: "PAYMENT_WEBHOOK_SIGNATURE_INVALID",
+  PAYMENT_NOT_FOUND: "PAYMENT_NOT_FOUND",
+  PAYMENT_AMOUNT_MISMATCH: "PAYMENT_AMOUNT_MISMATCH",
   ORDER_COMPLAINT_NOT_ELIGIBLE: "ORDER_COMPLAINT_NOT_ELIGIBLE",
   ORDER_COMPLAINT_WINDOW_EXPIRED: "ORDER_COMPLAINT_WINDOW_EXPIRED",
   ORDER_COMPLAINT_ALREADY_EXISTS: "ORDER_COMPLAINT_ALREADY_EXISTS",
@@ -189,6 +196,8 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
   [API_ERROR_CODES.ORDER_BELOW_MINIMUM_VALUE]: `Giá trị đơn hàng chưa đạt mức tối thiểu ${BUSINESS_RULES.MIN_ORDER_VALUE_VND.toLocaleString("vi-VN")}đ (không tính phí giao hàng).`,
   [API_ERROR_CODES.ORDER_COD_DISABLED]:
     "Phương thức thanh toán khi nhận hàng (COD) hiện đang tạm ngưng.",
+  [API_ERROR_CODES.ORDER_PAYOS_DISABLED]:
+    "Phương thức thanh toán trực tuyến PayOS hiện đang tạm ngưng.",
   [API_ERROR_CODES.ORDER_NOT_FOUND]: "Không tìm thấy đơn hàng yêu cầu.",
   [API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION]:
     "Trạng thái hiện tại của đơn hàng không cho phép thực hiện chuyển đổi này.",
@@ -199,6 +208,17 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
   [API_ERROR_CODES.ORDER_ACTIVE_ALLOCATIONS_MISSING]:
     "Đơn hàng hiện chưa có dữ liệu phân bổ lô nông sản đang hoạt động.",
   [API_ERROR_CODES.ORDER_PENDING_LIMIT_EXCEEDED]: `Bạn đang có tối đa ${BUSINESS_RULES.MAX_PENDING_COD_ORDERS_PER_CUSTOMER} đơn hàng COD chờ xác nhận. Vui lòng hoàn tất hoặc hủy bớt đơn trước khi đặt thêm.`,
+  [API_ERROR_CODES.ORDER_PAYOS_PENDING_LIMIT_EXCEEDED]: `Bạn đang có tối đa ${BUSINESS_RULES.MAX_PENDING_PAYOS_ORDERS_PER_CUSTOMER} đơn hàng PayOS chờ thanh toán. Vui lòng thanh toán hoặc hủy bớt đơn trước khi đặt thêm.`,
+  [API_ERROR_CODES.ORDER_PAYOS_ZERO_AMOUNT]:
+    "Không thể thanh toán qua PayOS cho đơn hàng có tổng thanh toán bằng 0đ.",
+  [API_ERROR_CODES.PAYMENT_GATEWAY_ERROR]:
+    "Không thể khởi tạo liên kết thanh toán PayOS. Vui lòng thử lại sau.",
+  [API_ERROR_CODES.PAYMENT_WEBHOOK_SIGNATURE_INVALID]:
+    "Chữ ký xác thực webhook thanh toán không hợp lệ.",
+  [API_ERROR_CODES.PAYMENT_NOT_FOUND]:
+    "Không tìm thấy giao dịch thanh toán tương ứng với mã đơn hàng.",
+  [API_ERROR_CODES.PAYMENT_AMOUNT_MISMATCH]:
+    "Số tiền thanh toán từ cổng PayOS không khớp với giá trị đơn hàng.",
   [API_ERROR_CODES.ORDER_COMPLAINT_NOT_ELIGIBLE]:
     "Chỉ có thể gửi khiếu nại cho đơn hàng đã giao thành công.",
   [API_ERROR_CODES.ORDER_COMPLAINT_WINDOW_EXPIRED]: `Đã quá thời hạn ${BUSINESS_RULES.COMPLAINT_WINDOW_HOURS} giờ kể từ lúc giao hàng để gửi khiếu nại.`,
