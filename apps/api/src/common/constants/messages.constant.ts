@@ -239,16 +239,23 @@ export const MESSAGES = {
       "Maximum number of pending PayOS orders awaiting payment has been reached.",
     PAYOS_ZERO_AMOUNT:
       "PayOS checkout requires a positive total amount greater than 0 VND.",
+    PAYMENT_REQUIRED:
+      "Order must be paid before transitioning to completed status.",
   },
   PAYMENTS: {
     GATEWAY_ERROR: "Failed to create PayOS payment link with upstream gateway.",
     WEBHOOK_SIGNATURE_INVALID:
       "PayOS webhook HMAC-SHA256 signature verification failed.",
     NOT_FOUND: "Payment record for the given PayOS orderCode was not found.",
+    RECORD_NOT_FOUND: "Payment record not found.",
     AMOUNT_MISMATCH:
       "Verified PayOS webhook amount does not match the recorded payment amount.",
     ORDER_CODE_GENERATION_EXHAUSTED:
       "Failed to allocate a unique numeric PayOS orderCode after maximum retries.",
+    COD_NOT_ELIGIBLE:
+      "Payment is not eligible for manual COD confirmation in its current state.",
+    INVALID_STATUS_TRANSITION:
+      "Current payment status does not allow this transition.",
   },
   COMPLAINTS: {
     NOT_ELIGIBLE:

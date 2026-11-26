@@ -1908,6 +1908,88 @@ describe("OrdersService", () => {
         reservationExpiresAt: null,
       });
     });
+
+    // Invariant: INV-PAID-COMPLETE
+    it("rejects delivered to completed transition when order paymentStatus is not PAID", async () => {
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            id: orderId,
+            customerId: userId,
+            orderCode: "ORD-20261121-COD001",
+            orderStatus: OrderStatus.DELIVERED,
+            paymentMethod: PaymentMethod.COD,
+            paymentStatus: PaymentStatus.PENDING,
+            receiverName: "Nguyen Van An",
+            receiverPhone: "0912345678",
+            shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+            shippingDistanceKm: "5.00",
+            shippingFee: 15_000,
+            subtotal: 160_000,
+            discountAmount: 0,
+            loyaltyPointsUsed: 0,
+            totalAmount: 175_000,
+            createdAt: new Date("2026-11-21T03:00:00.000Z"),
+            updatedAt: new Date("2026-11-21T03:00:00.000Z"),
+          },
+        ],
+      ]);
+
+      let caught: unknown;
+      try {
+        await service.updateOrderStatus(orderId, OrderStatus.COMPLETED);
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+      expect(
+        (caught as UnprocessableEntityException).getResponse() as {
+          code: string;
+        },
+      ).toMatchObject({
+        code: API_ERROR_CODES.ORDER_PAYMENT_REQUIRED,
+      });
+    });
+
+    // Invariant: INV-PAID-COMPLETE
+    it("allows delivered to completed transition when order paymentStatus is PAID", async () => {
+      const deliveredPaidOrder = {
+        id: orderId,
+        customerId: userId,
+        orderCode: "ORD-20261121-COD002",
+        orderStatus: OrderStatus.DELIVERED,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PAID,
+        receiverName: "Nguyen Van An",
+        receiverPhone: "0912345678",
+        shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
+        shippingDistanceKm: "5.00",
+        shippingFee: 15_000,
+        subtotal: 160_000,
+        discountAmount: 0,
+        loyaltyPointsUsed: 0,
+        totalAmount: 175_000,
+        createdAt: new Date("2026-11-21T03:00:00.000Z"),
+        updatedAt: new Date("2026-11-21T03:00:00.000Z"),
+      };
+      const completedOrder = {
+        ...deliveredPaidOrder,
+        orderStatus: OrderStatus.COMPLETED,
+      };
+
+      mockDb.setSelectResultsQueue([
+        [deliveredPaidOrder],
+        [completedOrder],
+        [],
+      ]);
+
+      const result = await service.updateOrderStatus(
+        orderId,
+        OrderStatus.COMPLETED,
+      );
+      expect(result.orderStatus).toBe(OrderStatus.COMPLETED);
+    });
   });
 
   describe("getOrderPickList", () => {

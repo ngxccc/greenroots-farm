@@ -508,6 +508,16 @@ export class OrdersService {
           });
         }
 
+        if (
+          targetStatus === OrderStatus.COMPLETED &&
+          orderRow.paymentStatus !== PaymentStatus.PAID
+        ) {
+          throw new UnprocessableEntityException({
+            code: API_ERROR_CODES.ORDER_PAYMENT_REQUIRED,
+            detail: MESSAGES.ORDERS.PAYMENT_REQUIRED,
+          });
+        }
+
         const now = new Date();
 
         if (targetStatus === OrderStatus.CANCELLED) {

@@ -17,6 +17,7 @@ import {
   API_ERROR_CODES,
   ComplaintStatus,
   OrderStatus,
+  PaymentStatus,
   UserRole,
 } from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
@@ -143,6 +144,7 @@ describe("Complaints Integration", () => {
       const { order } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.SHIPPING,
+        paymentStatus: PaymentStatus.PAID,
         items: [{ productId, quantity: "1.00", unitPrice: 50_000 }],
       });
 
@@ -211,6 +213,7 @@ describe("Complaints Integration", () => {
       const { order } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.SHIPPING,
+        paymentStatus: PaymentStatus.PAID,
         items: [{ productId, quantity: "1.00", unitPrice: 50_000 }],
       });
 

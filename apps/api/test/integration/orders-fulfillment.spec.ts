@@ -741,6 +741,7 @@ describe("Orders Fulfillment Integration", () => {
       });
 
       const { order } = await seedOrder({
+        paymentStatus: PaymentStatus.PAID,
         items: [{ productId: tomatoId, quantity: "2.00", unitPrice: 80_000 }],
         allocations: [{ batchId: batch.id, quantity: "2.00" }],
       });
@@ -784,6 +785,37 @@ describe("Orders Fulfillment Integration", () => {
         .expect(422);
       expect((terminalRes.body as Rfc9457ProblemDetails).code).toBe(
         API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
+      );
+    });
+
+    // Invariant: INV-PAID-COMPLETE
+    it("rejects delivered to completed transition when order paymentStatus is pending", async () => {
+      const now = Date.now();
+      const batch = await createBatch(setup.db, {
+        seasonId,
+        productId: tomatoId,
+        harvestDate: new Date(now - 86_400_000),
+        expirationDate: new Date(now + 72 * 3_600_000),
+        initialQuantity: "5.00",
+        availableQuantity: "5.00",
+        status: BatchStatus.IN_STOCK,
+      });
+
+      const { order } = await seedOrder({
+        orderStatus: OrderStatus.DELIVERED,
+        paymentStatus: PaymentStatus.PENDING,
+        items: [{ productId: tomatoId, quantity: "2.00", unitPrice: 80_000 }],
+        allocations: [{ batchId: batch.id, quantity: "2.00" }],
+      });
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/orders/${order.id}/status`)
+        .set(salesHeader)
+        .send({ status: OrderStatus.COMPLETED })
+        .expect(422);
+
+      expect((res.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.ORDER_PAYMENT_REQUIRED,
       );
     });
 
