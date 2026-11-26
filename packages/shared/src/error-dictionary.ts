@@ -75,7 +75,8 @@ export const API_ERROR_CODES = {
   FARMING_LOG_SEASON_STATUS_INVALID: "FARMING_LOG_SEASON_STATUS_INVALID",
   ADDRESS_NOT_FOUND: "ADDRESS_NOT_FOUND",
   ADDRESS_LIMIT_REACHED: "ADDRESS_LIMIT_REACHED",
-  DISTRICT_CODE_INVALID: "DISTRICT_CODE_INVALID",
+  PLACE_ID_INVALID: "PLACE_ID_INVALID",
+  GEOCODING_UNAVAILABLE: "GEOCODING_UNAVAILABLE",
   STAFF_NOT_FOUND: "STAFF_NOT_FOUND",
   LAST_SUPER_ADMIN: "LAST_SUPER_ADMIN",
   SELF_MODIFICATION_FORBIDDEN: "SELF_MODIFICATION_FORBIDDEN",
@@ -248,8 +249,10 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
   [API_ERROR_CODES.ADDRESS_NOT_FOUND]:
     "Không tìm thấy địa chỉ giao hàng yêu cầu.",
   [API_ERROR_CODES.ADDRESS_LIMIT_REACHED]: `Bạn chỉ được lưu tối đa ${BUSINESS_RULES.MAX_USER_ADDRESSES} địa chỉ giao hàng.`,
-  [API_ERROR_CODES.DISTRICT_CODE_INVALID]:
-    "Mã quận/huyện không hợp lệ hoặc nằm ngoài khu vực giao hàng TP. Hồ Chí Minh.",
+  [API_ERROR_CODES.PLACE_ID_INVALID]:
+    "Địa chỉ được chọn không hợp lệ hoặc nằm ngoài khu vực hỗ trợ. Vui lòng chọn lại từ danh sách gợi ý.",
+  [API_ERROR_CODES.GEOCODING_UNAVAILABLE]:
+    "Dịch vụ xác thực địa chỉ đang tạm thời gián đoạn. Vui lòng thử lại sau ít phút.",
   [API_ERROR_CODES.STAFF_NOT_FOUND]:
     "Không tìm thấy tài khoản nhân viên yêu cầu.",
   [API_ERROR_CODES.LAST_SUPER_ADMIN]:

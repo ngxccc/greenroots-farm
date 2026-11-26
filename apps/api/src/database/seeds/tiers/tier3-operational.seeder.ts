@@ -49,7 +49,7 @@ export async function seedTier3Operational(
       receiverName: "Trần Thị Khách",
       phoneNumber: "0912345678",
       streetAddress: "12 Nguyễn Văn Linh, Phường Tân Phú",
-      districtCode: "quan-7",
+      placeId: "mock_place_quan_7",
       district: "Quận 7",
       city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
       latitude: "10.73400000",

@@ -20,6 +20,7 @@ import { AuthModule } from "@/modules/auth/auth.module";
 import { CatalogModule } from "@/modules/catalog/catalog.module";
 import { ComplaintsModule } from "@/modules/complaints/complaints.module";
 import { FarmsModule } from "@/modules/farms/farms.module";
+import { GeocodingModule } from "@/modules/geocoding/geocoding.module";
 import { InventoryModule } from "@/modules/inventory/inventory.module";
 import { UsersModule } from "@/modules/users/users.module";
 import { MailModule } from "@/modules/mail/mail.module";
@@ -72,6 +73,7 @@ import { SubscriptionsModule } from "@/modules/subscriptions/subscriptions.modul
     AuthModule,
     UsersModule,
     FarmsModule,
+    GeocodingModule,
     CatalogModule,
     InventoryModule,
     MailModule,

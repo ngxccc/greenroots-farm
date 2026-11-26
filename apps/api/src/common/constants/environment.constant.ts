@@ -46,6 +46,13 @@ export const SHIPPING_DRIVERS = ["haversine"] as const;
 export type ShippingDriverKind = (typeof SHIPPING_DRIVERS)[number];
 
 /**
+ * Geocoding driver choices for the API process.
+ */
+export const GEOCODING_DRIVERS = ["mock", "goong"] as const;
+
+export type GeocodingDriverKind = (typeof GEOCODING_DRIVERS)[number];
+
+/**
  * Media storage/verification driver choices for the API process.
  */
 export const MEDIA_DRIVERS = ["cloudinary", "mock"] as const;

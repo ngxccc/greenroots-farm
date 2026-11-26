@@ -1,16 +1,8 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  UnprocessableEntityException,
-} from "@nestjs/common";
-import {
-  API_ERROR_CODES,
-  findHcmcDistrictByCode,
-  type GeoCoordinate,
-} from "@greenroots/shared";
+import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { API_ERROR_CODES, type GeoCoordinate } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { FarmSettingsService } from "@/modules/farms/farm-settings.service";
+import { GeocodingService } from "@/modules/geocoding/geocoding.service";
 import { AddressService } from "@/modules/users/address.service";
 import type { ShippingQuote, ShippingQuoteRequestInput } from "./dto";
 import { SHIPPING_DRIVER_TOKEN } from "./shipping.constant";
@@ -18,20 +10,21 @@ import type { ShippingDriver } from "./shipping.interface";
 
 /**
  * Orchestrates server-authoritative delivery distance and fee quotes from
- * `FarmSettingsService`, `AddressService` / `HCMC_DISTRICTS`, and `ShippingDriver`.
+ * `FarmSettingsService`, `AddressService`, `GeocodingService`, and `ShippingDriver`.
  */
 @Injectable()
 export class ShippingService {
   constructor(
     private readonly addressService: AddressService,
     private readonly farmSettingsService: FarmSettingsService,
+    private readonly geocodingService: GeocodingService,
     @Inject(SHIPPING_DRIVER_TOKEN)
     private readonly shippingDriver: ShippingDriver,
   ) {}
 
   /**
    * Computes a shipping quote for an authenticated customer using either an owned
-   * saved address (`addressId`) or a canonical HCMC `districtCode`.
+   * saved address (`addressId`) or a Goong/mock `placeId`.
    *
    * @param userId Authenticated customer UUID from JWT `sub`.
    * @param input Validated XOR quote request input.
@@ -98,24 +91,18 @@ export class ShippingService {
       };
     }
 
-    if (input.districtCode === undefined) {
+    if (input.placeId === undefined) {
       throw new BadRequestException({
         code: API_ERROR_CODES.VALIDATION_FAILED,
         detail: MESSAGES.VALIDATION.SHIPPING_QUOTE_TARGET_XOR,
       });
     }
 
-    const district = findHcmcDistrictByCode(input.districtCode);
-    if (!district) {
-      throw new UnprocessableEntityException({
-        code: API_ERROR_CODES.DISTRICT_CODE_INVALID,
-        detail: MESSAGES.ADDRESS.DISTRICT_CODE_INVALID,
-      });
-    }
+    const resolved = await this.geocodingService.resolvePlace(input.placeId);
 
     return {
-      latitude: district.latitude,
-      longitude: district.longitude,
+      latitude: resolved.latitude,
+      longitude: resolved.longitude,
     };
   }
 }

@@ -1751,7 +1751,7 @@
         ]
       },
       "post": {
-        "description": "Creates a saved delivery address using a validated HCMC districtCode and server-derived centroid coordinates.",
+        "description": "Creates a saved delivery address using a Goong/mock placeId and server-resolved coordinates.",
         "operationId": "AddressController_create_v1",
         "parameters": [],
         "requestBody": {
@@ -1903,7 +1903,7 @@
     },
     "/api/v1/users/me/addresses/{id}": {
       "patch": {
-        "description": "Updates contact or location fields on an owned address and recomputes cached coordinates when districtCode changes.",
+        "description": "Updates contact or location fields on an owned address and recomputes cached coordinates when placeId changes.",
         "operationId": "AddressController_update_v1",
         "parameters": [
           {
@@ -3113,6 +3113,182 @@
         "summary": "Trigger staff credential reset",
         "tags": [
           "admin-users"
+        ]
+      }
+    },
+    "/api/v1/geocoding/autocomplete": {
+      "get": {
+        "description": "Returns place suggestions (placeId, description, district) for authenticated customers using Goong Place Autocomplete or deterministic mock fixtures.",
+        "operationId": "GeocodingController_autocomplete_v1",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 200,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponseDto"
+                    },
+                    {
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PlaceSuggestionDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid token (Unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unauthorized",
+                  "title": "Unauthorized",
+                  "status": 401,
+                  "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden resource access (Forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/forbidden",
+                  "title": "Forbidden",
+                  "status": 403,
+                  "detail": "You do not have permission to perform this action",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Geocoding upstream service temporarily unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/service-unavailable",
+                  "title": "Service Unavailable",
+                  "status": 503,
+                  "detail": "Geocoding service is temporarily unavailable.",
+                  "instance": "/api/v1/resource",
+                  "code": "GEOCODING_UNAVAILABLE",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Autocomplete Ho Chi Minh City delivery addresses",
+        "tags": [
+          "Geocoding"
         ]
       }
     },
@@ -14499,10 +14675,10 @@
             "minLength": 1,
             "maxLength": 500
           },
-          "districtCode": {
+          "placeId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 255
           },
           "district": {
             "type": "string",
@@ -14533,7 +14709,7 @@
           "receiverName",
           "phoneNumber",
           "streetAddress",
-          "districtCode",
+          "placeId",
           "district",
           "city",
           "isDefault",
@@ -14555,10 +14731,10 @@
           "streetAddress": {
             "type": "string"
           },
-          "districtCode": {
+          "placeId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 255
           },
           "isDefault": {
             "type": "boolean"
@@ -14568,7 +14744,7 @@
           "receiverName",
           "phoneNumber",
           "streetAddress",
-          "districtCode"
+          "placeId"
         ],
         "additionalProperties": false
       },
@@ -14586,10 +14762,10 @@
           "streetAddress": {
             "type": "string"
           },
-          "districtCode": {
+          "placeId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 255
           }
         },
         "additionalProperties": false
@@ -14803,6 +14979,28 @@
           }
         },
         "additionalProperties": false
+      },
+      "PlaceSuggestionDto": {
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "district": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "placeId",
+          "description",
+          "district"
+        ]
       },
       "FarmSettingsDto": {
         "type": "object",
@@ -17854,10 +18052,10 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
           },
-          "districtCode": {
+          "placeId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 255
           },
           "loyaltyPoints": {
             "default": 0,
@@ -18351,10 +18549,10 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
           },
-          "districtCode": {
+          "placeId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 255
           },
           "isSubscription": {
             "default": false,

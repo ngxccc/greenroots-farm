@@ -109,7 +109,7 @@ describe("SubscriptionsService", () => {
         receiverName: "Nguyễn Văn A",
         phoneNumber: "0901234567",
         formattedAddress: "123 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
-        districtCode: "quan-1",
+        placeId: "mock_place_quan_1",
         district: "Quận 1",
         city: "TP. Hồ Chí Minh",
         latitude: 10.7756,

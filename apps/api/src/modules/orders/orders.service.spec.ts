@@ -89,7 +89,7 @@ describe("OrdersService", () => {
     receiverName: "Nguyen Van An",
     phoneNumber: "0912345678",
     formattedAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
-    districtCode: "quan-7",
+    placeId: "mock_place_quan_7",
     district: "Quận 7",
     city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
     latitude: 10.734,
@@ -203,11 +203,11 @@ describe("OrdersService", () => {
   }
 
   describe("DTO validation", () => {
-    it("rejects both addressId and districtCode on validate-cart", () => {
+    it("rejects both addressId and placeId on validate-cart", () => {
       const parsed = validateCartRequestSchema.safeParse({
         items: [{ productId: productAId, quantity: 1 }],
         addressId,
-        districtCode: "quan-7",
+        placeId: "mock_place_quan_7",
       });
 
       expect(parsed.success).toBe(false);
@@ -342,7 +342,7 @@ describe("OrdersService", () => {
           { productId: productAId, quantity: 1 },
           { productId: productAId, quantity: 1.5 },
         ],
-        districtCode: "quan-7",
+        placeId: "mock_place_quan_7",
         loyaltyPoints: 300_000,
         clientTotalVnd: 1_000,
       });

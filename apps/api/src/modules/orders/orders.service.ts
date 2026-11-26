@@ -1488,10 +1488,10 @@ export class OrdersService {
     sub: string,
     input: ValidateCartRequestInput,
   ): Promise<ShippingQuote | null> {
-    if (input.addressId !== undefined || input.districtCode !== undefined) {
+    if (input.addressId !== undefined || input.placeId !== undefined) {
       return this.shippingService.quoteForCustomer(sub, {
         addressId: input.addressId,
-        districtCode: input.districtCode,
+        placeId: input.placeId,
         isSubscription: false,
       });
     }

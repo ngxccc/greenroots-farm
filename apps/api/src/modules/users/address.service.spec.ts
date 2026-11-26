@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import {
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import {
-  API_ERROR_CODES,
-  BUSINESS_RULES,
-  HCMC_DISTRICTS,
-} from "@greenroots/shared";
+import { API_ERROR_CODES, BUSINESS_RULES } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
+import { MOCK_PLACES } from "@/modules/geocoding/geocoding.constant";
+import type { GeocodingService } from "@/modules/geocoding/geocoding.service";
 import { createMockDb } from "../../../test/mocks/mock-database";
 import { ADDRESS_COLUMNS, AddressService } from "./address.service";
 import { createAddressSchema, updateAddressSchema } from "./dto";
@@ -24,18 +23,26 @@ type MockDb = ReturnType<typeof createMockDb> & {
 describe("AddressService", () => {
   let service: AddressService;
   let mockDb: MockDb;
+  let resolvePlaceMock: ReturnType<typeof mock>;
 
   const userId = "019fa8bc-8f4d-7000-b366-e691f45cfb91";
   const addressId = "019fa8bc-8f4d-7000-b366-e691f45cfb92";
   const timestamp = new Date("2026-11-19T00:00:00.000Z");
+
+  const quan7Place = MOCK_PLACES.find(
+    (p) => p.placeId === "mock_place_quan_7",
+  )!;
+  const thuDucPlace = MOCK_PLACES.find(
+    (p) => p.placeId === "mock_place_thu_duc",
+  )!;
 
   const sampleAddressRow = {
     id: addressId,
     receiverName: "Nguyen Van An",
     phoneNumber: "0912345678",
     streetAddress: "12 Nguyen Van Linh",
-    districtCode: "quan-7",
-    district: "Quận 7",
+    placeId: quan7Place.placeId,
+    district: quan7Place.district,
     city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
     isDefault: true,
     createdAt: timestamp,
@@ -44,7 +51,22 @@ describe("AddressService", () => {
 
   beforeEach(() => {
     mockDb = createMockDb() as unknown as MockDb;
-    service = new AddressService(mockDb);
+    resolvePlaceMock = mock((placeId: string) => {
+      const found = MOCK_PLACES.find((p) => p.placeId === placeId);
+      if (!found) {
+        return Promise.reject(
+          new UnprocessableEntityException({
+            code: API_ERROR_CODES.PLACE_ID_INVALID,
+            detail: MESSAGES.GEOCODING.PLACE_ID_INVALID,
+          }),
+        );
+      }
+      return Promise.resolve(found);
+    });
+    const mockGeocodingService = {
+      resolvePlace: resolvePlaceMock,
+    } as unknown as GeocodingService;
+    service = new AddressService(mockDb, mockGeocodingService);
   });
 
   describe("ADDRESS_COLUMNS", () => {
@@ -54,7 +76,7 @@ describe("AddressService", () => {
         "receiverName",
         "phoneNumber",
         "streetAddress",
-        "districtCode",
+        "placeId",
         "district",
         "city",
         "isDefault",
@@ -63,6 +85,7 @@ describe("AddressService", () => {
       ]);
     });
 
+    // Invariant: INV-SHIP-2
     it("excludes userId and internal coordinate cache columns", () => {
       const keys = Object.keys(ADDRESS_COLUMNS);
       expect(keys).not.toContain("userId");
@@ -72,20 +95,28 @@ describe("AddressService", () => {
   });
 
   describe("createAddress", () => {
-    it("rejects unknown district codes before opening a database transaction", async () => {
+    // Invariant: INV-GEO-1
+    it("fails closed before opening a database transaction when placeId resolution fails", async () => {
+      resolvePlaceMock.mockRejectedValueOnce(
+        new ServiceUnavailableException({
+          code: API_ERROR_CODES.GEOCODING_UNAVAILABLE,
+          detail: MESSAGES.GEOCODING.UNAVAILABLE,
+        }),
+      );
+
       try {
         await service.createAddress(userId, {
           receiverName: "Nguyen Van An",
           phoneNumber: "0912345678",
           streetAddress: "12 Nguyen Van Linh",
-          districtCode: "quan-99",
+          placeId: quan7Place.placeId,
         });
-        expect.unreachable("Expected UnprocessableEntityException");
+        expect.unreachable("Expected ServiceUnavailableException");
       } catch (error) {
-        expect(error).toBeInstanceOf(UnprocessableEntityException);
-        expect((error as UnprocessableEntityException).getResponse()).toEqual({
-          code: API_ERROR_CODES.DISTRICT_CODE_INVALID,
-          detail: MESSAGES.ADDRESS.DISTRICT_CODE_INVALID,
+        expect(error).toBeInstanceOf(ServiceUnavailableException);
+        expect((error as ServiceUnavailableException).getResponse()).toEqual({
+          code: API_ERROR_CODES.GEOCODING_UNAVAILABLE,
+          detail: MESSAGES.GEOCODING.UNAVAILABLE,
         });
       }
       expect(mockDb.transaction).not.toHaveBeenCalled();
@@ -99,7 +130,7 @@ describe("AddressService", () => {
           receiverName: "Nguyen Van An",
           phoneNumber: "0912345678",
           streetAddress: "12 Nguyen Van Linh",
-          districtCode: "quan-7",
+          placeId: quan7Place.placeId,
         });
         expect.unreachable("Expected UnauthorizedException");
       } catch (error) {
@@ -123,7 +154,7 @@ describe("AddressService", () => {
           receiverName: "Nguyen Van An",
           phoneNumber: "0912345678",
           streetAddress: "12 Nguyen Van Linh",
-          districtCode: "quan-7",
+          placeId: quan7Place.placeId,
         });
         expect.unreachable("Expected UnprocessableEntityException");
       } catch (error) {
@@ -136,15 +167,15 @@ describe("AddressService", () => {
       expect(mockDb.insert).not.toHaveBeenCalled();
     });
 
-    it("derives district name, fixed city, and centroid coordinates on insert", async () => {
-      const quan7 = HCMC_DISTRICTS.find((d) => d.code === "quan-7")!;
+    // Invariant: INV-ADDR-1, INV-GEO-1
+    it("resolves district, fixed city, and server-side coordinates on insert", async () => {
       mockDb.setSelectResultsQueue([[{ id: userId }], [], [sampleAddressRow]]);
 
       const result = await service.createAddress(userId, {
         receiverName: "Nguyen Van An",
         phoneNumber: "0912345678",
         streetAddress: "12 Nguyen Van Linh",
-        districtCode: "quan-7",
+        placeId: quan7Place.placeId,
         isDefault: false,
       });
 
@@ -153,11 +184,11 @@ describe("AddressService", () => {
         receiverName: "Nguyen Van An",
         phoneNumber: "0912345678",
         streetAddress: "12 Nguyen Van Linh",
-        districtCode: quan7.code,
-        district: quan7.name,
+        placeId: quan7Place.placeId,
+        district: quan7Place.district,
         city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
-        latitude: quan7.latitude.toFixed(8),
-        longitude: quan7.longitude.toFixed(8),
+        latitude: quan7Place.latitude.toFixed(8),
+        longitude: quan7Place.longitude.toFixed(8),
         isDefault: true,
       });
       expect(result).toEqual({
@@ -186,28 +217,27 @@ describe("AddressService", () => {
       }
     });
 
-    it("recomputes district, city, and centroid coordinates when districtCode changes", async () => {
-      const thuDuc = HCMC_DISTRICTS.find((d) => d.code === "thu-duc")!;
+    it("recomputes district, city, and coordinates when placeId changes", async () => {
       const updatedRow = {
         ...sampleAddressRow,
-        districtCode: thuDuc.code,
-        district: thuDuc.name,
+        placeId: thuDucPlace.placeId,
+        district: thuDucPlace.district,
       };
       mockDb.setSelectResultsQueue([[{ id: userId }], [updatedRow]]);
 
       const result = await service.updateAddress(userId, addressId, {
-        districtCode: thuDuc.code,
+        placeId: thuDucPlace.placeId,
       });
 
       expect(mockDb.mockUpdateSet).toHaveBeenCalledWith({
-        districtCode: thuDuc.code,
-        district: thuDuc.name,
+        placeId: thuDucPlace.placeId,
+        district: thuDucPlace.district,
         city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
-        latitude: thuDuc.latitude.toFixed(8),
-        longitude: thuDuc.longitude.toFixed(8),
+        latitude: thuDucPlace.latitude.toFixed(8),
+        longitude: thuDucPlace.longitude.toFixed(8),
       });
-      expect(result.districtCode).toBe(thuDuc.code);
-      expect(result.district).toBe(thuDuc.name);
+      expect(result.placeId).toBe(thuDucPlace.placeId);
+      expect(result.district).toBe(thuDucPlace.district);
     });
   });
 
@@ -224,9 +254,17 @@ describe("AddressService", () => {
   });
 
   describe("resolveAddressForQuote", () => {
-    it("returns centroid coordinates from HCMC_DISTRICTS and recipient contact details", async () => {
-      const quan7 = HCMC_DISTRICTS.find((d) => d.code === "quan-7")!;
-      mockDb.setSelectResultsQueue([[{ id: userId }], [sampleAddressRow]]);
+    it("returns persisted coordinates and recipient contact details", async () => {
+      mockDb.setSelectResultsQueue([
+        [{ id: userId }],
+        [
+          {
+            ...sampleAddressRow,
+            latitude: quan7Place.latitude.toFixed(8),
+            longitude: quan7Place.longitude.toFixed(8),
+          },
+        ],
+      ]);
 
       const resolved = await service.resolveAddressForQuote(userId, addressId);
 
@@ -234,12 +272,12 @@ describe("AddressService", () => {
         id: addressId,
         receiverName: sampleAddressRow.receiverName,
         phoneNumber: sampleAddressRow.phoneNumber,
-        formattedAddress: `12 Nguyen Van Linh, ${quan7.name}, ${BUSINESS_RULES.DEFAULT_DELIVERY_CITY}`,
-        districtCode: quan7.code,
-        district: quan7.name,
+        formattedAddress: `12 Nguyen Van Linh, ${quan7Place.district}, ${BUSINESS_RULES.DEFAULT_DELIVERY_CITY}`,
+        placeId: quan7Place.placeId,
+        district: quan7Place.district,
         city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
-        latitude: quan7.latitude,
-        longitude: quan7.longitude,
+        latitude: quan7Place.latitude,
+        longitude: quan7Place.longitude,
       });
     });
 
@@ -254,12 +292,13 @@ describe("AddressService", () => {
   });
 
   describe("address DTO schemas", () => {
+    // Invariant: INV-ADDR-1
     it("rejects latitude, longitude, city, and unknown fields on create", () => {
       const base = {
         receiverName: "Nguyen Van An",
         phoneNumber: "0912345678",
         streetAddress: "12 Nguyen Van Linh",
-        districtCode: "quan-7",
+        placeId: "mock_place_quan_7",
       };
 
       expect(
@@ -273,6 +312,10 @@ describe("AddressService", () => {
           .success,
       ).toBe(false);
       expect(
+        createAddressSchema.safeParse({ ...base, districtCode: "quan-7" })
+          .success,
+      ).toBe(false);
+      expect(
         createAddressSchema.safeParse({ ...base, extra: "nope" }).success,
       ).toBe(false);
     });
@@ -282,12 +325,12 @@ describe("AddressService", () => {
         receiverName: "  <b>Nguyen</b>   Van   An ",
         phoneNumber: "0912345678",
         streetAddress: " 12   <i>Nguyen Van Linh</i> ",
-        districtCode: "  quan-7  ",
+        placeId: "  mock_place_quan_7  ",
       });
 
       expect(parsed.receiverName).toBe("Nguyen Van An");
       expect(parsed.streetAddress).toBe("12 Nguyen Van Linh");
-      expect(parsed.districtCode).toBe("quan-7");
+      expect(parsed.placeId).toBe("mock_place_quan_7");
     });
 
     it("rejects empty objects and isDefault on update", () => {
@@ -298,9 +341,9 @@ describe("AddressService", () => {
       expect(updateAddressSchema.safeParse({ isDefault: true }).success).toBe(
         false,
       );
-      expect(
-        updateAddressSchema.safeParse({ districtCode: "   " }).success,
-      ).toBe(false);
+      expect(updateAddressSchema.safeParse({ placeId: "   " }).success).toBe(
+        false,
+      );
     });
   });
 });

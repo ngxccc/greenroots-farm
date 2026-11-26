@@ -87,13 +87,13 @@ export const userAddresses = snakeCase.table(
     receiverName: varchar({ length: 255 }).notNull(),
     phoneNumber: varchar({ length: 20 }).notNull(),
     streetAddress: text().notNull(),
-    districtCode: varchar({ length: 50 }).notNull(),
+    placeId: varchar({ length: 255 }).notNull(),
     district: varchar({ length: 100 }).notNull(),
     city: varchar({ length: 100 })
       .default(BUSINESS_RULES.DEFAULT_DELIVERY_CITY)
       .notNull(),
-    latitude: numeric({ precision: 10, scale: 8 }),
-    longitude: numeric({ precision: 11, scale: 8 }),
+    latitude: numeric({ precision: 10, scale: 8 }).notNull(),
+    longitude: numeric({ precision: 11, scale: 8 }).notNull(),
     isDefault: boolean().default(false).notNull(),
   },
   (table) => [

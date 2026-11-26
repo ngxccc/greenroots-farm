@@ -83,7 +83,7 @@ describe("Subscriptions Integration", () => {
     receiverName: string;
     phoneNumber: string;
     streetAddress: string;
-    districtCode: string;
+    placeId: string;
     district: string;
     latitude: string;
     longitude: string;
@@ -96,7 +96,7 @@ describe("Subscriptions Integration", () => {
         receiverName: params.receiverName,
         phoneNumber: params.phoneNumber,
         streetAddress: params.streetAddress,
-        districtCode: params.districtCode,
+        placeId: params.placeId,
         district: params.district,
         city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
         latitude: params.latitude,
@@ -150,7 +150,7 @@ describe("Subscriptions Integration", () => {
       receiverName: "Trần Thị Khách",
       phoneNumber: "0912345678",
       streetAddress: "123 Lê Lợi",
-      districtCode: "quan-1",
+      placeId: "mock_place_quan_1",
       district: "Quận 1",
       latitude: "10.77560000",
       longitude: "106.70190000",
@@ -163,7 +163,7 @@ describe("Subscriptions Integration", () => {
       receiverName: "Nguyễn Ngoại Thành",
       phoneNumber: "0987654321",
       streetAddress: "45 Quốc lộ 1A",
-      districtCode: "binh-chanh",
+      placeId: "mock_place_binh_chanh",
       district: "Huyện Bình Chánh",
       latitude: "10.68740000",
       longitude: "106.59390000",
@@ -175,7 +175,7 @@ describe("Subscriptions Integration", () => {
       receiverName: "Lê Cần Giờ",
       phoneNumber: "0909998887",
       streetAddress: "1 Duyên Hải",
-      districtCode: "can-gio",
+      placeId: "mock_place_can_gio",
       district: "Huyện Cần Giờ",
       latitude: "10.41140000",
       longitude: "106.95470000",
@@ -563,7 +563,7 @@ describe("Subscriptions Integration", () => {
         receiverName: "Suspended User",
         phoneNumber: "0901112223",
         streetAddress: "123 Lê Lợi",
-        districtCode: "quan-1",
+        placeId: "mock_place_quan_1",
         district: "Quận 1",
         latitude: "10.77560000",
         longitude: "106.70190000",

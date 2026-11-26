@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "@/modules/auth/auth.module";
+import { GeocodingModule } from "@/modules/geocoding/geocoding.module";
 import { AddressController } from "./address.controller";
 import { AddressService } from "./address.service";
 import { AuditService } from "./audit.service";
@@ -12,7 +13,7 @@ import { StaffService } from "./staff.service";
  * Users module (profiles, staff management, address book).
  */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, GeocodingModule],
   controllers: [ProfileController, AddressController, StaffController],
   providers: [ProfileService, AddressService, StaffService, AuditService],
   exports: [ProfileService, AddressService, StaffService],

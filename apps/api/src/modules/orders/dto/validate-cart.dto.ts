@@ -33,21 +33,21 @@ export const validateCartRequestSchema = z
       .min(1, { message: MESSAGES.VALIDATION.MIN_VALUE })
       .max(MAX_CART_LINE_ITEMS, { message: MESSAGES.VALIDATION.MAX_VALUE }),
     addressId: zUuidV7().optional(),
-    districtCode: z
+    placeId: z
       .string()
       .trim()
       .min(1, { message: MESSAGES.VALIDATION.REQUIRED })
-      .max(50, { message: MESSAGES.VALIDATION.MAX_LENGTH })
+      .max(255, { message: MESSAGES.VALIDATION.MAX_LENGTH })
       .optional(),
     loyaltyPoints: z.number().int().nonnegative().default(0),
     clientTotalVnd: z.number().int().nonnegative().optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
-    if (data.addressId !== undefined && data.districtCode !== undefined) {
+    if (data.addressId !== undefined && data.placeId !== undefined) {
       ctx.addIssue({
         code: "custom",
-        path: ["districtCode"],
+        path: ["placeId"],
         message: MESSAGES.VALIDATION.SHIPPING_QUOTE_TARGET_XOR,
       });
     }

@@ -6,12 +6,7 @@ import {
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import {
-  API_ERROR_CODES,
-  BUSINESS_RULES,
-  findHcmcDistrictByCode,
-  type HcmcDistrictCoordinate,
-} from "@greenroots/shared";
+import { API_ERROR_CODES, BUSINESS_RULES } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import {
   DATABASE_CONNECTION,
@@ -24,19 +19,21 @@ import {
   type NewUserAddress,
   type UserAddress,
 } from "@/database/schemas";
+import type { ResolvedPlace } from "@/modules/geocoding/geocoding.interface";
+import { GeocodingService } from "@/modules/geocoding/geocoding.service";
 import type { Address, CreateAddressInput, UpdateAddressInput } from "./dto";
 import type { ResolvedQuoteAddress } from "./users.interface";
 
 /**
  * Closed Drizzle column projection for customer address responses.
- * Excludes `userId` and internal cached `latitude`/`longitude` coordinates.
+ * Excludes `userId` and internal cached `latitude`/`longitude` coordinates (`INV-SHIP-2`).
  */
 export const ADDRESS_COLUMNS = {
   id: userAddresses.id,
   receiverName: userAddresses.receiverName,
   phoneNumber: userAddresses.phoneNumber,
   streetAddress: userAddresses.streetAddress,
-  districtCode: userAddresses.districtCode,
+  placeId: userAddresses.placeId,
   district: userAddresses.district,
   city: userAddresses.city,
   isDefault: userAddresses.isDefault,
@@ -44,16 +41,24 @@ export const ADDRESS_COLUMNS = {
   updatedAt: userAddresses.updatedAt,
 } as const;
 
+const ADDRESS_QUOTE_COLUMNS = {
+  ...ADDRESS_COLUMNS,
+  latitude: userAddresses.latitude,
+  longitude: userAddresses.longitude,
+} as const;
+
 type AddressRow = Pick<UserAddress, keyof typeof ADDRESS_COLUMNS>;
+type AddressQuoteRow = Pick<UserAddress, keyof typeof ADDRESS_QUOTE_COLUMNS>;
 
 /**
- * Manages customer delivery addresses, district-centroid derivation, 10-row caps, and single-default guarantees.
+ * Manages customer delivery addresses, server-side place geocoding, 10-row caps, and single-default guarantees.
  */
 @Injectable()
 export class AddressService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDB,
+    private readonly geocodingService: GeocodingService,
   ) {}
 
   private toAddress(row: AddressRow): Address {
@@ -62,7 +67,7 @@ export class AddressService {
       receiverName: row.receiverName,
       phoneNumber: row.phoneNumber,
       streetAddress: row.streetAddress,
-      districtCode: row.districtCode,
+      placeId: row.placeId,
       district: row.district,
       city: row.city,
       isDefault: row.isDefault,
@@ -71,13 +76,13 @@ export class AddressService {
     };
   }
 
-  private toDistrictFields(district: HcmcDistrictCoordinate) {
+  private toResolvedPlaceFields(place: ResolvedPlace) {
     return {
-      districtCode: district.code,
-      district: district.name,
+      placeId: place.placeId,
+      district: place.district || BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
       city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
-      latitude: district.latitude.toFixed(8),
-      longitude: district.longitude.toFixed(8),
+      latitude: place.latitude.toFixed(8),
+      longitude: place.longitude.toFixed(8),
     };
   }
 
@@ -86,17 +91,6 @@ export class AddressService {
       code: API_ERROR_CODES.ADDRESS_NOT_FOUND,
       detail: MESSAGES.ADDRESS.NOT_FOUND,
     });
-  }
-
-  private resolveDistrictOrThrow(districtCode: string): HcmcDistrictCoordinate {
-    const district = findHcmcDistrictByCode(districtCode);
-    if (!district) {
-      throw new UnprocessableEntityException({
-        code: API_ERROR_CODES.DISTRICT_CODE_INVALID,
-        detail: MESSAGES.ADDRESS.DISTRICT_CODE_INVALID,
-      });
-    }
-    return district;
   }
 
   private async ensureLiveUser(
@@ -142,17 +136,19 @@ export class AddressService {
   }
 
   /**
-   * Creates a new delivery address with server-derived district metadata and centroid coordinates.
+   * Creates a new delivery address with server-resolved place coordinates and district metadata (`INV-GEO-1`).
    *
    * @param sub Authenticated user ID from JWT `sub`.
-   * @param input Validated creation payload (`districtCode` only, no client coordinates or `city`).
+   * @param input Validated creation payload (`placeId` only, no client coordinates or `city`).
    * @returns Newly persisted `Address` projection.
    */
   async createAddress(
     sub: string,
     input: CreateAddressInput,
   ): Promise<Address> {
-    const district = this.resolveDistrictOrThrow(input.districtCode);
+    const resolvedPlace = await this.geocodingService.resolvePlace(
+      input.placeId,
+    );
 
     return this.db.transaction(async (tx) => {
       await this.ensureLiveUser(tx, sub, true);
@@ -190,7 +186,7 @@ export class AddressService {
           receiverName: input.receiverName,
           phoneNumber: input.phoneNumber,
           streetAddress: input.streetAddress,
-          ...this.toDistrictFields(district),
+          ...this.toResolvedPlaceFields(resolvedPlace),
           isDefault: shouldBeDefault,
         })
         .returning(ADDRESS_COLUMNS);
@@ -216,9 +212,9 @@ export class AddressService {
     addressId: string,
     patch: UpdateAddressInput,
   ): Promise<Address> {
-    const resolvedDistrict =
-      patch.districtCode !== undefined
-        ? this.resolveDistrictOrThrow(patch.districtCode)
+    const resolvedPlace =
+      patch.placeId !== undefined
+        ? await this.geocodingService.resolvePlace(patch.placeId)
         : undefined;
 
     const values: Partial<NewUserAddress> = {};
@@ -231,8 +227,8 @@ export class AddressService {
     if (patch.streetAddress !== undefined) {
       values.streetAddress = patch.streetAddress;
     }
-    if (resolvedDistrict !== undefined) {
-      Object.assign(values, this.toDistrictFields(resolvedDistrict));
+    if (resolvedPlace !== undefined) {
+      Object.assign(values, this.toResolvedPlaceFields(resolvedPlace));
     }
 
     return this.db.transaction(async (tx) => {
@@ -351,29 +347,27 @@ export class AddressService {
     });
   }
 
-  private toResolvedQuoteAddress(row: AddressRow): ResolvedQuoteAddress {
-    const district = this.resolveDistrictOrThrow(row.districtCode);
-
+  private toResolvedQuoteAddress(row: AddressQuoteRow): ResolvedQuoteAddress {
     return {
       id: row.id,
       receiverName: row.receiverName,
       phoneNumber: row.phoneNumber,
-      formattedAddress: `${row.streetAddress}, ${district.name}, ${BUSINESS_RULES.DEFAULT_DELIVERY_CITY}`,
-      districtCode: district.code,
-      district: district.name,
-      city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
-      latitude: district.latitude,
-      longitude: district.longitude,
+      formattedAddress: `${row.streetAddress}, ${row.district}, ${row.city}`,
+      placeId: row.placeId,
+      district: row.district,
+      city: row.city,
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
     };
   }
 
   /**
-   * Resolves an owned address (or the account's default address) with authoritative centroid coordinates
-   * from `HCMC_DISTRICTS` for downstream checkout and subscription fee estimation.
+   * Resolves an owned address (or the account's default address) with persisted server-resolved coordinates
+   * for downstream checkout and subscription fee estimation.
    *
    * @param sub Authenticated user ID from JWT `sub`.
    * @param addressId Optional address UUIDv7; falls back to the account's default address when omitted.
-   * @returns Formatted shipping address snapshot, recipient contact details, and authoritative `HCMC_DISTRICTS` centroid coordinates.
+   * @returns Formatted shipping address snapshot, recipient contact details, and persisted coordinates.
    */
   async resolveAddressForQuote(
     sub: string,
@@ -386,7 +380,7 @@ export class AddressService {
       : and(eq(userAddresses.userId, sub), eq(userAddresses.isDefault, true));
 
     const [row] = await this.db
-      .select(ADDRESS_COLUMNS)
+      .select(ADDRESS_QUOTE_COLUMNS)
       .from(userAddresses)
       .where(condition)
       .limit(1);
@@ -410,7 +404,7 @@ export class AddressService {
     await this.ensureLiveUser(this.db, sub, false);
 
     const [row] = await this.db
-      .select(ADDRESS_COLUMNS)
+      .select(ADDRESS_QUOTE_COLUMNS)
       .from(userAddresses)
       .where(
         and(eq(userAddresses.userId, sub), eq(userAddresses.isDefault, true)),

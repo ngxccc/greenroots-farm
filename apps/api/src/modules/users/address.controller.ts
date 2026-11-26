@@ -68,7 +68,7 @@ export class AddressController {
   @ApiOperation({
     summary: "Create a customer delivery address",
     description:
-      "Creates a saved delivery address using a validated HCMC districtCode and server-derived centroid coordinates.",
+      "Creates a saved delivery address using a Goong/mock placeId and server-resolved coordinates.",
   })
   @ApiCreatedResponseGeneric(AddressDto)
   @ApiUnprocessableEntityResponseRfc9457()
@@ -84,7 +84,7 @@ export class AddressController {
   @ApiOperation({
     summary: "Update a customer delivery address",
     description:
-      "Updates contact or location fields on an owned address and recomputes cached coordinates when districtCode changes.",
+      "Updates contact or location fields on an owned address and recomputes cached coordinates when placeId changes.",
   })
   @ApiParam({
     name: "id",

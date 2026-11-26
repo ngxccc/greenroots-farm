@@ -51,7 +51,7 @@ const CONTRACT_ADDRESS_KEYS = [
   "receiverName",
   "phoneNumber",
   "streetAddress",
-  "districtCode",
+  "placeId",
   "district",
   "city",
   "isDefault",
@@ -61,7 +61,9 @@ const CONTRACT_ADDRESS_KEYS = [
 
 const QUAN_7 = HCMC_DISTRICTS.find((d) => d.code === "quan-7")!;
 const THU_DUC = HCMC_DISTRICTS.find((d) => d.code === "thu-duc")!;
-const QUAN_1 = HCMC_DISTRICTS.find((d) => d.code === "quan-1")!;
+const MOCK_PLACE_QUAN_7 = "mock_place_quan_7";
+const MOCK_PLACE_THU_DUC = "mock_place_thu_duc";
+const MOCK_PLACE_QUAN_1 = "mock_place_quan_1";
 const UUID_V4 = "550e8400-e29b-41d4-a716-446655440000";
 
 function buildAddressPayload(
@@ -71,7 +73,7 @@ function buildAddressPayload(
     receiverName: "Nguyen Van An",
     phoneNumber: "0912345678",
     streetAddress: "12 Nguyen Van Linh",
-    districtCode: QUAN_7.code,
+    placeId: MOCK_PLACE_QUAN_7,
     ...overrides,
   };
 }
@@ -236,7 +238,7 @@ describe("Addresses Integration", () => {
       });
       const second = await createAddressViaApi(owner.authHeader, {
         receiverName: "Second Default",
-        districtCode: THU_DUC.code,
+        placeId: MOCK_PLACE_THU_DUC,
         isDefault: true,
       });
 
@@ -283,7 +285,7 @@ describe("Addresses Integration", () => {
       );
       expect(data.receiverName).toBe("Tran Thi Binh");
       expect(data.streetAddress).toBe("45 Le Van Luong");
-      expect(data.districtCode).toBe(QUAN_7.code);
+      expect(data.placeId).toBe(MOCK_PLACE_QUAN_7);
       expect(data.district).toBe(QUAN_7.name);
       expect(data.city).toBe(BUSINESS_RULES.DEFAULT_DELIVERY_CITY);
       expect(data.isDefault).toBe(true);
@@ -330,32 +332,32 @@ describe("Addresses Integration", () => {
     });
 
     // Invariant: INV-ADDR-1
-    it("rejects unknown districtCode values with unprocessable entity error", async () => {
+    it("rejects unknown placeId values with unprocessable entity error", async () => {
       const { authHeader } = await createAuthenticatedUser(db, jwtService);
 
       const res = await request(getHttpServer())
         .post("/api/v1/users/me/addresses")
         .set(authHeader)
-        .send(buildAddressPayload({ districtCode: "quan-99" }))
+        .send(buildAddressPayload({ placeId: "unknown_place_id" }))
         .expect(422);
 
       expect((res.body as Rfc9457Error).code).toBe(
-        API_ERROR_CODES.DISTRICT_CODE_INVALID,
+        API_ERROR_CODES.PLACE_ID_INVALID,
       );
     });
 
-    it("rejects whitespace-only districtCode with required validation code", async () => {
+    it("rejects whitespace-only placeId with required validation code", async () => {
       const { authHeader } = await createAuthenticatedUser(db, jwtService);
 
       const res = await request(getHttpServer())
         .post("/api/v1/users/me/addresses")
         .set(authHeader)
-        .send(buildAddressPayload({ districtCode: "   " }))
+        .send(buildAddressPayload({ placeId: "   " }))
         .expect(400);
 
       const body = res.body as Rfc9457Error;
       expect(body.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
-      expect(body.invalidParams?.[0]?.name).toBe("districtCode");
+      expect(body.invalidParams?.[0]?.name).toBe("placeId");
       expect(body.invalidParams?.[0]?.code).toBe(API_ERROR_CODES.REQUIRED);
     });
 
@@ -467,13 +469,13 @@ describe("Addresses Integration", () => {
         .set(authHeader)
         .send({
           receiverName: "Le Van Cuong",
-          districtCode: THU_DUC.code,
+          placeId: MOCK_PLACE_THU_DUC,
         })
         .expect(200);
 
       const { data } = updated.body as ApiResponseEnvelope<AddressResponse>;
       expect(data.receiverName).toBe("Le Van Cuong");
-      expect(data.districtCode).toBe(THU_DUC.code);
+      expect(data.placeId).toBe(MOCK_PLACE_THU_DUC);
       expect(data.district).toBe(THU_DUC.name);
       expect(data.city).toBe(BUSINESS_RULES.DEFAULT_DELIVERY_CITY);
 
@@ -492,18 +494,18 @@ describe("Addresses Integration", () => {
     });
 
     // Invariant: INV-ADDR-1
-    it("rejects unknown districtCode values when updating an address", async () => {
+    it("rejects unknown placeId values when updating an address", async () => {
       const { authHeader } = await createAuthenticatedUser(db, jwtService);
       const created = await createAddressViaApi(authHeader);
 
       const res = await request(getHttpServer())
         .patch(`/api/v1/users/me/addresses/${created.id}`)
         .set(authHeader)
-        .send({ districtCode: "quan-99" })
+        .send({ placeId: "unknown_place_id" })
         .expect(422);
 
       expect((res.body as Rfc9457Error).code).toBe(
-        API_ERROR_CODES.DISTRICT_CODE_INVALID,
+        API_ERROR_CODES.PLACE_ID_INVALID,
       );
     });
 
@@ -592,11 +594,11 @@ describe("Addresses Integration", () => {
       });
       const addr2 = await createAddressViaApi(authHeader, {
         receiverName: "Address 2",
-        districtCode: THU_DUC.code,
+        placeId: MOCK_PLACE_THU_DUC,
       });
       const addr3 = await createAddressViaApi(authHeader, {
         receiverName: "Address 3",
-        districtCode: QUAN_1.code,
+        placeId: MOCK_PLACE_QUAN_1,
       });
 
       const [switch2, switch3] = await Promise.all([

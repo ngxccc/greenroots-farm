@@ -11,7 +11,7 @@ export const updateAddressSchema = z
     receiverName: addressInputFields.receiverName.optional(),
     phoneNumber: addressInputFields.phoneNumber.optional(),
     streetAddress: addressInputFields.streetAddress.optional(),
-    districtCode: addressInputFields.districtCode.optional(),
+    placeId: addressInputFields.placeId.optional(),
   })
   .strict()
   .refine(
@@ -19,7 +19,7 @@ export const updateAddressSchema = z
       data.receiverName !== undefined ||
       data.phoneNumber !== undefined ||
       data.streetAddress !== undefined ||
-      data.districtCode !== undefined,
+      data.placeId !== undefined,
     {
       message: MESSAGES.VALIDATION.AT_LEAST_ONE_ADDRESS_FIELD,
     },

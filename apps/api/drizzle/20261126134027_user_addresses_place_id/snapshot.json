@@ -1,0 +1,92 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "117a701c-f116-4f2e-a4b5-2d059d24677c",
+  "prevIds": ["2462d07d-55b8-469d-9138-173fdd1b8936"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "user_addresses", "place_id"],
+      "writes": [
+        "s|col|public.user_addresses.place_id",
+        "n|col|public.user_addresses.place_id",
+        "e|col|public.user_addresses.place_id"
+      ],
+      "reads": ["n|tbl|public.user_addresses", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "user_addresses",
+        "district_code"
+      ],
+      "writes": [
+        "s|col|public.user_addresses.district_code",
+        "n|col|public.user_addresses.district_code",
+        "e|col|public.user_addresses.district_code"
+      ],
+      "reads": ["n|tbl|public.user_addresses", "n|sch|public"]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "user_addresses", "latitude"],
+      "writes": ["s|colprop|public.user_addresses.latitude.notNull"],
+      "reads": [
+        "n|tbl|public.user_addresses",
+        "n|sch|public",
+        "n|col|public.user_addresses.latitude"
+      ],
+      "sqlHash": "c095c17f7e039d45"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "user_addresses", "longitude"],
+      "writes": ["s|colprop|public.user_addresses.longitude.notNull"],
+      "reads": [
+        "n|tbl|public.user_addresses",
+        "n|sch|public",
+        "n|col|public.user_addresses.longitude"
+      ],
+      "sqlHash": "94f986658e5019a2"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_addresses",
+        "name": "place_id",
+        "type": "varchar(255)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"user_addresses\",\"district_code\"]"
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"user_addresses\",\"latitude\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"user_addresses\",\"longitude\"]",
+      "set": {
+        "notNull": true
+      }
+    }
+  ]
+}

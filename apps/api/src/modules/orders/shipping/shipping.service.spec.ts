@@ -3,23 +3,21 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import {
-  API_ERROR_CODES,
-  BUSINESS_RULES,
-  HCMC_DISTRICTS,
-} from "@greenroots/shared";
+import { API_ERROR_CODES, BUSINESS_RULES } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import type { FarmSettings } from "@/modules/farms/dto";
 import type { FarmSettingsService } from "@/modules/farms/farm-settings.service";
+import { MOCK_PLACES } from "@/modules/geocoding/geocoding.constant";
+import type { GeocodingService } from "@/modules/geocoding/geocoding.service";
 import type { AddressService } from "@/modules/users/address.service";
 import type { ResolvedQuoteAddress } from "@/modules/users/users.interface";
 import { HaversineShippingDriver } from "./drivers/haversine-shipping.driver";
 import { ShippingService } from "./shipping.service";
 
 describe("ShippingService", () => {
-  const quan1 = HCMC_DISTRICTS.find((d) => d.code === "quan-1")!;
-  const hocMon = HCMC_DISTRICTS.find((d) => d.code === "hoc-mon")!;
-  const canGio = HCMC_DISTRICTS.find((d) => d.code === "can-gio")!;
+  const quan1 = MOCK_PLACES.find((p) => p.placeId === "mock_place_quan_1")!;
+  const hocMon = MOCK_PLACES.find((p) => p.placeId === "mock_place_hoc_mon")!;
+  const canGio = MOCK_PLACES.find((p) => p.placeId === "mock_place_can_gio")!;
 
   const baseFarmSettings: FarmSettings = {
     id: "019fa8bc-8f4d-7000-b366-e691f45cfb90",
@@ -59,19 +57,32 @@ describe("ShippingService", () => {
     receiverName: "Nguyen Van An",
     phoneNumber: "0912345678",
     formattedAddress: "123 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
-    districtCode: quan1.code,
-    district: quan1.name,
+    placeId: quan1.placeId,
+    district: quan1.district,
     city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
     latitude: quan1.latitude,
     longitude: quan1.longitude,
   };
 
   let resolveAddressMock: ReturnType<typeof mock>;
+  let resolvePlaceMock: ReturnType<typeof mock>;
   let getSettingsMock: ReturnType<typeof mock>;
   let service: ShippingService;
 
   beforeEach(() => {
     resolveAddressMock = mock(() => Promise.resolve(resolvedAddress));
+    resolvePlaceMock = mock((placeId: string) => {
+      const found = MOCK_PLACES.find((p) => p.placeId === placeId);
+      if (!found) {
+        return Promise.reject(
+          new UnprocessableEntityException({
+            code: API_ERROR_CODES.PLACE_ID_INVALID,
+            detail: MESSAGES.GEOCODING.PLACE_ID_INVALID,
+          }),
+        );
+      }
+      return Promise.resolve(found);
+    });
     getSettingsMock = mock(() => Promise.resolve(baseFarmSettings));
 
     const mockAddressService = {
@@ -80,22 +91,27 @@ describe("ShippingService", () => {
     const mockFarmSettingsService = {
       getSettings: getSettingsMock,
     } as unknown as FarmSettingsService;
+    const mockGeocodingService = {
+      resolvePlace: resolvePlaceMock,
+    } as unknown as GeocodingService;
 
     service = new ShippingService(
       mockAddressService,
       mockFarmSettingsService,
+      mockGeocodingService,
       new HaversineShippingDriver(),
     );
   });
 
-  // Invariant: INV-SHIP-1, INV-SHIP-2, INV-SHIP-7
-  it("resolves districtCode from HCMC_DISTRICTS using FarmSettings shippingConfig radii", async () => {
+  // Invariant: INV-ADDR-1, INV-SHIP-2
+  it("resolves placeId via GeocodingService using FarmSettings shippingConfig radii", async () => {
     const result = await service.quoteForCustomer("user-1", {
-      districtCode: hocMon.code,
+      placeId: hocMon.placeId,
       isSubscription: false,
     });
 
     expect(resolveAddressMock).not.toHaveBeenCalled();
+    expect(resolvePlaceMock).toHaveBeenCalledWith(hocMon.placeId);
     expect(getSettingsMock).toHaveBeenCalledTimes(1);
     expect(result.maxRadiusKm).toBe(BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM);
     expect(result.subscriptionFreeRadiusKm).toBe(
@@ -113,7 +129,7 @@ describe("ShippingService", () => {
     ]);
   });
 
-  // Invariant: INV-SHIP-1, INV-SHIP-6
+  // Invariant: INV-SHIP-1
   it("resolves owned addressId via AddressService and respects subscription free radius", async () => {
     const result = await service.quoteForCustomer("user-1", {
       addressId: resolvedAddress.id,
@@ -142,7 +158,7 @@ describe("ShippingService", () => {
     });
 
     const result = await service.quoteForCustomer("user-1", {
-      districtCode: canGio.code,
+      placeId: canGio.placeId,
       isSubscription: true,
     });
 
@@ -153,18 +169,18 @@ describe("ShippingService", () => {
     expect(result.feeVnd).toBeGreaterThan(25000);
   });
 
-  it("throws UnprocessableEntityException when districtCode is unknown", async () => {
+  it("throws UnprocessableEntityException when placeId is invalid", async () => {
     try {
       await service.quoteForCustomer("user-1", {
-        districtCode: "quan-99",
+        placeId: "unknown_place_id",
         isSubscription: false,
       });
       expect.unreachable("Expected UnprocessableEntityException");
     } catch (error) {
       expect(error).toBeInstanceOf(UnprocessableEntityException);
       expect((error as UnprocessableEntityException).getResponse()).toEqual({
-        code: API_ERROR_CODES.DISTRICT_CODE_INVALID,
-        detail: MESSAGES.ADDRESS.DISTRICT_CODE_INVALID,
+        code: API_ERROR_CODES.PLACE_ID_INVALID,
+        detail: MESSAGES.GEOCODING.PLACE_ID_INVALID,
       });
     }
     expect(getSettingsMock).not.toHaveBeenCalled();
@@ -181,7 +197,7 @@ describe("ShippingService", () => {
 
     try {
       await service.quoteForCustomer("user-1", {
-        districtCode: quan1.code,
+        placeId: quan1.placeId,
         isSubscription: false,
       });
       expect.unreachable("Expected NotFoundException");

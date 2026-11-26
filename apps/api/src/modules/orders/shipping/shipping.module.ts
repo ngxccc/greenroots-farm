@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { env } from "@/common/config/env.config";
 import { FarmsModule } from "@/modules/farms/farms.module";
+import { GeocodingModule } from "@/modules/geocoding/geocoding.module";
 import { UsersModule } from "@/modules/users/users.module";
 import { HaversineShippingDriver } from "./drivers/haversine-shipping.driver";
 import { ShippingController } from "./shipping.controller";
@@ -12,7 +13,7 @@ import { ShippingService } from "./shipping.service";
  * without creating circular module dependencies.
  */
 @Module({
-  imports: [UsersModule, FarmsModule],
+  imports: [UsersModule, FarmsModule, GeocodingModule],
   controllers: [ShippingController],
   providers: [
     HaversineShippingDriver,

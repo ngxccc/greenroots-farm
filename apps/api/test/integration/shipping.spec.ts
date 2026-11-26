@@ -50,9 +50,6 @@ const CONTRACT_QUOTE_KEYS = [
 ] as const;
 
 const QUAN_1 = HCMC_DISTRICTS.find((d) => d.code === "quan-1")!;
-const BINH_CHANH = HCMC_DISTRICTS.find((d) => d.code === "binh-chanh")!;
-const HOC_MON = HCMC_DISTRICTS.find((d) => d.code === "hoc-mon")!;
-const CAN_GIO = HCMC_DISTRICTS.find((d) => d.code === "can-gio")!;
 const QUAN_7 = HCMC_DISTRICTS.find((d) => d.code === "quan-7")!;
 const UUID_V4 = "550e8400-e29b-41d4-a716-446655440000";
 const MISSING_UUID_V7 = "019fa8bc-8f4d-7000-b366-e691f45cffff";
@@ -136,7 +133,7 @@ describe("Shipping Integration", () => {
     it("rejects unauthenticated callers and non-customer roles", async () => {
       await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
-        .send({ districtCode: QUAN_1.code })
+        .send({ placeId: "mock_place_quan_1" })
         .expect(401);
 
       for (const header of [
@@ -149,7 +146,7 @@ describe("Shipping Integration", () => {
         const res = await request(app.getHttpServer())
           .post("/api/v1/shipping/quote")
           .set(header)
-          .send({ districtCode: QUAN_1.code })
+          .send({ placeId: "mock_place_quan_1" })
           .expect(403);
         expect((res.body as Rfc9457ProblemDetails).code).toBe(
           API_ERROR_CODES.FORBIDDEN,
@@ -162,7 +159,7 @@ describe("Shipping Integration", () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: QUAN_1.code })
+        .send({ placeId: "mock_place_quan_1" })
         .expect(404);
 
       expect((res.body as Rfc9457ProblemDetails).code).toBe(
@@ -171,13 +168,13 @@ describe("Shipping Integration", () => {
     });
 
     // Invariant: INV-SHIP-1, INV-SHIP-5, INV-SHIP-7
-    it("calculates a closed retail quote from districtCode without exposing coordinates", async () => {
+    it("calculates a closed retail quote from placeId without exposing coordinates", async () => {
       await createFarm(setup.db);
 
       const res = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: QUAN_1.code })
+        .send({ placeId: "mock_place_quan_1" })
         .expect(200);
 
       const body = res.body as ApiResponse<ShippingQuoteResponse>;
@@ -205,7 +202,7 @@ describe("Shipping Integration", () => {
           receiverName: "Nguyen Van An",
           phoneNumber: "0912345678",
           streetAddress: "123 Lê Lợi",
-          districtCode: QUAN_1.code,
+          placeId: "mock_place_quan_1",
           district: QUAN_1.name,
           city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
           latitude: QUAN_1.latitude.toFixed(8),
@@ -244,12 +241,12 @@ describe("Shipping Integration", () => {
       const retailRes = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: BINH_CHANH.code, isSubscription: false })
+        .send({ placeId: "mock_place_binh_chanh", isSubscription: false })
         .expect(200);
       const subRes = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: BINH_CHANH.code, isSubscription: true })
+        .send({ placeId: "mock_place_binh_chanh", isSubscription: true })
         .expect(200);
 
       const retailQuote = (retailRes.body as ApiResponse<ShippingQuoteResponse>)
@@ -271,7 +268,7 @@ describe("Shipping Integration", () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: CAN_GIO.code, isSubscription: true })
+        .send({ placeId: "mock_place_can_gio", isSubscription: true })
         .expect(200);
 
       const body = res.body as ApiResponse<ShippingQuoteResponse>;
@@ -304,7 +301,7 @@ describe("Shipping Integration", () => {
       const canGioRes = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: CAN_GIO.code, isSubscription: true })
+        .send({ placeId: "mock_place_can_gio", isSubscription: true })
         .expect(200);
       expect(
         (canGioRes.body as ApiResponse<ShippingQuoteResponse>).data,
@@ -319,7 +316,7 @@ describe("Shipping Integration", () => {
       const quan1Res = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: QUAN_1.code, isSubscription: false })
+        .send({ placeId: "mock_place_quan_1", isSubscription: false })
         .expect(200);
       expect(
         (quan1Res.body as ApiResponse<ShippingQuoteResponse>).data.feeVnd,
@@ -328,7 +325,7 @@ describe("Shipping Integration", () => {
       const hocMonBaseline = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: HOC_MON.code, isSubscription: false })
+        .send({ placeId: "mock_place_hoc_mon", isSubscription: false })
         .expect(200);
       const exactDistance = (
         hocMonBaseline.body as ApiResponse<ShippingQuoteResponse>
@@ -352,7 +349,7 @@ describe("Shipping Integration", () => {
       const exactBoundaryRes = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: HOC_MON.code, isSubscription: true })
+        .send({ placeId: "mock_place_hoc_mon", isSubscription: true })
         .expect(200);
       expect(
         (exactBoundaryRes.body as ApiResponse<ShippingQuoteResponse>).data,
@@ -384,7 +381,7 @@ describe("Shipping Integration", () => {
         .set(customerHeader)
         .send({
           addressId: "019fa8bc-8f4d-7000-b366-e691f45cfb91",
-          districtCode: QUAN_7.code,
+          placeId: "mock_place_quan_7",
         })
         .expect(400);
       const bothBody = bothTargets.body as Rfc9457ProblemDetails;
@@ -397,7 +394,7 @@ describe("Shipping Integration", () => {
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
         .send({
-          districtCode: QUAN_1.code,
+          placeId: "mock_place_quan_1",
           latitude: 10.8106,
           longitude: 106.7091,
         })
@@ -418,17 +415,17 @@ describe("Shipping Integration", () => {
         .expect(400);
     });
 
-    it("rejects an unknown district code", async () => {
+    it("rejects an unknown placeId", async () => {
       await createFarm(setup.db);
 
       const res = await request(app.getHttpServer())
         .post("/api/v1/shipping/quote")
         .set(customerHeader)
-        .send({ districtCode: "quan-99" })
+        .send({ placeId: "unknown_place_id" })
         .expect(422);
 
       expect((res.body as Rfc9457ProblemDetails).code).toBe(
-        API_ERROR_CODES.DISTRICT_CODE_INVALID,
+        API_ERROR_CODES.PLACE_ID_INVALID,
       );
     });
 
@@ -442,7 +439,7 @@ describe("Shipping Integration", () => {
           receiverName: "Tran Thi Binh",
           phoneNumber: "0987654321",
           streetAddress: "99 Nguyen Hue",
-          districtCode: QUAN_7.code,
+          placeId: "mock_place_quan_7",
           district: QUAN_7.name,
           city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
           latitude: QUAN_7.latitude.toFixed(8),
@@ -482,6 +479,48 @@ describe("Shipping Integration", () => {
       expect((deletedRes.body as Rfc9457ProblemDetails).code).toBe(
         API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
       );
+    });
+  });
+
+  describe("GET /api/v1/geocoding/autocomplete", () => {
+    it("rejects unauthenticated and non-customer callers", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/geocoding/autocomplete")
+        .query({ q: "Nguyen Van Linh" })
+        .expect(401);
+
+      await request(app.getHttpServer())
+        .get("/api/v1/geocoding/autocomplete")
+        .set(guestHeader)
+        .query({ q: "Nguyen Van Linh" })
+        .expect(403);
+    });
+
+    it("rejects queries shorter than 3 characters", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/geocoding/autocomplete")
+        .set(customerHeader)
+        .query({ q: "ab" })
+        .expect(400);
+
+      expect((res.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.VALIDATION_FAILED,
+      );
+    });
+
+    it("returns deterministic mock place suggestions for authenticated customers", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/geocoding/autocomplete")
+        .set(customerHeader)
+        .query({ q: "Nguyen Van Linh" })
+        .expect(200);
+
+      const body = res.body as ApiResponse<
+        { placeId: string; description: string; district: string }[]
+      >;
+      expect(body.success).toBe(true);
+      expect(body.data.length).toBeGreaterThan(0);
+      expect(body.data[0]?.placeId).toBe("mock_place_quan_7");
     });
   });
 });

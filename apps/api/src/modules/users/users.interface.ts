@@ -1,14 +1,14 @@
 import type { StaffAuditAction, StaffAuditSnapshot } from "@greenroots/shared";
 
 /**
- * Authoritative district centroid and formatted shipping snapshot resolved for checkout or subscriptions.
+ * Authoritative verified coordinates and formatted shipping snapshot resolved for checkout or subscriptions.
  */
 export interface ResolvedQuoteAddress {
   readonly id: string;
   readonly receiverName: string;
   readonly phoneNumber: string;
   readonly formattedAddress: string;
-  readonly districtCode: string;
+  readonly placeId: string;
   readonly district: string;
   readonly city: string;
   readonly latitude: number;

@@ -6,13 +6,13 @@ import {
 } from "@/common/schemas/zod-primitives";
 
 /**
- * Shared Zod field definitions for customer address contact and district inputs.
+ * Shared Zod field definitions for customer address contact and place inputs.
  */
 export const addressInputFields = {
   receiverName: zSanitizedString({ min: 1, max: 100 }),
   phoneNumber: zPhoneNumber(),
   streetAddress: zSanitizedString({ min: 1, max: 500 }),
-  districtCode: z.string().trim().min(1).max(50),
+  placeId: z.string().trim().min(1).max(255),
 } as const;
 
 /**
@@ -36,7 +36,7 @@ export type CreateAddressInput = z.infer<typeof createAddressSchema>;
 export type CreateAddressDtoType = CreateAddressInput;
 
 /**
- * Request DTO for creating a saved customer delivery address (`districtCode` only; rejects coordinates and `city`).
+ * Request DTO for creating a saved customer delivery address (`placeId` only; rejects coordinates and `city`).
  */
 export class CreateAddressDto extends createZodDto(createAddressSchema) {
   public static readonly zodSchema = createAddressSchema;

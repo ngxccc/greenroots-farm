@@ -111,8 +111,7 @@ export const MESSAGES = {
     DUPLICATE_PRODUCT_IMAGE_URL:
       "Duplicate product image URLs are not allowed.",
     INVALID_QUANTITY_PRECISION: "Quantity may have at most 2 decimal places.",
-    SHIPPING_QUOTE_TARGET_XOR:
-      "Provide either addressId or districtCode, not both.",
+    SHIPPING_QUOTE_TARGET_XOR: "Provide either addressId or placeId, not both.",
     FARM_SHIPPING_SUBSCRIPTION_RADIUS_INVALID:
       "subscriptionFreeRadiusKm must be less than or equal to maxRadiusKm.",
     FARM_SHIPPING_FREE_THRESHOLD_INVALID:
@@ -271,8 +270,11 @@ export const MESSAGES = {
   ADDRESS: {
     NOT_FOUND: "Address not found.",
     LIMIT_REACHED: "You can save at most 10 delivery addresses.",
-    DISTRICT_CODE_INVALID:
-      "District code is not a valid Ho Chi Minh City delivery district.",
+  },
+  GEOCODING: {
+    PLACE_ID_INVALID:
+      "Place ID is invalid or could not be resolved to coordinates.",
+    UNAVAILABLE: "Geocoding service is temporarily unavailable.",
   },
   STAFF: {
     NOT_FOUND: "Staff member not found.",

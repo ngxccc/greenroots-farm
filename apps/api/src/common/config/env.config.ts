@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  GEOCODING_DRIVERS,
   LOG_LEVELS,
   MAIL_DRIVERS,
   MEDIA_DRIVERS,
@@ -128,6 +129,10 @@ const envSchema = z.object({
   // Shipping calculation driver configuration
   SHIPPING_DRIVER: z.enum(SHIPPING_DRIVERS).default("haversine"),
 
+  // Geocoding (Goong / Mock) configuration
+  GEOCODING_DRIVER: z.enum(GEOCODING_DRIVERS).default("mock"),
+  GOONG_API_KEY: z.string().optional(),
+
   // Cloudinary media storage configuration
   MEDIA_DRIVER: z.enum(MEDIA_DRIVERS).default("mock"),
   CLOUDINARY_CLOUD_NAME: z.string().min(1).default("greenroots-dev"),
@@ -224,6 +229,14 @@ export function parseApiEnvironment(
             "PAYOS_CHECKSUM_KEY is required when PAYMENT_DRIVER is 'payos' in production",
         });
       }
+    }
+    if (data.GEOCODING_DRIVER === "goong" && !data.GOONG_API_KEY?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["GOONG_API_KEY"],
+        message:
+          "GOONG_API_KEY is required when GEOCODING_DRIVER is 'goong' in production",
+      });
     }
     if (!rawEnv["CLOUDINARY_CLOUD_NAME"]?.trim()) {
       ctx.addIssue({
