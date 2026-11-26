@@ -693,8 +693,11 @@ describe("Addresses Integration", () => {
       const [sub] = await db
         .insert(subscriptions)
         .values({
+          subscriptionCode: "SUB-20261119-001",
           customerId: user.id,
           userAddressId: created.id,
+          receiverName: "Nguyễn Văn A",
+          receiverPhone: "0901234567",
           shippingAddress: snapshotText,
           shippingDistanceKm: "12.50",
           shippingFeePerDelivery: 0,

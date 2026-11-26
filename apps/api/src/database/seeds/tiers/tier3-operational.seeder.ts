@@ -62,9 +62,12 @@ export async function seedTier3Operational(
     .insert(subscriptions)
     .values({
       id: SEED_IDS.subscription,
+      subscriptionCode: "SUB-20261112-001",
       customerId: SEED_IDS.customer,
       planId: SEED_IDS.planFamily,
       userAddressId: SEED_IDS.addressCustomer,
+      receiverName: "Trần Thị Khách",
+      receiverPhone: "0912345678",
       shippingAddress: SNAPSHOT_ADDRESS,
       shippingDistanceKm: "12.50",
       shippingFeePerDelivery: 0,

@@ -7,6 +7,7 @@ import {
   numeric,
   snakeCase,
   text,
+  timestamp,
   uniqueIndex,
   uuid,
   varchar,
@@ -53,6 +54,7 @@ export const subscriptions = snakeCase.table(
   "subscriptions",
   {
     ...baseEntity,
+    subscriptionCode: varchar({ length: 50 }).notNull(),
     customerId: uuid()
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -62,6 +64,8 @@ export const subscriptions = snakeCase.table(
     userAddressId: uuid().references(() => userAddresses.id, {
       onDelete: "set null",
     }),
+    receiverName: varchar({ length: 255 }).notNull(),
+    receiverPhone: varchar({ length: 20 }).notNull(),
     shippingAddress: text().notNull(),
     shippingDistanceKm: numeric({ precision: 6, scale: 2 })
       .default("0")
@@ -75,15 +79,50 @@ export const subscriptions = snakeCase.table(
     deliveryDay: deliveryDayEnum().default(DeliveryDay.TUESDAY).notNull(),
     remainingDeliveries: integer().notNull(),
     status: subscriptionStatusEnum()
-      .default(SubscriptionStatus.ACTIVE)
+      .default(SubscriptionStatus.PENDING_PAYMENT)
       .notNull(),
+    reservationExpiresAt: timestamp({ withTimezone: true, mode: "date" }),
     startDate: date().notNull(),
     endDate: date().notNull(),
   },
   (table) => [
+    uniqueIndex("subscriptions_subscription_code_uidx").on(
+      table.subscriptionCode,
+    ),
     index("subscriptions_customer_id_idx").on(table.customerId),
+    index("subscriptions_customer_created_id_idx").on(
+      table.customerId,
+      table.createdAt,
+      table.id,
+    ),
     index("subscriptions_plan_id_idx").on(table.planId),
     index("subscriptions_status_idx").on(table.status),
+    index("subscriptions_reservation_expires_at_idx")
+      .on(table.reservationExpiresAt)
+      .where(
+        sql`${table.status} = ${SubscriptionStatus.PENDING_PAYMENT} AND ${table.reservationExpiresAt} IS NOT NULL`,
+      ),
+    check("subscriptions_price_non_negative", sql`${table.price} >= 0`),
+    check(
+      "subscriptions_total_deliveries_positive",
+      sql`${table.totalDeliveries} > 0`,
+    ),
+    check(
+      "subscriptions_remaining_deliveries_non_negative",
+      sql`${table.remainingDeliveries} >= 0`,
+    ),
+    check(
+      "subscriptions_remaining_within_total",
+      sql`${table.remainingDeliveries} <= ${table.totalDeliveries}`,
+    ),
+    check(
+      "subscriptions_shipping_fee_non_negative",
+      sql`${table.shippingFeePerDelivery} >= 0`,
+    ),
+    check(
+      "subscriptions_date_range_valid",
+      sql`${table.endDate} >= ${table.startDate}`,
+    ),
   ],
 );
 

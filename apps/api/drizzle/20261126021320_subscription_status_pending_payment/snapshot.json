@@ -1,0 +1,30 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ad9b20e3-3cfb-4fc9-8f69-ad45ed3fc584",
+  "prevIds": ["b07c3cb7-965f-4f16-a16a-198fda2787e3"],
+  "footprints": [
+    {
+      "statementType": "alter_enum",
+      "statementTarget": ["enum", "public", "subscription_status"],
+      "writes": ["s|enum|public.subscription_status"],
+      "reads": ["n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"subscription_status\"]",
+      "set": {
+        "values": [
+          "pending_payment",
+          "active",
+          "paused",
+          "completed",
+          "cancelled"
+        ]
+      }
+    }
+  ]
+}

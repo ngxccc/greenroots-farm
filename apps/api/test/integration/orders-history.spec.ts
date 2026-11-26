@@ -566,7 +566,10 @@ describe("Orders History Integration", () => {
       const [subRow] = await setup.db
         .insert(subscriptions)
         .values({
+          subscriptionCode: "SUB-20261121-CLOSED1",
           customerId,
+          receiverName: "Trần Thị Khách",
+          receiverPhone: "0912345678",
           shippingAddress: "123 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
           shippingDistanceKm: "8.50",
           shippingFeePerDelivery: 0,

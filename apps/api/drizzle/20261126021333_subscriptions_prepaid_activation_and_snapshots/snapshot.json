@@ -1,0 +1,449 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "2462d07d-55b8-469d-9138-173fdd1b8936",
+  "prevIds": ["ad9b20e3-3cfb-4fc9-8f69-ad45ed3fc584"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "subscriptions",
+        "subscription_code"
+      ],
+      "writes": [
+        "s|col|public.subscriptions.subscription_code",
+        "n|col|public.subscriptions.subscription_code",
+        "e|col|public.subscriptions.subscription_code"
+      ],
+      "reads": ["n|tbl|public.subscriptions", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "subscriptions", "receiver_name"],
+      "writes": [
+        "s|col|public.subscriptions.receiver_name",
+        "n|col|public.subscriptions.receiver_name",
+        "e|col|public.subscriptions.receiver_name"
+      ],
+      "reads": ["n|tbl|public.subscriptions", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "subscriptions",
+        "receiver_phone"
+      ],
+      "writes": [
+        "s|col|public.subscriptions.receiver_phone",
+        "n|col|public.subscriptions.receiver_phone",
+        "e|col|public.subscriptions.receiver_phone"
+      ],
+      "reads": ["n|tbl|public.subscriptions", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "subscriptions",
+        "reservation_expires_at"
+      ],
+      "writes": [
+        "s|col|public.subscriptions.reservation_expires_at",
+        "n|col|public.subscriptions.reservation_expires_at",
+        "e|col|public.subscriptions.reservation_expires_at"
+      ],
+      "reads": ["n|tbl|public.subscriptions", "n|sch|public"]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "subscriptions", "status"],
+      "writes": ["s|colprop|public.subscriptions.status.default"],
+      "reads": [
+        "n|tbl|public.subscriptions",
+        "n|sch|public",
+        "n|col|public.subscriptions.status",
+        "n|enum|public.subscription_status"
+      ],
+      "sqlHash": "c0b15f42ca7a5585"
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "subscriptions",
+        "subscriptions_subscription_code_uidx"
+      ],
+      "writes": [
+        "s|idx|public.subscriptions_subscription_code_uidx",
+        "n|idx|public.subscriptions_subscription_code_uidx",
+        "e|idx|public.subscriptions_subscription_code_uidx",
+        "n|rel|public.subscriptions_subscription_code_uidx"
+      ],
+      "reads": [
+        "n|tbl|public.subscriptions",
+        "n|sch|public",
+        "n|col|public.subscriptions.subscription_code"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "subscriptions",
+        "subscriptions_customer_created_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.subscriptions_customer_created_id_idx",
+        "n|idx|public.subscriptions_customer_created_id_idx",
+        "e|idx|public.subscriptions_customer_created_id_idx",
+        "n|rel|public.subscriptions_customer_created_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.subscriptions",
+        "n|sch|public",
+        "n|col|public.subscriptions.customer_id",
+        "n|col|public.subscriptions.created_at",
+        "n|col|public.subscriptions.id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "subscriptions",
+        "subscriptions_reservation_expires_at_idx"
+      ],
+      "writes": [
+        "s|idx|public.subscriptions_reservation_expires_at_idx",
+        "n|idx|public.subscriptions_reservation_expires_at_idx",
+        "e|idx|public.subscriptions_reservation_expires_at_idx",
+        "n|rel|public.subscriptions_reservation_expires_at_idx"
+      ],
+      "reads": [
+        "n|tbl|public.subscriptions",
+        "n|sch|public",
+        "n|col|public.subscriptions.reservation_expires_at"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "subscriptions"],
+      "writes": [
+        "s|ck|public.subscriptions.subscriptions_price_non_negative",
+        "n|ck|public.subscriptions.subscriptions_price_non_negative",
+        "e|ck|public.subscriptions.subscriptions_price_non_negative",
+        "n|con|public.subscriptions.subscriptions_price_non_negative"
+      ],
+      "reads": [
+        "n|tbl|public.subscriptions",
+        "n|sch|public",
+        "n|col|public.subscriptions.price"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "subscriptions"],
+      "writes": [
+        "s|ck|public.subscriptions.subscriptions_total_deliveries_positive",
+        "n|ck|public.subscriptions.subscriptions_total_deliveries_positive",
+        "e|ck|public.subscriptions.subscriptions_total_deliveries_positive",
+        "n|con|public.subscriptions.subscriptions_total_deliveries_positive"
+      ],
+      "reads": [
+        "n|tbl|public.subscriptions",
+        "n|sch|public",
+        "n|col|public.subscriptions.total_deliveries"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "subscriptions"],
+      "writes": [
+        "s|ck|public.subscriptions.subscriptions_remaining_deliveries_non_negative",
+        "n|ck|public.subscriptions.subscriptions_remaining_deliveries_non_negative",
+        "e|ck|public.subscriptions.subscriptions_remaining_deliveries_non_negative",
+        "n|con|public.subscriptions.subscriptions_remaining_deliveries_non_negative"
+      ],
+      "reads": [
+        "n|tbl|public.subscriptions",
+        "n|sch|public",
+        "n|col|public.subscriptions.remaining_deliveries"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "subscriptions"],
+      "writes": [
+        "s|ck|public.subscriptions.subscriptions_remaining_within_total",
+        "n|ck|public.subscriptions.subscriptions_remaining_within_total",
+        "e|ck|public.subscriptions.subscriptions_remaining_within_total",
+        "n|con|public.subscriptions.subscriptions_remaining_within_total"
+      ],
+      "reads": [
+        "n|tbl|public.subscriptions",
+        "n|sch|public",
+        "n|col|public.subscriptions.remaining_deliveries",
+        "n|col|public.subscriptions.total_deliveries"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "subscriptions"],
+      "writes": [
+        "s|ck|public.subscriptions.subscriptions_shipping_fee_non_negative",
+        "n|ck|public.subscriptions.subscriptions_shipping_fee_non_negative",
+        "e|ck|public.subscriptions.subscriptions_shipping_fee_non_negative",
+        "n|con|public.subscriptions.subscriptions_shipping_fee_non_negative"
+      ],
+      "reads": [
+        "n|tbl|public.subscriptions",
+        "n|sch|public",
+        "n|col|public.subscriptions.shipping_fee_per_delivery"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "subscriptions"],
+      "writes": [
+        "s|ck|public.subscriptions.subscriptions_date_range_valid",
+        "n|ck|public.subscriptions.subscriptions_date_range_valid",
+        "e|ck|public.subscriptions.subscriptions_date_range_valid",
+        "n|con|public.subscriptions.subscriptions_date_range_valid"
+      ],
+      "reads": [
+        "n|tbl|public.subscriptions",
+        "n|sch|public",
+        "n|col|public.subscriptions.end_date",
+        "n|col|public.subscriptions.start_date"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "subscription_code",
+        "type": "varchar(50)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "receiver_name",
+        "type": "varchar(255)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "receiver_phone",
+        "type": "varchar(20)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "reservation_expires_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "subscriptions_subscription_code_uidx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "subscription_code",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "subscriptions_customer_created_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "customer_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "created_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "subscriptions_reservation_expires_at_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "reservation_expires_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"status\" = 'pending_payment' AND \"reservation_expires_at\" IS NOT NULL",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "subscriptions_price_non_negative",
+        "value": "\"price\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "subscriptions_total_deliveries_positive",
+        "value": "\"total_deliveries\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "subscriptions_remaining_deliveries_non_negative",
+        "value": "\"remaining_deliveries\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "subscriptions_remaining_within_total",
+        "value": "\"remaining_deliveries\" <= \"total_deliveries\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "subscriptions_shipping_fee_non_negative",
+        "value": "\"shipping_fee_per_delivery\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "subscriptions",
+        "name": "subscriptions_date_range_valid",
+        "value": "\"end_date\" >= \"start_date\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"subscriptions\",\"status\"]",
+      "set": {
+        "default": "'pending_payment'"
+      }
+    }
+  ]
+}
