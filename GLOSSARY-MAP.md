@@ -57,6 +57,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0040-complaint-submission-window-and-media-verification.md` — Immutable `orders.delivered_at` timestamp, 24-hour `delivered`/`completed` complaint eligibility, single-complaint uniqueness (`409`), and out-of-transaction Cloudinary Admin API metadata verification (`<= 5MB` images, `<= 15MB` / `<= 15s` video; extends `ADR-0009`).
 - `docs/adr/0041-subscription-prepaid-activation-and-snapshot-contract.md` — `SubscriptionStatus.PENDING_PAYMENT` prepaid activation gate, upfront `(subscriptionFreeRadiusKm, maxRadiusKm]` shipping fee collection, `receiverName`/`receiverPhone` snapshot columns, DB `CHECK` invariants (`ADR-0005`), and checkout pending cap (`#30`).
 - `docs/adr/0042-payos-checkout-two-phase-reservation-and-webhook-reconciliation.md` — Unified `POST /orders/checkout` PayOS initiation, two-phase TX + compensating cancel around `PaymentDriver.createPaymentLink`, `PENDING_PAYMENT` FEFO reservation & `-> CONFIRMED` transition, server-derived redirect URLs, and fail-closed idempotent webhook reconciliation (`#243`).
+- `docs/adr/0043-staff-payment-ledger-and-cod-confirmation.md` — Staff-scoped (`sales`, `admin`, `super_admin`) payment ledger projection, `orders -> payments` `FOR UPDATE` COD confirmation with `orders.paymentStatus` sync, natural DB-level idempotency, and `delivered -> completed` paid-order gate (`#245`).
 
 ### Context-Scoped Decisions
 
