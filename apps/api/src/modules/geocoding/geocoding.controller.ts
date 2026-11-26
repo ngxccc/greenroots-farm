@@ -42,7 +42,7 @@ export class GeocodingController {
   @ApiOperation({
     summary: "Autocomplete Ho Chi Minh City delivery addresses",
     description:
-      "Returns place suggestions (placeId, description, district) for authenticated customers using Goong Place Autocomplete or deterministic mock fixtures.",
+      "Returns place suggestions (placeId, description, ward) for authenticated customers using Goong/Vietmap Place Autocomplete or deterministic mock fixtures.",
   })
   @ApiOkResponseGeneric(PlaceSuggestionDto, { isArray: true })
   @ApiTooManyRequestsResponseRfc9457()

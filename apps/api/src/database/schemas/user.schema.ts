@@ -88,7 +88,7 @@ export const userAddresses = snakeCase.table(
     phoneNumber: varchar({ length: 20 }).notNull(),
     streetAddress: text().notNull(),
     placeId: varchar({ length: 255 }).notNull(),
-    district: varchar({ length: 100 }).notNull(),
+    ward: varchar({ length: 100 }).notNull(),
     city: varchar({ length: 100 })
       .default(BUSINESS_RULES.DEFAULT_DELIVERY_CITY)
       .notNull(),

@@ -4,7 +4,7 @@
 export interface PlaceSuggestion {
   readonly placeId: string;
   readonly description: string;
-  readonly district: string;
+  readonly ward: string;
 }
 
 /**
@@ -14,7 +14,7 @@ export interface ResolvedPlace {
   readonly placeId: string;
   readonly latitude: number;
   readonly longitude: number;
-  readonly district: string;
+  readonly ward: string;
   readonly formattedAddress: string;
 }
 

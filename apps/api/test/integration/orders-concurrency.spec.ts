@@ -121,7 +121,7 @@ describe("Orders Concurrency Integration", () => {
       phoneNumber: "0912345678",
       streetAddress: "123 Lê Lợi",
       placeId: "mock_place_quan_1",
-      district: QUAN_1.name,
+      ward: QUAN_1.name,
       city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
       latitude: QUAN_1.latitude.toFixed(8),
       longitude: QUAN_1.longitude.toFixed(8),

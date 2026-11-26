@@ -52,7 +52,7 @@ const CONTRACT_ADDRESS_KEYS = [
   "phoneNumber",
   "streetAddress",
   "placeId",
-  "district",
+  "ward",
   "city",
   "isDefault",
   "createdAt",
@@ -286,7 +286,7 @@ describe("Addresses Integration", () => {
       expect(data.receiverName).toBe("Tran Thi Binh");
       expect(data.streetAddress).toBe("45 Le Van Luong");
       expect(data.placeId).toBe(MOCK_PLACE_QUAN_7);
-      expect(data.district).toBe(QUAN_7.name);
+      expect(data.ward).toBe("Phường Tân Phú");
       expect(data.city).toBe(BUSINESS_RULES.DEFAULT_DELIVERY_CITY);
       expect(data.isDefault).toBe(true);
 
@@ -476,7 +476,7 @@ describe("Addresses Integration", () => {
       const { data } = updated.body as ApiResponseEnvelope<AddressResponse>;
       expect(data.receiverName).toBe("Le Van Cuong");
       expect(data.placeId).toBe(MOCK_PLACE_THU_DUC);
-      expect(data.district).toBe(THU_DUC.name);
+      expect(data.ward).toBe("Phường Thủ Đức");
       expect(data.city).toBe(BUSINESS_RULES.DEFAULT_DELIVERY_CITY);
 
       const [persisted] = await db

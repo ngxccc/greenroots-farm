@@ -9,7 +9,7 @@ export interface ResolvedQuoteAddress {
   readonly phoneNumber: string;
   readonly formattedAddress: string;
   readonly placeId: string;
-  readonly district: string;
+  readonly ward: string;
   readonly city: string;
   readonly latitude: number;
   readonly longitude: number;

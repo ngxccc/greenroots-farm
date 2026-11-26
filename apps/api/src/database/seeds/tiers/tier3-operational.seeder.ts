@@ -50,7 +50,7 @@ export async function seedTier3Operational(
       phoneNumber: "0912345678",
       streetAddress: "12 Nguyễn Văn Linh, Phường Tân Phú",
       placeId: "mock_place_quan_7",
-      district: "Quận 7",
+      ward: "Phường Tân Phú",
       city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
       latitude: "10.73400000",
       longitude: "106.72180000",

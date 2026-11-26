@@ -90,7 +90,7 @@ describe("OrdersService", () => {
     phoneNumber: "0912345678",
     formattedAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
     placeId: "mock_place_quan_7",
-    district: "Quận 7",
+    ward: "Phường Tân Phú",
     city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
     latitude: 10.734,
     longitude: 106.7218,

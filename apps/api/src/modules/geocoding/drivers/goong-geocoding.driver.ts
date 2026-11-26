@@ -16,6 +16,7 @@ interface GoongAutocompletePrediction {
   readonly place_id?: string;
   readonly description?: string;
   readonly compound?: {
+    readonly commune?: string;
     readonly district?: string;
   };
 }
@@ -31,6 +32,7 @@ interface GoongPlaceDetailResponse {
     readonly place_id?: string;
     readonly formatted_address?: string;
     readonly compound?: {
+      readonly commune?: string;
       readonly district?: string;
     };
     readonly geometry?: {
@@ -106,13 +108,14 @@ export class GoongGeocodingDriver implements GeocodingDriver {
         typeof item.description === "string" &&
         item.description.length > 0
       ) {
-        const rawDistrict = item.compound?.district?.trim();
+        const rawWard =
+          item.compound?.commune?.trim() ?? item.compound?.district?.trim();
         suggestions.push({
           placeId: item.place_id,
           description: item.description,
-          district:
-            rawDistrict && rawDistrict.length > 0
-              ? rawDistrict
+          ward:
+            rawWard && rawWard.length > 0
+              ? rawWard
               : BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
         });
       }
@@ -166,21 +169,23 @@ export class GoongGeocodingDriver implements GeocodingDriver {
       return null;
     }
 
-    const rawDistrict = payload.result?.compound?.district?.trim();
-    const district =
-      rawDistrict && rawDistrict.length > 0
-        ? rawDistrict
+    const rawWard =
+      payload.result?.compound?.commune?.trim() ??
+      payload.result?.compound?.district?.trim();
+    const ward =
+      rawWard && rawWard.length > 0
+        ? rawWard
         : BUSINESS_RULES.DEFAULT_DELIVERY_CITY;
     const rawFormatted = payload.result?.formatted_address?.trim();
     const formattedAddress =
-      rawFormatted && rawFormatted.length > 0 ? rawFormatted : district;
+      rawFormatted && rawFormatted.length > 0 ? rawFormatted : ward;
     const rawPlaceId = payload.result?.place_id?.trim();
 
     return {
       placeId: rawPlaceId && rawPlaceId.length > 0 ? rawPlaceId : placeId,
       latitude: lat,
       longitude: lng,
-      district,
+      ward,
       formattedAddress,
     };
   }

@@ -3158,7 +3158,7 @@
     },
     "/api/v1/geocoding/autocomplete": {
       "get": {
-        "description": "Returns place suggestions (placeId, description, district) for authenticated customers using Goong Place Autocomplete or deterministic mock fixtures.",
+        "description": "Returns place suggestions (placeId, description, ward) for authenticated customers using Goong/Vietmap Place Autocomplete or deterministic mock fixtures.",
         "operationId": "GeocodingController_autocomplete_v1",
         "parameters": [
           {
@@ -14760,7 +14760,7 @@
             "minLength": 1,
             "maxLength": 255
           },
-          "district": {
+          "ward": {
             "type": "string",
             "minLength": 1,
             "maxLength": 100
@@ -14790,7 +14790,7 @@
           "phoneNumber",
           "streetAddress",
           "placeId",
-          "district",
+          "ward",
           "city",
           "isDefault",
           "createdAt",
@@ -15071,7 +15071,7 @@
             "type": "string",
             "minLength": 1
           },
-          "district": {
+          "ward": {
             "type": "string",
             "minLength": 1
           }
@@ -15079,7 +15079,7 @@
         "required": [
           "placeId",
           "description",
-          "district"
+          "ward"
         ]
       },
       "FarmSettingsDto": {

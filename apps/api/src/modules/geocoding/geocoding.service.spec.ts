@@ -24,7 +24,7 @@ describe("GeocodingService", () => {
         {
           placeId: "mock_place_quan_1",
           description: "15 Lê Lợi, Quận 1",
-          district: "Quận 1",
+          ward: "Phường Sài Gòn",
         },
       ]),
     );
@@ -33,7 +33,7 @@ describe("GeocodingService", () => {
         placeId: "mock_place_quan_1",
         latitude: 10.7769,
         longitude: 106.7009,
-        district: "Quận 1",
+        ward: "Phường Sài Gòn",
         formattedAddress: "15 Lê Lợi, Quận 1",
       }),
     );
@@ -59,7 +59,7 @@ describe("GeocodingService", () => {
         {
           placeId: "cached_1",
           description: "Cached Street",
-          district: "Quận 1",
+          ward: "Phường Sài Gòn",
         },
       ];
       redisGetMock.mockResolvedValueOnce(JSON.stringify(cached));

@@ -84,7 +84,7 @@ describe("Subscriptions Integration", () => {
     phoneNumber: string;
     streetAddress: string;
     placeId: string;
-    district: string;
+    ward: string;
     latitude: string;
     longitude: string;
     isDefault: boolean;
@@ -97,7 +97,7 @@ describe("Subscriptions Integration", () => {
         phoneNumber: params.phoneNumber,
         streetAddress: params.streetAddress,
         placeId: params.placeId,
-        district: params.district,
+        ward: params.ward,
         city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
         latitude: params.latitude,
         longitude: params.longitude,
@@ -151,7 +151,7 @@ describe("Subscriptions Integration", () => {
       phoneNumber: "0912345678",
       streetAddress: "123 Lê Lợi",
       placeId: "mock_place_quan_1",
-      district: "Quận 1",
+      ward: "Phường Sài Gòn",
       latitude: "10.77560000",
       longitude: "106.70190000",
       isDefault: true,
@@ -164,7 +164,7 @@ describe("Subscriptions Integration", () => {
       phoneNumber: "0987654321",
       streetAddress: "45 Quốc lộ 1A",
       placeId: "mock_place_binh_chanh",
-      district: "Huyện Bình Chánh",
+      ward: "Xã Tân Nhựt",
       latitude: "10.68740000",
       longitude: "106.59390000",
       isDefault: false,
@@ -176,7 +176,7 @@ describe("Subscriptions Integration", () => {
       phoneNumber: "0909998887",
       streetAddress: "1 Duyên Hải",
       placeId: "mock_place_can_gio",
-      district: "Huyện Cần Giờ",
+      ward: "Xã Cần Giờ",
       latitude: "10.41140000",
       longitude: "106.95470000",
       isDefault: false,
@@ -564,7 +564,7 @@ describe("Subscriptions Integration", () => {
         phoneNumber: "0901112223",
         streetAddress: "123 Lê Lợi",
         placeId: "mock_place_quan_1",
-        district: "Quận 1",
+        ward: "Phường Sài Gòn",
         latitude: "10.77560000",
         longitude: "106.70190000",
         isDefault: true,

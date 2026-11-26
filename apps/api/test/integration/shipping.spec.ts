@@ -203,7 +203,7 @@ describe("Shipping Integration", () => {
           phoneNumber: "0912345678",
           streetAddress: "123 Lê Lợi",
           placeId: "mock_place_quan_1",
-          district: QUAN_1.name,
+          ward: QUAN_1.name,
           city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
           latitude: QUAN_1.latitude.toFixed(8),
           longitude: QUAN_1.longitude.toFixed(8),
@@ -440,7 +440,7 @@ describe("Shipping Integration", () => {
           phoneNumber: "0987654321",
           streetAddress: "99 Nguyen Hue",
           placeId: "mock_place_quan_7",
-          district: QUAN_7.name,
+          ward: QUAN_7.name,
           city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
           latitude: QUAN_7.latitude.toFixed(8),
           longitude: QUAN_7.longitude.toFixed(8),
@@ -516,7 +516,7 @@ describe("Shipping Integration", () => {
         .expect(200);
 
       const body = res.body as ApiResponse<
-        { placeId: string; description: string; district: string }[]
+        { placeId: string; description: string; ward: string }[]
       >;
       expect(body.success).toBe(true);
       expect(body.data.length).toBeGreaterThan(0);

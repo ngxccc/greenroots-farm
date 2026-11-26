@@ -42,7 +42,7 @@ describe("AddressService", () => {
     phoneNumber: "0912345678",
     streetAddress: "12 Nguyen Van Linh",
     placeId: quan7Place.placeId,
-    district: quan7Place.district,
+    ward: quan7Place.ward,
     city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
     isDefault: true,
     createdAt: timestamp,
@@ -77,7 +77,7 @@ describe("AddressService", () => {
         "phoneNumber",
         "streetAddress",
         "placeId",
-        "district",
+        "ward",
         "city",
         "isDefault",
         "createdAt",
@@ -185,7 +185,7 @@ describe("AddressService", () => {
         phoneNumber: "0912345678",
         streetAddress: "12 Nguyen Van Linh",
         placeId: quan7Place.placeId,
-        district: quan7Place.district,
+        ward: quan7Place.ward,
         city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
         latitude: quan7Place.latitude.toFixed(8),
         longitude: quan7Place.longitude.toFixed(8),
@@ -221,7 +221,7 @@ describe("AddressService", () => {
       const updatedRow = {
         ...sampleAddressRow,
         placeId: thuDucPlace.placeId,
-        district: thuDucPlace.district,
+        ward: thuDucPlace.ward,
       };
       mockDb.setSelectResultsQueue([[{ id: userId }], [updatedRow]]);
 
@@ -231,13 +231,13 @@ describe("AddressService", () => {
 
       expect(mockDb.mockUpdateSet).toHaveBeenCalledWith({
         placeId: thuDucPlace.placeId,
-        district: thuDucPlace.district,
+        ward: thuDucPlace.ward,
         city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
         latitude: thuDucPlace.latitude.toFixed(8),
         longitude: thuDucPlace.longitude.toFixed(8),
       });
       expect(result.placeId).toBe(thuDucPlace.placeId);
-      expect(result.district).toBe(thuDucPlace.district);
+      expect(result.ward).toBe(thuDucPlace.ward);
     });
   });
 
@@ -272,9 +272,9 @@ describe("AddressService", () => {
         id: addressId,
         receiverName: sampleAddressRow.receiverName,
         phoneNumber: sampleAddressRow.phoneNumber,
-        formattedAddress: `12 Nguyen Van Linh, ${quan7Place.district}, ${BUSINESS_RULES.DEFAULT_DELIVERY_CITY}`,
+        formattedAddress: `12 Nguyen Van Linh, ${quan7Place.ward}, ${BUSINESS_RULES.DEFAULT_DELIVERY_CITY}`,
         placeId: quan7Place.placeId,
-        district: quan7Place.district,
+        ward: quan7Place.ward,
         city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
         latitude: quan7Place.latitude,
         longitude: quan7Place.longitude,

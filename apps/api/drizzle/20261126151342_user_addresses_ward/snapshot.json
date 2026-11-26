@@ -1,0 +1,29 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e3b7d1b6-528a-4249-87cc-03190bc5e8d2",
+  "prevIds": ["117a701c-f116-4f2e-a4b5-2d059d24677c"],
+  "footprints": [
+    {
+      "statementType": "rename_column",
+      "statementTarget": ["column", "public", "user_addresses", "district"],
+      "writes": [
+        "s|col|public.user_addresses.district",
+        "n|col|public.user_addresses.district",
+        "s|col|public.user_addresses.ward",
+        "n|col|public.user_addresses.ward"
+      ],
+      "reads": ["n|tbl|public.user_addresses", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "rename",
+      "key": "columns\u0000[\"public\",\"user_addresses\",\"district\"]",
+      "set": {
+        "name": "ward"
+      }
+    }
+  ]
+}

@@ -110,7 +110,7 @@ describe("SubscriptionsService", () => {
         phoneNumber: "0901234567",
         formattedAddress: "123 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
         placeId: "mock_place_quan_1",
-        district: "Quận 1",
+        ward: "Phường Sài Gòn",
         city: "TP. Hồ Chí Minh",
         latitude: 10.7756,
         longitude: 106.7019,

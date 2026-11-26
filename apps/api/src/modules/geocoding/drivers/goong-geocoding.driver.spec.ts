@@ -56,7 +56,7 @@ describe("GoongGeocodingDriver", () => {
         placeId: "goong-p1",
         latitude: 10.8428,
         longitude: 106.8099,
-        district: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
+        ward: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
         formattedAddress: "Khu công nghệ cao, TP. Hồ Chí Minh",
       });
     });

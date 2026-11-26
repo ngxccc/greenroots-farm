@@ -11,7 +11,7 @@ export const addressSchema = z.object({
   phoneNumber: z.string(),
   streetAddress: z.string().min(1).max(500),
   placeId: z.string().min(1).max(255),
-  district: z.string().min(1).max(100),
+  ward: z.string().min(1).max(100),
   city: z.string().min(1).max(100),
   isDefault: z.boolean(),
   createdAt: z.iso.datetime(),

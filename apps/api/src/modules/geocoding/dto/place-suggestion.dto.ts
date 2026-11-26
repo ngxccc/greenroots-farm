@@ -7,7 +7,7 @@ import { z } from "zod";
 export const placeSuggestionSchema = z.object({
   placeId: z.string().min(1),
   description: z.string().min(1),
-  district: z.string().min(1),
+  ward: z.string().min(1),
 });
 
 /**

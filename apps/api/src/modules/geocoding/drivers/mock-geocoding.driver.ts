@@ -30,7 +30,7 @@ export class MockGeocodingDriver implements GeocodingDriver {
 
     const matches = MOCK_PLACES.filter((place) => {
       const haystack = normalizeSearchText(
-        `${place.formattedAddress} ${place.district} ${place.placeId}`,
+        `${place.formattedAddress} ${place.ward} ${place.placeId}`,
       );
       return haystack.includes(normalized);
     });
@@ -41,7 +41,7 @@ export class MockGeocodingDriver implements GeocodingDriver {
       results.map((place) => ({
         placeId: place.placeId,
         description: place.formattedAddress,
-        district: place.district,
+        ward: place.ward,
       })),
     );
   }

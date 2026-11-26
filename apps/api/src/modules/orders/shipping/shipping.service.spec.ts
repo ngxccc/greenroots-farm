@@ -58,7 +58,7 @@ describe("ShippingService", () => {
     phoneNumber: "0912345678",
     formattedAddress: "123 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
     placeId: quan1.placeId,
-    district: quan1.district,
+    ward: quan1.ward,
     city: BUSINESS_RULES.DEFAULT_DELIVERY_CITY,
     latitude: quan1.latitude,
     longitude: quan1.longitude,

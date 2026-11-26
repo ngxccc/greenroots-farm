@@ -104,7 +104,7 @@ export class GeocodingService {
   }
 
   /**
-   * Resolves a `placeId` to verified coordinates and display district server-side (`INV-GEO-1`).
+   * Resolves a `placeId` to verified coordinates and display ward server-side (`INV-GEO-1`).
    * Fails closed with `503 GEOCODING_UNAVAILABLE` on upstream errors or `422 PLACE_ID_INVALID` when not found.
    */
   async resolvePlace(placeId: string): Promise<ResolvedPlace> {

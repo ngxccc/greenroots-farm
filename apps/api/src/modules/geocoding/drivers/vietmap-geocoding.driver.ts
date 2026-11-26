@@ -11,7 +11,13 @@ import type {
 const VIETMAP_AUTOCOMPLETE_URL = "https://maps.vietmap.vn/api/autocomplete/v4";
 const VIETMAP_PLACE_URL = "https://maps.vietmap.vn/api/place/v4";
 const HCMC_FOCUS_LOCATION = "10.7769,106.7009";
-const VIETMAP_DISPLAY_TYPE_THREE_LEVEL = "2";
+const VIETMAP_DISPLAY_TYPE_TWO_LEVEL = "1";
+
+interface VietmapBoundary {
+  readonly type?: number;
+  readonly name?: string;
+  readonly full_name?: string;
+}
 
 interface VietmapAutocompleteItem {
   readonly ref_id?: string;
@@ -21,17 +27,11 @@ interface VietmapAutocompleteItem {
   readonly boundaries?: readonly VietmapBoundary[];
 }
 
-interface VietmapBoundary {
-  readonly type?: number;
-  readonly name?: string;
-  readonly full_name?: string;
-}
-
 interface VietmapPlaceResponse {
   readonly display?: string;
   readonly address?: string;
-  readonly district?: string;
   readonly ward?: string;
+  readonly district?: string;
   readonly city?: string;
   readonly lat?: number;
   readonly lng?: number;
@@ -49,13 +49,13 @@ export function redactVietmapSecrets(message: string, apiKey?: string): string {
   return sanitized;
 }
 
-function extractDistrictFromParts(params: {
-  readonly district?: string;
+function extractWardFromParts(params: {
+  readonly ward?: string;
   readonly boundaries?: readonly VietmapBoundary[];
   readonly address?: string;
-  readonly ward?: string;
+  readonly district?: string;
 }): string {
-  const direct = params.district?.trim();
+  const direct = params.ward?.trim();
   if (direct && direct.length > 0) {
     return direct;
   }
@@ -66,7 +66,7 @@ function extractDistrictFromParts(params: {
     ? (params.boundaries as readonly VietmapBoundary[])
     : [];
   for (const boundary of boundaries) {
-    if (boundary.type === 1) {
+    if (boundary.type === 2) {
       const boundaryName = boundary.full_name?.trim() ?? boundary.name?.trim();
       if (boundaryName && boundaryName.length > 0) {
         return boundaryName;
@@ -79,24 +79,25 @@ function extractDistrictFromParts(params: {
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    const districtSegment = segments.find((s) =>
-      /^(Quận|Huyện|Thành phố Thủ Đức|TP\.?\s*Thủ Đức)/i.test(s),
+    const wardSegment = segments.find((s) =>
+      /^(Phường|Xã|Thị trấn|Đặc khu)/i.test(s),
     );
-    if (districtSegment) {
-      return districtSegment;
+    if (wardSegment) {
+      return wardSegment;
     }
   }
 
-  const ward = params.ward?.trim();
-  if (ward && ward.length > 0) {
-    return ward;
+  const district = params.district?.trim();
+  if (district && district.length > 0) {
+    return district;
   }
 
   return BUSINESS_RULES.DEFAULT_DELIVERY_CITY;
 }
 
 /**
- * Live Vietmap Maps API v4 Autocomplete and Place adapter (`GEOCODING_DRIVER=vietmap`).
+ * Live Vietmap Maps API v4 Autocomplete and Place adapter (`GEOCODING_DRIVER=vietmap`)
+ * using the 2-level administrative format (`display_type=1`: ward + province/city).
  */
 @Injectable()
 export class VietmapGeocodingDriver implements GeocodingDriver {
@@ -114,7 +115,7 @@ export class VietmapGeocodingDriver implements GeocodingDriver {
     url.searchParams.set("apikey", apiKey);
     url.searchParams.set("text", query);
     url.searchParams.set("focus", HCMC_FOCUS_LOCATION);
-    url.searchParams.set("display_type", VIETMAP_DISPLAY_TYPE_THREE_LEVEL);
+    url.searchParams.set("display_type", VIETMAP_DISPLAY_TYPE_TWO_LEVEL);
 
     let response: Response;
     try {
@@ -146,7 +147,7 @@ export class VietmapGeocodingDriver implements GeocodingDriver {
         suggestions.push({
           placeId: refId,
           description: display,
-          district: extractDistrictFromParts({
+          ward: extractWardFromParts({
             boundaries: item.boundaries,
             address: item.address ?? display,
           }),
@@ -194,21 +195,21 @@ export class VietmapGeocodingDriver implements GeocodingDriver {
       return null;
     }
 
-    const district = extractDistrictFromParts({
-      district: payload.district,
+    const ward = extractWardFromParts({
+      ward: payload.ward,
       boundaries: payload.boundaries,
       address: payload.address ?? payload.display,
-      ward: payload.ward,
+      district: payload.district,
     });
     const rawDisplay = payload.display?.trim();
     const formattedAddress =
-      rawDisplay && rawDisplay.length > 0 ? rawDisplay : district;
+      rawDisplay && rawDisplay.length > 0 ? rawDisplay : ward;
 
     return {
       placeId,
       latitude: payload.lat,
       longitude: payload.lng,
-      district,
+      ward,
       formattedAddress,
     };
   }

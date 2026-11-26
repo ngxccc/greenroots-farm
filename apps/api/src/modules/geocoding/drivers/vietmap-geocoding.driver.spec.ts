@@ -33,16 +33,28 @@ describe("VietmapGeocodingDriver", () => {
   });
 
   describe("autocomplete", () => {
-    it("maps Vietmap v4 autocomplete array into PlaceSuggestion items", async () => {
+    it("maps Vietmap v4 2-level autocomplete array into PlaceSuggestion items with ward", async () => {
       globalThis.fetch = mock(() =>
         Promise.resolve(
           new Response(
             JSON.stringify([
               {
                 ref_id: "auto:abc123",
-                address: "Phường 4, Quận 5, Thành Phố Hồ Chí Minh",
+                address: "Phường Chợ Quán, Thành Phố Hồ Chí Minh",
                 name: "197 Trần Phú",
-                display: "197 Trần Phú Phường 4, Quận 5, Thành Phố Hồ Chí Minh",
+                display: "197 Trần Phú, Phường Chợ Quán, Thành Phố Hồ Chí Minh",
+                boundaries: [
+                  {
+                    type: 2,
+                    name: "Chợ Quán",
+                    full_name: "Phường Chợ Quán",
+                  },
+                  {
+                    type: 0,
+                    name: "Hồ Chí Minh",
+                    full_name: "Thành Phố Hồ Chí Minh",
+                  },
+                ],
               },
             ]),
             { status: 200 },
@@ -56,15 +68,15 @@ describe("VietmapGeocodingDriver", () => {
       expect(results).toEqual([
         {
           placeId: "auto:abc123",
-          description: "197 Trần Phú Phường 4, Quận 5, Thành Phố Hồ Chí Minh",
-          district: "Quận 5",
+          description: "197 Trần Phú, Phường Chợ Quán, Thành Phố Hồ Chí Minh",
+          ward: "Phường Chợ Quán",
         },
       ]);
     });
   });
 
   describe("resolvePlace", () => {
-    it("parses lat/lng and falls back to ward or DEFAULT_DELIVERY_CITY when district is omitted", async () => {
+    it("parses lat/lng and ward from Vietmap v4 2-level response", async () => {
       globalThis.fetch = mock(() =>
         Promise.resolve(
           new Response(
@@ -72,6 +84,7 @@ describe("VietmapGeocodingDriver", () => {
               display:
                 "197 Đường Trần Phú, Phường Chợ Quán, Thành Phố Hồ Chí Minh",
               ward: "Phường Chợ Quán",
+              district: "",
               city: "Thành Phố Hồ Chí Minh",
               lat: 10.7592229,
               lng: 106.6759027,
@@ -88,13 +101,13 @@ describe("VietmapGeocodingDriver", () => {
         placeId: "auto:abc123",
         latitude: 10.7592229,
         longitude: 106.6759027,
-        district: "Phường Chợ Quán",
+        ward: "Phường Chợ Quán",
         formattedAddress:
           "197 Đường Trần Phú, Phường Chợ Quán, Thành Phố Hồ Chí Minh",
       });
     });
 
-    it("falls back district to DEFAULT_DELIVERY_CITY when all administrative fields are missing", async () => {
+    it("falls back ward to DEFAULT_DELIVERY_CITY when all administrative fields are missing", async () => {
       globalThis.fetch = mock(() =>
         Promise.resolve(
           new Response(
@@ -110,10 +123,10 @@ describe("VietmapGeocodingDriver", () => {
       const driver = new VietmapGeocodingDriver();
       const resolved = await driver.resolvePlace("auto:khu-cnc");
 
-      expect(resolved?.district).toBe(BUSINESS_RULES.DEFAULT_DELIVERY_CITY);
+      expect(resolved?.ward).toBe(BUSINESS_RULES.DEFAULT_DELIVERY_CITY);
     });
 
-    it("returns null when Vietmap returns 404", async () => {
+    it("returns null when Vietmap reports a missing place", async () => {
       globalThis.fetch = mock(() =>
         Promise.resolve(new Response(null, { status: 404 })),
       ) as unknown as typeof fetch;
