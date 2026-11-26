@@ -61,7 +61,7 @@ graph TD
 3. `POST /api/v1/subscription-plans`: `@ApiAuth(UserRole.ADMIN, UserRole.SUPER_ADMIN)` validates positive `priceVnd`, `totalDeliveries`, and `weightPerDeliveryKg`, auto-generates kebab-case `slug` from `name` when omitted, and maps PostgreSQL `23505` on `subscription_plans_slug_uidx` to `409 SUBSCRIPTION_PLAN_SLUG_CONFLICT`.
 4. `PATCH /api/v1/subscription-plans/:id`: `@ApiAuth(UserRole.ADMIN, UserRole.SUPER_ADMIN)` updates mutable plan fields or soft-retires via `isActive = false` without affecting existing `subscriptions` snapshots. Missing or soft-deleted plan returns `404 SUBSCRIPTION_PLAN_NOT_FOUND`.
 
-### 2. Prepaid Subscription Checkout (Child B)
+### 2. Prepaid Subscription Checkout & Webhook Settlement (Child B)
 
 ```mermaid
 sequenceDiagram
@@ -70,45 +70,45 @@ sequenceDiagram
     participant API as SubscriptionsController
     participant Svc as SubscriptionsService
     participant Ship as ShippingService
-    participant Pay as PaymentsService
+    participant Driver as PaymentDriver
     participant DB as PostgreSQL
 
     C->>API: POST /api/v1/subscriptions (Idempotency-Key, planId, addressId, deliveryDay)
     API->>Svc: createSubscriptionCheckout(customerId, dto)
-    Svc->>DB: BEGIN & SELECT users WHERE id = sub AND deleted_at IS NULL FOR UPDATE
-    alt User missing/deleted
-        Svc-->>C: 401 AUTH_TOKEN_INVALID_OR_EXPIRED
+    Svc->>Svc: Check settings.isPayosEnabled (422 SUBSCRIPTION_PAYOS_DISABLED)
+    Svc->>Ship: quoteForCustomer(sub, addressId, { isSubscription: true })
+    alt Address missing/foreign or out of radius
+        Svc-->>C: 404 / 422 OUT_OF_DELIVERY_RADIUS (with maxRadiusKm)
     end
-    Svc->>DB: COUNT subscriptions WHERE customer_id = sub AND status = 'pending_payment'
-    alt Pending count >= 3
-        Svc-->>C: 422 SUBSCRIPTION_PENDING_LIMIT_REACHED
+    Svc->>DB: TX1: SELECT users FOR UPDATE; check pending cap <= 3; check active plan
+    alt Pending >= 3 or plan missing/inactive
+        Svc-->>C: 422 SUBSCRIPTION_PENDING_LIMIT_REACHED / 404 / 422 SUBSCRIPTION_PLAN_INACTIVE
     end
-    Svc->>DB: SELECT subscription_plans WHERE id = planId AND is_active = true AND deleted_at IS NULL
-    alt Plan missing or retired
-        Svc-->>C: 404 SUBSCRIPTION_PLAN_NOT_FOUND / 422 SUBSCRIPTION_PLAN_INACTIVE
+    Svc->>DB: Compute startDate & endDate; INSERT subscriptions (PENDING_PAYMENT, subscriptionCode, reservationExpiresAt +15m) + payments (PENDING, numeric orderCode)
+    DB-->>Svc: Commit TX1
+    Svc->>Driver: createPaymentLink({ orderCode, amountVnd, description=subscriptionCode, returnUrl, cancelUrl })
+    alt Gateway error or 10s timeout
+        Svc->>DB: Compensating TX: subscriptions=CANCELLED (reservationExpiresAt=null), payments=FAILED
+        Svc-->>C: 502 PAYMENT_GATEWAY_ERROR
+    else Success
+        Svc->>DB: TX2: UPDATE payments SET paymentUrl
+        Svc-->>C: 201 Created (SubscriptionDto with paymentUrl & reservationExpiresAt)
     end
-    Svc->>Ship: quoteForAddress(sub, addressId, { isSubscription: true })
-    alt isDeliverable === false
-        Svc-->>C: 422 OUT_OF_DELIVERY_RADIUS (with maxRadiusKm)
-    end
-    Svc->>Svc: Compute startDate (>= tomorrow ICT) & endDate (Nth deliveryDay)
-    Svc->>DB: INSERT subscriptions (status = pending_payment, plan + receiver + shipping snapshots)
-    Svc->>Pay: createSubscriptionPaymentIntent(subscriptionId, totalUpfrontVnd)
-    Svc->>DB: COMMIT
-    Svc-->>C: 201 Created (SubscriptionDto + paymentUrl)
 ```
+
+When PayOS delivers `POST /api/v1/payments/payos/webhook`, `PaymentsWebhookService` verifies HMAC-SHA256, locks `subscriptions -> payments` (`FOR UPDATE`), enforces idempotency (`PAID` / `referenceCode`) and `amountVnd === payment.amount` (`422`), refuses to resurrect `CANCELLED` subscriptions (recording `rawPayload` + `paidAt` with an error log), and transitions `PENDING_PAYMENT -> ACTIVE` (`reservationExpiresAt = null`).
 
 ### 3. Customer Read Projection (Child B)
 
 1. `GET /api/v1/subscriptions/me` (`@Get("me")` registered before `@Get(":id")`): Paginated (`page`, `limit`) list of `customerId = sub` subscriptions ordered by `createdAt DESC, id DESC`.
-2. `GET /api/v1/subscriptions/:id`: Validates UUIDv7 (`400 INVALID_UUID`) and queries `id = :id AND customerId = sub`; returns `404 SUBSCRIPTION_NOT_FOUND` for both missing and foreign rows. Projects snapshots, `remainingDeliveries`, `status`, `startDate`, `endDate`, and omits `payments.rawPayload`, `payments.referenceCode`, and `payments.verifiedBy`.
+2. `GET /api/v1/subscriptions/:id`: Validates UUIDv7 (`400 INVALID_UUID`) and queries `id = :id AND customerId = sub`; returns `404 SUBSCRIPTION_NOT_FOUND` for both missing and foreign rows. Projects `subscriptionCode`, snapshots, `remainingDeliveries`, `status`, `startDate`, `endDate`, `reservationExpiresAt`, and `paymentUrl` (populated strictly when `status === PENDING_PAYMENT`, otherwise `null`), omitting `payments.rawPayload`, `payments.referenceCode`, and `payments.verifiedBy`.
 
 ## Security & Reliability
 
 - **RBAC Isolation**: Plan mutations (`POST`/`PATCH`) and `/admin` listing require `UserRole.ADMIN` or `UserRole.SUPER_ADMIN` (`UserRole.STAFF` receives `403`). Subscription checkout and `/me` / `:id` reads require `UserRole.CUSTOMER`.
-- **Anti-Enumeration**: `GET /api/v1/subscriptions/:id` and `addressId` resolution return `404` regardless of whether the resource is absent or owned by another customer.
-- **Idempotency & Concurrency**: `POST /api/v1/subscriptions` enforces a user/route-scoped `Idempotency-Key` (`ADR-0008`, `ADR-0031`). Serializing checkout on `users ... FOR UPDATE` prevents concurrent requests from bypassing the `3` `PENDING_PAYMENT` cap.
-- **Fail-Closed Payment Activation**: `subscriptions` never enter `ACTIVE` until `PaymentsService` verifies payment settlement (`#243`). Unpaid `PENDING_PAYMENT` rows expire after `BUSINESS_RULES.ORDER_PAYMENT_TIMEOUT_MINUTES` (`15` minutes).
+- **Anti-Enumeration & Redirect Safety**: `GET /api/v1/subscriptions/:id` and `addressId` resolution return `404` regardless of whether the resource is absent or owned by another customer. `returnUrl`/`cancelUrl` are derived server-side from `env.STOREFRONT_URL`.
+- **Idempotency, Lock-Free Gateway I/O & Concurrency**: `POST /api/v1/subscriptions` enforces a user/route-scoped `Idempotency-Key` (`ADR-0008`, `ADR-0031`), serializes the `3` `PENDING_PAYMENT` cap on `users ... FOR UPDATE`, commits TX1 before calling `PaymentDriver.createPaymentLink`, and runs compensating cancellation on gateway errors (`ADR-0042`).
+- **Fail-Closed Payment Activation**: `subscriptions` never enter `ACTIVE` until `PaymentsWebhookService` verifies HMAC-SHA256 settlement (`#258`). Unpaid `PENDING_PAYMENT` rows carry `reservationExpiresAt = now + 15m` (`BUSINESS_RULES.ORDER_PAYMENT_TIMEOUT_MINUTES`) for expiry sweep (`#244`).
 
 ## Domain Invariant Taxonomy
 

@@ -18,13 +18,15 @@ Issue `#30` (Epic `#12`, split per `#88`) introduces administrative subscription
 - **Target modules**: `packages/shared`, `apps/api/src/database/schemas`, `apps/api/src/database/migrations`, `apps/api/src/modules/subscriptions`
 - **Issue**: `#30` (split into atomic children under `#12`)
 - **Spec Reference**: `docs/design/subscription-plans-and-checkout-formal-spec.md`
-- **Related**: `ADR-0002`, `ADR-0005`, `ADR-0008`, `ADR-0018`, `ADR-0030`, `ADR-0031`, `ADR-0034`, `ADR-0038`
+- **Related**: `ADR-0002`, `ADR-0005`, `ADR-0008`, `ADR-0018`, `ADR-0030`, `ADR-0031`, `ADR-0034`, `ADR-0038`, `ADR-0042`
 
 ## Decision
 
-- **Add `SubscriptionStatus.PENDING_PAYMENT` and 15-minute expiry**:
+- **Add `SubscriptionStatus.PENDING_PAYMENT`, `subscriptionCode`, and `reservationExpiresAt`**:
   - Extend `SubscriptionStatus` in `packages/shared/src/domain.enums.ts` (and PostgreSQL `subscription_status` enum via forward-only migration) with `PENDING_PAYMENT = "pending_payment"`.
-  - `POST /api/v1/subscriptions` creates `subscriptions` in `PENDING_PAYMENT` alongside an atomic `payments` row (`PENDING`, `subscriptionId` set) inside a single transaction, and transitions to `ACTIVE` only upon verified PayOS webhook settlement (`#243`). Unpaid `PENDING_PAYMENT` subscriptions expire after `BUSINESS_RULES.ORDER_PAYMENT_TIMEOUT_MINUTES` (`15` minutes).
+  - Add `subscriptionCode` (`varchar(50) NOT NULL`, unique index `subscriptions_subscription_code_uidx`, format `SUB-YYYYMMDD-XXXXXX`) and nullable `reservationExpiresAt` (`timestamptz`) with partial index `subscriptions_reservation_expires_at_idx` (`WHERE status = 'pending_payment' AND reservation_expires_at IS NOT NULL`) to `subscriptions`.
+  - `POST /api/v1/subscriptions` follows the two-phase PayOS checkout pattern (`ADR-0042`): TX1 inserts `subscriptions` (`PENDING_PAYMENT`, `reservationExpiresAt = now + 15m`) + `payments` (`PENDING`, `subscriptionId` set, numeric `orderCode`); `PaymentDriver.createPaymentLink` runs outside the DB transaction using `subscriptionCode` as `description`; TX2 persists `payments.paymentUrl` (or runs compensating cancellation to `CANCELLED`/`FAILED` on gateway failure).
+  - `PaymentsWebhookService` reconciles `subscriptionId` payments under `subscriptions -> payments` `FOR UPDATE` locking, transitioning `PENDING_PAYMENT -> ACTIVE` (`reservationExpiresAt = null`) on verified `PAID` webhooks while never resurrecting `CANCELLED` subscriptions. Unpaid `PENDING_PAYMENT` subscriptions expire after `BUSINESS_RULES.ORDER_PAYMENT_TIMEOUT_MINUTES` (`15` minutes, swept in `#244`).
 - **Collect `(subscriptionFreeRadiusKm, maxRadiusKm]` shipping upfront**:
   - At subscription checkout, `payments.amount` equals `plan.price + (plan.totalDeliveries * shippingFeePerDelivery)`. Both `price` and `shippingFeePerDelivery` remain stored separately on `subscriptions` so `#31` child orders stay `payment_status = paid` / `COD 0đ` and future cancellation/refund logic can account for undelivered cycles accurately.
 - **Snapshot `receiverName` and `receiverPhone` on `subscriptions`**:
