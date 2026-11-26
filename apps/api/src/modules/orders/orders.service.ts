@@ -64,7 +64,11 @@ import {
   PAYMENT_DRIVER_TOKEN,
   PAYMENT_ORDER_CODE_UIDX,
 } from "@/modules/payments/payments.constant";
-import { generatePayosOrderCode } from "@/modules/payments/payos.util";
+import {
+  cancelPaymentLinksBestEffort,
+  generatePayosOrderCode,
+  type PayosLinkCancelTarget,
+} from "@/modules/payments/payos.util";
 import type { PaymentDriver } from "@/modules/payments/payments.interface";
 import { AddressService } from "@/modules/users/address.service";
 import type {
@@ -356,44 +360,61 @@ export class OrdersService {
   async cancelMyOrder(sub: string, orderId: string): Promise<OrderProjection> {
     const hoursThreshold = await this.resolveHoursThreshold();
 
-    return this.db.transaction(async (tx) => {
-      const orderRow = await this.lockOrderForUpdate(tx, orderId);
+    const { projection, cancelledPayosOrderCode } = await this.db.transaction(
+      async (tx) => {
+        const orderRow = await this.lockOrderForUpdate(tx, orderId);
 
-      if (orderRow.customerId !== sub) {
-        throw new NotFoundException({
-          code: API_ERROR_CODES.ORDER_NOT_FOUND,
-          detail: MESSAGES.ORDERS.NOT_FOUND,
-        });
-      }
+        if (orderRow.customerId !== sub) {
+          throw new NotFoundException({
+            code: API_ERROR_CODES.ORDER_NOT_FOUND,
+            detail: MESSAGES.ORDERS.NOT_FOUND,
+          });
+        }
 
-      this.assertOrderCancellablePayment(orderRow);
+        this.assertOrderCancellablePayment(orderRow);
 
-      if (
-        orderRow.orderStatus !== OrderStatus.PENDING_PAYMENT &&
-        orderRow.orderStatus !== OrderStatus.PENDING_CONFIRMATION
-      ) {
-        throw new UnprocessableEntityException({
-          code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
-          detail: MESSAGES.ORDERS.INVALID_STATUS_TRANSITION,
-        });
-      }
+        if (
+          orderRow.orderStatus !== OrderStatus.PENDING_PAYMENT &&
+          orderRow.orderStatus !== OrderStatus.PENDING_CONFIRMATION
+        ) {
+          throw new UnprocessableEntityException({
+            code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
+            detail: MESSAGES.ORDERS.INVALID_STATUS_TRANSITION,
+          });
+        }
 
-      const cancelledOrder = await this.cancelOrderWithinTx(
-        tx,
-        orderRow,
-        hoursThreshold,
-        new Date(),
+        const { cancelledOrder, cancelledPayosOrderCode } =
+          await this.cancelOrderWithinTx(
+            tx,
+            orderRow,
+            hoursThreshold,
+            new Date(),
+          );
+
+        const itemRows = await this.fetchOrderItemsWithProduct(tx, [
+          cancelledOrder.id,
+        ]);
+
+        return {
+          projection: this.mapOrderRowToProjection(
+            cancelledOrder,
+            itemRows.map((row) => this.mapOrderItemProjection(row)),
+          ),
+          cancelledPayosOrderCode,
+        };
+      },
+    );
+
+    if (cancelledPayosOrderCode !== null) {
+      await cancelPaymentLinksBestEffort(
+        this.paymentDriver,
+        this.logger,
+        [{ orderCode: cancelledPayosOrderCode, referenceId: orderId }],
+        "Customer cancelled order",
       );
+    }
 
-      const itemRows = await this.fetchOrderItemsWithProduct(tx, [
-        cancelledOrder.id,
-      ]);
-
-      return this.mapOrderRowToProjection(
-        cancelledOrder,
-        itemRows.map((row) => this.mapOrderItemProjection(row)),
-      );
-    });
+    return projection;
   }
 
   /**
@@ -474,54 +495,83 @@ export class OrdersService {
         ? await this.resolveHoursThreshold()
         : null;
 
-    return this.db.transaction(async (tx) => {
-      const orderRow = await this.lockOrderForUpdate(tx, orderId);
-      const allowedNext =
-        ORDER_STATUS_TRANSITIONS.get(orderRow.orderStatus) ?? [];
+    const { projection, cancelledPayosOrderCode } = await this.db.transaction(
+      async (tx) => {
+        const orderRow = await this.lockOrderForUpdate(tx, orderId);
+        const allowedNext =
+          ORDER_STATUS_TRANSITIONS.get(orderRow.orderStatus) ?? [];
 
-      if (!allowedNext.includes(targetStatus)) {
-        throw new UnprocessableEntityException({
-          code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
-          detail: MESSAGES.ORDERS.INVALID_STATUS_TRANSITION,
-        });
-      }
+        if (!allowedNext.includes(targetStatus)) {
+          throw new UnprocessableEntityException({
+            code: API_ERROR_CODES.ORDER_INVALID_STATUS_TRANSITION,
+            detail: MESSAGES.ORDERS.INVALID_STATUS_TRANSITION,
+          });
+        }
 
-      const now = new Date();
+        const now = new Date();
 
-      if (targetStatus === OrderStatus.CANCELLED) {
-        const cancelledOrder = await this.cancelOrderWithinTx(
-          tx,
-          orderRow,
-          hoursThreshold ?? BUSINESS_RULES.FLASH_SALE_HOURS_THRESHOLD,
-          now,
-        );
+        if (targetStatus === OrderStatus.CANCELLED) {
+          const { cancelledOrder, cancelledPayosOrderCode } =
+            await this.cancelOrderWithinTx(
+              tx,
+              orderRow,
+              hoursThreshold ?? BUSINESS_RULES.FLASH_SALE_HOURS_THRESHOLD,
+              now,
+            );
 
-        return this.hydrateStaffOrderProjection(tx, cancelledOrder, "released");
-      }
+          return {
+            projection: await this.hydrateStaffOrderProjection(
+              tx,
+              cancelledOrder,
+              "released",
+            ),
+            cancelledPayosOrderCode,
+          };
+        }
 
-      const [updatedOrder] = await tx
-        .update(orders)
-        .set({
-          orderStatus: targetStatus,
-          ...(targetStatus === OrderStatus.DELIVERED
-            ? { deliveredAt: now }
-            : {}),
-          updatedAt: now,
-        })
-        .where(eq(orders.id, orderRow.id))
-        .returning(ORDER_COLUMNS);
+        const [updatedOrder] = await tx
+          .update(orders)
+          .set({
+            orderStatus: targetStatus,
+            ...(targetStatus === OrderStatus.DELIVERED
+              ? { deliveredAt: now }
+              : {}),
+            updatedAt: now,
+          })
+          .where(eq(orders.id, orderRow.id))
+          .returning(ORDER_COLUMNS);
 
-      if (!updatedOrder) {
-        throw new Error("Failed to update order status.");
-      }
+        if (!updatedOrder) {
+          throw new Error("Failed to update order status.");
+        }
 
-      return this.hydrateStaffOrderProjection(tx, updatedOrder, "active");
-    });
+        return {
+          projection: await this.hydrateStaffOrderProjection(
+            tx,
+            updatedOrder,
+            "active",
+          ),
+          cancelledPayosOrderCode: null,
+        };
+      },
+    );
+
+    if (cancelledPayosOrderCode !== null) {
+      await cancelPaymentLinksBestEffort(
+        this.paymentDriver,
+        this.logger,
+        [{ orderCode: cancelledPayosOrderCode, referenceId: orderId }],
+        "Staff cancelled order",
+      );
+    }
+
+    return projection;
   }
 
   /**
    * Cancels up to `EXPIRY_SWEEP_BATCH_SIZE` expired `pending_payment` / `pending_confirmation`
-   * reservations (`INV-ORD-22`), soft-releasing batch allocations and refunding loyalty points.
+   * reservations (`INV-ORD-22`), soft-releasing batch allocations and refunding loyalty points,
+   * then cancels active PayOS links post-commit (`INV-EXP-1`, `INV-EXP-2`).
    *
    * @param now Reference timestamp for expiration comparison.
    * @returns Number of expired orders cancelled in this sweep batch.
@@ -529,10 +579,11 @@ export class OrdersService {
   async expireStaleReservations(now: Date = new Date()): Promise<number> {
     const hoursThreshold = await this.resolveHoursThreshold();
     let expiredCount = 0;
+    const cancelledPayosTargets: PayosLinkCancelTarget[] = [];
 
     // Claim and cancel one expired order per short transaction so lock order strictly stays orders -> batches (id ASC) -> users across the batch.
     for (let i = 0; i < EXPIRY_SWEEP_BATCH_SIZE; i += 1) {
-      const expiredOne = await this.db.transaction(async (tx) => {
+      const result = await this.db.transaction(async (tx) => {
         const [orderRow] = await tx
           .select(ORDER_COLUMNS)
           .from(orders)
@@ -551,19 +602,40 @@ export class OrdersService {
           .for("update", { skipLocked: true });
 
         if (!orderRow) {
-          return false;
+          return null;
         }
 
-        await this.cancelOrderWithinTx(tx, orderRow, hoursThreshold, now);
-        return true;
+        const { cancelledPayosOrderCode } = await this.cancelOrderWithinTx(
+          tx,
+          orderRow,
+          hoursThreshold,
+          now,
+        );
+        return {
+          orderId: orderRow.id,
+          cancelledPayosOrderCode,
+        };
       });
 
-      if (!expiredOne) {
+      if (!result) {
         break;
       }
 
       expiredCount += 1;
+      if (result.cancelledPayosOrderCode !== null) {
+        cancelledPayosTargets.push({
+          orderCode: result.cancelledPayosOrderCode,
+          referenceId: result.orderId,
+        });
+      }
     }
+
+    await cancelPaymentLinksBestEffort(
+      this.paymentDriver,
+      this.logger,
+      cancelledPayosTargets,
+      "Order reservation expired",
+    );
 
     return expiredCount;
   }
@@ -1638,7 +1710,10 @@ export class OrdersService {
     hoursThreshold: number,
     now: Date,
     terminalPaymentStatus: PaymentStatus = PaymentStatus.CANCELLED,
-  ): Promise<OrderRow> {
+  ): Promise<{
+    cancelledOrder: OrderRow;
+    cancelledPayosOrderCode: number | null;
+  }> {
     this.assertOrderCancellablePayment(orderRow);
 
     if (ALLOCATED_CANCELLABLE_STATUSES.includes(orderRow.orderStatus)) {
@@ -1668,21 +1743,37 @@ export class OrdersService {
       throw new Error("Failed to cancel order record.");
     }
 
-    await tx
+    const paymentWhere = and(
+      eq(payments.orderId, orderRow.id),
+      eq(payments.status, PaymentStatus.PENDING),
+      eq(payments.transactionType, PaymentTransactionType.PAYMENT),
+    );
+
+    const paymentUpdate = tx
       .update(payments)
       .set({
         status: terminalPaymentStatus,
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(payments.orderId, orderRow.id),
-          eq(payments.status, PaymentStatus.PENDING),
-          eq(payments.transactionType, PaymentTransactionType.PAYMENT),
-        ),
-      );
+      .where(paymentWhere);
 
-    return cancelledOrder;
+    let cancelledPayosOrderCode: number | null = null;
+    if (
+      orderRow.paymentMethod === PaymentMethod.PAYOS &&
+      terminalPaymentStatus === PaymentStatus.CANCELLED
+    ) {
+      const cancelledPayments = await paymentUpdate.returning({
+        orderCode: payments.orderCode,
+      });
+
+      cancelledPayosOrderCode =
+        cancelledPayments.find((row) => row.orderCode !== null)?.orderCode ??
+        null;
+    } else {
+      await paymentUpdate;
+    }
+
+    return { cancelledOrder, cancelledPayosOrderCode };
   }
 
   private async lockOrderForUpdate(

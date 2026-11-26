@@ -10,7 +10,17 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+} from "drizzle-orm";
 import {
   API_ERROR_CODES,
   BUSINESS_RULES,
@@ -45,7 +55,11 @@ import {
   PAYMENT_ORDER_CODE_UIDX,
 } from "@/modules/payments/payments.constant";
 import type { PaymentDriver } from "@/modules/payments/payments.interface";
-import { generatePayosOrderCode } from "@/modules/payments/payos.util";
+import {
+  cancelPaymentLinksBestEffort,
+  generatePayosOrderCode,
+  type PayosLinkCancelTarget,
+} from "@/modules/payments/payos.util";
 import { AddressService } from "@/modules/users/address.service";
 import type {
   CreateSubscriptionCheckoutInput,
@@ -58,6 +72,7 @@ import {
   SUBSCRIPTION_CODE_PREFIX,
   SUBSCRIPTION_CODE_RANDOM_LENGTH,
   SUBSCRIPTION_CODE_UIDX,
+  SUBSCRIPTION_EXPIRY_SWEEP_BATCH_SIZE,
 } from "./subscriptions.constant";
 
 const VN_CALENDAR_FORMATTER = new Intl.DateTimeFormat("en-CA", {
@@ -278,6 +293,97 @@ export class SubscriptionsService {
         detail: MESSAGES.PAYMENTS.GATEWAY_ERROR,
       });
     }
+  }
+
+  /**
+   * Cancels up to `SUBSCRIPTION_EXPIRY_SWEEP_BATCH_SIZE` expired `pending_payment`
+   * subscriptions (`ADR-0041`, `INV-EXP-3`), marking their pending `payments` as `cancelled`,
+   * then cancels active PayOS links post-commit (`INV-EXP-1`, `INV-EXP-2`).
+   *
+   * @param now Reference timestamp for expiration comparison.
+   * @returns Number of expired subscriptions cancelled in this sweep batch.
+   */
+  async expireStaleReservations(now: Date = new Date()): Promise<number> {
+    let expiredCount = 0;
+    const cancelledPayosTargets: PayosLinkCancelTarget[] = [];
+
+    // Claim and cancel one expired subscription per short transaction so lock order stays subscriptions -> payments.
+    for (let i = 0; i < SUBSCRIPTION_EXPIRY_SWEEP_BATCH_SIZE; i += 1) {
+      const result = await this.db.transaction(async (tx) => {
+        const [subRow] = await tx
+          .select({ id: subscriptions.id })
+          .from(subscriptions)
+          .where(
+            and(
+              eq(subscriptions.status, SubscriptionStatus.PENDING_PAYMENT),
+              isNotNull(subscriptions.reservationExpiresAt),
+              lte(subscriptions.reservationExpiresAt, now),
+            ),
+          )
+          .orderBy(
+            asc(subscriptions.reservationExpiresAt),
+            asc(subscriptions.id),
+          )
+          .limit(1)
+          .for("update", { skipLocked: true });
+
+        if (!subRow) {
+          return null;
+        }
+
+        await tx
+          .update(subscriptions)
+          .set({
+            status: SubscriptionStatus.CANCELLED,
+            reservationExpiresAt: null,
+            updatedAt: now,
+          })
+          .where(eq(subscriptions.id, subRow.id));
+
+        const cancelledPayments = await tx
+          .update(payments)
+          .set({
+            status: PaymentStatus.CANCELLED,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(payments.subscriptionId, subRow.id),
+              eq(payments.status, PaymentStatus.PENDING),
+              eq(payments.transactionType, PaymentTransactionType.PAYMENT),
+            ),
+          )
+          .returning({ orderCode: payments.orderCode });
+
+        return {
+          subscriptionId: subRow.id,
+          cancelledPayosOrderCode:
+            cancelledPayments.find((row) => row.orderCode !== null)
+              ?.orderCode ?? null,
+        };
+      });
+
+      if (!result) {
+        break;
+      }
+
+      expiredCount += 1;
+      if (result.cancelledPayosOrderCode !== null) {
+        cancelledPayosTargets.push({
+          orderCode: result.cancelledPayosOrderCode,
+          referenceId: result.subscriptionId,
+        });
+      }
+    }
+
+    await cancelPaymentLinksBestEffort(
+      this.paymentDriver,
+      this.logger,
+      cancelledPayosTargets,
+      "Subscription reservation expired",
+    );
+
+    return expiredCount;
   }
 
   /**

@@ -22,3 +22,8 @@ export const PAYOS_DESCRIPTION_MAX_LENGTH = 25;
  * Partial unique index name enforcing PayOS numeric `order_code` uniqueness.
  */
 export const PAYMENT_ORDER_CODE_UIDX = "payments_order_code_uidx";
+
+/**
+ * Maximum concurrent upstream PayOS link-cancellation requests per sweep batch.
+ */
+export const PAYOS_CANCEL_LINK_CONCURRENCY = 5;

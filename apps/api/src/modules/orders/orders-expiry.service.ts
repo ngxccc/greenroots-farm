@@ -5,11 +5,12 @@ import {
   type OnModuleInit,
 } from "@nestjs/common";
 import { env } from "@/common/config/env.config";
+import { SubscriptionsService } from "@/modules/subscriptions/subscriptions.service";
 import { EXPIRY_SWEEP_INTERVAL_MS } from "./orders.constant";
 import { OrdersService } from "./orders.service";
 
 /**
- * Periodically sweeps expired order stock reservations (`INV-ORD-22`).
+ * Periodically sweeps expired order and subscription reservations (`INV-ORD-22`, `INV-EXP-4`).
  */
 @Injectable()
 export class OrdersExpiryService implements OnModuleInit, OnModuleDestroy {
@@ -17,7 +18,10 @@ export class OrdersExpiryService implements OnModuleInit, OnModuleDestroy {
   private timer: NodeJS.Timeout | null = null;
   private isRunning = false;
 
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly subscriptionsService: SubscriptionsService,
+  ) {}
 
   onModuleInit(): void {
     if (env.NODE_ENV === "test") {
@@ -38,7 +42,7 @@ export class OrdersExpiryService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Executes one expiry sweep pass unless another pass is already in flight.
+   * Executes one expiry sweep pass for orders and subscriptions unless another pass is already in flight.
    */
   async runSweep(now: Date = new Date()): Promise<number> {
     if (this.isRunning) {
@@ -47,18 +51,40 @@ export class OrdersExpiryService implements OnModuleInit, OnModuleDestroy {
 
     this.isRunning = true;
     try {
-      const expiredCount =
-        await this.ordersService.expireStaleReservations(now);
-      if (expiredCount > 0) {
-        this.logger.log(`Expired ${expiredCount} stale order reservation(s).`);
+      let expiredOrders = 0;
+      let expiredSubscriptions = 0;
+
+      // Isolate order and subscription sweeps so an error in one domain never starves the other.
+      try {
+        expiredOrders = await this.ordersService.expireStaleReservations(now);
+        if (expiredOrders > 0) {
+          this.logger.log(
+            `Expired ${expiredOrders} stale order reservation(s).`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          "Error occurred during order reservation expiry sweep",
+          error instanceof Error ? error.stack : String(error),
+        );
       }
-      return expiredCount;
-    } catch (error) {
-      this.logger.error(
-        "Error occurred during order reservation expiry sweep",
-        error instanceof Error ? error.stack : String(error),
-      );
-      return 0;
+
+      try {
+        expiredSubscriptions =
+          await this.subscriptionsService.expireStaleReservations(now);
+        if (expiredSubscriptions > 0) {
+          this.logger.log(
+            `Expired ${expiredSubscriptions} stale subscription reservation(s).`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          "Error occurred during subscription reservation expiry sweep",
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+
+      return expiredOrders + expiredSubscriptions;
     } finally {
       this.isRunning = false;
     }
