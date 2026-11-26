@@ -190,6 +190,8 @@ describe("order-actions", () => {
         discountAmountVnd: 5_000,
         loyaltyPointsUsed: 5_000,
         totalAmountVnd: 101_000,
+        paymentUrl: null,
+        reservationExpiresAt: null,
         items: [],
         createdAt: "2026-11-24T14:00:00.000Z",
         updatedAt: "2026-11-24T14:00:00.000Z",

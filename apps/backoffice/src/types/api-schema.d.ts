@@ -1043,8 +1043,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Place a Cash-on-Delivery retail order
-         * @description Atomically creates a COD order in pending_confirmation with server-recomputed pricing, enforced minimum order value, delivery radius validation, serialized loyalty-point deduction, and paired payment ledger record.
+         * Place a retail COD or PayOS order
+         * @description Atomically creates a COD (pending_confirmation) or PayOS (pending_payment with checkout link) order with server-recomputed pricing, enforced minimum order value, delivery radius validation, serialized loyalty-point deduction, FEFO batch reservation, and paired payment ledger record.
          */
         post: operations["OrdersController_checkout_v1"];
         delete?: never;
@@ -1127,6 +1127,26 @@ export interface paths {
          * @description Calculates server-authoritative straight-line distance, road distance, deliverability, and integer VND fee from dynamic farm settings for an owned address or HCMC district code.
          */
         post: operations["ShippingController_quote_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/payos/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconcile PayOS HMAC-SHA256 payment webhook
+         * @description Public webhook receiver that verifies PayOS HMAC-SHA256 signatures and idempotently settles pending PayOS orders.
+         */
+        post: operations["PaymentsController_handlePayosWebhook_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2187,6 +2207,8 @@ export interface components {
             discountAmountVnd: number;
             loyaltyPointsUsed: number;
             totalAmountVnd: number;
+            paymentUrl: string | null;
+            reservationExpiresAt: string | null;
             items: {
                 /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
                 id: string;
@@ -2262,6 +2284,11 @@ export interface components {
             /** @default 0 */
             loyaltyPoints: number;
             clientTotalVnd?: number;
+            /**
+             * @default cod
+             * @enum {string}
+             */
+            paymentMethod: "cod" | "payos";
         };
         StaffOrderDto: {
             /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
@@ -2282,6 +2309,8 @@ export interface components {
             discountAmountVnd: number;
             loyaltyPointsUsed: number;
             totalAmountVnd: number;
+            paymentUrl: string | null;
+            reservationExpiresAt: string | null;
             items: {
                 /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
                 id: string;
@@ -2356,6 +2385,19 @@ export interface components {
             districtCode?: string;
             /** @default false */
             isSubscription: boolean;
+        };
+        PayosWebhookResponseDto: {
+            received: boolean;
+        };
+        PayosWebhookRequestDto: {
+            code: string;
+            desc: string;
+            success?: boolean;
+            data: {
+                [key: string]: unknown;
+            };
+            /** @default  */
+            signature: string;
         };
         SubscriptionPlanDto: {
             /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
@@ -11291,6 +11333,26 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
                 };
             };
+            /** @description Payment gateway link creation failed (Bad Gateway) */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-gateway",
+                     *       "title": "Bad Gateway",
+                     *       "status": 502,
+                     *       "detail": "Failed to create PayOS payment link with upstream gateway.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
             /** @description Idempotency store unavailable (Service Unavailable) */
             503: {
                 headers: {
@@ -11984,6 +12046,136 @@ export interface operations {
                      *       "title": "Too Many Requests",
                      *       "status": 429,
                      *       "detail": "Too many requests. Please try again later.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_handlePayosWebhook_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayosWebhookRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data: components["schemas"]["PayosWebhookResponseDto"];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Resource not found (Not Found) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/not-found",
+                     *       "title": "Not Found",
+                     *       "status": 404,
+                     *       "detail": "The requested resource could not be found",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Semantic validation failure (Unprocessable Entity) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unprocessable-entity",
+                     *       "title": "Unprocessable Entity",
+                     *       "status": 422,
+                     *       "detail": "The request was well-formed but could not be processed due to semantic errors",
                      *       "instance": "/api/v1/resource",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"

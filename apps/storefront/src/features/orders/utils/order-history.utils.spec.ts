@@ -26,6 +26,8 @@ const sampleOrder: OrderDto = {
   discountAmountVnd: 0,
   loyaltyPointsUsed: 0,
   totalAmountVnd: 117_000,
+  paymentUrl: null,
+  reservationExpiresAt: null,
   items: [
     {
       id: "019fa8bc-8f4d-7000-b366-e691f45cfb92",

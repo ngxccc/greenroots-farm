@@ -22,6 +22,8 @@ const sampleOrder: OrderDto = {
   discountAmountVnd: 0,
   loyaltyPointsUsed: 0,
   totalAmountVnd: 165_000,
+  paymentUrl: null,
+  reservationExpiresAt: null,
   items: [],
   createdAt: "2026-11-25T01:00:00.000Z",
   updatedAt: "2026-11-25T01:00:00.000Z",

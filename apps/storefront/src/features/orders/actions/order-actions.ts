@@ -1,6 +1,10 @@
 "use server";
 
-import { API_ERROR_CODES, type ApiErrorCode } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  type ApiErrorCode,
+  PaymentMethod,
+} from "@greenroots/shared";
 import { api } from "@/lib/api-client";
 import {
   type BffActionFailure,
@@ -230,7 +234,10 @@ export async function executeCheckoutCodAction(
             "Idempotency-Key": key,
           },
         },
-        body: reqBody,
+        body: {
+          ...reqBody,
+          paymentMethod: PaymentMethod.COD,
+        },
       }));
 
   return runProtectedOrderCall(
