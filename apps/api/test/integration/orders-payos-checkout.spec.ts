@@ -6,6 +6,7 @@ import {
   describe,
   expect,
   it,
+  spyOn,
 } from "bun:test";
 import request from "supertest";
 import type { INestApplication } from "@nestjs/common";
@@ -15,11 +16,13 @@ import {
   API_ERROR_CODES,
   BatchStatus,
   BUSINESS_RULES,
+  DeliveryDay,
   HCMC_DISTRICTS,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
   PaymentTransactionType,
+  SubscriptionStatus,
   UserRole,
   UserStatus,
 } from "@greenroots/shared";
@@ -33,6 +36,7 @@ import {
   orderItems,
   orders,
   payments,
+  subscriptions,
   userAddresses,
   users,
 } from "@/database/schemas";
@@ -40,6 +44,7 @@ import {
   FARM_SETTINGS_CACHE_KEY,
   FARM_SETTINGS_INVALIDATED_AT_KEY,
 } from "@/modules/farms/farms.constant";
+import { OrdersExpiryService } from "@/modules/orders/orders-expiry.service";
 import { OrdersService } from "@/modules/orders/orders.service";
 import { MockPaymentDriver } from "@/modules/payments/drivers/mock-payment.driver";
 import { PAYMENT_DRIVER_TOKEN } from "@/modules/payments/payments.constant";
@@ -51,6 +56,7 @@ import {
   createPlot,
   createProduct,
   createSeason,
+  createSubscriptionPlan,
 } from "../factories";
 import type { components } from "../generated/api-schema";
 import {
@@ -59,10 +65,14 @@ import {
   teardownTestApp,
   type TestAppSetup,
 } from "../helpers/app.helper";
-import { createAuthenticatedUser } from "../helpers/auth.helper";
+import {
+  createAuthenticatedAdmin,
+  createAuthenticatedUser,
+} from "../helpers/auth.helper";
 
 type OrderResponse = components["schemas"]["OrderDto"];
 type PayosWebhookResponse = components["schemas"]["PayosWebhookResponseDto"];
+type SubscriptionResponse = components["schemas"]["SubscriptionDto"];
 
 const QUAN_1 = HCMC_DISTRICTS.find((d) => d.code === "quan-1")!;
 
@@ -825,6 +835,243 @@ describe("Orders Integration", () => {
         .where(eq(orders.id, order.id));
       expect(settledOrder!.orderStatus).toBe(OrderStatus.CONFIRMED);
       expect(settledOrder!.paymentStatus).toBe(PaymentStatus.PAID);
+    });
+  });
+
+  describe("15-Minute Reservation Expiry and Link Cancellation", () => {
+    // Invariant: INV-EXP-1, INV-EXP-3, INV-EXP-5
+    it("expires stale PayOS orders and subscriptions, restores stock, and cancels only PayOS links post-commit", async () => {
+      const payosOrderRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          addressId: deliverableAddressId,
+          paymentMethod: PaymentMethod.PAYOS,
+          loyaltyPoints: 10_000,
+          items: [{ productId: regularProductId, quantity: 3 }],
+        })
+        .expect(201);
+      const payosOrderId = (payosOrderRes.body as ApiResponse<OrderResponse>)
+        .data.id;
+
+      const codOrderRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          addressId: deliverableAddressId,
+          paymentMethod: PaymentMethod.COD,
+          items: [{ productId: regularProductId, quantity: 2 }],
+        })
+        .expect(201);
+      const codOrderId = (codOrderRes.body as ApiResponse<OrderResponse>).data
+        .id;
+
+      const plan = await createSubscriptionPlan(setup.db);
+      const subRes = await request(app.getHttpServer())
+        .post("/api/v1/subscriptions")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          planId: plan.id,
+          addressId: deliverableAddressId,
+          deliveryDay: DeliveryDay.TUESDAY,
+        })
+        .expect(201);
+      const subscriptionId = (subRes.body as ApiResponse<SubscriptionResponse>)
+        .data.id;
+
+      const [payosOrderPayment] = await setup.db
+        .select()
+        .from(payments)
+        .where(eq(payments.orderId, payosOrderId));
+      const [subPayment] = await setup.db
+        .select()
+        .from(payments)
+        .where(eq(payments.subscriptionId, subscriptionId));
+
+      const pastDeadline = new Date(Date.now() - 60_000);
+      await setup.db
+        .update(orders)
+        .set({ reservationExpiresAt: pastDeadline })
+        .where(eq(orders.id, payosOrderId));
+      await setup.db
+        .update(orders)
+        .set({ reservationExpiresAt: pastDeadline })
+        .where(eq(orders.id, codOrderId));
+      await setup.db
+        .update(subscriptions)
+        .set({ reservationExpiresAt: pastDeadline })
+        .where(eq(subscriptions.id, subscriptionId));
+
+      const cancelSpy = spyOn(mockPaymentDriver, "cancelPaymentLink");
+      try {
+        const expiryService = app.get(OrdersExpiryService);
+        const sweptCount = await expiryService.runSweep(new Date());
+        expect(sweptCount).toBe(3);
+
+        expect(cancelSpy).toHaveBeenCalledTimes(2);
+        const cancelledCodes = cancelSpy.mock.calls.map((call) => call[0]);
+        expect(cancelledCodes).toContain(payosOrderPayment!.orderCode!);
+        expect(cancelledCodes).toContain(subPayment!.orderCode!);
+      } finally {
+        cancelSpy.mockRestore();
+      }
+
+      const [expiredOrder] = await setup.db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, payosOrderId));
+      expect(expiredOrder!.orderStatus).toBe(OrderStatus.CANCELLED);
+      expect(expiredOrder!.paymentStatus).toBe(PaymentStatus.CANCELLED);
+      expect(expiredOrder!.reservationExpiresAt).toBeNull();
+
+      const [expiredSub] = await setup.db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.id, subscriptionId));
+      expect(expiredSub!.status).toBe(SubscriptionStatus.CANCELLED);
+      expect(expiredSub!.reservationExpiresAt).toBeNull();
+
+      const [expiredOrderPayment] = await setup.db
+        .select()
+        .from(payments)
+        .where(eq(payments.id, payosOrderPayment!.id));
+      expect(expiredOrderPayment!.status).toBe(PaymentStatus.CANCELLED);
+
+      const [expiredSubPayment] = await setup.db
+        .select()
+        .from(payments)
+        .where(eq(payments.id, subPayment!.id));
+      expect(expiredSubPayment!.status).toBe(PaymentStatus.CANCELLED);
+
+      const [batchAfter] = await setup.db
+        .select()
+        .from(batches)
+        .where(eq(batches.productId, regularProductId));
+      expect(Number(batchAfter!.availableQuantity)).toBe(20);
+
+      const [customerAfter] = await setup.db
+        .select({ rewardPoints: users.rewardPoints })
+        .from(users)
+        .where(eq(users.id, customerId));
+      expect(customerAfter!.rewardPoints).toBe(50_000);
+    });
+
+    // Invariant: INV-EXP-2
+    it("commits DB cancellation and restores stock even when cancelPaymentLink rejects", async () => {
+      const payosOrderRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          addressId: deliverableAddressId,
+          paymentMethod: PaymentMethod.PAYOS,
+          items: [{ productId: regularProductId, quantity: 4 }],
+        })
+        .expect(201);
+      const payosOrderId = (payosOrderRes.body as ApiResponse<OrderResponse>)
+        .data.id;
+
+      await setup.db
+        .update(orders)
+        .set({ reservationExpiresAt: new Date(Date.now() - 60_000) })
+        .where(eq(orders.id, payosOrderId));
+
+      const cancelSpy = spyOn(
+        mockPaymentDriver,
+        "cancelPaymentLink",
+      ).mockRejectedValue(new Error("PayOS upstream 503"));
+
+      try {
+        const expiryService = app.get(OrdersExpiryService);
+        const sweptCount = await expiryService.runSweep(new Date());
+        expect(sweptCount).toBe(1);
+        expect(cancelSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        cancelSpy.mockRestore();
+      }
+
+      const [cancelledOrder] = await setup.db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, payosOrderId));
+      expect(cancelledOrder!.orderStatus).toBe(OrderStatus.CANCELLED);
+      expect(cancelledOrder!.paymentStatus).toBe(PaymentStatus.CANCELLED);
+
+      const [batchAfter] = await setup.db
+        .select()
+        .from(batches)
+        .where(eq(batches.productId, regularProductId));
+      expect(Number(batchAfter!.availableQuantity)).toBe(20);
+    });
+
+    // Invariant: INV-EXP-1
+    it("cancels upstream PayOS link on customer self-cancel and staff cancel of pending_payment orders", async () => {
+      const customerOrderRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          addressId: deliverableAddressId,
+          paymentMethod: PaymentMethod.PAYOS,
+          items: [{ productId: regularProductId, quantity: 1 }],
+        })
+        .expect(201);
+      const customerOrderId = (
+        customerOrderRes.body as ApiResponse<OrderResponse>
+      ).data.id;
+
+      const staffTargetOrderRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          addressId: deliverableAddressId,
+          paymentMethod: PaymentMethod.PAYOS,
+          items: [{ productId: regularProductId, quantity: 1 }],
+        })
+        .expect(201);
+      const staffTargetOrderId = (
+        staffTargetOrderRes.body as ApiResponse<OrderResponse>
+      ).data.id;
+
+      const [custPayment] = await setup.db
+        .select()
+        .from(payments)
+        .where(eq(payments.orderId, customerOrderId));
+      const [staffPayment] = await setup.db
+        .select()
+        .from(payments)
+        .where(eq(payments.orderId, staffTargetOrderId));
+
+      const { authHeader: adminHeader } = await createAuthenticatedAdmin(
+        setup.db,
+        jwtService,
+        UserRole.ADMIN,
+      );
+
+      const cancelSpy = spyOn(mockPaymentDriver, "cancelPaymentLink");
+      try {
+        await request(app.getHttpServer())
+          .post(`/api/v1/orders/${customerOrderId}/cancel`)
+          .set(customerHeader)
+          .expect(200);
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/orders/${staffTargetOrderId}/status`)
+          .set(adminHeader)
+          .send({ status: OrderStatus.CANCELLED })
+          .expect(200);
+
+        expect(cancelSpy).toHaveBeenCalledTimes(2);
+        const cancelledCodes = cancelSpy.mock.calls.map((call) => call[0]);
+        expect(cancelledCodes).toContain(custPayment!.orderCode!);
+        expect(cancelledCodes).toContain(staffPayment!.orderCode!);
+      } finally {
+        cancelSpy.mockRestore();
+      }
     });
   });
 });

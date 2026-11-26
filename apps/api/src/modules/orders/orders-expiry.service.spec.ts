@@ -1,18 +1,26 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { env } from "@/common/config/env.config";
+import type { SubscriptionsService } from "@/modules/subscriptions/subscriptions.service";
 import { EXPIRY_SWEEP_INTERVAL_MS } from "./orders.constant";
 import { OrdersExpiryService } from "./orders-expiry.service";
 import type { OrdersService } from "./orders.service";
 
 describe("OrdersExpiryService", () => {
-  let expireStaleReservationsMock: ReturnType<typeof mock>;
+  let expireOrderReservationsMock: ReturnType<typeof mock>;
+  let expireSubscriptionReservationsMock: ReturnType<typeof mock>;
   let service: OrdersExpiryService;
 
   beforeEach(() => {
-    expireStaleReservationsMock = mock(() => Promise.resolve(0));
-    service = new OrdersExpiryService({
-      expireStaleReservations: expireStaleReservationsMock,
-    } as unknown as OrdersService);
+    expireOrderReservationsMock = mock(() => Promise.resolve(0));
+    expireSubscriptionReservationsMock = mock(() => Promise.resolve(0));
+    service = new OrdersExpiryService(
+      {
+        expireStaleReservations: expireOrderReservationsMock,
+      } as unknown as OrdersService,
+      {
+        expireStaleReservations: expireSubscriptionReservationsMock,
+      } as unknown as SubscriptionsService,
+    );
   });
 
   describe("onModuleInit", () => {
@@ -88,7 +96,7 @@ describe("OrdersExpiryService", () => {
   describe("runSweep", () => {
     it("skips overlapping runs while a sweep is already in progress", async () => {
       let resolveFirst!: (value: number) => void;
-      expireStaleReservationsMock.mockImplementationOnce(
+      expireOrderReservationsMock.mockImplementationOnce(
         () =>
           new Promise<number>((resolve) => {
             resolveFirst = resolve;
@@ -99,28 +107,31 @@ describe("OrdersExpiryService", () => {
       const overlappingResult = await service.runSweep();
 
       expect(overlappingResult).toBe(0);
-      expect(expireStaleReservationsMock).toHaveBeenCalledTimes(1);
+      expect(expireOrderReservationsMock).toHaveBeenCalledTimes(1);
 
       resolveFirst(2);
       expect(await firstRun).toBe(2);
     });
 
-    it("logs and returns zero when the sweep throws an error", async () => {
+    // Invariant: INV-EXP-4
+    it("isolates order sweep failures from subscription sweep and sums expired counts", async () => {
       const errorMock = mock(() => undefined);
       (
         service as unknown as { logger: { error: typeof errorMock } }
       ).logger.error = errorMock;
-      expireStaleReservationsMock.mockRejectedValueOnce(
+      expireOrderReservationsMock.mockRejectedValueOnce(
         new Error("Database connection lost"),
       );
+      expireSubscriptionReservationsMock.mockResolvedValueOnce(2);
 
-      const result = await service.runSweep();
+      const partialResult = await service.runSweep();
 
-      expect(result).toBe(0);
+      expect(partialResult).toBe(2);
       expect(errorMock).toHaveBeenCalledTimes(1);
 
-      expireStaleReservationsMock.mockResolvedValueOnce(1);
-      expect(await service.runSweep()).toBe(1);
+      expireOrderReservationsMock.mockResolvedValueOnce(1);
+      expireSubscriptionReservationsMock.mockResolvedValueOnce(3);
+      expect(await service.runSweep()).toBe(4);
     });
   });
 });

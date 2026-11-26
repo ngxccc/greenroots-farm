@@ -394,4 +394,73 @@ describe("SubscriptionsService", () => {
       });
     });
   });
+
+  describe("expireStaleReservations", () => {
+    it("returns zero without mutating records when no subscriptions have expired", async () => {
+      mockDb.setSelectResultsQueue([[]]);
+
+      const expiredCount = await service.expireStaleReservations(
+        new Date("2026-11-26T10:00:00.000Z"),
+      );
+
+      expect(expiredCount).toBe(0);
+      expect(mockDb.update).not.toHaveBeenCalled();
+    });
+
+    // Invariant: INV-EXP-1, INV-EXP-2, INV-EXP-3
+    it("cancels expired pending_payment subscriptions and invokes cancelPaymentLink post-commit", async () => {
+      const now = new Date("2026-11-26T10:00:00.000Z");
+      const subscriptionUpdates: Record<string, unknown>[] = [];
+      const paymentUpdates: Record<string, unknown>[] = [];
+
+      const origUpdate = mockDb.update.bind(mockDb);
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          if (table === subscriptions) subscriptionUpdates.push(vals);
+          if (table === payments) paymentUpdates.push(vals);
+          return origUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+
+      const cancelPaymentLinkMock = mock(() =>
+        Promise.resolve({
+          paymentLinkId: "link-1",
+          orderCode: 987654321,
+          status: "CANCELLED" as const,
+          canceledAt: now.toISOString(),
+          cancellationReason: "Subscription reservation expired",
+        }),
+      );
+      (
+        service as unknown as {
+          paymentDriver: { cancelPaymentLink: typeof cancelPaymentLinkMock };
+        }
+      ).paymentDriver.cancelPaymentLink = cancelPaymentLinkMock;
+
+      mockDb.setSelectResultsQueue([
+        [{ id: subscriptionId }],
+        [{ orderCode: 987654321 }],
+        [],
+      ]);
+
+      const expiredCount = await service.expireStaleReservations(now);
+
+      expect(expiredCount).toBe(1);
+      expect(subscriptionUpdates).toHaveLength(1);
+      expect(subscriptionUpdates[0]).toMatchObject({
+        status: SubscriptionStatus.CANCELLED,
+        reservationExpiresAt: null,
+        updatedAt: now,
+      });
+      expect(paymentUpdates).toHaveLength(1);
+      expect(paymentUpdates[0]).toMatchObject({
+        status: PaymentStatus.CANCELLED,
+        updatedAt: now,
+      });
+      expect(cancelPaymentLinkMock).toHaveBeenCalledWith(
+        987654321,
+        "Subscription reservation expired",
+      );
+    });
+  });
 });
