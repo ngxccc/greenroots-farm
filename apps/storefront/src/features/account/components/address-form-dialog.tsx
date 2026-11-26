@@ -82,7 +82,7 @@ export function AddressFormDialogView({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={!isPending}
-        className="max-h-[90vh] overflow-x-hidden overflow-y-auto bg-white sm:max-w-2xl"
+        className="max-h-[90vh] overflow-x-hidden overflow-y-auto bg-white sm:max-w-xl"
       >
         <DialogHeader className="min-w-0">
           <DialogTitle className="font-bold text-gray-900">
