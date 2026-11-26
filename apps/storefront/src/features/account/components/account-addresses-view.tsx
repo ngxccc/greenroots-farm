@@ -37,9 +37,9 @@ export function buildDeleteAddressConfirmDescription(
   totalAddresses: number,
 ): string {
   if (address.isDefault && totalAddresses > 1) {
-    return `Bạn có chắc muốn xóa địa chỉ mặc định "${address.streetAddress}, ${address.district}"? Hệ thống sẽ tự động đặt địa chỉ mới nhất còn lại làm mặc định.`;
+    return `Bạn có chắc muốn xóa địa chỉ mặc định "${address.streetAddress}, ${address.ward}"? Hệ thống sẽ tự động đặt địa chỉ mới nhất còn lại làm mặc định.`;
   }
-  return `Bạn có chắc muốn xóa địa chỉ "${address.streetAddress}, ${address.district}"? Các đơn hàng đã đặt trước đó vẫn giữ nguyên địa chỉ giao hàng.`;
+  return `Bạn có chắc muốn xóa địa chỉ "${address.streetAddress}, ${address.ward}"? Các đơn hàng đã đặt trước đó vẫn giữ nguyên địa chỉ giao hàng.`;
 }
 
 interface AccountAddressesListCardProps {

@@ -406,7 +406,7 @@ export interface paths {
         };
         /**
          * Autocomplete Ho Chi Minh City delivery addresses
-         * @description Returns place suggestions (placeId, description, district) for authenticated customers using Goong Place Autocomplete or deterministic mock fixtures.
+         * @description Returns place suggestions (placeId, description, ward) for authenticated customers using Goong/Vietmap Place Autocomplete or deterministic mock fixtures.
          */
         get: operations["GeocodingController_autocomplete_v1"];
         put?: never;
@@ -1534,7 +1534,7 @@ export interface components {
             phoneNumber: string;
             streetAddress: string;
             placeId: string;
-            district: string;
+            ward: string;
             city: string;
             isDefault: boolean;
             /** Format: date-time */
@@ -1632,7 +1632,7 @@ export interface components {
         PlaceSuggestionDto: {
             placeId: string;
             description: string;
-            district: string;
+            ward: string;
         };
         FarmSettingsDto: {
             /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */

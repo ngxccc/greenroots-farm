@@ -170,9 +170,7 @@ function AddressDialogAuthenticatedContent({
   const [newPhoneNumber, setNewPhoneNumber] = useState(user.phone ?? "");
   const [newPlaceId, setNewPlaceId] = useState("");
   const [newPlaceLabel, setNewPlaceLabel] = useState("");
-  const [newDistrictName, setNewDistrictName] = useState<string | undefined>(
-    undefined,
-  );
+  const [newWardName, setNewWardName] = useState<string | undefined>(undefined);
   const [newStreetAddress, setNewStreetAddress] = useState("");
   const [newIsDefault, setNewIsDefault] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -256,7 +254,7 @@ function AddressDialogAuthenticatedContent({
     setNewPhoneNumber(user.phone ?? "");
     setNewPlaceId("");
     setNewPlaceLabel("");
-    setNewDistrictName(undefined);
+    setNewWardName(undefined);
     setNewStreetAddress("");
     setNewIsDefault(savedAddresses.length === 0);
     onModeChange("create");
@@ -265,10 +263,7 @@ function AddressDialogAuthenticatedContent({
   function handlePlaceSelect(suggestion: PlaceSuggestion) {
     setNewPlaceId(suggestion.placeId);
     setNewPlaceLabel(suggestion.description);
-    setNewDistrictName(suggestion.district);
-    if (!newStreetAddress.trim()) {
-      setNewStreetAddress(suggestion.description);
-    }
+    setNewWardName(suggestion.ward);
   }
 
   function handleConfirmSelection() {
@@ -333,7 +328,7 @@ function AddressDialogAuthenticatedContent({
       <form
         noValidate
         onSubmit={(event) => void handleCreateNewAddress(event)}
-        className="space-y-4"
+        className="min-w-0 space-y-4"
       >
         <AddressFormFields
           idPrefix="header-dialog-address"
@@ -341,7 +336,7 @@ function AddressDialogAuthenticatedContent({
           phoneNumber={newPhoneNumber}
           placeId={newPlaceId}
           selectedPlaceLabel={newPlaceLabel}
-          selectedDistrictName={newDistrictName}
+          selectedWardName={newWardName}
           streetAddress={newStreetAddress}
           showDefaultCheckbox={true}
           isDefault={newIsDefault}
@@ -485,7 +480,7 @@ function AddressDialogAuthenticatedContent({
                         ) : null}
                       </div>
                       <p className="mt-1 line-clamp-2 text-xs text-gray-600">
-                        {addr.streetAddress}, {addr.district}, {addr.city}
+                        {addr.streetAddress}, {addr.ward}, {addr.city}
                       </p>
                     </div>
                     {isSelected ? (
@@ -582,7 +577,7 @@ export function AddressDialogPanel({
     <Dialog open={open} onOpenChange={handleUserOpenChange}>
       <DialogContent
         showCloseButton={!isSubmitting}
-        className="max-h-[90vh] overflow-y-auto bg-white sm:max-w-lg"
+        className="max-h-[90vh] overflow-x-hidden overflow-y-auto bg-white sm:max-w-2xl"
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-bold text-brand-dark">

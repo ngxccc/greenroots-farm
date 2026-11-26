@@ -19,7 +19,7 @@ const sampleAddress: CustomerAddress = {
   phoneNumber: "0908412679",
   streetAddress: "142 Lê Đức Thọ, Phường 15",
   placeId: "mock_place_go_vap",
-  district: "Quận Gò Vấp",
+  ward: "Phường Gò Vấp",
   city: "TP. Hồ Chí Minh",
   isDefault: true,
   createdAt: "2026-11-23T00:00:00.000Z",

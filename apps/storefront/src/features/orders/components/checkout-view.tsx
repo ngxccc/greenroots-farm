@@ -411,7 +411,7 @@ export function CheckoutView() {
                           {addr.receiverName} — {addr.phoneNumber}
                         </span>
                         <span className="text-xs font-normal text-gray-600">
-                          {addr.streetAddress}, {addr.district}, {addr.city}
+                          {addr.streetAddress}, {addr.ward}, {addr.city}
                         </span>
                       </Label>
                     </div>
@@ -422,7 +422,7 @@ export function CheckoutView() {
 
             {activeAddress ? (
               <DeliveryQuoteSummary
-                districtName={activeAddress.district}
+                districtName={activeAddress.ward}
                 quote={validation?.shipping ?? null}
                 isLoading={isValidating}
                 errorMessage={validationError}

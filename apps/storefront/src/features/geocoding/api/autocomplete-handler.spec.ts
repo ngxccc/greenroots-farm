@@ -38,7 +38,7 @@ describe("handleGeocodingAutocompleteGet", () => {
       {
         placeId: "mock_place_quan_7",
         description: "12 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
-        district: "Quận 7",
+        ward: "Phường Tân Phú",
       },
     ];
     const req = new Request(

@@ -68,7 +68,7 @@ export function AddressCard({
         </div>
 
         <p className="text-sm text-gray-800">
-          {address.streetAddress}, {address.district}, {address.city}
+          {address.streetAddress}, {address.ward}, {address.city}
         </p>
 
         {isLoading ? (

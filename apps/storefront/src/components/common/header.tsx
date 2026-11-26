@@ -155,7 +155,7 @@ function DeliveryLocationSubBar() {
           <span className="shrink-0 text-gray-500">Giao đến:</span>
           <span className="min-w-0 truncate font-semibold text-gray-900 tabular-nums">
             {activeSavedAddress
-              ? `${activeSavedAddress.streetAddress}, ${activeSavedAddress.district}`
+              ? `${activeSavedAddress.streetAddress}, ${activeSavedAddress.ward}`
               : `TP. Hồ Chí Minh (bán kính ${BUSINESS_RULES.SHIPPING.MAX_RADIUS_KM} km)`}
             {distanceSuffix}
           </span>

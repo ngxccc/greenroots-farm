@@ -32,7 +32,7 @@ interface AddressFormDialogViewProps {
   readonly phoneNumber: string;
   readonly placeId: string;
   readonly selectedPlaceLabel: string;
-  readonly selectedDistrictName?: string;
+  readonly selectedWardName?: string;
   readonly streetAddress: string;
   readonly isDefault: boolean;
   readonly lockDefaultChecked?: boolean;
@@ -60,7 +60,7 @@ export function AddressFormDialogView({
   phoneNumber,
   placeId,
   selectedPlaceLabel,
-  selectedDistrictName,
+  selectedWardName,
   streetAddress,
   isDefault,
   lockDefaultChecked = false,
@@ -82,9 +82,9 @@ export function AddressFormDialogView({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={!isPending}
-        className="max-h-[90vh] overflow-y-auto bg-white sm:max-w-lg"
+        className="max-h-[90vh] overflow-x-hidden overflow-y-auto bg-white sm:max-w-2xl"
       >
-        <DialogHeader>
+        <DialogHeader className="min-w-0">
           <DialogTitle className="font-bold text-gray-900">
             {isCreate
               ? "Thêm địa chỉ giao hàng mới"
@@ -97,14 +97,14 @@ export function AddressFormDialogView({
           </DialogDescription>
         </DialogHeader>
 
-        <form noValidate onSubmit={onSubmit} className="space-y-4">
+        <form noValidate onSubmit={onSubmit} className="min-w-0 space-y-4">
           <AddressFormFields
             idPrefix="account-address-form"
             receiverName={receiverName}
             phoneNumber={phoneNumber}
             placeId={placeId}
             selectedPlaceLabel={selectedPlaceLabel}
-            selectedDistrictName={selectedDistrictName}
+            selectedWardName={selectedWardName}
             streetAddress={streetAddress}
             showDefaultCheckbox={isCreate}
             isDefault={isDefault}
@@ -183,11 +183,11 @@ function AddressFormDialogBody({
   );
   const [selectedPlaceLabel, setSelectedPlaceLabel] = useState(() =>
     editingAddress
-      ? `${editingAddress.streetAddress}, ${editingAddress.district}, ${editingAddress.city}`
+      ? `${editingAddress.streetAddress}, ${editingAddress.ward}, ${editingAddress.city}`
       : "",
   );
-  const [selectedDistrictName, setSelectedDistrictName] = useState(() =>
-    editingAddress ? editingAddress.district : undefined,
+  const [selectedWardName, setSelectedWardName] = useState(() =>
+    editingAddress ? editingAddress.ward : undefined,
   );
   const [streetAddress, setStreetAddress] = useState(() =>
     editingAddress ? editingAddress.streetAddress : "",
@@ -223,10 +223,7 @@ function AddressFormDialogBody({
   function handlePlaceSelect(suggestion: PlaceSuggestion) {
     setPlaceId(suggestion.placeId);
     setSelectedPlaceLabel(suggestion.description);
-    setSelectedDistrictName(suggestion.district);
-    if (!streetAddress.trim()) {
-      setStreetAddress(suggestion.description);
-    }
+    setSelectedWardName(suggestion.ward);
   }
 
   function handleSessionInvalidated() {
@@ -326,7 +323,7 @@ function AddressFormDialogBody({
       phoneNumber={phoneNumber}
       placeId={placeId}
       selectedPlaceLabel={selectedPlaceLabel}
-      selectedDistrictName={selectedDistrictName}
+      selectedWardName={selectedWardName}
       streetAddress={streetAddress}
       isDefault={isDefault}
       lockDefaultChecked={lockDefaultChecked}

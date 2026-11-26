@@ -17,7 +17,7 @@ const sampleAddresses: CustomerAddress[] = [
     phoneNumber: "0901234567",
     streetAddress: "142 Lê Đức Thọ",
     placeId: "mock_place_go_vap",
-    district: "Quận Gò Vấp",
+    ward: "Phường Gò Vấp",
     city: "TP. Hồ Chí Minh",
     isDefault: true,
     createdAt: "2026-11-20T00:00:00.000Z",

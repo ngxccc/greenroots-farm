@@ -141,9 +141,9 @@ export function PlaceAutocompleteInput({
       </div>
 
       {selectedPlaceId ? (
-        <p className="flex items-center gap-1.5 text-xs text-brand-dark">
-          <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-          <span className="truncate">
+        <p className="flex items-start gap-1.5 text-xs text-brand-dark">
+          <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 wrap-break-word">
             Đã chọn vị trí: {selectedLabel || selectedPlaceId}
           </span>
         </p>
@@ -185,9 +185,7 @@ export function PlaceAutocompleteInput({
                   <span className="text-xs font-medium text-gray-900">
                     {item.description}
                   </span>
-                  <span className="text-[11px] text-gray-500">
-                    {item.district}
-                  </span>
+                  <span className="text-[11px] text-gray-500">{item.ward}</span>
                 </Button>
               );
             })

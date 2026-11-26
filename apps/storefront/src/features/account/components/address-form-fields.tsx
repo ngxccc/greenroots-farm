@@ -101,7 +101,7 @@ interface AddressFormFieldsProps {
   readonly phoneNumber: string;
   readonly placeId: string;
   readonly selectedPlaceLabel?: string;
-  readonly selectedDistrictName?: string;
+  readonly selectedWardName?: string;
   readonly streetAddress: string;
   readonly showDefaultCheckbox: boolean;
   readonly isDefault: boolean;
@@ -126,7 +126,7 @@ export function AddressFormFields({
   phoneNumber,
   placeId,
   selectedPlaceLabel = "",
-  selectedDistrictName,
+  selectedWardName,
   streetAddress,
   showDefaultCheckbox,
   isDefault,
@@ -235,7 +235,7 @@ export function AddressFormFields({
 
       <DeliveryQuotePreview
         placeId={placeId || null}
-        districtName={selectedDistrictName}
+        districtName={selectedWardName}
       />
 
       {showDefaultCheckbox ? (

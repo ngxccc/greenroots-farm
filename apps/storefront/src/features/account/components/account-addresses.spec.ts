@@ -56,7 +56,7 @@ const defaultAddress: CustomerAddress = {
   phoneNumber: "0908412679",
   streetAddress: "142 Lê Đức Thọ, Phường 15",
   placeId: "mock_place_go_vap",
-  district: "Quận Gò Vấp",
+  ward: "Phường Gò Vấp",
   city: "TP. Hồ Chí Minh",
   isDefault: true,
   createdAt: "2026-11-22T00:00:00.000Z",
@@ -70,7 +70,7 @@ const secondaryAddress: CustomerAddress = {
   phoneNumber: "0912345678",
   streetAddress: "72 Nguyễn Thị Minh Khai, Phường Bến Nghé",
   placeId: "mock_place_quan_1",
-  district: "Quận 1",
+  ward: "Phường Sài Gòn",
   isDefault: false,
 };
 
@@ -414,7 +414,7 @@ describe("Storefront Account Addresses Components", () => {
                         placeId: "mock_place_quan_1",
                         description:
                           "99 Nguyễn Văn Cừ, Quận 1, TP. Hồ Chí Minh",
-                        district: "Quận 1",
+                        ward: "Phường Sài Gòn",
                       },
                     ],
                   }),
