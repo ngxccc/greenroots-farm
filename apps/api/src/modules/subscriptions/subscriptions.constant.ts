@@ -22,3 +22,9 @@ export const MAX_SUBSCRIPTION_PLAN_WEIGHT_KG = 999.99;
  * Partial unique index name enforcing active subscription plan slug uniqueness.
  */
 export const SUBSCRIPTION_PLANS_SLUG_UIDX = "subscription_plans_slug_uidx";
+
+export const SUBSCRIPTION_CODE_PREFIX = "SUB";
+export const SUBSCRIPTION_CODE_RANDOM_LENGTH = 6;
+export const SUBSCRIPTION_CODE_MAX_GENERATION_ATTEMPTS = 5;
+export const CROCKFORD_BASE32_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+export const SUBSCRIPTION_CODE_UIDX = "subscriptions_subscription_code_uidx";

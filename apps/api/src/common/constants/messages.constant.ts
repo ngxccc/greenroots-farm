@@ -200,6 +200,16 @@ export const MESSAGES = {
     NOT_FOUND: "Subscription plan not found.",
     SLUG_CONFLICT: "An active subscription plan with this slug already exists.",
   },
+  SUBSCRIPTIONS: {
+    NOT_FOUND: "Subscription not found.",
+    PLAN_INACTIVE: "The selected subscription plan is no longer active.",
+    PAYOS_DISABLED:
+      "PayOS online payment is currently disabled in farm settings.",
+    PENDING_LIMIT_REACHED:
+      "Maximum number of pending subscriptions awaiting payment has been reached.",
+    CODE_GENERATION_EXHAUSTED:
+      "Failed to allocate a unique subscription code after maximum retries.",
+  },
   ORDERS: {
     NOT_FOUND: "Order not found.",
     BELOW_MINIMUM_VALUE:

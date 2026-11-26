@@ -8,3 +8,10 @@ export const SUBSCRIPTION_PLANS_ROUTES = Object.freeze({
   ADMIN: "admin",
   BY_ID: ":id",
 } as const);
+
+export const SUBSCRIPTIONS_ROUTES = Object.freeze({
+  TAG: "subscriptions",
+  BASE: "subscriptions",
+  ME: "me",
+  BY_ID: ":id",
+} as const);
