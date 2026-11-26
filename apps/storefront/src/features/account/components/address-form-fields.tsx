@@ -218,7 +218,7 @@ export function AddressFormFields({
           htmlFor={streetInputId}
           className="text-xs font-semibold text-gray-800"
         >
-          Địa chỉ chi tiết (Số nhà, hẻm, ghi chú giao hàng)
+          Địa chỉ chi tiết (Số nhà, tên đường, hẻm, ghi chú)
         </Label>
         <Input
           id={streetInputId}
@@ -227,7 +227,7 @@ export function AddressFormFields({
           maxLength={ADDRESS_STREET_MAX_LENGTH}
           disabled={disabled}
           required
-          placeholder="Ví dụ: 142/5 Lê Đức Thọ, Phường 15"
+          placeholder="Ví dụ: 142/5 Lê Đức Thọ, Căn B12"
           onChange={(event) => onStreetAddressChange(event.target.value)}
           className="h-10 bg-white text-sm"
         />

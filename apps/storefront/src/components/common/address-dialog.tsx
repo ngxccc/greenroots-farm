@@ -264,6 +264,9 @@ function AddressDialogAuthenticatedContent({
     setNewPlaceId(suggestion.placeId);
     setNewPlaceLabel(suggestion.description);
     setNewWardName(suggestion.ward);
+    if (suggestion.streetName) {
+      setNewStreetAddress(suggestion.streetName);
+    }
   }
 
   function handleConfirmSelection() {

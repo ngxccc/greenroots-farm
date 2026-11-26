@@ -224,6 +224,9 @@ function AddressFormDialogBody({
     setPlaceId(suggestion.placeId);
     setSelectedPlaceLabel(suggestion.description);
     setSelectedWardName(suggestion.ward);
+    if (suggestion.streetName) {
+      setStreetAddress(suggestion.streetName);
+    }
   }
 
   function handleSessionInvalidated() {

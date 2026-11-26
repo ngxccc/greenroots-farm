@@ -60,7 +60,7 @@ const streetAddressFieldSchema = z
   .string()
   .transform(normalizeAddressText)
   .refine((value) => value.length >= 1, {
-    message: "Vui lòng nhập số nhà, tên đường và phường/xã.",
+    message: "Vui lòng nhập số nhà, tên đường hoặc ghi chú giao hàng.",
   })
   .refine((value) => value.length <= ADDRESS_STREET_MAX_LENGTH, {
     message: `Địa chỉ chi tiết không được vượt quá ${ADDRESS_STREET_MAX_LENGTH} ký tự.`,
