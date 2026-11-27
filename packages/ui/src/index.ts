@@ -103,6 +103,7 @@ export {
   SheetTrigger,
 } from "./components/ui/sheet";
 export { Skeleton } from "./components/ui/skeleton";
+export { Switch } from "./components/ui/switch";
 export { Toaster } from "./components/ui/sonner";
 export { toast } from "sonner";
 export {
