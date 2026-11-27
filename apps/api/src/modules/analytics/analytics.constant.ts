@@ -1,4 +1,4 @@
-import { OrderStatus, UserRole } from "@greenroots/shared";
+import { OrderStatus, PaymentMethod, UserRole } from "@greenroots/shared";
 
 /** Canonical timezone for operational analytics date buckets and window bounds. */
 export const ANALYTICS_TIMEZONE = "Asia/Ho_Chi_Minh";
@@ -37,4 +37,19 @@ export const ANALYTICS_REVENUE_ORDER_STATUSES = [
 export const ANALYTICS_ALLOWED_ROLES = [
   UserRole.ADMIN,
   UserRole.SUPER_ADMIN,
+] as const;
+
+/** Staff roles authorized to access financial cashflow analytics (`INV-6`). */
+export const ANALYTICS_FINANCE_ALLOWED_ROLES = [UserRole.SUPER_ADMIN] as const;
+
+/** Cash-bearing payment channels included in financial cashflow analytics (`INV-7`). */
+export const ANALYTICS_FINANCE_PAYMENT_METHODS = [
+  PaymentMethod.PAYOS,
+  PaymentMethod.COD,
+] as const;
+
+/** Order statuses included in the live `pendingCodReceivableVnd` snapshot (`INV-9`). */
+export const ANALYTICS_PENDING_COD_ORDER_STATUSES = [
+  OrderStatus.SHIPPING,
+  OrderStatus.DELIVERED,
 ] as const;

@@ -12,15 +12,18 @@ import { JwtService } from "@nestjs/jwt";
 import { sql } from "drizzle-orm";
 import {
   API_ERROR_CODES,
+  DeliveryDay,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
+  PaymentTransactionType,
+  SubscriptionStatus,
   UserRole,
   WasteLogStatus,
 } from "@greenroots/shared";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
 import type { ApiResponse } from "@/common/utils/api-response.util";
-import { wasteLogs } from "@/database/schemas";
+import { payments, subscriptions, wasteLogs } from "@/database/schemas";
 import type { components } from "../generated/api-schema";
 import {
   createBatch,
@@ -28,6 +31,7 @@ import {
   createOrder,
   createProduct,
   createSeason,
+  createSubscriptionPlan,
   createUser,
 } from "../factories";
 import {
@@ -41,6 +45,7 @@ import {
 } from "../helpers/auth.helper";
 
 type OperationsAnalytics = components["schemas"]["OperationsAnalyticsDto"];
+type FinanceAnalytics = components["schemas"]["FinanceAnalyticsDto"];
 
 describe("Analytics Integration", () => {
   let setup: TestAppSetup;
@@ -65,7 +70,7 @@ describe("Analytics Integration", () => {
 
   beforeEach(async () => {
     await setup.db.execute(
-      sql`TRUNCATE TABLE "waste_logs", "batches", "seasons", "plots", "farms", "payments", "order_items", "orders", "products", "categories", "users" CASCADE;`,
+      sql`TRUNCATE TABLE "waste_logs", "batches", "seasons", "plots", "farms", "payments", "subscriptions", "subscription_plans", "order_items", "orders", "products", "categories", "users" CASCADE;`,
     );
 
     const [
@@ -591,6 +596,408 @@ describe("Analytics Integration", () => {
     });
   });
 
+  describe("GET /api/v1/analytics/finance", () => {
+    it("rejects unauthenticated caller", async () => {
+      // Invariant: INV-6, ADV-4
+      const res = await request(app.getHttpServer()).get(
+        "/api/v1/analytics/finance",
+      );
+
+      expect(res.status).toBe(401);
+    });
+
+    it("forbids ADMIN and all lower roles from accessing financial analytics", async () => {
+      // Invariant: INV-6, ADV-3
+      const forbiddenHeaders = [
+        adminHeader,
+        salesHeader,
+        farmStaffHeader,
+        customerHeader,
+        guestHeader,
+      ];
+
+      for (const header of forbiddenHeaders) {
+        const res = await request(app.getHttpServer())
+          .get("/api/v1/analytics/finance")
+          .set(header);
+
+        expect(res.status).toBe(403);
+      }
+    });
+
+    it("returns zero-filled cashflowSeries and live pendingCodReceivableVnd when window has no paid payments", async () => {
+      // Invariant: INV-9, INV-10, EDGE-7
+      const product = await createProduct(setup.db);
+      await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.SHIPPING,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PENDING,
+        shippingFee: 15_000,
+        items: [{ productId: product.id, quantity: "2.00", unitPrice: 50_000 }],
+      });
+
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/analytics/finance")
+        .query({
+          from: "2026-11-01",
+          to: "2026-11-03",
+          granularity: "day",
+        })
+        .set(superAdminHeader);
+
+      expect(res.status).toBe(200);
+      const body = res.body as ApiResponse<FinanceAnalytics>;
+      expect(body.success).toBe(true);
+      expect(body.data.period).toEqual({
+        from: "2026-11-01",
+        to: "2026-11-03",
+        granularity: "day",
+        timezone: "Asia/Ho_Chi_Minh",
+      });
+      expect(body.data.summary).toEqual({
+        payosInflowVnd: 0,
+        payosOrderInflowVnd: 0,
+        payosSubscriptionInflowVnd: 0,
+        payosOutflowVnd: 0,
+        payosNetVnd: 0,
+        codInflowVnd: 0,
+        codOutflowVnd: 0,
+        codNetVnd: 0,
+        totalInflowVnd: 0,
+        totalOutflowVnd: 0,
+        netCashflowVnd: 0,
+        pendingCodReceivableVnd: 115_000,
+      });
+      expect(body.data.cashflowSeries).toEqual([
+        {
+          bucket: "2026-11-01",
+          payosInflowVnd: 0,
+          payosOutflowVnd: 0,
+          payosNetVnd: 0,
+          codInflowVnd: 0,
+          codOutflowVnd: 0,
+          codNetVnd: 0,
+          netCashflowVnd: 0,
+        },
+        {
+          bucket: "2026-11-02",
+          payosInflowVnd: 0,
+          payosOutflowVnd: 0,
+          payosNetVnd: 0,
+          codInflowVnd: 0,
+          codOutflowVnd: 0,
+          codNetVnd: 0,
+          netCashflowVnd: 0,
+        },
+        {
+          bucket: "2026-11-03",
+          payosInflowVnd: 0,
+          payosOutflowVnd: 0,
+          payosNetVnd: 0,
+          codInflowVnd: 0,
+          codOutflowVnd: 0,
+          codNetVnd: 0,
+          netCashflowVnd: 0,
+        },
+      ]);
+    });
+
+    it("rejects inverted date range, span exceeding 365 days, and unknown query params", async () => {
+      // Invariant: INV-10
+      const invertedRes = await request(app.getHttpServer())
+        .get("/api/v1/analytics/finance")
+        .query({ from: "2026-11-10", to: "2026-11-01" })
+        .set(superAdminHeader);
+
+      expect(invertedRes.status).toBe(400);
+      expect((invertedRes.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.VALIDATION_FAILED,
+      );
+
+      const overSpanRes = await request(app.getHttpServer())
+        .get("/api/v1/analytics/finance")
+        .query({ from: "2025-01-01", to: "2026-01-01" })
+        .set(superAdminHeader);
+
+      expect(overSpanRes.status).toBe(400);
+      expect((overSpanRes.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.VALIDATION_FAILED,
+      );
+
+      const unknownParamRes = await request(app.getHttpServer())
+        .get("/api/v1/analytics/finance")
+        .query({ from: "2026-11-01", to: "2026-11-05", topLimit: 5 })
+        .set(superAdminHeader);
+
+      expect(unknownParamRes.status).toBe(400);
+    });
+
+    it("aggregates cash-basis PayOS order and subscription inflows, COD inflows, and negative net refunds anchored on paidAt", async () => {
+      // Invariant: INV-7, EDGE-8, EDGE-9, EDGE-10, EDGE-11
+      const product = await createProduct(setup.db, { basePrice: 100_000 });
+      const plan = await createSubscriptionPlan(setup.db, { price: 500_000 });
+
+      // EDGE-9: PayOS order paid at 2026-11-01T22:00:00Z (2026-11-02 05:00+07:00), delivered 2026-11-04
+      await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.DELIVERED,
+        paymentMethod: PaymentMethod.PAYOS,
+        paymentStatus: PaymentStatus.PAID,
+        shippingFee: 15_000,
+        deliveredAt: new Date("2026-11-04T03:00:00.000Z"),
+        paidAt: new Date("2026-11-01T22:00:00.000Z"),
+        items: [
+          { productId: product.id, quantity: "1.00", unitPrice: 100_000 },
+        ],
+      });
+
+      // EDGE-10: Prepaid PayOS subscription purchase (orderId = null, subscriptionId != null) on 2026-11-02 10:00+07:00
+      const [sub] = await setup.db
+        .insert(subscriptions)
+        .values({
+          subscriptionCode: "SUB-20261102-FIN01",
+          customerId,
+          planId: plan.id,
+          receiverName: "Nguyễn Thị Khách",
+          receiverPhone: "0912345678",
+          shippingAddress: "12 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
+          shippingDistanceKm: "5.00",
+          shippingFeePerDelivery: 0,
+          planName: plan.name,
+          price: 500_000,
+          totalDeliveries: 4,
+          weightPerDeliveryKg: "5.00",
+          basketDescription: plan.basketDescription,
+          deliveryDay: DeliveryDay.TUESDAY,
+          remainingDeliveries: 4,
+          status: SubscriptionStatus.ACTIVE,
+          startDate: "2026-11-05",
+          endDate: "2026-12-03",
+        })
+        .returning();
+
+      await setup.db.insert(payments).values({
+        subscriptionId: sub!.id,
+        amount: 500_000,
+        paymentMethod: PaymentMethod.PAYOS,
+        status: PaymentStatus.PAID,
+        transactionType: PaymentTransactionType.PAYMENT,
+        paidAt: new Date("2026-11-02T03:00:00.000Z"),
+      });
+
+      // COD inflow on 2026-11-03 14:00+07:00 (07:00Z)
+      const { order: codOrder } = await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.COMPLETED,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PAID,
+        shippingFee: 15_000,
+        deliveredAt: new Date("2026-11-03T06:00:00.000Z"),
+        paidAt: new Date("2026-11-03T07:00:00.000Z"),
+        items: [{ productId: product.id, quantity: "1.00", unitPrice: 80_000 }],
+      });
+
+      // EDGE-8: COD bank_transfer refund exceeding COD inflow on 2026-11-03 16:00+07:00 (09:00Z)
+      await setup.db.insert(payments).values({
+        orderId: codOrder.id,
+        amount: 150_000,
+        paymentMethod: PaymentMethod.COD,
+        status: PaymentStatus.REFUNDED,
+        transactionType: PaymentTransactionType.REFUND,
+        paidAt: new Date("2026-11-03T09:00:00.000Z"),
+      });
+
+      // EDGE-11: Subscription redemption order (PaymentMethod.SUBSCRIPTION, 0đ) must be excluded
+      await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.DELIVERED,
+        paymentMethod: PaymentMethod.SUBSCRIPTION,
+        paymentStatus: PaymentStatus.PAID,
+        shippingFee: 0,
+        deliveredAt: new Date("2026-11-02T05:00:00.000Z"),
+        paidAt: new Date("2026-11-02T05:00:00.000Z"),
+        items: [{ productId: product.id, quantity: "1.00", unitPrice: 0 }],
+      });
+
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/analytics/finance")
+        .query({
+          from: "2026-11-01",
+          to: "2026-11-03",
+          granularity: "day",
+        })
+        .set(superAdminHeader);
+
+      expect(res.status).toBe(200);
+      const body = res.body as ApiResponse<FinanceAnalytics>;
+
+      // PayOS: 115_000 (order) + 500_000 (subscription) = 615_000; COD: 95_000 - 150_000 = -55_000
+      expect(body.data.summary).toEqual({
+        payosInflowVnd: 615_000,
+        payosOrderInflowVnd: 115_000,
+        payosSubscriptionInflowVnd: 500_000,
+        payosOutflowVnd: 0,
+        payosNetVnd: 615_000,
+        codInflowVnd: 95_000,
+        codOutflowVnd: 150_000,
+        codNetVnd: -55_000,
+        totalInflowVnd: 710_000,
+        totalOutflowVnd: 150_000,
+        netCashflowVnd: 560_000,
+        pendingCodReceivableVnd: 0,
+      });
+
+      expect(body.data.cashflowSeries).toEqual([
+        {
+          bucket: "2026-11-01",
+          payosInflowVnd: 0,
+          payosOutflowVnd: 0,
+          payosNetVnd: 0,
+          codInflowVnd: 0,
+          codOutflowVnd: 0,
+          codNetVnd: 0,
+          netCashflowVnd: 0,
+        },
+        {
+          bucket: "2026-11-02",
+          payosInflowVnd: 615_000,
+          payosOutflowVnd: 0,
+          payosNetVnd: 615_000,
+          codInflowVnd: 0,
+          codOutflowVnd: 0,
+          codNetVnd: 0,
+          netCashflowVnd: 615_000,
+        },
+        {
+          bucket: "2026-11-03",
+          payosInflowVnd: 0,
+          payosOutflowVnd: 0,
+          payosNetVnd: 0,
+          codInflowVnd: 95_000,
+          codOutflowVnd: 150_000,
+          codNetVnd: -55_000,
+          netCashflowVnd: -55_000,
+        },
+      ]);
+    });
+
+    it("isolates pendingCodReceivableVnd to shipping and delivered pending COD orders", async () => {
+      // Invariant: INV-9, EDGE-12
+      const product = await createProduct(setup.db);
+
+      // Included: shipping + delivered pending COD
+      await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.SHIPPING,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PENDING,
+        shippingFee: 10_000,
+        items: [{ productId: product.id, quantity: "1.00", unitPrice: 50_000 }],
+      });
+      await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.DELIVERED,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PENDING,
+        shippingFee: 10_000,
+        items: [{ productId: product.id, quantity: "1.00", unitPrice: 70_000 }],
+      });
+
+      // Excluded: pending_confirmation, confirmed, packing, cancelled, and PayOS pending
+      for (const excludedStatus of [
+        OrderStatus.PENDING_CONFIRMATION,
+        OrderStatus.CONFIRMED,
+        OrderStatus.PACKING,
+        OrderStatus.CANCELLED,
+      ]) {
+        await createOrder(setup.db, {
+          customerId,
+          orderStatus: excludedStatus,
+          paymentMethod: PaymentMethod.COD,
+          paymentStatus: PaymentStatus.PENDING,
+          shippingFee: 10_000,
+          items: [
+            { productId: product.id, quantity: "1.00", unitPrice: 100_000 },
+          ],
+        });
+      }
+      await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.SHIPPING,
+        paymentMethod: PaymentMethod.PAYOS,
+        paymentStatus: PaymentStatus.PENDING,
+        shippingFee: 10_000,
+        items: [
+          { productId: product.id, quantity: "1.00", unitPrice: 200_000 },
+        ],
+      });
+
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/analytics/finance")
+        .query({
+          from: "2026-10-01",
+          to: "2026-10-02",
+          granularity: "day",
+        })
+        .set(superAdminHeader);
+
+      expect(res.status).toBe(200);
+      const body = res.body as ApiResponse<FinanceAnalytics>;
+      expect(body.data.summary.pendingCodReceivableVnd).toBe(140_000);
+      expect(body.data.summary.netCashflowVnd).toBe(0);
+    });
+
+    it("aggregates cashflow across week and month granularities", async () => {
+      // Invariant: INV-10
+      const product = await createProduct(setup.db);
+      await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.DELIVERED,
+        paymentMethod: PaymentMethod.PAYOS,
+        paymentStatus: PaymentStatus.PAID,
+        shippingFee: 0,
+        paidAt: new Date("2026-11-25T05:00:00.000Z"), // Week of 2026-11-23
+        items: [{ productId: product.id, quantity: "1.00", unitPrice: 90_000 }],
+      });
+
+      const weekRes = await request(app.getHttpServer())
+        .get("/api/v1/analytics/finance")
+        .query({
+          from: "2026-11-18",
+          to: "2026-12-02",
+          granularity: "week",
+        })
+        .set(superAdminHeader);
+
+      expect(weekRes.status).toBe(200);
+      const weekBody = weekRes.body as ApiResponse<FinanceAnalytics>;
+      expect(weekBody.data.cashflowSeries.map((p) => p.bucket)).toEqual([
+        "2026-11-16",
+        "2026-11-23",
+        "2026-11-30",
+      ]);
+      expect(weekBody.data.cashflowSeries[1]?.payosInflowVnd).toBe(90_000);
+
+      const monthRes = await request(app.getHttpServer())
+        .get("/api/v1/analytics/finance")
+        .query({
+          from: "2026-11-01",
+          to: "2026-12-15",
+          granularity: "month",
+        })
+        .set(superAdminHeader);
+
+      expect(monthRes.status).toBe(200);
+      const monthBody = monthRes.body as ApiResponse<FinanceAnalytics>;
+      expect(monthBody.data.cashflowSeries.map((p) => p.bucket)).toEqual([
+        "2026-11",
+        "2026-12",
+      ]);
+      expect(monthBody.data.cashflowSeries[0]?.payosInflowVnd).toBe(90_000);
+    });
+  });
+
   describe("Database Invariants", () => {
     it("rejects inserting a delivered order with null deliveredAt", async () => {
       // Invariant: INV-3
@@ -617,6 +1024,35 @@ describe("Analytics Integration", () => {
       ).cause;
       expect(pgCause?.code).toBe("23514");
       expect(pgCause?.constraint).toBe("orders_delivered_at_required");
+    });
+
+    it("rejects inserting a paid or refunded payment with null paidAt", async () => {
+      // Invariant: INV-8
+      const user = await createUser(setup.db);
+      const product = await createProduct(setup.db);
+
+      let caughtError: unknown;
+      try {
+        await createOrder(setup.db, {
+          customerId: user.id,
+          orderStatus: OrderStatus.CONFIRMED,
+          paymentMethod: PaymentMethod.PAYOS,
+          paymentStatus: PaymentStatus.PAID,
+          paidAt: null,
+          items: [
+            { productId: product.id, quantity: "1.00", unitPrice: 10_000 },
+          ],
+        });
+      } catch (error) {
+        caughtError = error;
+      }
+
+      expect(caughtError).toBeDefined();
+      const pgCause = (
+        caughtError as { cause?: { code?: string; constraint?: string } }
+      ).cause;
+      expect(pgCause?.code).toBe("23514");
+      expect(pgCause?.constraint).toBe("payments_paid_at_required");
     });
   });
 });

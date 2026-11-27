@@ -8,12 +8,18 @@ import {
   ApiTooManyRequestsResponseRfc9457,
 } from "@/common/decorators";
 import { apiSuccess, type ApiResponse } from "@/common/utils/api-response.util";
-import { ANALYTICS_ALLOWED_ROLES } from "./analytics.constant";
+import {
+  ANALYTICS_ALLOWED_ROLES,
+  ANALYTICS_FINANCE_ALLOWED_ROLES,
+} from "./analytics.constant";
 import { ANALYTICS_ROUTES } from "./analytics.routes";
 import { AnalyticsService } from "./analytics.service";
 import {
+  FinanceAnalyticsDto,
+  FinanceAnalyticsQueryDto,
   OperationsAnalyticsDto,
   OperationsAnalyticsQueryDto,
+  type FinanceAnalytics,
   type OperationsAnalytics,
 } from "./dto";
 
@@ -40,6 +46,22 @@ export class AnalyticsController {
     @Query() query: OperationsAnalyticsQueryDto,
   ): Promise<ApiResponse<OperationsAnalytics>> {
     const result = await this.analyticsService.getOperationsAnalytics(query);
+    return apiSuccess(result);
+  }
+
+  @Get(ANALYTICS_ROUTES.FINANCE)
+  @ApiAuth(...ANALYTICS_FINANCE_ALLOWED_ROLES)
+  @ApiOperation({
+    summary: "Get financial cashflow analytics",
+    description:
+      "Returns cash-basis PayOS (orders and subscriptions) vs. COD inflows, bank-transfer refund outflows, signed net cashflow anchored on payments.paid_at, and live pendingCodReceivableVnd for SUPER_ADMIN.",
+  })
+  @ApiOkResponseGeneric(FinanceAnalyticsDto)
+  @ApiTooManyRequestsResponseRfc9457()
+  async getFinanceAnalytics(
+    @Query() query: FinanceAnalyticsQueryDto,
+  ): Promise<ApiResponse<FinanceAnalytics>> {
+    const result = await this.analyticsService.getFinanceAnalytics(query);
     return apiSuccess(result);
   }
 }
