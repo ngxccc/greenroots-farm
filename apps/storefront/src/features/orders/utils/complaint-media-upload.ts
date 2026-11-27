@@ -18,6 +18,11 @@ export class ComplaintMediaUploadError extends Error {
 export function readVideoDurationSeconds(file: File): Promise<number | null> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
+    if (!url.startsWith("blob:")) {
+      URL.revokeObjectURL(url);
+      resolve(null);
+      return;
+    }
     const video = document.createElement("video");
     video.preload = "metadata";
     const cleanup = () => {

@@ -91,7 +91,7 @@ describe("Upload Signature BFF Handler", () => {
       expect(json.data?.folder).toBe("complaints");
     });
 
-    it("maps transient refresh failure to service unavailable", async () => {
+    it("maps transient refresh failure to fallback error", async () => {
       const response = await handleUploadSignaturePost(
         buildPostRequest({ resourceType: "video", fileSizeBytes: 5_000_000 }),
         {
