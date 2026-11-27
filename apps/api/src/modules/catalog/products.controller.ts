@@ -39,9 +39,11 @@ import { CATALOG_ROUTES } from "./catalog.routes";
 import {
   CreateProductDto,
   ListProductsQueryDto,
+  ProductDetailDto,
   ProductDto,
   UpdateProductDto,
   zCatalogSlug,
+  type ProductDetailProjection,
   type ProductProjection,
 } from "./dto";
 import { ProductsService } from "./products.service";
@@ -93,12 +95,12 @@ export class ProductsController {
     description: "Product kebab-case slug",
     example: "ca-chua-bi-huu-co",
   })
-  @ApiOkResponseGeneric(ProductDto)
+  @ApiOkResponseGeneric(ProductDetailDto)
   @ApiNotFoundResponseRfc9457()
   @ApiTooManyRequestsResponseRfc9457()
   async getBySlug(
     @Param("slug", new ZodValidationPipe(zCatalogSlug())) slug: string,
-  ): Promise<ApiResponse<ProductProjection>> {
+  ): Promise<ApiResponse<ProductDetailProjection>> {
     const product = await this.productsService.getPublicProductBySlug(slug);
     return apiSuccess(product);
   }

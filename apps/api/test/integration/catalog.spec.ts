@@ -10,19 +10,33 @@ import request from "supertest";
 import { type INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { eq, sql } from "drizzle-orm";
-import { API_ERROR_CODES, UserRole, WasteLogStatus } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  BatchStatus,
+  UserRole,
+  WasteLogStatus,
+} from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
 import type { ApiResponse } from "@/common/utils/api-response.util";
-import { batches, categories, products, wasteLogs } from "@/database/schemas";
+import {
+  batches,
+  categories,
+  plots,
+  products,
+  wasteLogs,
+} from "@/database/schemas";
 import { ProductsService } from "@/modules/catalog/products.service";
 import {
   BatchMother,
   CategoryMother,
   createBatch,
   createCategory,
+  createPlot,
   createProduct,
+  createSeason,
   ProductMother,
+  SeasonMother,
 } from "../factories";
 import type { components } from "../generated/api-schema";
 import {
@@ -37,6 +51,7 @@ import {
 
 type CategorySchema = components["schemas"]["CategoryDto"];
 type ProductSchema = components["schemas"]["ProductDto"];
+type ProductDetailSchema = components["schemas"]["ProductDetailDto"];
 type PaginationMetaSchema = components["schemas"]["PaginationMetaDto"];
 
 function validProductImageUrl(name: string): string {
@@ -744,6 +759,206 @@ describe("Catalog Integration", () => {
         const txService = new ProductsService(tx);
         const result = await txService.getPublicProductBySlug(product.slug);
         expect(result.availableQuantity).toBe(0);
+        expect(result.activeBatchTrace).toBeNull();
+        expect(result.rescueProgress).toBeNull();
+      });
+    });
+
+    it("returns null activeBatchTrace and rescueProgress when product has only non-sellable batches", async () => {
+      // Invariant: INV-PROD-6
+      const cat = await createCategory(setup.db, CategoryMother.root());
+      const product = await createProduct(setup.db, {
+        categoryId: cat.id,
+        slug: "rau-het-hang-trace",
+      });
+
+      await createBatch(
+        setup.db,
+        BatchMother.soldOut({ productId: product.id }),
+      );
+      await createBatch(
+        setup.db,
+        BatchMother.expired({ productId: product.id }),
+      );
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/products/${product.slug}`)
+        .expect(200);
+      const data = (res.body as ApiResponse<ProductDetailSchema>).data;
+
+      expect(data.availableQuantity).toBe(0);
+      expect(data.activeBatchTrace).toBeNull();
+      expect(data.rescueProgress).toBeNull();
+    });
+
+    it("selects earliest FEFO sellable batch with deterministic id tie-break and omits rescueProgress for in_stock", async () => {
+      // Invariant: INV-PROD-6, INV-PROD-7
+      const cat = await createCategory(setup.db, CategoryMother.root());
+      const product = await createProduct(setup.db, {
+        categoryId: cat.id,
+        slug: "ca-chua-fefo-in-stock",
+      });
+
+      const plotEarly = await createPlot(setup.db, {
+        plotCode: "PLOT-FEFO-1",
+        name: "Nhà kính số 1",
+      });
+      const seasonEarly = await createSeason(
+        setup.db,
+        SeasonMother.harvested({ plotId: plotEarly.id }),
+      );
+      const plotLate = await createPlot(setup.db, {
+        plotCode: "PLOT-FEFO-2",
+        name: "Nhà kính số 2",
+      });
+      const seasonLate = await createSeason(
+        setup.db,
+        SeasonMother.harvested({ plotId: plotLate.id }),
+      );
+
+      const sharedExpiry = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const laterExpiry = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+      const firstTiedBatch = await createBatch(setup.db, {
+        productId: product.id,
+        seasonId: seasonEarly.id,
+        batchCode: "BATCH-TIED-FIRST",
+        status: BatchStatus.IN_STOCK,
+        initialQuantity: "15.00",
+        availableQuantity: "10.00",
+        expirationDate: sharedExpiry,
+      });
+      await createBatch(setup.db, {
+        productId: product.id,
+        seasonId: seasonLate.id,
+        batchCode: "BATCH-TIED-SECOND",
+        status: BatchStatus.IN_STOCK,
+        initialQuantity: "15.00",
+        availableQuantity: "15.00",
+        expirationDate: sharedExpiry,
+      });
+      await createBatch(setup.db, {
+        productId: product.id,
+        seasonId: seasonLate.id,
+        batchCode: "BATCH-LATER-NEAR-EXPIRY",
+        status: BatchStatus.NEAR_EXPIRY,
+        initialQuantity: "10.00",
+        availableQuantity: "4.00",
+        expirationDate: laterExpiry,
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/products/${product.slug}`)
+        .expect(200);
+      const data = (res.body as ApiResponse<ProductDetailSchema>).data;
+
+      expect(data.activeBatchTrace).toEqual({
+        batchCode: firstTiedBatch.batchCode,
+        harvestDate: firstTiedBatch.harvestDate.toISOString(),
+        expirationDate: firstTiedBatch.expirationDate.toISOString(),
+        status: BatchStatus.IN_STOCK,
+        plotCode: "PLOT-FEFO-1",
+        plotName: "Nhà kính số 1",
+      });
+      expect(data.rescueProgress).toBeNull();
+    });
+
+    it("exposes redacted rescueProgress without leaking batch quantities or discount fields when FEFO batch is near_expiry", async () => {
+      // Invariant: INV-PROD-6, INV-PROD-7, INV-PROD-8
+      const cat = await createCategory(setup.db, CategoryMother.root());
+      const product = await createProduct(setup.db, {
+        categoryId: cat.id,
+        slug: "xa-lach-giai-cuu",
+      });
+
+      const plot = await createPlot(setup.db, {
+        plotCode: "PLOT-RESCUE-01",
+        name: "Nhà lưới C3",
+      });
+      const season = await createSeason(
+        setup.db,
+        SeasonMother.harvested({ plotId: plot.id }),
+      );
+
+      const rescueBatch = await createBatch(
+        setup.db,
+        BatchMother.nearExpiry({
+          productId: product.id,
+          seasonId: season.id,
+          batchCode: "BATCH-RESCUE-01",
+          initialQuantity: "20.00",
+          availableQuantity: "5.00",
+        }),
+      );
+      await createBatch(
+        setup.db,
+        BatchMother.inStock({
+          productId: product.id,
+          seasonId: season.id,
+          batchCode: "BATCH-LATER-INSTOCK",
+          initialQuantity: "30.00",
+          availableQuantity: "30.00",
+        }),
+      );
+
+      // Soft-delete plot post-harvest to confirm historical trace continuity (INV-PROD-8)
+      await setup.db
+        .update(plots)
+        .set({ deletedAt: new Date() })
+        .where(eq(plots.id, plot.id));
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/products/${product.slug}`)
+        .expect(200);
+      const data = (res.body as ApiResponse<ProductDetailSchema>).data;
+
+      expect(data.activeBatchTrace).toEqual({
+        batchCode: "BATCH-RESCUE-01",
+        harvestDate: rescueBatch.harvestDate.toISOString(),
+        expirationDate: rescueBatch.expirationDate.toISOString(),
+        status: BatchStatus.NEAR_EXPIRY,
+        plotCode: "PLOT-RESCUE-01",
+        plotName: "Nhà lưới C3",
+      });
+      expect(data.rescueProgress).toEqual({
+        expiresAt: rescueBatch.expirationDate.toISOString(),
+        claimedPercent: 75,
+      });
+
+      const traceKeys = Object.keys(data.activeBatchTrace ?? {});
+      const rescueKeys = Object.keys(data.rescueProgress ?? {});
+      expect(traceKeys).not.toContain("initialQuantity");
+      expect(traceKeys).not.toContain("availableQuantity");
+      expect(traceKeys).not.toContain("staffId");
+      expect(rescueKeys).not.toContain("discountPercent");
+      expect(rescueKeys).not.toContain("rescuePriceVnd");
+    });
+
+    it("computes zero claimedPercent when near_expiry batch has full availableQuantity", async () => {
+      // Invariant: INV-PROD-7
+      const cat = await createCategory(setup.db, CategoryMother.root());
+      const product = await createProduct(setup.db, {
+        categoryId: cat.id,
+        slug: "cai-xanh-giai-cuu-0",
+      });
+
+      const batch = await createBatch(
+        setup.db,
+        BatchMother.nearExpiry({
+          productId: product.id,
+          initialQuantity: "10.00",
+          availableQuantity: "10.00",
+        }),
+      );
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/products/${product.slug}`)
+        .expect(200);
+      const data = (res.body as ApiResponse<ProductDetailSchema>).data;
+
+      expect(data.rescueProgress).toEqual({
+        expiresAt: batch.expirationDate.toISOString(),
+        claimedPercent: 0,
       });
     });
   });
@@ -1007,6 +1222,57 @@ describe("Catalog Integration", () => {
       expect(
         (patchRes.body as ApiResponse<ProductSchema>).data.availableQuantity,
       ).toBe(25);
+    });
+
+    it("persists, sanitizes, updates, and clears storageInstructions on products", async () => {
+      const cat = await createCategory(setup.db, CategoryMother.root());
+
+      // Reject > 1000 chars
+      await request(app.getHttpServer())
+        .post("/api/v1/products")
+        .set(salesHeader)
+        .send({
+          categoryId: cat.id,
+          name: "Rau muống",
+          slug: "rau-muong-storage",
+          basePriceVnd: 20000,
+          storageInstructions: "a".repeat(1001),
+        })
+        .expect(400);
+
+      // Persist sanitized storageInstructions
+      const createRes = await request(app.getHttpServer())
+        .post("/api/v1/products")
+        .set(salesHeader)
+        .send({
+          categoryId: cat.id,
+          name: "Rau muống",
+          slug: "rau-muong-storage",
+          basePriceVnd: 20000,
+          storageInstructions: "<b>Bảo quản</b> ngăn mát 4-8°C",
+        })
+        .expect(201);
+      const created = (createRes.body as ApiResponse<ProductSchema>).data;
+      expect(created.storageInstructions).toBe("Bảo quản ngăn mát 4-8°C");
+
+      // Public slug detail reflects storageInstructions
+      const detailRes = await request(app.getHttpServer())
+        .get(`/api/v1/products/${created.slug}`)
+        .expect(200);
+      expect(
+        (detailRes.body as ApiResponse<ProductDetailSchema>).data
+          .storageInstructions,
+      ).toBe("Bảo quản ngăn mát 4-8°C");
+
+      // Whitespace-only PATCH normalizes to null
+      const clearRes = await request(app.getHttpServer())
+        .patch(`/api/v1/products/${created.id}`)
+        .set(adminHeader)
+        .send({ storageInstructions: "   " })
+        .expect(200);
+      expect(
+        (clearRes.body as ApiResponse<ProductSchema>).data.storageInstructions,
+      ).toBeNull();
     });
   });
 

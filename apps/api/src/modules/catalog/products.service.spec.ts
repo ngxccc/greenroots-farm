@@ -4,7 +4,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { API_ERROR_CODES } from "@greenroots/shared";
+import { API_ERROR_CODES, BatchStatus } from "@greenroots/shared";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { createMockDb } from "../../../test/mocks/mock-database";
@@ -33,6 +33,7 @@ describe("ProductsService", () => {
     name: "Cà chua bi hữu cơ",
     slug: "ca-chua-bi-huu-co",
     description: "Cà chua bi VietGAP",
+    storageInstructions: "Bảo quản ngăn mát 4-8°C",
     basePrice: 45000,
     salePrice: 36000,
     unit: "kg",
@@ -98,6 +99,33 @@ describe("ProductsService", () => {
       expect(result.items[0]?.salePriceVnd).toBe(36000);
       expect(result.items[0]?.availableQuantity).toBe(15.5);
       expect(result.items[0]?.imageUrls).toEqual([]);
+      expect(result.items[0]?.storageInstructions).toBe(
+        "Bảo quản ngăn mát 4-8°C",
+      );
+    });
+
+    it("maps null storageInstructions when absent on product row", async () => {
+      mockDb.setSelectResultsQueue([
+        [{ total: 1 }],
+        [
+          {
+            product: { ...sampleProductRow, storageInstructions: null },
+            category: sampleCategorySummary,
+            availableQuantity: "5.00",
+          },
+        ],
+      ]);
+
+      const result = await service.listProducts(
+        {
+          page: 1,
+          limit: 20,
+          sort: "createdAt:desc",
+        },
+        { includeInactive: false },
+      );
+
+      expect(result.items[0]?.storageInstructions).toBeNull();
     });
 
     it("maps zero string availableQuantity values to 0", async () => {
@@ -127,8 +155,8 @@ describe("ProductsService", () => {
   });
 
   describe("getPublicProductBySlug", () => {
-    it("maps aggregated availableQuantity decimal string to number", async () => {
-      // Invariant: INV-PROD-3
+    it("maps aggregated availableQuantity decimal string and returns null trace when no sellable batch exists", async () => {
+      // Invariant: INV-PROD-3, INV-PROD-6
       mockDb.setSelectResultsQueue([
         [
           {
@@ -137,11 +165,115 @@ describe("ProductsService", () => {
             availableQuantity: "12.25",
           },
         ],
+        [],
       ]);
 
       const result = await service.getPublicProductBySlug("ca-chua-bi-huu-co");
 
       expect(result.availableQuantity).toBe(12.25);
+      expect(result.activeBatchTrace).toBeNull();
+      expect(result.rescueProgress).toBeNull();
+    });
+
+    it("maps activeBatchTrace and omits rescueProgress when active FEFO batch is in_stock", async () => {
+      // Invariant: INV-PROD-6, INV-PROD-7
+      const harvestDate = new Date("2026-11-25T06:00:00.000Z");
+      const expirationDate = new Date("2026-11-30T06:00:00.000Z");
+
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            product: sampleProductRow,
+            category: sampleCategorySummary,
+            availableQuantity: "10.00",
+          },
+        ],
+        [
+          {
+            batchCode: "LOT-2026-001",
+            harvestDate,
+            expirationDate,
+            status: BatchStatus.IN_STOCK,
+            initialQuantity: "20.00",
+            availableQuantity: "10.00",
+            plotCode: "PLOT-A1",
+            plotName: "Nhà kính A1",
+          },
+        ],
+      ]);
+
+      const result = await service.getPublicProductBySlug("ca-chua-bi-huu-co");
+
+      expect(result.activeBatchTrace).toEqual({
+        batchCode: "LOT-2026-001",
+        harvestDate: harvestDate.toISOString(),
+        expirationDate: expirationDate.toISOString(),
+        status: BatchStatus.IN_STOCK,
+        plotCode: "PLOT-A1",
+        plotName: "Nhà kính A1",
+      });
+      expect(result.rescueProgress).toBeNull();
+    });
+
+    it("computes rounded and clamped rescueProgress when active FEFO batch is near_expiry", async () => {
+      // Invariant: INV-PROD-7
+      const harvestDate = new Date("2026-11-25T06:00:00.000Z");
+      const expirationDate = new Date("2026-11-28T06:00:00.000Z");
+
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            product: sampleProductRow,
+            category: sampleCategorySummary,
+            availableQuantity: "3.33",
+          },
+        ],
+        [
+          {
+            batchCode: "LOT-RESCUE-1",
+            harvestDate,
+            expirationDate,
+            status: BatchStatus.NEAR_EXPIRY,
+            initialQuantity: "10.00",
+            availableQuantity: "3.33",
+            plotCode: "PLOT-B2",
+            plotName: "Nhà kính B2",
+          },
+        ],
+        [
+          {
+            product: sampleProductRow,
+            category: sampleCategorySummary,
+            availableQuantity: "12.00",
+          },
+        ],
+        [
+          {
+            batchCode: "LOT-RESCUE-CLAMP",
+            harvestDate,
+            expirationDate,
+            status: BatchStatus.NEAR_EXPIRY,
+            initialQuantity: "10.00",
+            availableQuantity: "12.00",
+            plotCode: "PLOT-B2",
+            plotName: "Nhà kính B2",
+          },
+        ],
+      ]);
+
+      const partialResult =
+        await service.getPublicProductBySlug("ca-chua-bi-huu-co");
+      expect(partialResult.rescueProgress).toEqual({
+        expiresAt: expirationDate.toISOString(),
+        claimedPercent: 67,
+      });
+
+      const clampedResult =
+        await service.getPublicProductBySlug("ca-chua-bi-huu-co");
+      expect(clampedResult.rescueProgress).toEqual({
+        expiresAt: expirationDate.toISOString(),
+        claimedPercent: 0,
+      });
     });
 
     it("throws NotFoundException when product or category is missing, inactive, or deleted", async () => {

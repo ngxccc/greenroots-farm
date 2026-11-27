@@ -5,6 +5,7 @@ import { zSanitizedString, zUuidV7 } from "@/common/schemas/zod-primitives";
 import {
   zCatalogDescription,
   zCatalogSlug,
+  zCatalogStorageInstructions,
   zProductImageUrls,
 } from "./catalog-primitives";
 
@@ -17,6 +18,7 @@ export const createProductSchema = z
     name: zSanitizedString({ min: 1, max: 255 }),
     slug: zCatalogSlug(),
     description: zCatalogDescription(),
+    storageInstructions: zCatalogStorageInstructions(),
     basePriceVnd: z.number().int().min(0),
     salePriceVnd: z.number().int().min(0).nullable().optional(),
     unit: zSanitizedString({ min: 1, max: 50 }).default("kg"),

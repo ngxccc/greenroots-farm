@@ -7,6 +7,7 @@ import {
 import {
   MAX_CATALOG_DESCRIPTION_LENGTH,
   MAX_PRODUCT_IMAGES,
+  MAX_STORAGE_INSTRUCTIONS_LENGTH,
   SLUG_REGEX,
 } from "../catalog.constant";
 
@@ -22,20 +23,30 @@ export function zCatalogSlug() {
     .meta({ example: "rau-an-la" });
 }
 
-/**
- * Validates an optional/nullable sanitized catalog description field,
- * normalizing empty/whitespace-only inputs to `null`.
- */
-export function zCatalogDescription() {
+function zNullableOptionalSanitizedText(max: number) {
   return z.preprocess(
     (val) => {
       if (typeof val === "string" && val.trim() === "") return null;
       return val;
     },
-    zSanitizedString({ min: 1, max: MAX_CATALOG_DESCRIPTION_LENGTH })
-      .nullable()
-      .optional(),
+    zSanitizedString({ min: 1, max }).nullable().optional(),
   );
+}
+
+/**
+ * Validates an optional/nullable sanitized catalog description field,
+ * normalizing empty/whitespace-only inputs to `null`.
+ */
+export function zCatalogDescription() {
+  return zNullableOptionalSanitizedText(MAX_CATALOG_DESCRIPTION_LENGTH);
+}
+
+/**
+ * Validates an optional/nullable sanitized product storage instructions field,
+ * normalizing empty/whitespace-only inputs to `null`.
+ */
+export function zCatalogStorageInstructions() {
+  return zNullableOptionalSanitizedText(MAX_STORAGE_INSTRUCTIONS_LENGTH);
 }
 
 /**

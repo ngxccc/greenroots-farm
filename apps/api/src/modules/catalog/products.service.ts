@@ -28,15 +28,28 @@ import {
   DATABASE_CONNECTION,
   type DrizzleDB,
 } from "@/database/database.module";
-import { batches, categories, products } from "@/database/schemas";
-import type { ProductSortOption } from "./catalog.constant";
+import {
+  batches,
+  categories,
+  plots,
+  products,
+  seasons,
+} from "@/database/schemas";
+import {
+  SELLABLE_BATCH_STATUSES,
+  type ProductSortOption,
+  type SellableBatchStatus,
+} from "./catalog.constant";
 import type { CatalogVisibilityScope } from "./catalog.interface";
 import type {
+  ActiveBatchTrace,
   AdminListProductsQuery,
   CreateProductInput,
   ListProductsQuery,
   ProductCategorySummary,
+  ProductDetailProjection,
   ProductProjection,
+  RescueProgress,
   UpdateProductInput,
 } from "./dto";
 
@@ -46,6 +59,7 @@ const PRODUCT_COLUMNS = {
   name: products.name,
   slug: products.slug,
   description: products.description,
+  storageInstructions: products.storageInstructions,
   basePrice: products.basePrice,
   salePrice: products.salePrice,
   unit: products.unit,
@@ -76,9 +90,20 @@ interface ProductJoinedRow {
   availableQuantity: string | number;
 }
 
+interface ActiveFefoBatchRow {
+  batchCode: string;
+  harvestDate: Date;
+  expirationDate: Date;
+  status: BatchStatus;
+  initialQuantity: string | number;
+  availableQuantity: string | number;
+  plotCode: string;
+  plotName: string;
+}
+
 // Keep sellable statuses and 0 as SQL literals so PostgreSQL proves predicate implication for batches_sellable_stock_idx.
 const SELLABLE_BATCH_STATUS_SQL = sql.raw(
-  `'${BatchStatus.IN_STOCK}', '${BatchStatus.NEAR_EXPIRY}'`,
+  SELLABLE_BATCH_STATUSES.map((status) => `'${status}'`).join(", "),
 );
 
 // Qualify products."id" explicitly because Drizzle strips table names from column refs in single-table queries, which would shadow against b.id inside the subquery.
@@ -222,9 +247,10 @@ export class ProductsService {
   }
 
   /**
-   * Fetches an active, non-deleted product by slug (requiring an active category) for public views.
+   * Fetches an active, non-deleted product by slug (requiring an active category)
+   * along with its deterministic FEFO active batch trace and near-expiry rescue summary.
    */
-  async getPublicProductBySlug(slug: string): Promise<ProductProjection> {
+  async getPublicProductBySlug(slug: string): Promise<ProductDetailProjection> {
     const [row] = await this.db
       .select({
         product: PRODUCT_COLUMNS,
@@ -251,7 +277,14 @@ export class ProductsService {
       });
     }
 
-    return this.toProductProjection(row);
+    const { activeBatchTrace, rescueProgress } =
+      await this.findActiveFefoBatchSummary(row.product.id);
+
+    return {
+      ...this.toProductProjection(row),
+      activeBatchTrace,
+      rescueProgress,
+    };
   }
 
   /**
@@ -318,6 +351,7 @@ export class ProductsService {
             name: input.name,
             slug: input.slug,
             description: input.description ?? null,
+            storageInstructions: input.storageInstructions ?? null,
             basePrice: input.basePriceVnd,
             salePrice: input.salePriceVnd ?? null,
             unit: input.unit,
@@ -417,6 +451,9 @@ export class ProductsService {
         if (input.slug !== undefined) patch.slug = input.slug;
         if (input.description !== undefined) {
           patch.description = input.description;
+        }
+        if (input.storageInstructions !== undefined) {
+          patch.storageInstructions = input.storageInstructions;
         }
         if (input.basePriceVnd !== undefined) {
           patch.basePrice = input.basePriceVnd;
@@ -534,6 +571,78 @@ export class ProductsService {
     return category?.id ?? null;
   }
 
+  private async findActiveFefoBatchSummary(productId: string): Promise<{
+    activeBatchTrace: ActiveBatchTrace | null;
+    rescueProgress: RescueProgress | null;
+  }> {
+    // Intentionally omit plots.deletedAt IS NULL so historical plot provenance remains intact if a plot is archived post-harvest (INV-PROD-8).
+    const [batchRow] = await this.db
+      .select({
+        batchCode: batches.batchCode,
+        harvestDate: batches.harvestDate,
+        expirationDate: batches.expirationDate,
+        status: batches.status,
+        initialQuantity: batches.initialQuantity,
+        availableQuantity: batches.availableQuantity,
+        plotCode: plots.plotCode,
+        plotName: plots.name,
+      })
+      .from(batches)
+      .innerJoin(seasons, eq(batches.seasonId, seasons.id))
+      .innerJoin(plots, eq(seasons.plotId, plots.id))
+      .where(
+        and(
+          eq(batches.productId, productId),
+          sql`${batches.status} IN (${SELLABLE_BATCH_STATUS_SQL})`,
+          sql`${batches.expirationDate} > NOW()`,
+          sql`${batches.availableQuantity} > 0`,
+        ),
+      )
+      .orderBy(asc(batches.expirationDate), asc(batches.id))
+      .limit(1);
+
+    if (!batchRow) {
+      return {
+        activeBatchTrace: null,
+        rescueProgress: null,
+      };
+    }
+
+    return {
+      activeBatchTrace: {
+        batchCode: batchRow.batchCode,
+        harvestDate: batchRow.harvestDate.toISOString(),
+        expirationDate: batchRow.expirationDate.toISOString(),
+        status: batchRow.status as SellableBatchStatus,
+        plotCode: batchRow.plotCode,
+        plotName: batchRow.plotName,
+      },
+      rescueProgress: this.toRescueProgress(batchRow),
+    };
+  }
+
+  private toRescueProgress(
+    batchRow: ActiveFefoBatchRow,
+  ): RescueProgress | null {
+    if (batchRow.status !== BatchStatus.NEAR_EXPIRY) {
+      return null;
+    }
+
+    const initialQuantity = Number(batchRow.initialQuantity);
+    const availableQuantity = Number(batchRow.availableQuantity);
+    const rawPercent =
+      initialQuantity > 0
+        ? Math.round(
+            ((initialQuantity - availableQuantity) / initialQuantity) * 100,
+          )
+        : 0;
+
+    return {
+      expiresAt: batchRow.expirationDate.toISOString(),
+      claimedPercent: Math.min(100, Math.max(0, rawPercent)),
+    };
+  }
+
   private toProductProjection({
     product,
     category,
@@ -546,6 +655,7 @@ export class ProductsService {
       name: product.name,
       slug: product.slug,
       description: product.description,
+      storageInstructions: product.storageInstructions,
       basePriceVnd: product.basePrice,
       salePriceVnd: product.salePrice,
       availableQuantity: Number(availableQuantity),

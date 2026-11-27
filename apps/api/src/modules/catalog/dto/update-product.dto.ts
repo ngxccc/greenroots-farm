@@ -6,6 +6,7 @@ import {
   hasAtLeastOneDefinedField,
   zCatalogDescription,
   zCatalogSlug,
+  zCatalogStorageInstructions,
   zProductImageUrls,
 } from "./catalog-primitives";
 
@@ -18,6 +19,7 @@ export const updateProductSchema = z
     name: zSanitizedString({ min: 1, max: 255 }).optional(),
     slug: zCatalogSlug().optional(),
     description: zCatalogDescription(),
+    storageInstructions: zCatalogStorageInstructions(),
     basePriceVnd: z.number().int().min(0).optional(),
     salePriceVnd: z.number().int().min(0).nullable().optional(),
     unit: zSanitizedString({ min: 1, max: 50 }).optional(),
