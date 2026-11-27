@@ -50,7 +50,6 @@ import type {
   ForgotPasswordDto,
   LoginDto,
   LoginResponseDto,
-  RefreshResponseDto,
   RefreshTokenDto,
   RegisterDto,
   ResendVerificationDto,
@@ -431,7 +430,7 @@ export class AuthService {
     dto: RefreshTokenDto,
     surface: AuthSurface,
     metadata?: ClientMetadata,
-  ): Promise<RefreshResponseDto> {
+  ): Promise<LoginResponseDto> {
     const hashedIncoming = sha256(dto.refreshToken);
 
     const [deletedToken] = await this.db
@@ -462,6 +461,7 @@ export class AuthService {
       .select({
         id: users.id,
         email: users.email,
+        fullName: users.fullName,
         role: users.role,
         status: users.status,
       })
@@ -498,7 +498,17 @@ export class AuthService {
       metadata,
     );
 
-    return { accessToken, refreshToken };
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        status: user.status,
+      },
+    };
   }
 
   /**
@@ -558,6 +568,7 @@ export class AuthService {
       .select({
         id: users.id,
         fullName: users.fullName,
+        role: users.role,
         status: users.status,
       })
       .from(users)
@@ -587,6 +598,7 @@ export class AuthService {
       normalizedEmail,
       user.fullName,
       rawToken,
+      isStaffRole(user.role),
     );
   }
 

@@ -66,14 +66,16 @@ export class MailService {
   }
 
   /**
-   * Enqueues a password reset email.
+   * Enqueues a password reset email routed to the user's surface origin.
    */
   async sendPasswordResetEmail(
     to: string,
     fullName: string,
     token: string,
+    isStaff = false,
   ): Promise<void> {
-    const resetUrl = `${env.STOREFRONT_URL}/reset-password?token=${token}`;
+    const baseUrl = isStaff ? env.BACKOFFICE_URL : env.STOREFRONT_URL;
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
     const subject = "Yêu cầu đặt lại mật khẩu - GreenRoots Farm";
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">

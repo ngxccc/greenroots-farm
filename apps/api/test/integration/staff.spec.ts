@@ -850,7 +850,7 @@ describe("Staff Management Integration", () => {
 
       const refreshAfterDemote = await request(getHttpServer())
         .post("/api/v1/auth/staff/refresh")
-        .send({ refreshToken: refreshPlain });
+        .set("Cookie", [`gr_staff_refresh=${refreshPlain}`]);
       expect(refreshAfterDemote.status).toBe(401);
 
       // Issue fresh session tokens, then suspend the staff member
@@ -924,7 +924,7 @@ describe("Staff Management Integration", () => {
 
       const refreshAfterDeactivate = await request(getHttpServer())
         .post("/api/v1/auth/staff/refresh")
-        .send({ refreshToken: reactivatedRefresh });
+        .set("Cookie", [`gr_staff_refresh=${reactivatedRefresh}`]);
       expect(refreshAfterDeactivate.status).toBe(401);
     });
   });

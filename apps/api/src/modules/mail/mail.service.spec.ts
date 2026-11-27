@@ -83,6 +83,25 @@ describe("Mail", () => {
       expect(job?.data.to).toBe("admin@greenroots.farm");
       expect(job?.data.subject).toContain("đặt lại mật khẩu");
       expect(job?.data.html).toContain("reset-token-456");
+      expect(job?.data.html).toContain(
+        "http://localhost:3001/reset-password?token=reset-token-456",
+      );
+    });
+
+    it("routes staff password reset email to backoffice origin when isStaff is true", async () => {
+      // Invariant: INV-3
+      await mailService.sendPasswordResetEmail(
+        "staff@greenroots.farm",
+        "Staff",
+        "staff-reset-123",
+        true,
+      );
+
+      expect(addedJobs).toHaveLength(1);
+      const job = addedJobs[0];
+      expect(job?.data.html).toContain(
+        "http://localhost:3002/reset-password?token=staff-reset-123",
+      );
     });
 
     it("enqueues staff invitation email pointing to backoffice with 24h copy", async () => {

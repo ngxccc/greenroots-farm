@@ -2,7 +2,9 @@ import "reflect-metadata";
 import { Logger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
+import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
+import { resolveAllowedOrigins } from "./common/config/cors.config";
 import { env } from "./common/config/env.config";
 import { setupGlobalPrefix } from "./common/config/api-prefix.config";
 import { setupOpenApiAndScalar } from "./common/config/openapi.config";
@@ -16,19 +18,8 @@ async function bootstrap(): Promise<void> {
   // Respect reverse-proxy headers so client IPs are correct behind Nginx/Cloudflare.
   app.set("trust proxy", 1);
   app.enableShutdownHooks();
-  const configuredOrigins = env.CORS_ORIGINS.split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const allowedOrigins = Array.from(
-    new Set([
-      ...configuredOrigins,
-      ...configuredOrigins.map((o) =>
-        o.includes("localhost")
-          ? o.replace("localhost", "127.0.0.1")
-          : o.replace("127.0.0.1", "localhost"),
-      ),
-    ]),
-  );
+  app.use(cookieParser());
+  const allowedOrigins = resolveAllowedOrigins(env.CORS_ORIGINS);
 
   app.enableCors({
     origin: allowedOrigins,

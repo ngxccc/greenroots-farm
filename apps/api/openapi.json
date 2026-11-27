@@ -919,7 +919,7 @@
     },
     "/api/v1/auth/staff/login": {
       "post": {
-        "description": "Verifies internal staff credentials and returns a short-lived access token and staff-bound refresh token.",
+        "description": "Verifies internal staff credentials, sets an HttpOnly staff refresh cookie, and returns an access token and staff user profile.",
         "operationId": "AuthController_staffLogin_v1",
         "parameters": [],
         "requestBody": {
@@ -948,7 +948,7 @@
                       ],
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/LoginResponseDto"
+                          "$ref": "#/components/schemas/StaffAuthResponseDto"
                         }
                       }
                     }
@@ -1213,19 +1213,9 @@
     },
     "/api/v1/auth/staff/refresh": {
       "post": {
-        "description": "Validates single-use staff refresh token, atomically deletes it, and issues a new pair.",
+        "description": "Validates the HttpOnly staff refresh cookie, atomically rotates it, and returns a new access token and staff user profile.",
         "operationId": "AuthController_staffRefresh_v1",
         "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefreshTokenDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "",
@@ -1242,7 +1232,7 @@
                       ],
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/RefreshResponseDto"
+                          "$ref": "#/components/schemas/StaffAuthResponseDto"
                         }
                       }
                     }
@@ -1352,7 +1342,7 @@
             }
           }
         },
-        "summary": "Rotate staff refresh token and issue renewed session",
+        "summary": "Rotate staff refresh cookie and issue renewed session",
         "tags": [
           "auth"
         ]
@@ -1360,7 +1350,7 @@
     },
     "/api/v1/auth/logout": {
       "post": {
-        "description": "Revokes the provided refresh token and blacklists the caller access token in Redis.",
+        "description": "Revokes the provided refresh token or HttpOnly staff refresh cookie and blacklists the caller access token in Redis.",
         "operationId": "AuthController_logout_v1",
         "parameters": [],
         "requestBody": {
@@ -1368,7 +1358,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshTokenDto"
+                "$ref": "#/components/schemas/LogoutDto"
               }
             }
           }
@@ -1418,6 +1408,25 @@
                       "reason": "Invalid property value"
                     }
                   ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden resource access (Forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/forbidden",
+                  "title": "Forbidden",
+                  "status": 403,
+                  "detail": "You do not have permission to perform this action",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
                   "timestamp": "2026-11-16T00:00:00.000Z"
                 }
               }
@@ -17031,6 +17040,61 @@
         ],
         "additionalProperties": false
       },
+      "StaffAuthResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "15-minute JWT access token"
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+              },
+              "email": {
+                "type": "string"
+              },
+              "fullName": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "guest",
+                  "customer",
+                  "farm_staff",
+                  "sales",
+                  "admin",
+                  "super_admin"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "inactive",
+                  "suspended"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "email",
+              "fullName",
+              "role",
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "accessToken",
+          "user"
+        ]
+      },
       "RefreshResponseDto": {
         "type": "object",
         "properties": {
@@ -17060,6 +17124,17 @@
         "required": [
           "refreshToken"
         ],
+        "additionalProperties": false
+      },
+      "LogoutDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
         "additionalProperties": false
       },
       "ActiveSessionDto": {

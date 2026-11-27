@@ -231,7 +231,7 @@ describe("Throttling Integration", () => {
       await assertBurstThrottled({
         path: "/api/v1/auth/staff/refresh",
         allowedCount: 10,
-        expectedPreThrottleStatus: 400,
+        expectedPreThrottleStatus: 401,
       });
     });
   });
@@ -241,7 +241,7 @@ describe("Throttling Integration", () => {
       await assertBurstThrottled({
         path: "/api/v1/auth/logout",
         allowedCount: 10,
-        expectedPreThrottleStatus: 400,
+        expectedPreThrottleStatus: 200,
       });
     });
   });
