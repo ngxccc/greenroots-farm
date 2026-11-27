@@ -104,6 +104,7 @@ export const API_ERROR_CODES = {
   BATCH_SEASON_STATUS_INVALID: "BATCH_SEASON_STATUS_INVALID",
   BATCH_HARVEST_DATE_INVALID: "BATCH_HARVEST_DATE_INVALID",
   BATCH_EXPIRED_AT_INTAKE: "BATCH_EXPIRED_AT_INTAKE",
+  BATCH_FLASH_SALE_NOT_ELIGIBLE: "BATCH_FLASH_SALE_NOT_ELIGIBLE",
   WASTE_LOG_NOT_FOUND: "WASTE_LOG_NOT_FOUND",
   WASTE_LOG_BATCH_NOT_ELIGIBLE: "WASTE_LOG_BATCH_NOT_ELIGIBLE",
   WASTE_LOG_QUANTITY_EXCEEDS_AVAILABLE: "WASTE_LOG_QUANTITY_EXCEEDS_AVAILABLE",
@@ -307,6 +308,8 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Thời điểm thu hoạch không được vượt quá hiện tại và phải từ ngày bắt đầu mùa vụ.",
   [API_ERROR_CODES.BATCH_EXPIRED_AT_INTAKE]:
     "Lô nông sản đã hết hạn sử dụng so với thời điểm hiện tại.",
+  [API_ERROR_CODES.BATCH_FLASH_SALE_NOT_ELIGIBLE]:
+    "Lô nông sản không đủ điều kiện áp dụng Flash Sale giải cứu (đã hết hạn, hết hàng hoặc chưa đến ngưỡng cận hạn).",
   [API_ERROR_CODES.WASTE_LOG_NOT_FOUND]:
     "Không tìm thấy phiếu đề xuất xuất hủy yêu cầu.",
   [API_ERROR_CODES.WASTE_LOG_BATCH_NOT_ELIGIBLE]:
