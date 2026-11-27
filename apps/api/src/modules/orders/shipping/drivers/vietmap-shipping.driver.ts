@@ -15,7 +15,11 @@ import { calculateCachedRoadQuote } from "./road-distance-shipping.helper";
 
 const VIETMAP_MATRIX_URL = "https://maps.vietmap.vn/api/matrix/v4";
 
+type VietmapVehicle = "motorcycle" | "car";
+
 interface VietmapMatrixResponse {
+  readonly code?: string;
+  readonly messages?: readonly string[];
   readonly distances?: readonly (readonly number[])[];
 }
 
@@ -61,6 +65,42 @@ export class VietmapShippingDriver implements ShippingDriver {
       throw new Error("VIETMAP_API_KEY is not configured");
     }
 
+    const motoPayload = await this.fetchMatrixPayload(
+      origin,
+      destination,
+      apiKey,
+      "motorcycle",
+    );
+    const motoDistance = this.extractDistanceMeters(motoPayload);
+    if (motoDistance !== null) {
+      return motoDistance / 1000;
+    }
+
+    // Vietmap's motorcycle graph returns distances[0][0] = -1 for some valid urban segments where car routes cleanly.
+    const carPayload = await this.fetchMatrixPayload(
+      origin,
+      destination,
+      apiKey,
+      "car",
+    );
+    const carDistance = this.extractDistanceMeters(carPayload);
+    if (carDistance !== null) {
+      return carDistance / 1000;
+    }
+
+    const motoRaw = motoPayload.distances?.[0]?.[0];
+    const carRaw = carPayload.distances?.[0]?.[0];
+    throw new Error(
+      `Vietmap matrix returned no valid route (motorcycle=${String(motoRaw)}, car=${String(carRaw)})`,
+    );
+  }
+
+  private async fetchMatrixPayload(
+    origin: GeoCoordinate,
+    destination: GeoCoordinate,
+    apiKey: string,
+    vehicle: VietmapVehicle,
+  ): Promise<VietmapMatrixResponse> {
     const url = new URL(VIETMAP_MATRIX_URL);
     url.searchParams.set("apikey", apiKey);
     url.searchParams.append("point", `${origin.latitude},${origin.longitude}`);
@@ -70,7 +110,7 @@ export class VietmapShippingDriver implements ShippingDriver {
     );
     url.searchParams.set("sources", "0");
     url.searchParams.set("destinations", "1");
-    url.searchParams.set("vehicle", "motorcycle");
+    url.searchParams.set("vehicle", vehicle);
     url.searchParams.set("annotation", "distance");
 
     let response: Response;
@@ -91,24 +131,27 @@ export class VietmapShippingDriver implements ShippingDriver {
     }
 
     const payload = (await response.json()) as VietmapMatrixResponse;
-    const distances: readonly (readonly number[])[] = Array.isArray(
-      payload.distances,
-    )
-      ? (payload.distances as readonly (readonly number[])[])
-      : [];
-    const firstRow: readonly number[] = Array.isArray(distances[0])
-      ? (distances[0] as readonly number[])
-      : [];
-    const distanceMeters = firstRow[0];
+    if (payload.code && payload.code !== "OK") {
+      const detail = payload.messages?.filter(Boolean).join("; ");
+      throw new Error(
+        detail
+          ? `Vietmap matrix ${payload.code}: ${detail}`
+          : `Vietmap matrix ${payload.code}`,
+      );
+    }
 
+    return payload;
+  }
+
+  private extractDistanceMeters(payload: VietmapMatrixResponse): number | null {
+    const distanceMeters = payload.distances?.[0]?.[0];
     if (
       typeof distanceMeters !== "number" ||
       !Number.isFinite(distanceMeters) ||
       distanceMeters < 0
     ) {
-      throw new Error("Vietmap matrix returned no valid route");
+      return null;
     }
-
-    return distanceMeters / 1000;
+    return distanceMeters;
   }
 }

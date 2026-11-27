@@ -159,6 +159,80 @@ describe("VietmapShippingDriver", () => {
       expect(result.isDeliverable).toBe(true);
     });
 
+    it("retries with car vehicle when motorcycle matrix returns negative distance", async () => {
+      const requestedVehicles: string[] = [];
+      globalThis.fetch = mock((input: string | URL | Request) => {
+        const rawUrl = typeof input === "string" ? input : "";
+        const vehicle = new URL(rawUrl).searchParams.get("vehicle") ?? "";
+        requestedVehicles.push(vehicle);
+        const distance = vehicle === "motorcycle" ? -1 : 10_505.3;
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ code: "OK", distances: [[distance]] }),
+            { status: 200 },
+          ),
+        );
+      }) as unknown as typeof fetch;
+
+      const result = await driver.calculateQuote({
+        origin,
+        destination,
+        config: baseConfig,
+        isSubscription: false,
+      });
+
+      expect(requestedVehicles).toEqual(["motorcycle", "car"]);
+      expect(result.roadDistanceKm).toBe(10.51);
+      expect(result.isDeliverable).toBe(true);
+    });
+
+    it("surfaces Vietmap error code and messages when matrix returns non-OK payload", async () => {
+      // Invariant: INV-SHIP-1
+      const loggedWarnings: string[] = [];
+      const logger = (
+        driver as unknown as { logger: { warn: (msg: string) => void } }
+      ).logger;
+      const originalWarn = logger.warn.bind(logger);
+      logger.warn = (msg: string) => {
+        loggedWarnings.push(msg);
+      };
+
+      try {
+        const expectedHaversine = await haversineDriver.calculateQuote({
+          origin,
+          destination,
+          config: baseConfig,
+          isSubscription: false,
+        });
+
+        globalThis.fetch = mock(() =>
+          Promise.resolve(
+            new Response(
+              JSON.stringify({
+                code: "INVALID_REQUEST",
+                messages: ["Point 0 is out of range"],
+              }),
+              { status: 200 },
+            ),
+          ),
+        ) as unknown as typeof fetch;
+
+        const quote = await driver.calculateQuote({
+          origin,
+          destination,
+          config: baseConfig,
+          isSubscription: false,
+        });
+
+        expect(quote).toEqual(expectedHaversine);
+        expect(loggedWarnings[0]).toContain(
+          "Vietmap matrix INVALID_REQUEST: Point 0 is out of range",
+        );
+      } finally {
+        logger.warn = originalWarn;
+      }
+    });
+
     it("falls back to HaversineShippingDriver on locked or unauthorized upstream responses and redacts secrets", async () => {
       // Invariant: INV-GEO-2
       // Invariant: INV-SHIP-1
