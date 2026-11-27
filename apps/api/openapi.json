@@ -11281,6 +11281,151 @@
         ]
       }
     },
+    "/api/v1/media/complaints": {
+      "delete": {
+        "description": "Deletes an uploaded complaint image or video owned by the authenticated user when not yet linked to a persisted complaint.",
+        "operationId": "MediaController_deleteComplaintMedia_v1",
+        "parameters": [
+          {
+            "name": "url",
+            "required": true,
+            "in": "query",
+            "description": "Cloudinary secure URL of the unsubmitted complaint media asset",
+            "schema": {
+              "format": "uri",
+              "type": "string"
+            }
+          },
+          {
+            "name": "resourceType",
+            "required": true,
+            "in": "query",
+            "description": "Cloudinary resource type: image or video",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "image",
+                "video"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Unsubmitted complaint media deleted from Cloudinary"
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid token (Unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unauthorized",
+                  "title": "Unauthorized",
+                  "status": 401,
+                  "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden resource access (Forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/forbidden",
+                  "title": "Forbidden",
+                  "status": 403,
+                  "detail": "You do not have permission to perform this action",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict or concurrency collision (Conflict)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/conflict",
+                  "title": "Conflict",
+                  "status": 409,
+                  "detail": "A conflict occurred with the current state of the resource",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete an unsubmitted complaint media asset from Cloudinary",
+        "tags": [
+          "media"
+        ]
+      }
+    },
     "/api/v1/orders/me": {
       "get": {
         "description": "Returns a paginated list of orders owned by the authenticated customer with optional status filtering and sorting.",
@@ -14934,6 +15079,164 @@
       }
     },
     "/api/v1/orders/{id}/complaints": {
+      "get": {
+        "description": "Returns the submitted complaint for an owned order, or null when no complaint has been filed yet.",
+        "operationId": "ComplaintsController_getOrderComplaint_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Order UUIDv7 identifier",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponseDto"
+                    },
+                    {
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "oneOf": [
+                            {
+                              "$ref": "#/components/schemas/ComplaintDto"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid token (Unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unauthorized",
+                  "title": "Unauthorized",
+                  "status": 401,
+                  "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden resource access (Forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/forbidden",
+                  "title": "Forbidden",
+                  "status": 403,
+                  "detail": "You do not have permission to perform this action",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (Not Found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/not-found",
+                  "title": "Not Found",
+                  "status": 404,
+                  "detail": "The requested resource could not be found",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get complaint for an owned customer order",
+        "tags": [
+          "complaints"
+        ]
+      },
       "post": {
         "description": "Creates a pending complaint for an owned delivered or completed order within 24 hours of delivery, backed by 1-5 Cloudinary proof images and an optional video verified server-side.",
         "operationId": "ComplaintsController_submitComplaint_v1",
@@ -20127,6 +20430,11 @@
             "maximum": 9007199254740991,
             "description": "Maximum allowed file size in bytes",
             "example": 5242880
+          },
+          "publicId": {
+            "description": "Owner-scoped Cloudinary public_id (relative to folder) when bound server-side",
+            "example": "019fa8bc-8f4d-7000-b366-e691f45cfb91/a1b2c3d4",
+            "type": "string"
           }
         },
         "required": [
@@ -20274,6 +20582,18 @@
               }
             ]
           },
+          "deliveredAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "items": {
             "type": "array",
             "items": {
@@ -20360,6 +20680,7 @@
           "totalAmountVnd",
           "paymentUrl",
           "reservationExpiresAt",
+          "deliveredAt",
           "items",
           "createdAt",
           "updatedAt"
@@ -20768,6 +21089,18 @@
               }
             ]
           },
+          "deliveredAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "items": {
             "type": "array",
             "items": {
@@ -20910,6 +21243,7 @@
           "totalAmountVnd",
           "paymentUrl",
           "reservationExpiresAt",
+          "deliveredAt",
           "items",
           "createdAt",
           "updatedAt",
@@ -21639,6 +21973,24 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
           },
+          "category": {
+            "type": "string",
+            "enum": [
+              "damaged_wilted",
+              "missing_item",
+              "wrong_item",
+              "not_fresh",
+              "other"
+            ]
+          },
+          "affectedOrderItemIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+            }
+          },
           "reason": {
             "type": "string"
           },
@@ -21677,6 +22029,56 @@
               }
             ]
           },
+          "triageNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resolutionNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refundChannel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "bank_transfer",
+                  "loyalty_points"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "refundAmountVnd": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replacementOrderId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -21692,11 +22094,18 @@
           "id",
           "orderId",
           "customerId",
+          "category",
+          "affectedOrderItemIds",
           "reason",
           "proofImageUrls",
           "proofVideoUrl",
           "status",
           "resolution",
+          "triageNote",
+          "resolutionNote",
+          "refundChannel",
+          "refundAmountVnd",
+          "replacementOrderId",
           "createdAt",
           "updatedAt"
         ]
@@ -21704,6 +22113,27 @@
       "CreateComplaintDto": {
         "type": "object",
         "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "damaged_wilted",
+              "missing_item",
+              "wrong_item",
+              "not_fresh",
+              "other"
+            ],
+            "description": "Standardized complaint category"
+          },
+          "affectedOrderItemIds": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+            },
+            "description": "Unique UUIDv7 IDs of affected order line items"
+          },
           "reason": {
             "description": "Customer complaint description (10-2000 characters)",
             "type": "string"
@@ -21732,6 +22162,8 @@
           }
         },
         "required": [
+          "category",
+          "affectedOrderItemIds",
           "reason",
           "proofImageUrls"
         ],
@@ -21791,6 +22223,24 @@
               "string",
               "null"
             ]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "damaged_wilted",
+              "missing_item",
+              "wrong_item",
+              "not_fresh",
+              "other"
+            ]
+          },
+          "affectedOrderItemIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+            }
           },
           "reason": {
             "type": "string"
@@ -21949,6 +22399,8 @@
           "customerId",
           "customerName",
           "customerPhone",
+          "category",
+          "affectedOrderItemIds",
           "reason",
           "proofImageUrls",
           "proofVideoUrl",

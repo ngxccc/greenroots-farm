@@ -1073,6 +1073,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/media/complaints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an unsubmitted complaint media asset from Cloudinary
+         * @description Deletes an uploaded complaint image or video owned by the authenticated user when not yet linked to a persisted complaint.
+         */
+        delete: operations["MediaController_deleteComplaintMedia_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/me": {
         parameters: {
             query?: never;
@@ -1444,7 +1464,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get complaint for an owned customer order
+         * @description Returns the submitted complaint for an owned order, or null when no complaint has been filed yet.
+         */
+        get: operations["ComplaintsController_getOrderComplaint_v1"];
         put?: never;
         /**
          * Submit a 24-hour post-delivery order complaint
@@ -2652,6 +2676,11 @@ export interface components {
              * @example 5242880
              */
             maxBytes: number;
+            /**
+             * @description Owner-scoped Cloudinary public_id (relative to folder) when bound server-side
+             * @example 019fa8bc-8f4d-7000-b366-e691f45cfb91/a1b2c3d4
+             */
+            publicId?: string;
         };
         SignedUploadDto: {
             /**
@@ -2689,6 +2718,7 @@ export interface components {
             totalAmountVnd: number;
             paymentUrl: string | null;
             reservationExpiresAt: string | null;
+            deliveredAt: string | null;
             items: {
                 /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
                 id: string;
@@ -2791,6 +2821,7 @@ export interface components {
             totalAmountVnd: number;
             paymentUrl: string | null;
             reservationExpiresAt: string | null;
+            deliveredAt: string | null;
             items: {
                 /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
                 id: string;
@@ -2986,18 +3017,33 @@ export interface components {
             orderId: string;
             /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
             customerId: string;
+            /** @enum {string} */
+            category: "damaged_wilted" | "missing_item" | "wrong_item" | "not_fresh" | "other";
+            affectedOrderItemIds: string[];
             reason: string;
             proofImageUrls: string[];
             proofVideoUrl: string | null;
             /** @enum {string} */
             status: "pending" | "triaged" | "approved" | "rejected";
             resolution: ("refund" | "replacement") | null;
+            triageNote: string | null;
+            resolutionNote: string | null;
+            refundChannel: ("bank_transfer" | "loyalty_points") | null;
+            refundAmountVnd: number | null;
+            replacementOrderId: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
         };
         CreateComplaintDto: {
+            /**
+             * @description Standardized complaint category
+             * @enum {string}
+             */
+            category: "damaged_wilted" | "missing_item" | "wrong_item" | "not_fresh" | "other";
+            /** @description Unique UUIDv7 IDs of affected order line items */
+            affectedOrderItemIds: string[];
             /** @description Customer complaint description (10-2000 characters) */
             reason: string;
             /** @description 1 to 5 unique Cloudinary proof image URLs in complaints folder */
@@ -3019,6 +3065,9 @@ export interface components {
             customerId: string;
             customerName: string;
             customerPhone: string | null;
+            /** @enum {string} */
+            category: "damaged_wilted" | "missing_item" | "wrong_item" | "not_fresh" | "other";
+            affectedOrderItemIds: string[];
             reason: string;
             proofImageUrls: string[];
             proofVideoUrl: string | null;
@@ -12047,6 +12096,134 @@ export interface operations {
             };
         };
     };
+    MediaController_deleteComplaintMedia_v1: {
+        parameters: {
+            query: {
+                /** @description Cloudinary secure URL of the unsubmitted complaint media asset */
+                url: string;
+                /** @description Cloudinary resource type: image or video */
+                resourceType: "image" | "video";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unsubmitted complaint media deleted from Cloudinary */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Resource conflict or concurrency collision (Conflict) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/conflict",
+                     *       "title": "Conflict",
+                     *       "status": 409,
+                     *       "detail": "A conflict occurred with the current state of the resource",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
     OrdersController_listMyOrders_v1: {
         parameters: {
             query?: {
@@ -15067,6 +15244,135 @@ export interface operations {
                      *       "title": "Service Unavailable",
                      *       "status": 503,
                      *       "detail": "The service is temporarily unavailable.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ComplaintsController_getOrderComplaint_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Order UUIDv7 identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data: components["schemas"]["ComplaintDto"] | null;
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Resource not found (Not Found) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/not-found",
+                     *       "title": "Not Found",
+                     *       "status": 404,
+                     *       "detail": "The requested resource could not be found",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
                      *       "instance": "/api/v1/resource",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
