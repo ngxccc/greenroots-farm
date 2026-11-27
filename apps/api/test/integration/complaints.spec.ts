@@ -22,6 +22,7 @@ import {
 } from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
+import type { PaginationMetaDto } from "@/common/dto/api-response.dto";
 import type { ApiResponse } from "@/common/utils/api-response.util";
 import { complaints, orders } from "@/database/schemas";
 import { CloudinaryService } from "@/modules/media/cloudinary.service";
@@ -39,6 +40,7 @@ import {
 } from "../helpers/auth.helper";
 
 type ComplaintResponse = components["schemas"]["ComplaintDto"];
+type StaffComplaintResponse = components["schemas"]["StaffComplaintDto"];
 
 const VALID_IMAGE_URL = `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/image/upload/v1/complaints/damage-1.webp`;
 const VALID_VIDEO_URL = `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/video/upload/v1/complaints/clip.mp4`;
@@ -49,9 +51,14 @@ describe("Complaints Integration", () => {
   let jwtService: JwtService;
 
   let customerId: string;
+  let otherCustomerId: string;
   let customerHeader: { Authorization: string };
   let otherCustomerHeader: { Authorization: string };
+  let salesId: string;
   let salesHeader: { Authorization: string };
+  let adminHeader: { Authorization: string };
+  let superAdminHeader: { Authorization: string };
+  let farmStaffHeader: { Authorization: string };
   let productId: string;
 
   let verifySpy:
@@ -78,7 +85,10 @@ describe("Complaints Integration", () => {
 
     const otherCustomer = await createAuthenticatedUser(setup.db, jwtService, {
       email: "complaint-other@greenroots.vn",
+      fullName: "Tran Thi B",
+      phone: "0987654321",
     });
+    otherCustomerId = otherCustomer.user.id;
     otherCustomerHeader = otherCustomer.authHeader;
 
     const sales = await createAuthenticatedAdmin(
@@ -86,7 +96,29 @@ describe("Complaints Integration", () => {
       jwtService,
       UserRole.SALES,
     );
+    salesId = sales.user.id;
     salesHeader = sales.authHeader;
+
+    const admin = await createAuthenticatedAdmin(
+      setup.db,
+      jwtService,
+      UserRole.ADMIN,
+    );
+    adminHeader = admin.authHeader;
+
+    const superAdmin = await createAuthenticatedAdmin(
+      setup.db,
+      jwtService,
+      UserRole.SUPER_ADMIN,
+    );
+    superAdminHeader = superAdmin.authHeader;
+
+    const farmStaff = await createAuthenticatedAdmin(
+      setup.db,
+      jwtService,
+      UserRole.FARM_STAFF,
+    );
+    farmStaffHeader = farmStaff.authHeader;
 
     const category = await createCategory(setup.db);
     const product = await createProduct(setup.db, { categoryId: category.id });
@@ -402,6 +434,341 @@ describe("Complaints Integration", () => {
 
       const statuses = [first.status, second.status].sort((a, b) => a - b);
       expect(statuses).toEqual([201, 409]);
+    });
+
+    it("omits internal staff attribution fields from customer ComplaintDto", async () => {
+      // Invariant: INV-CMP-8
+      const { order } = await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.DELIVERED,
+        deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
+        items: [{ productId, quantity: "1.00", unitPrice: 50_000 }],
+      });
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/orders/${order.id}/complaints`)
+        .set(customerHeader)
+        .send({
+          reason: "Kiểm tra cô lập trường nội bộ trên DTO khách hàng",
+          proofImageUrls: [VALID_IMAGE_URL],
+        })
+        .expect(201);
+
+      const body = res.body as ApiResponse<Record<string, unknown>>;
+      expect(body.data).not.toHaveProperty("triagedBy");
+      expect(body.data).not.toHaveProperty("triagedAt");
+      expect(body.data).not.toHaveProperty("triageNote");
+      expect(body.data).not.toHaveProperty("resolvedBy");
+    });
+  });
+
+  describe("GET /api/v1/complaints", () => {
+    it("permits sales, admin, and super_admin and rejects non-triage roles", async () => {
+      // Invariant: INV-CMP-5
+      await request(app.getHttpServer()).get("/api/v1/complaints").expect(401);
+      await request(app.getHttpServer())
+        .get("/api/v1/complaints")
+        .set(customerHeader)
+        .expect(403);
+      await request(app.getHttpServer())
+        .get("/api/v1/complaints")
+        .set(farmStaffHeader)
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .get("/api/v1/complaints")
+        .set(salesHeader)
+        .expect(200);
+      await request(app.getHttpServer())
+        .get("/api/v1/complaints")
+        .set(adminHeader)
+        .expect(200);
+      await request(app.getHttpServer())
+        .get("/api/v1/complaints")
+        .set(superAdminHeader)
+        .expect(200);
+    });
+
+    it("returns paginated hydrated staff projections sorted newest first and supports filters", async () => {
+      // Invariant: INV-CMP-8
+      const { order: order1 } = await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.DELIVERED,
+        deliveredAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+        items: [{ productId, quantity: "1.00", unitPrice: 50_000 }],
+      });
+      const { order: order2 } = await createOrder(setup.db, {
+        customerId: otherCustomerId,
+        orderStatus: OrderStatus.DELIVERED,
+        deliveredAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        items: [{ productId, quantity: "2.00", unitPrice: 60_000 }],
+      });
+
+      const t1 = new Date("2026-11-26T10:00:00.000Z");
+      const t2 = new Date("2026-11-27T10:00:00.000Z");
+
+      await setup.db.insert(complaints).values([
+        {
+          orderId: order1.id,
+          customerId,
+          reason: "Khiếu nại đơn một bị dập",
+          proofImageUrls: [VALID_IMAGE_URL],
+          status: ComplaintStatus.PENDING,
+          createdAt: t1,
+          updatedAt: t1,
+        },
+        {
+          orderId: order2.id,
+          customerId: otherCustomerId,
+          reason: "Khiếu nại đơn hai giao thiếu",
+          proofImageUrls: [VALID_IMAGE_URL],
+          status: ComplaintStatus.TRIAGED,
+          triagedBy: salesId,
+          triagedAt: t2,
+          triageNote: "Đã xác minh với kho",
+          createdAt: t2,
+          updatedAt: t2,
+        },
+      ]);
+
+      const listRes = await request(app.getHttpServer())
+        .get("/api/v1/complaints?page=1&limit=10")
+        .set(salesHeader)
+        .expect(200);
+
+      const listBody = listRes.body as ApiResponse<
+        StaffComplaintResponse[],
+        PaginationMetaDto
+      >;
+      expect(listBody.data).toHaveLength(2);
+      expect(listBody.meta?.total).toBe(2);
+      expect(listBody.data[0]?.orderId).toBe(order2.id);
+      expect(listBody.data[0]?.orderCode).toBe(order2.orderCode);
+      expect(listBody.data[0]?.customerName).toBe("Tran Thi B");
+      expect(listBody.data[0]?.customerPhone).toBe("0987654321");
+      expect(listBody.data[0]?.triagedBy).toBe(salesId);
+      expect(listBody.data[0]?.triageNote).toBe("Đã xác minh với kho");
+      expect(listBody.data[1]?.orderId).toBe(order1.id);
+
+      const byStatus = await request(app.getHttpServer())
+        .get(`/api/v1/complaints?status=${ComplaintStatus.TRIAGED}`)
+        .set(salesHeader)
+        .expect(200);
+      expect(
+        (byStatus.body as ApiResponse<StaffComplaintResponse[]>).data,
+      ).toHaveLength(1);
+
+      const bySearch = await request(app.getHttpServer())
+        .get(`/api/v1/complaints?search=${encodeURIComponent("0987654321")}`)
+        .set(salesHeader)
+        .expect(200);
+      const searchData = (
+        bySearch.body as ApiResponse<StaffComplaintResponse[]>
+      ).data;
+      expect(searchData).toHaveLength(1);
+      expect(searchData[0]?.orderId).toBe(order2.id);
+    });
+  });
+
+  describe("PATCH /api/v1/complaints/:id/triage", () => {
+    it("permits sales, admin, and super_admin and rejects non-triage roles", async () => {
+      // Invariant: INV-CMP-5
+      const seedPendingComplaint = async () => {
+        const { order } = await createOrder(setup.db, {
+          customerId,
+          orderStatus: OrderStatus.DELIVERED,
+          deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
+          items: [{ productId, quantity: "1.00", unitPrice: 50_000 }],
+        });
+        const [created] = await setup.db
+          .insert(complaints)
+          .values({
+            orderId: order.id,
+            customerId,
+            reason: "Kiểm tra phân quyền triage",
+            proofImageUrls: [VALID_IMAGE_URL],
+          })
+          .returning({ id: complaints.id });
+        return created!.id;
+      };
+
+      const [salesTargetId, adminTargetId, superAdminTargetId] =
+        await Promise.all([
+          seedPendingComplaint(),
+          seedPendingComplaint(),
+          seedPendingComplaint(),
+        ]);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${salesTargetId}/triage`)
+        .send({ status: ComplaintStatus.TRIAGED })
+        .expect(401);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${salesTargetId}/triage`)
+        .set(customerHeader)
+        .send({ status: ComplaintStatus.TRIAGED })
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${salesTargetId}/triage`)
+        .set(farmStaffHeader)
+        .send({ status: ComplaintStatus.TRIAGED })
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${salesTargetId}/triage`)
+        .set(salesHeader)
+        .send({ status: ComplaintStatus.TRIAGED })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${adminTargetId}/triage`)
+        .set(adminHeader)
+        .send({ status: ComplaintStatus.TRIAGED })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${superAdminTargetId}/triage`)
+        .set(superAdminHeader)
+        .send({ status: ComplaintStatus.TRIAGED })
+        .expect(200);
+    });
+
+    it("transitions pending complaint to triaged and blocks subsequent triage", async () => {
+      // Invariant: INV-CMP-6
+      const { order } = await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.DELIVERED,
+        deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
+        items: [{ productId, quantity: "1.00", unitPrice: 50_000 }],
+      });
+
+      const [created] = await setup.db
+        .insert(complaints)
+        .values({
+          orderId: order.id,
+          customerId,
+          reason: "Rau bị héo khi giao tới",
+          proofImageUrls: [VALID_IMAGE_URL],
+        })
+        .returning({ id: complaints.id });
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${created!.id}/triage`)
+        .set(salesHeader)
+        .send({ status: ComplaintStatus.TRIAGED })
+        .expect(200);
+
+      const body = res.body as ApiResponse<StaffComplaintResponse>;
+      expect(body.data.status).toBe(ComplaintStatus.TRIAGED);
+      expect(body.data.triagedBy).toBe(salesId);
+      expect(body.data.triagedAt).not.toBeNull();
+      expect(body.data.triageNote).toBeNull();
+
+      const secondRes = await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${created!.id}/triage`)
+        .set(salesHeader)
+        .send({
+          status: ComplaintStatus.REJECTED,
+          triageNote: "Không thể chuyển từ triaged sang rejected",
+        })
+        .expect(422);
+
+      expect((secondRes.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.COMPLAINT_INVALID_STATUS_TRANSITION,
+      );
+    });
+
+    it("requires valid HTML-stripped triageNote when rejecting a pending complaint", async () => {
+      // Invariant: INV-CMP-7
+      const { order } = await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.DELIVERED,
+        deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
+        items: [{ productId, quantity: "1.00", unitPrice: 50_000 }],
+      });
+
+      const [created] = await setup.db
+        .insert(complaints)
+        .values({
+          orderId: order.id,
+          customerId,
+          reason: "Ảnh minh chứng không khớp đơn hàng",
+          proofImageUrls: [VALID_IMAGE_URL],
+        })
+        .returning({ id: complaints.id });
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${created!.id}/triage`)
+        .set(salesHeader)
+        .send({ status: ComplaintStatus.REJECTED, triageNote: "<b>abc</b>" })
+        .expect(400);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${created!.id}/triage`)
+        .set(salesHeader)
+        .send({
+          status: ComplaintStatus.REJECTED,
+          triageNote: "  <b>Ảnh</b> không phải sản phẩm của nông trại  ",
+        })
+        .expect(200);
+
+      const body = res.body as ApiResponse<StaffComplaintResponse>;
+      expect(body.data.status).toBe(ComplaintStatus.REJECTED);
+      expect(body.data.triageNote).toBe(
+        "Ảnh không phải sản phẩm của nông trại",
+      );
+    });
+
+    it("returns not-found when complaint does not exist", async () => {
+      const missingId = "019fa8bc-8f4d-7000-b366-e691f45cffff";
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${missingId}/triage`)
+        .set(salesHeader)
+        .send({ status: ComplaintStatus.TRIAGED })
+        .expect(404);
+
+      expect((res.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.COMPLAINT_NOT_FOUND,
+      );
+    });
+
+    it("allows only one triage under concurrent requests for the same pending complaint", async () => {
+      // Invariant: INV-CMP-6
+      const { order } = await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.DELIVERED,
+        deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
+        items: [{ productId, quantity: "1.00", unitPrice: 50_000 }],
+      });
+
+      const [created] = await setup.db
+        .insert(complaints)
+        .values({
+          orderId: order.id,
+          customerId,
+          reason: "Kiểm tra khóa hàng FOR UPDATE khi triage đồng thời",
+          proofImageUrls: [VALID_IMAGE_URL],
+        })
+        .returning({ id: complaints.id });
+
+      const [first, second] = await Promise.all([
+        request(app.getHttpServer())
+          .patch(`/api/v1/complaints/${created!.id}/triage`)
+          .set(salesHeader)
+          .send({ status: ComplaintStatus.TRIAGED }),
+        request(app.getHttpServer())
+          .patch(`/api/v1/complaints/${created!.id}/triage`)
+          .set(adminHeader)
+          .send({
+            status: ComplaintStatus.REJECTED,
+            triageNote: "Từ chối đồng thời để kiểm tra lock",
+          }),
+      ]);
+
+      const statuses = [first.status, second.status].sort((a, b) => a - b);
+      expect(statuses).toEqual([200, 422]);
     });
   });
 });

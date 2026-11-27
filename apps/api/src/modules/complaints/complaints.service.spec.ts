@@ -15,7 +15,11 @@ import { env } from "@/common/config/env.config";
 import type { DrizzleDB } from "@/database/database.module";
 import type { CloudinaryService } from "@/modules/media/cloudinary.service";
 import { ComplaintsService } from "./complaints.service";
-import { createComplaintSchema } from "./dto";
+import {
+  createComplaintSchema,
+  listComplaintsQuerySchema,
+  triageComplaintSchema,
+} from "./dto";
 
 const ORDER_ID = "019fa8bc-8f4d-7000-b366-e691f45cfb91";
 const CUSTOMER_ID = "019fa8bc-8f4d-7000-b366-e691f45cfb92";
@@ -311,6 +315,219 @@ describe("ComplaintsService", () => {
       }
       expect(caught).toBeInstanceOf(UnprocessableEntityException);
       expect(insertReturning).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("listComplaintsQuerySchema", () => {
+    it("applies default pagination and accepts valid filters", () => {
+      const parsed = listComplaintsQuerySchema.parse({
+        status: ComplaintStatus.PENDING,
+        search: "  <b>ORD-2026</b>  ",
+      });
+
+      expect(parsed.page).toBe(1);
+      expect(parsed.limit).toBe(20);
+      expect(parsed.status).toBe(ComplaintStatus.PENDING);
+      expect(parsed.search).toBe("ORD-2026");
+    });
+
+    it("rejects inverted from and to date range", () => {
+      const result = listComplaintsQuerySchema.safeParse({
+        from: "2026-11-27T10:00:00.000Z",
+        to: "2026-11-26T10:00:00.000Z",
+      });
+
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects search shorter than two characters", () => {
+      const result = listComplaintsQuerySchema.safeParse({
+        search: "a",
+      });
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("triageComplaintSchema", () => {
+    it("requires trimmed HTML-stripped triageNote of at least 5 characters when status is rejected", () => {
+      // Invariant: INV-CMP-7
+      const missingResult = triageComplaintSchema.safeParse({
+        status: ComplaintStatus.REJECTED,
+      });
+      expect(missingResult.success).toBe(false);
+
+      const tooShortAfterStrip = triageComplaintSchema.safeParse({
+        status: ComplaintStatus.REJECTED,
+        triageNote: "  <b>abc</b>  ",
+      });
+      expect(tooShortAfterStrip.success).toBe(false);
+
+      const valid = triageComplaintSchema.parse({
+        status: ComplaintStatus.REJECTED,
+        triageNote:
+          "  <script>alert(1)</script><b>Hình ảnh</b> không rõ ràng  ",
+      });
+      expect(valid.triageNote).toBe("Hình ảnh không rõ ràng");
+    });
+
+    it("allows optional triageNote when status is triaged", () => {
+      // Invariant: INV-CMP-7
+      const withoutNote = triageComplaintSchema.parse({
+        status: ComplaintStatus.TRIAGED,
+      });
+      expect(withoutNote.triageNote).toBeUndefined();
+
+      const withNote = triageComplaintSchema.parse({
+        status: ComplaintStatus.TRIAGED,
+        triageNote: "  Đã xác minh sơ bộ  ",
+      });
+      expect(withNote.triageNote).toBe("Đã xác minh sơ bộ");
+    });
+
+    it("rejects non-triage target statuses", () => {
+      const pendingResult = triageComplaintSchema.safeParse({
+        status: ComplaintStatus.PENDING,
+      });
+      expect(pendingResult.success).toBe(false);
+
+      const approvedResult = triageComplaintSchema.safeParse({
+        status: ComplaintStatus.APPROVED,
+      });
+      expect(approvedResult.success).toBe(false);
+    });
+  });
+
+  describe("triageComplaint", () => {
+    const STAFF_ID = "019fa8bc-8f4d-7000-b366-e691f45cfb95";
+
+    function createTriageHarness(options: {
+      lockedRows: { id: string; status: ComplaintStatus }[];
+      hydratedRow?: Record<string, unknown>;
+    }) {
+      const setMock = mock(() => ({
+        where: () => Promise.resolve(),
+      }));
+      const txMock = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              for: () => Promise.resolve(options.lockedRows),
+            }),
+          }),
+        }),
+        update: () => ({
+          set: setMock,
+        }),
+      };
+      const dbMock = {
+        transaction: mock(async (fn: (tx: typeof txMock) => Promise<unknown>) =>
+          fn(txMock),
+        ),
+        select: () => ({
+          from: () => ({
+            innerJoin: () => ({
+              innerJoin: () => ({
+                where: () => ({
+                  limit: () =>
+                    Promise.resolve(
+                      options.hydratedRow ? [options.hydratedRow] : [],
+                    ),
+                }),
+              }),
+            }),
+          }),
+        }),
+      } as unknown as DrizzleDB;
+
+      const service = new ComplaintsService(
+        dbMock,
+        {} as unknown as CloudinaryService,
+      );
+      return { service, setMock };
+    }
+
+    it("throws not-found when target complaint does not exist", async () => {
+      const { service } = createTriageHarness({ lockedRows: [] });
+
+      let caught: unknown;
+      try {
+        await service.triageComplaint(STAFF_ID, COMPLAINT_ID, {
+          status: ComplaintStatus.TRIAGED,
+        });
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(NotFoundException);
+    });
+
+    it("rejects triage when complaint is no longer pending", async () => {
+      // Invariant: INV-CMP-6
+      const { service, setMock } = createTriageHarness({
+        lockedRows: [{ id: COMPLAINT_ID, status: ComplaintStatus.TRIAGED }],
+      });
+
+      let caught: unknown;
+      try {
+        await service.triageComplaint(STAFF_ID, COMPLAINT_ID, {
+          status: ComplaintStatus.REJECTED,
+          triageNote: "Không thể phân loại lại",
+        });
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toMatchObject({
+        response: { code: API_ERROR_CODES.COMPLAINT_INVALID_STATUS_TRANSITION },
+      });
+      expect(setMock).not.toHaveBeenCalled();
+    });
+
+    it("transitions pending complaint to triaged and normalizes empty note to null", async () => {
+      // Invariant: INV-CMP-6, INV-CMP-7
+      const now = new Date("2026-11-27T02:00:00.000Z");
+      const { service, setMock } = createTriageHarness({
+        lockedRows: [{ id: COMPLAINT_ID, status: ComplaintStatus.PENDING }],
+        hydratedRow: {
+          id: COMPLAINT_ID,
+          orderId: ORDER_ID,
+          orderCode: "ORD-20261127-000001",
+          orderTotalVnd: 150_000,
+          orderPaymentMethod: "cod",
+          orderDeliveredAt: now,
+          customerId: CUSTOMER_ID,
+          customerName: "Nguyen Van A",
+          customerPhone: "0912345678",
+          reason: "Rau bị dập nát khi giao hàng",
+          proofImageUrls: [VALID_IMAGE_URL],
+          proofVideoUrl: null,
+          status: ComplaintStatus.TRIAGED,
+          resolution: null,
+          triagedBy: STAFF_ID,
+          triagedAt: now,
+          triageNote: null,
+          resolvedBy: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+
+      const result = await service.triageComplaint(
+        STAFF_ID,
+        COMPLAINT_ID,
+        { status: ComplaintStatus.TRIAGED, triageNote: "" },
+        now,
+      );
+
+      expect(setMock).toHaveBeenCalledWith({
+        status: ComplaintStatus.TRIAGED,
+        triagedBy: STAFF_ID,
+        triagedAt: now,
+        triageNote: null,
+        updatedAt: now,
+      });
+      expect(result.status).toBe(ComplaintStatus.TRIAGED);
+      expect(result.triagedBy).toBe(STAFF_ID);
+      expect(result.triageNote).toBeNull();
     });
   });
 });
