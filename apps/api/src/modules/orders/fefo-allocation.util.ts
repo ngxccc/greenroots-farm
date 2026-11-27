@@ -1,11 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { asc, and, eq, gt, inArray, sql } from "drizzle-orm";
-import { BatchStatus } from "@greenroots/shared";
+import { BatchStatus, computeFlashSaleUnitPriceVnd } from "@greenroots/shared";
 import { CROCKFORD_BASE32_ALPHABET } from "@/common/constants/encoding.constant";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { extractDatabaseErrorDetails } from "@/common/utils/error.util";
 import { formatVnCompactDate } from "@/common/utils/time.util";
-import type { DrizzleTx } from "@/database/database.module";
+import type { DrizzleDB, DrizzleTx } from "@/database/database.module";
 import { batchAllocations, batches } from "@/database/schemas";
 import { ORDER_CODE_PREFIX, ORDER_CODE_RANDOM_LENGTH } from "./orders.constant";
 
@@ -22,6 +22,8 @@ export interface LockedSellableBatch {
   readonly expirationDate: Date;
   readonly availableQuantity: string;
   readonly status: BatchStatus;
+  readonly isFlashSale: boolean;
+  readonly flashSaleDiscountPercent: number | null;
 }
 
 /** Normalized item input for FEFO batch allocation planning. */
@@ -34,7 +36,10 @@ export interface FefoAllocationItemInput {
 export interface PlannedBatchAllocation {
   readonly productId: string;
   readonly batchId: string;
+  readonly allocatedCents: number;
   readonly allocatedQuantity: string;
+  readonly isFlashSale: boolean;
+  readonly flashSaleDiscountPercent: number | null;
 }
 
 /** Planned remaining-stock update for a locked batch after FEFO allocation. */
@@ -60,7 +65,11 @@ export interface FefoStockShortage {
 /** Discriminated result of `planFefoAllocations` indicating either a plan or stock shortages. */
 export type FefoPlanOutcome =
   | { readonly ok: true; readonly plan: FefoAllocationPlan }
-  | { readonly ok: false; readonly shortages: readonly FefoStockShortage[] };
+  | {
+      readonly ok: false;
+      readonly shortages: readonly FefoStockShortage[];
+      readonly allocations: readonly PlannedBatchAllocation[];
+    };
 
 /**
  * Converts a numeric or decimal-string quantity into integer cents (`quantity * 100`).
@@ -107,21 +116,16 @@ export function isOrderCodeUniqueViolation(error: unknown): boolean {
   );
 }
 
-/**
- * Locks all candidate sellable batches for the given product IDs in ascending `batches.id` order
- * to prevent crossed-item deadlocks (`ADR-0033`).
- */
-export async function lockCandidateSellableBatches(
-  tx: DrizzleTx,
+function buildSellableBatchesQuery(
+  executor: DrizzleDB | DrizzleTx,
   productIds: readonly string[],
   now: Date,
-): Promise<LockedSellableBatch[]> {
+) {
   const sortedProductIds = Array.from(new Set(productIds)).sort((a, b) =>
     a.localeCompare(b),
   );
 
-  // Lock all candidate sellable batches across every order item in one ascending-ID query to eliminate crossed-item deadlocks.
-  return tx
+  return executor
     .select({
       id: batches.id,
       productId: batches.productId,
@@ -129,6 +133,8 @@ export async function lockCandidateSellableBatches(
       expirationDate: batches.expirationDate,
       availableQuantity: batches.availableQuantity,
       status: batches.status,
+      isFlashSale: batches.isFlashSale,
+      flashSaleDiscountPercent: batches.flashSaleDiscountPercent,
     })
     .from(batches)
     .where(
@@ -139,8 +145,54 @@ export async function lockCandidateSellableBatches(
         sql`${batches.availableQuantity} > 0`,
       ),
     )
-    .orderBy(asc(batches.id))
-    .for("update");
+    .orderBy(asc(batches.id));
+}
+
+/**
+ * Queries candidate sellable batches for read-only FEFO pricing evaluation (e.g. cart validation).
+ */
+export async function queryCandidateSellableBatches(
+  executor: DrizzleDB | DrizzleTx,
+  productIds: readonly string[],
+  now: Date,
+): Promise<LockedSellableBatch[]> {
+  if (productIds.length === 0) {
+    return [];
+  }
+  return buildSellableBatchesQuery(executor, productIds, now);
+}
+
+/**
+ * Locks all candidate sellable batches for the given product IDs in ascending `batches.id` order
+ * to prevent crossed-item deadlocks (`ADR-0033`).
+ */
+export async function lockCandidateSellableBatches(
+  tx: DrizzleTx,
+  productIds: readonly string[],
+  now: Date,
+): Promise<LockedSellableBatch[]> {
+  // Lock all candidate sellable batches across every order item in one ascending-ID query to eliminate crossed-item deadlocks.
+  return buildSellableBatchesQuery(tx, productIds, now).for("update");
+}
+
+/**
+ * Resolves the effective integer VND unit price for a batch slice (`ADR-0025`, `ADR-0050`).
+ * Flash-sale discounts anchor strictly on `products.base_price` and never stack on `products.sale_price`.
+ */
+export function resolveBatchUnitPriceVnd(
+  product: { readonly basePrice: number; readonly salePrice: number | null },
+  batch: {
+    readonly isFlashSale: boolean;
+    readonly flashSaleDiscountPercent: number | null;
+  },
+): number {
+  if (batch.isFlashSale && batch.flashSaleDiscountPercent !== null) {
+    return computeFlashSaleUnitPriceVnd(
+      product.basePrice,
+      batch.flashSaleDiscountPercent,
+    );
+  }
+  return product.salePrice ?? product.basePrice;
 }
 
 /**
@@ -214,13 +266,16 @@ export function planFefoAllocations(
       allocations.push({
         productId: item.productId,
         batchId: batch.id,
+        allocatedCents: takeCents,
         allocatedQuantity: formatQuantityFromCents(takeCents),
+        isFlashSale: batch.isFlashSale,
+        flashSaleDiscountPercent: batch.flashSaleDiscountPercent,
       });
     }
   }
 
   if (shortages.length > 0) {
-    return { ok: false, shortages };
+    return { ok: false, shortages, allocations };
   }
 
   const batchUpdates: PlannedBatchUpdate[] = [];
@@ -242,16 +297,20 @@ export function planFefoAllocations(
 export async function applyFefoAllocations(
   tx: DrizzleTx,
   plan: FefoAllocationPlan,
-  insertedItemIdByProduct: ReadonlyMap<string, string>,
+  insertedItemIdByKey: ReadonlyMap<string, string>,
   now: Date,
+  resolveOrderItemKey: (allocation: PlannedBatchAllocation) => string = (
+    allocation,
+  ) => allocation.productId,
 ): Promise<void> {
   if (plan.allocations.length > 0) {
     await tx.insert(batchAllocations).values(
       plan.allocations.map((allocation) => {
-        const orderItemId = insertedItemIdByProduct.get(allocation.productId);
+        const key = resolveOrderItemKey(allocation);
+        const orderItemId = insertedItemIdByKey.get(key);
         if (!orderItemId) {
           throw new Error(
-            `Missing inserted order item for product ${allocation.productId}.`,
+            `Missing inserted order item for allocation key ${key}.`,
           );
         }
 
@@ -272,6 +331,9 @@ export async function applyFefoAllocations(
       .set({
         availableQuantity: update.availableQuantity,
         status: update.status,
+        ...(update.status === BatchStatus.SOLD_OUT
+          ? { isFlashSale: false, flashSaleDiscountPercent: null }
+          : {}),
         updatedAt: now,
       })
       .where(eq(batches.id, update.batchId));

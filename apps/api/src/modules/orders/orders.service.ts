@@ -91,8 +91,11 @@ import {
   isOrderCodeUniqueViolation,
   lockCandidateSellableBatches,
   planFefoAllocations,
+  queryCandidateSellableBatches,
+  resolveBatchUnitPriceVnd,
   toQuantityCents,
   type FefoAllocationPlan,
+  type PlannedBatchAllocation,
 } from "./fefo-allocation.util";
 import {
   ALLOCATED_CANCELLABLE_STATUSES,
@@ -773,7 +776,32 @@ export class OrdersService {
       this.db,
       normalizedItems.map((item) => item.productId),
     );
-    const evaluated = this.evaluateCartItems(normalizedItems, productRows);
+    const baseEvaluated = this.evaluateCartItems(normalizedItems, productRows);
+    const availableInputs = baseEvaluated
+      .filter((item) => item.isAvailable)
+      .map((item) => ({
+        productId: item.normalized.productId,
+        quantityCents: item.normalized.quantityCents,
+      }));
+    let evaluated = baseEvaluated;
+    if (availableInputs.length > 0) {
+      const candidateBatches = await queryCandidateSellableBatches(
+        this.db,
+        availableInputs.map((item) => item.productId),
+        new Date(),
+      );
+      const fefoOutcome = planFefoAllocations(
+        availableInputs,
+        candidateBatches,
+      );
+      const plannedAllocations = fefoOutcome.ok
+        ? fefoOutcome.plan.allocations
+        : fefoOutcome.allocations;
+      evaluated = this.splitEvaluatedItemsByFefoPricing(
+        baseEvaluated,
+        plannedAllocations,
+      );
+    }
 
     const totals = this.computeOrderTotals({
       evaluated,
@@ -1088,12 +1116,27 @@ export class OrdersService {
         tx,
         productIds,
       );
-      const evaluated = this.evaluateCartItems(
+      const baseEvaluated = this.evaluateCartItems(
         params.normalizedItems,
         productRows,
       );
 
-      this.assertCheckoutItemsValid(evaluated);
+      this.assertCheckoutItemsValid(baseEvaluated);
+
+      // Enforce global lock order `batches (id ASC) -> users` to prevent deadlocks with cancel/expiry sweeps (`INV-ORD-19`).
+      const candidateBatches = await lockCandidateSellableBatches(
+        tx,
+        productIds,
+        now,
+      );
+      const fefoPlan = this.planFefoAllocations(
+        params.normalizedItems,
+        candidateBatches,
+      );
+      const evaluated = this.splitEvaluatedItemsByFefoPricing(
+        baseEvaluated,
+        fefoPlan.allocations,
+      );
 
       const subtotalVnd = evaluated.reduce(
         (sum, item) => sum + item.lineTotalVnd,
@@ -1116,17 +1159,6 @@ export class OrdersService {
           ],
         });
       }
-
-      // Enforce global lock order `batches (id ASC) -> users` to prevent deadlocks with cancel/expiry sweeps (`INV-ORD-19`).
-      const candidateBatches = await lockCandidateSellableBatches(
-        tx,
-        productIds,
-        now,
-      );
-      const fefoPlan = this.planFefoAllocations(
-        params.normalizedItems,
-        candidateBatches,
-      );
 
       // Lock customer unconditionally (even when loyaltyPoints === 0) to serialize pending order cap checks (`INV-ORD-20`).
       const lockedCustomer = await this.loadActiveCustomer(tx, sub, true);
@@ -1210,6 +1242,7 @@ export class OrdersService {
       return this.insertOrderAndPaymentRecords(tx, {
         customerId: sub,
         evaluated,
+        productRows,
         totals,
         fefoPlan,
         now,
@@ -1337,6 +1370,7 @@ export class OrdersService {
     params: {
       readonly customerId: string;
       readonly evaluated: readonly EvaluatedCartItem[];
+      readonly productRows: ReadonlyMap<string, CatalogProductStockRow>;
       readonly totals: ComputedOrderTotals;
       readonly fefoPlan: FefoAllocationPlan;
       readonly now: Date;
@@ -1399,17 +1433,28 @@ export class OrdersService {
       .returning({
         id: orderItems.id,
         productId: orderItems.productId,
+        unitPrice: orderItems.unitPrice,
       });
 
-    const insertedItemIdByProduct = new Map(
-      insertedItems.map((row) => [row.productId, row.id]),
+    const insertedItemIdByKey = new Map(
+      insertedItems.map((row) => [`${row.productId}:${row.unitPrice}`, row.id]),
     );
 
     await applyFefoAllocations(
       tx,
       params.fefoPlan,
-      insertedItemIdByProduct,
+      insertedItemIdByKey,
       params.now,
+      (allocation) => {
+        const productRow = params.productRows.get(allocation.productId);
+        if (!productRow) {
+          throw new Error(
+            `Missing product pricing row for ${allocation.productId}.`,
+          );
+        }
+        const unitPriceVnd = resolveBatchUnitPriceVnd(productRow, allocation);
+        return `${allocation.productId}:${unitPriceVnd}`;
+      },
     );
 
     const [createdPayment] = await tx
@@ -1431,7 +1476,10 @@ export class OrdersService {
 
     const projectedItems: OrderItemProjection[] = params.evaluated.map(
       (item) => ({
-        id: insertedItemIdByProduct.get(item.normalized.productId) ?? "",
+        id:
+          insertedItemIdByKey.get(
+            `${item.normalized.productId}:${item.unitPriceVnd}`,
+          ) ?? "",
         productId: item.normalized.productId,
         productName: item.row?.name ?? "",
         productSlug: item.row?.slug ?? "",
@@ -1552,6 +1600,53 @@ export class OrdersService {
         issue: isStockEnough ? null : "INSUFFICIENT_STOCK",
       };
     });
+  }
+
+  private splitEvaluatedItemsByFefoPricing(
+    evaluated: readonly EvaluatedCartItem[],
+    allocations: readonly PlannedBatchAllocation[],
+  ): EvaluatedCartItem[] {
+    const result: EvaluatedCartItem[] = [];
+
+    for (const item of evaluated) {
+      if (!item.isAvailable || !item.row) {
+        result.push(item);
+        continue;
+      }
+
+      const productAllocations = allocations.filter(
+        (allocation) => allocation.productId === item.normalized.productId,
+      );
+      if (productAllocations.length === 0) {
+        result.push(item);
+        continue;
+      }
+
+      const centsByUnitPrice = new Map<number, number>();
+      for (const allocation of productAllocations) {
+        const unitPriceVnd = resolveBatchUnitPriceVnd(item.row, allocation);
+        centsByUnitPrice.set(
+          unitPriceVnd,
+          (centsByUnitPrice.get(unitPriceVnd) ?? 0) + allocation.allocatedCents,
+        );
+      }
+
+      for (const [unitPriceVnd, quantityCents] of centsByUnitPrice.entries()) {
+        result.push({
+          ...item,
+          normalized: {
+            productId: item.normalized.productId,
+            quantityCents,
+            quantity: quantityCents / 100,
+            quantityFormatted: formatQuantityFromCents(quantityCents),
+          },
+          unitPriceVnd,
+          lineTotalVnd: this.computeLineTotalVnd(quantityCents, unitPriceVnd),
+        });
+      }
+    }
+
+    return result;
   }
 
   private normalizeCartItems(
@@ -1865,6 +1960,9 @@ export class OrdersService {
         .set({
           availableQuantity: formatQuantityFromCents(nextAvailableCents),
           status: nextStatus,
+          ...(nextStatus === BatchStatus.EXPIRED
+            ? { isFlashSale: false, flashSaleDiscountPercent: null }
+            : {}),
           updatedAt: now,
         })
         .where(eq(batches.id, batch.id));
