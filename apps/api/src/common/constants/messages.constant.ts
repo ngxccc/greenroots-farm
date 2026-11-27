@@ -116,6 +116,8 @@ export const MESSAGES = {
       "subscriptionFreeRadiusKm must be less than or equal to maxRadiusKm.",
     FARM_SHIPPING_FREE_THRESHOLD_INVALID:
       "freeKmThreshold must be less than or equal to maxRadiusKm.",
+    DISCOUNT_PERCENT_WHEN_DISABLED:
+      "discountPercent cannot be provided when enabled is false.",
   },
   FARMS: {
     NOT_FOUND: "Farm settings record not found.",
@@ -164,6 +166,8 @@ export const MESSAGES = {
       "Computed expiration timestamp must be strictly in the future at intake.",
     CODE_GENERATION_EXHAUSTED:
       "Failed to allocate a unique batch code after maximum retries.",
+    FLASH_SALE_NOT_ELIGIBLE:
+      "Batch is not eligible for Rescue Flash Sale (expired, sold out, or outside near-expiry threshold).",
   },
   WASTE_LOGS: {
     NOT_FOUND: "Waste log not found.",

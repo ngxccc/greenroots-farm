@@ -1,0 +1,3 @@
+ALTER TABLE "batches" ADD COLUMN "is_flash_sale" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "batches" ADD COLUMN "flash_sale_discount_percent" integer;--> statement-breakpoint
+ALTER TABLE "batches" ADD CONSTRAINT "batches_flash_sale_state_consistent" CHECK (("is_flash_sale" = false AND "flash_sale_discount_percent" IS NULL) OR ("is_flash_sale" = true AND "flash_sale_discount_percent" BETWEEN 1 AND 99 AND "status" IN ('in_stock', 'near_expiry') AND "available_quantity" > 0));

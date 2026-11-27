@@ -1,0 +1,96 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "13d37a4b-e8ee-4a1f-bfdc-19e7cfc37692",
+  "prevIds": ["c625e0e9-3b7d-4d9b-b5f0-310cb3b4a37e"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "batches", "is_flash_sale"],
+      "writes": [
+        "s|col|public.batches.is_flash_sale",
+        "n|col|public.batches.is_flash_sale",
+        "e|col|public.batches.is_flash_sale"
+      ],
+      "reads": ["n|tbl|public.batches", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "batches",
+        "flash_sale_discount_percent"
+      ],
+      "writes": [
+        "s|col|public.batches.flash_sale_discount_percent",
+        "n|col|public.batches.flash_sale_discount_percent",
+        "e|col|public.batches.flash_sale_discount_percent"
+      ],
+      "reads": ["n|tbl|public.batches", "n|sch|public"]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "batches"],
+      "writes": [
+        "s|ck|public.batches.batches_flash_sale_state_consistent",
+        "n|ck|public.batches.batches_flash_sale_state_consistent",
+        "e|ck|public.batches.batches_flash_sale_state_consistent",
+        "n|con|public.batches.batches_flash_sale_state_consistent"
+      ],
+      "reads": [
+        "n|tbl|public.batches",
+        "n|sch|public",
+        "n|col|public.batches.is_flash_sale",
+        "n|col|public.batches.flash_sale_discount_percent",
+        "n|col|public.batches.status",
+        "n|col|public.batches.available_quantity"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "batches",
+        "name": "is_flash_sale",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "batches",
+        "name": "flash_sale_discount_percent",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "batches",
+        "name": "batches_flash_sale_state_consistent",
+        "value": "(\"is_flash_sale\" = false AND \"flash_sale_discount_percent\" IS NULL) OR (\"is_flash_sale\" = true AND \"flash_sale_discount_percent\" BETWEEN 1 AND 99 AND \"status\" IN ('in_stock', 'near_expiry') AND \"available_quantity\" > 0)",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

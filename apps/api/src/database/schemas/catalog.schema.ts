@@ -109,6 +109,8 @@ export const batches = snakeCase.table(
     initialQuantity: numeric({ precision: 10, scale: 2 }).notNull(),
     availableQuantity: numeric({ precision: 10, scale: 2 }).notNull(),
     status: batchStatusEnum().default(BatchStatus.IN_STOCK).notNull(),
+    isFlashSale: boolean().default(false).notNull(),
+    flashSaleDiscountPercent: integer(),
   },
   (table) => [
     uniqueIndex("batches_batch_code_uidx").on(table.batchCode),
@@ -144,6 +146,10 @@ export const batches = snakeCase.table(
     check(
       "batches_expiration_after_harvest",
       sql`${table.expirationDate} > ${table.harvestDate}`,
+    ),
+    check(
+      "batches_flash_sale_state_consistent",
+      sql`(${table.isFlashSale} = false AND ${table.flashSaleDiscountPercent} IS NULL) OR (${table.isFlashSale} = true AND ${table.flashSaleDiscountPercent} BETWEEN 1 AND 99 AND ${table.status} IN ('in_stock', 'near_expiry') AND ${table.availableQuantity} > 0)`,
     ),
   ],
 );
