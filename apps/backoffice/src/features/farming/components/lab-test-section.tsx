@@ -270,19 +270,23 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
               <Label htmlFor="soil-cert-url" className="text-xs">
                 Chứng nhận phòng lab (certificate_url)
               </Label>
-              <Label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-brand-forest hover:underline">
+              <Label
+                htmlFor="soil-cert-file"
+                className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-brand-forest hover:underline"
+              >
                 <Upload className="size-3.5" aria-hidden="true" />
                 <span>
                   {uploading ? "Đang tải lên..." : "Tải ảnh chứng nhận"}
                 </span>
-                <Input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  disabled={uploading}
-                  onChange={handleCertificateUpload}
-                  className="sr-only"
-                />
               </Label>
+              <Input
+                id="soil-cert-file"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={uploading}
+                onChange={handleCertificateUpload}
+                className="sr-only"
+              />
             </div>
             <Input
               id="soil-cert-url"
@@ -473,19 +477,23 @@ export function WaterTestEditor({ value, onChange }: WaterTestEditorProps) {
               <Label htmlFor="water-cert-url" className="text-xs">
                 Chứng nhận phòng lab (certificate_url)
               </Label>
-              <Label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-brand-forest hover:underline">
+              <Label
+                htmlFor="water-cert-file"
+                className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-brand-forest hover:underline"
+              >
                 <Upload className="size-3.5" aria-hidden="true" />
                 <span>
                   {uploading ? "Đang tải lên..." : "Tải ảnh chứng nhận"}
                 </span>
-                <Input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  disabled={uploading}
-                  onChange={handleCertificateUpload}
-                  className="sr-only"
-                />
               </Label>
+              <Input
+                id="water-cert-file"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={uploading}
+                onChange={handleCertificateUpload}
+                className="sr-only"
+              />
             </div>
             <Input
               id="water-cert-url"
