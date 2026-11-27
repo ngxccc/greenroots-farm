@@ -909,6 +909,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{id}/flash-sale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Toggle Rescue Flash Sale eligibility on a batch
+         * @description Enables or disables batch-level Rescue Flash Sale pricing without mutating product catalog prices, promoting eligible in-stock batches to near_expiry.
+         */
+        patch: operations["BatchesController_toggleFlashSale_v1"];
+        trace?: never;
+    };
+    "/api/v1/inventory/near-expiry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List near-expiry inventory batches
+         * @description Returns a paginated FEFO-ordered list of live sellable batches expiring within the farm's flash-sale hours threshold, including computed rescue pricing.
+         */
+        get: operations["InventoryController_listNearExpiry_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/waste-logs": {
         parameters: {
             query?: never;
@@ -2401,6 +2441,8 @@ export interface components {
             availableQuantity: number;
             /** @enum {string} */
             status: "in_stock" | "near_expiry" | "sold_out" | "expired";
+            isFlashSale: boolean;
+            flashSaleDiscountPercent: number | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2434,6 +2476,52 @@ export interface components {
                 /** Format: uri */
                 qrValue: string;
             };
+        };
+        ToggleBatchFlashSaleDto: {
+            enabled: boolean;
+            discountPercent?: number;
+        };
+        NearExpiryBatchDto: {
+            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+            id: string;
+            batchCode: string;
+            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+            productId: string;
+            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+            seasonId: string;
+            product: {
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                id: string;
+                name: string;
+                slug: string;
+                unit: string;
+            };
+            season: {
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                id: string;
+                seasonName: string;
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                plotId: string;
+            };
+            /** Format: date-time */
+            harvestDate: string;
+            /** Format: date-time */
+            expirationDate: string;
+            initialQuantity: number;
+            availableQuantity: number;
+            /** @enum {string} */
+            status: "in_stock" | "near_expiry" | "sold_out" | "expired";
+            isFlashSale: boolean;
+            flashSaleDiscountPercent: number | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            basePriceVnd: number;
+            salePriceVnd: number | null;
+            effectiveDiscountPercent: number;
+            rescuePriceVnd: number;
+            hoursRemaining: number;
         };
         WasteLogDto: {
             /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
@@ -10522,6 +10610,289 @@ export interface operations {
                      *       "title": "Not Found",
                      *       "status": 404,
                      *       "detail": "The requested resource could not be found",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    BatchesController_toggleFlashSale_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Batch UUIDv7 identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToggleBatchFlashSaleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data: components["schemas"]["BatchDto"];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Resource not found (Not Found) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/not-found",
+                     *       "title": "Not Found",
+                     *       "status": 404,
+                     *       "detail": "The requested resource could not be found",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Semantic validation failure (Unprocessable Entity) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unprocessable-entity",
+                     *       "title": "Unprocessable Entity",
+                     *       "status": 422,
+                     *       "detail": "The request was well-formed but could not be processed due to semantic errors",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    InventoryController_listNearExpiry_v1: {
+        parameters: {
+            query?: {
+                page?: number | string;
+                limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiResponseDto"] & {
+                        data: components["schemas"]["NearExpiryBatchDto"][];
+                        meta: components["schemas"]["PaginationMetaDto"];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Semantic validation failure (Unprocessable Entity) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unprocessable-entity",
+                     *       "title": "Unprocessable Entity",
+                     *       "status": 422,
+                     *       "detail": "The request was well-formed but could not be processed due to semantic errors",
                      *       "instance": "/api/v1/resource",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"

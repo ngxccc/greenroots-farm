@@ -358,6 +358,8 @@ describe("WasteLogsService", () => {
           expect.objectContaining({
             availableQuantity: "0.00",
             status: BatchStatus.SOLD_OUT,
+            isFlashSale: false,
+            flashSaleDiscountPercent: null,
           }),
         );
       }

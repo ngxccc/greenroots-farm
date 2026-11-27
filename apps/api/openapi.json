@@ -9600,6 +9600,360 @@
         ]
       }
     },
+    "/api/v1/batches/{id}/flash-sale": {
+      "patch": {
+        "description": "Enables or disables batch-level Rescue Flash Sale pricing without mutating product catalog prices, promoting eligible in-stock batches to near_expiry.",
+        "operationId": "BatchesController_toggleFlashSale_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Batch UUIDv7 identifier",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleBatchFlashSaleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponseDto"
+                    },
+                    {
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/BatchDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid token (Unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unauthorized",
+                  "title": "Unauthorized",
+                  "status": 401,
+                  "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden resource access (Forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/forbidden",
+                  "title": "Forbidden",
+                  "status": 403,
+                  "detail": "You do not have permission to perform this action",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (Not Found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/not-found",
+                  "title": "Not Found",
+                  "status": 404,
+                  "detail": "The requested resource could not be found",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Semantic validation failure (Unprocessable Entity)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unprocessable-entity",
+                  "title": "Unprocessable Entity",
+                  "status": 422,
+                  "detail": "The request was well-formed but could not be processed due to semantic errors",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Toggle Rescue Flash Sale eligibility on a batch",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/api/v1/inventory/near-expiry": {
+      "get": {
+        "description": "Returns a paginated FEFO-ordered list of live sellable batches expiring within the farm's flash-sale hours threshold, including computed rescue pricing.",
+        "operationId": "InventoryController_listNearExpiry_v1",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": [
+                "number",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": [
+                "number",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedApiResponseDto"
+                    },
+                    {
+                      "required": [
+                        "data",
+                        "meta"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/NearExpiryBatchDto"
+                          }
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/PaginationMetaDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid token (Unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unauthorized",
+                  "title": "Unauthorized",
+                  "status": 401,
+                  "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden resource access (Forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/forbidden",
+                  "title": "Forbidden",
+                  "status": 403,
+                  "detail": "You do not have permission to perform this action",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Semantic validation failure (Unprocessable Entity)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unprocessable-entity",
+                  "title": "Unprocessable Entity",
+                  "status": 422,
+                  "detail": "The request was well-formed but could not be processed due to semantic errors",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List near-expiry inventory batches",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
     "/api/v1/waste-logs": {
       "post": {
         "description": "Creates a pending_approval waste log with photographic proof without deducting sellable batch stock.",
@@ -18997,6 +19351,21 @@
               "expired"
             ]
           },
+          "isFlashSale": {
+            "type": "boolean"
+          },
+          "flashSaleDiscountPercent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 99
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -19020,6 +19389,8 @@
           "initialQuantity",
           "availableQuantity",
           "status",
+          "isFlashSale",
+          "flashSaleDiscountPercent",
           "createdAt",
           "updatedAt"
         ]
@@ -19114,6 +19485,197 @@
           "batchCode",
           "traceUrl",
           "labelPayload"
+        ]
+      },
+      "ToggleBatchFlashSaleDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "discountPercent": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "additionalProperties": false
+      },
+      "NearExpiryBatchDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+          },
+          "batchCode": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+          },
+          "seasonId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+          },
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+              },
+              "name": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "unit": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "slug",
+              "unit"
+            ]
+          },
+          "season": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+              },
+              "seasonName": {
+                "type": "string"
+              },
+              "plotId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+              }
+            },
+            "required": [
+              "id",
+              "seasonName",
+              "plotId"
+            ]
+          },
+          "harvestDate": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "expirationDate": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "initialQuantity": {
+            "type": "number"
+          },
+          "availableQuantity": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "near_expiry",
+              "sold_out",
+              "expired"
+            ]
+          },
+          "isFlashSale": {
+            "type": "boolean"
+          },
+          "flashSaleDiscountPercent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 99
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "basePriceVnd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "salePriceVnd": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effectiveDiscountPercent": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          },
+          "rescuePriceVnd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "hoursRemaining": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "batchCode",
+          "productId",
+          "seasonId",
+          "product",
+          "season",
+          "harvestDate",
+          "expirationDate",
+          "initialQuantity",
+          "availableQuantity",
+          "status",
+          "isFlashSale",
+          "flashSaleDiscountPercent",
+          "createdAt",
+          "updatedAt",
+          "basePriceVnd",
+          "salePriceVnd",
+          "effectiveDiscountPercent",
+          "rescuePriceVnd",
+          "hoursRemaining"
         ]
       },
       "WasteLogDto": {

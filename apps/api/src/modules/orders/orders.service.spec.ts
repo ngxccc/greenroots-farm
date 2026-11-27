@@ -177,14 +177,16 @@ describe("OrdersService", () => {
           };
         }
         if (table === orderItems) {
+          const rows = Array.isArray(vals) ? vals : [vals];
           return {
             returning: () =>
-              Promise.resolve([
-                {
-                  id: "019fa8bc-8f4d-7000-b366-e691f45cfb51",
-                  productId: productAId,
-                },
-              ]),
+              Promise.resolve(
+                rows.map((row, idx) => ({
+                  id: `019fa8bc-8f4d-7000-b366-e691f45cfb5${idx + 1}`,
+                  productId: (row as { productId: string }).productId,
+                  unitPrice: (row as { unitPrice: number }).unitPrice,
+                })),
+              ),
           };
         }
         return originalInsert(table as never).values(vals as never);
@@ -597,6 +599,18 @@ describe("OrdersService", () => {
             availableQuantity: "10.00",
           },
         ],
+        [
+          {
+            id: "019fa8bc-8f4d-7000-b366-e691f45cfb61",
+            productId: productAId,
+            batchCode: "BATCH-MOV",
+            expirationDate: new Date("2026-11-24T06:00:00.000Z"),
+            availableQuantity: "10.00",
+            status: BatchStatus.IN_STOCK,
+            isFlashSale: false,
+            flashSaleDiscountPercent: null,
+          },
+        ],
       ]);
 
       let caught: unknown;
@@ -667,6 +681,8 @@ describe("OrdersService", () => {
             expirationDate: laterExp,
             availableQuantity: "5.00",
             status: BatchStatus.IN_STOCK,
+            isFlashSale: false,
+            flashSaleDiscountPercent: null,
           },
           {
             id: batch1Id,
@@ -675,6 +691,8 @@ describe("OrdersService", () => {
             expirationDate: earlierExp,
             availableQuantity: "1.50",
             status: BatchStatus.NEAR_EXPIRY,
+            isFlashSale: false,
+            flashSaleDiscountPercent: null,
           },
         ],
         [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 50_000 }],
@@ -888,6 +906,8 @@ describe("OrdersService", () => {
           expirationDate: new Date("2026-11-24T00:00:00.000Z"),
           availableQuantity: "10.00",
           status: BatchStatus.IN_STOCK,
+          isFlashSale: false,
+          flashSaleDiscountPercent: null,
         },
       ];
       const pendingCountRow = [{ total: 0 }];
@@ -960,6 +980,8 @@ describe("OrdersService", () => {
           expirationDate: new Date("2026-11-24T00:00:00.000Z"),
           availableQuantity: "10.00",
           status: BatchStatus.IN_STOCK,
+          isFlashSale: false,
+          flashSaleDiscountPercent: null,
         },
       ];
       const pendingCountRow = [{ total: 0 }];
@@ -2532,6 +2554,280 @@ describe("OrdersService", () => {
       expect(paymentUpdates[0]).toMatchObject({
         status: PaymentStatus.CANCELLED,
         updatedAt: now,
+      });
+    });
+  });
+
+  describe("flashSalePricing", () => {
+    it("splits validateCart lines across flash-sale and regular batches using basePrice anchoring", async () => {
+      const flashBatchId = "019fa8bc-8f4d-7000-b366-e691f45cfb71";
+      const regularBatchId = "019fa8bc-8f4d-7000-b366-e691f45cfb72";
+      const expFlash = new Date("2026-11-22T06:00:00.000Z");
+      const expRegular = new Date("2026-11-26T06:00:00.000Z");
+
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [
+          {
+            id: productAId,
+            name: "Ca chua bi",
+            slug: "ca-chua-bi",
+            imageUrls: null,
+            unit: "kg",
+            basePrice: 100_000,
+            salePrice: 80_000,
+            isActive: true,
+            deletedAt: null,
+            categoryIsActive: true,
+            categoryDeletedAt: null,
+            availableQuantity: "10.00",
+          },
+        ],
+        [
+          {
+            id: flashBatchId,
+            productId: productAId,
+            batchCode: "BATCH-FLASH",
+            expirationDate: expFlash,
+            availableQuantity: "2.00",
+            status: BatchStatus.NEAR_EXPIRY,
+            isFlashSale: true,
+            flashSaleDiscountPercent: 50,
+          },
+          {
+            id: regularBatchId,
+            productId: productAId,
+            batchCode: "BATCH-REG",
+            expirationDate: expRegular,
+            availableQuantity: "8.00",
+            status: BatchStatus.IN_STOCK,
+            isFlashSale: false,
+            flashSaleDiscountPercent: null,
+          },
+        ],
+      ]);
+
+      const result = await service.validateCart(userId, {
+        items: [{ productId: productAId, quantity: 5 }],
+        loyaltyPoints: 0,
+      });
+
+      expect(result.meetsMinOrderValue).toBe(true);
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toMatchObject({
+        productId: productAId,
+        requestedQuantity: 2,
+        unitPriceVnd: 50_000,
+        lineTotalVnd: 100_000,
+      });
+      expect(result.items[1]).toMatchObject({
+        productId: productAId,
+        requestedQuantity: 3,
+        unitPriceVnd: 80_000,
+        lineTotalVnd: 240_000,
+      });
+      expect(result.subtotalVnd).toBe(340_000);
+    });
+
+    it("splits available items in validateCart even when another cart item has a batch shortage", async () => {
+      const flashBatchId = "019fa8bc-8f4d-7000-b366-e691f45cfb73";
+      const regularBatchId = "019fa8bc-8f4d-7000-b366-e691f45cfb74";
+      const expFlash = new Date("2026-11-22T06:00:00.000Z");
+      const expRegular = new Date("2026-11-26T06:00:00.000Z");
+
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [
+          {
+            id: productAId,
+            name: "Ca chua bi",
+            slug: "ca-chua-bi",
+            imageUrls: null,
+            unit: "kg",
+            basePrice: 100_000,
+            salePrice: 80_000,
+            isActive: true,
+            deletedAt: null,
+            categoryIsActive: true,
+            categoryDeletedAt: null,
+            availableQuantity: "10.00",
+          },
+          {
+            id: productBId,
+            name: "Rau muong",
+            slug: "rau-muong",
+            imageUrls: null,
+            unit: "kg",
+            basePrice: 30_000,
+            salePrice: null,
+            isActive: true,
+            deletedAt: null,
+            categoryIsActive: true,
+            categoryDeletedAt: null,
+            availableQuantity: "5.00",
+          },
+        ],
+        [
+          {
+            id: flashBatchId,
+            productId: productAId,
+            batchCode: "BATCH-FLASH-2",
+            expirationDate: expFlash,
+            availableQuantity: "2.00",
+            status: BatchStatus.NEAR_EXPIRY,
+            isFlashSale: true,
+            flashSaleDiscountPercent: 50,
+          },
+          {
+            id: regularBatchId,
+            productId: productAId,
+            batchCode: "BATCH-REG-2",
+            expirationDate: expRegular,
+            availableQuantity: "8.00",
+            status: BatchStatus.IN_STOCK,
+            isFlashSale: false,
+            flashSaleDiscountPercent: null,
+          },
+        ],
+      ]);
+
+      const result = await service.validateCart(userId, {
+        items: [
+          { productId: productAId, quantity: 5 },
+          { productId: productBId, quantity: 1 },
+        ],
+        loyaltyPoints: 0,
+      });
+
+      expect(result.items).toHaveLength(3);
+      expect(result.items[0]).toMatchObject({
+        productId: productAId,
+        requestedQuantity: 2,
+        unitPriceVnd: 50_000,
+        lineTotalVnd: 100_000,
+      });
+      expect(result.items[1]).toMatchObject({
+        productId: productAId,
+        requestedQuantity: 3,
+        unitPriceVnd: 80_000,
+        lineTotalVnd: 240_000,
+      });
+      expect(result.items[2]).toMatchObject({
+        productId: productBId,
+        requestedQuantity: 1,
+        unitPriceVnd: 30_000,
+        lineTotalVnd: 30_000,
+      });
+      expect(result.subtotalVnd).toBe(370_000);
+    });
+
+    it("splits checkoutCod order_items by (productId, unitPriceVnd), links allocations, and clears flash-sale flags on SOLD_OUT", async () => {
+      const flashBatchId = "019fa8bc-8f4d-7000-b366-e691f45cfb71";
+      const regularBatchId = "019fa8bc-8f4d-7000-b366-e691f45cfb72";
+      const expFlash = new Date("2026-11-22T06:00:00.000Z");
+      const expRegular = new Date("2026-11-26T06:00:00.000Z");
+
+      const insertedOrderItems: unknown[] = [];
+      const insertedAllocations: unknown[] = [];
+      const batchUpdates: Record<string, unknown>[] = [];
+
+      mockDb.setSelectResultsQueue([
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [
+          {
+            id: productAId,
+            name: "Ca chua bi",
+            slug: "ca-chua-bi",
+            imageUrls: null,
+            unit: "kg",
+            basePrice: 100_000,
+            salePrice: null,
+            isActive: true,
+            deletedAt: null,
+            categoryIsActive: true,
+            categoryDeletedAt: null,
+            availableQuantity: "10.00",
+          },
+        ],
+        [
+          {
+            id: flashBatchId,
+            productId: productAId,
+            batchCode: "BATCH-FLASH",
+            expirationDate: expFlash,
+            availableQuantity: "2.00",
+            status: BatchStatus.NEAR_EXPIRY,
+            isFlashSale: true,
+            flashSaleDiscountPercent: 50,
+          },
+          {
+            id: regularBatchId,
+            productId: productAId,
+            batchCode: "BATCH-REG",
+            expirationDate: expRegular,
+            availableQuantity: "8.00",
+            status: BatchStatus.IN_STOCK,
+            isFlashSale: false,
+            flashSaleDiscountPercent: null,
+          },
+        ],
+        [{ id: userId, status: UserStatus.ACTIVE, rewardPoints: 0 }],
+        [{ total: 0 }],
+      ]);
+
+      stubOrderInserts({
+        onInsert: (table, values) => {
+          if (table === orderItems) {
+            insertedOrderItems.push(values);
+          }
+          if (table === batchAllocations) {
+            insertedAllocations.push(values);
+          }
+        },
+        onUpdate: (table, values) => {
+          if (table === batches) {
+            batchUpdates.push(values);
+          }
+        },
+      });
+
+      const result = await service.checkoutCod(userId, {
+        items: [{ productId: productAId, quantity: 5 }],
+        loyaltyPoints: 0,
+      });
+
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toMatchObject({
+        productId: productAId,
+        quantity: 2,
+        unitPriceVnd: 50_000,
+        lineTotalVnd: 100_000,
+      });
+      expect(result.items[1]).toMatchObject({
+        productId: productAId,
+        quantity: 3,
+        unitPriceVnd: 100_000,
+        lineTotalVnd: 300_000,
+      });
+      expect(insertedOrderItems).toHaveLength(1);
+      expect(insertedOrderItems[0]).toHaveLength(2);
+      expect(insertedAllocations[0]).toEqual([
+        expect.objectContaining({
+          orderItemId: "019fa8bc-8f4d-7000-b366-e691f45cfb51",
+          batchId: flashBatchId,
+          allocatedQuantity: "2.00",
+        }),
+        expect.objectContaining({
+          orderItemId: "019fa8bc-8f4d-7000-b366-e691f45cfb52",
+          batchId: regularBatchId,
+          allocatedQuantity: "3.00",
+        }),
+      ]);
+      expect(batchUpdates[0]).toMatchObject({
+        availableQuantity: "0.00",
+        status: BatchStatus.SOLD_OUT,
+        isFlashSale: false,
+        flashSaleDiscountPercent: null,
       });
     });
   });

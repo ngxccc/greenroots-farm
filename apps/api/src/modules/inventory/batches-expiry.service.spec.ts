@@ -163,6 +163,8 @@ describe("BatchesExpiryService", () => {
       expect(result).toEqual({ expired: 2, nearExpiry: 1 });
       expect(mockDb.mockUpdateSet).toHaveBeenNthCalledWith(1, {
         status: BatchStatus.EXPIRED,
+        isFlashSale: false,
+        flashSaleDiscountPercent: null,
         updatedAt: now,
       });
       expect(mockDb.mockUpdateSet).toHaveBeenNthCalledWith(2, {

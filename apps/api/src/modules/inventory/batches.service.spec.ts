@@ -29,10 +29,12 @@ import { BATCH_CODE_REGEX } from "@/modules/farms/farms.constant";
 import type { TraceCacheService } from "@/modules/farms/trace-cache.service";
 import { createMockDb } from "../../../test/mocks/mock-database";
 import { BatchesService } from "./batches.service";
+import { toggleBatchFlashSaleSchema } from "./dto";
 
 type MockDb = ReturnType<typeof createMockDb> & {
   setSelectResultsQueue: (results: unknown[][]) => void;
   mockInsertValues: ReturnType<typeof mock>;
+  mockUpdateSet: ReturnType<typeof mock>;
 };
 
 describe("BatchesService", () => {
@@ -652,6 +654,311 @@ describe("BatchesService", () => {
         (env as { STOREFRONT_URL: string }).STOREFRONT_URL =
           originalStorefrontUrl;
       }
+    });
+  });
+
+  describe("listNearExpiryBatches", () => {
+    it("projects rescuePriceVnd anchored on basePrice, effectiveDiscountPercent, and hoursRemaining", async () => {
+      const now = new Date("2026-11-20T04:00:00.000Z");
+      setSystemTime(now);
+      try {
+        const exp1 = new Date(now.getTime() + 12 * TIME_IN_MS.HOUR);
+        const exp2 = new Date(now.getTime() + 30 * TIME_IN_MS.HOUR);
+
+        mockDb.setSelectResultsQueue([
+          [{ total: 2 }],
+          [
+            {
+              batch: {
+                id: batchId,
+                batchCode: "BATCH-20261120-CACHUA-AAAAAA",
+                productId,
+                seasonId,
+                harvestDate: new Date("2026-11-18T04:00:00.000Z"),
+                expirationDate: exp1,
+                initialQuantity: "10.00",
+                availableQuantity: "4.00",
+                status: BatchStatus.NEAR_EXPIRY,
+                isFlashSale: true,
+                flashSaleDiscountPercent: 40,
+                createdAt: now,
+                updatedAt: now,
+              },
+              product: {
+                id: productId,
+                name: "Ca chua bi",
+                slug: "ca-chua-bi",
+                unit: "kg",
+              },
+              season: {
+                id: seasonId,
+                seasonName: "Vu Dong 2026",
+                plotId,
+              },
+              basePrice: 100_000,
+              salePrice: 80_000,
+            },
+            {
+              batch: {
+                id: "019fa8bc-8f4d-7000-b366-e691f45cfb41",
+                batchCode: "BATCH-20261120-CACHUA-BBBBBB",
+                productId,
+                seasonId,
+                harvestDate: new Date("2026-11-18T04:00:00.000Z"),
+                expirationDate: exp2,
+                initialQuantity: "10.00",
+                availableQuantity: "6.00",
+                status: BatchStatus.IN_STOCK,
+                isFlashSale: false,
+                flashSaleDiscountPercent: null,
+                createdAt: now,
+                updatedAt: now,
+              },
+              product: {
+                id: productId,
+                name: "Ca chua bi",
+                slug: "ca-chua-bi",
+                unit: "kg",
+              },
+              season: {
+                id: seasonId,
+                seasonName: "Vu Dong 2026",
+                plotId,
+              },
+              basePrice: 100_000,
+              salePrice: null,
+            },
+          ],
+        ]);
+
+        const result = await service.listNearExpiryBatches({
+          page: 1,
+          limit: 20,
+        });
+
+        expect(result.meta).toEqual({
+          page: 1,
+          limit: 20,
+          total: 2,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPrevPage: false,
+        });
+        expect(result.items[0]).toMatchObject({
+          id: batchId,
+          isFlashSale: true,
+          flashSaleDiscountPercent: 40,
+          basePriceVnd: 100_000,
+          salePriceVnd: 80_000,
+          effectiveDiscountPercent: 40,
+          rescuePriceVnd: 60_000,
+          hoursRemaining: 12,
+        });
+        expect(result.items[1]).toMatchObject({
+          isFlashSale: false,
+          flashSaleDiscountPercent: null,
+          effectiveDiscountPercent: 50,
+          rescuePriceVnd: 50_000,
+          hoursRemaining: 30,
+        });
+      } finally {
+        setSystemTime();
+      }
+    });
+  });
+
+  describe("toggleBatchFlashSale", () => {
+    it("enables flash sale using farm default discount, promotes in_stock to near_expiry, and invalidates trace cache", async () => {
+      const now = new Date("2026-11-20T04:00:00.000Z");
+      setSystemTime(now);
+      try {
+        const expirationDate = new Date(now.getTime() + 24 * TIME_IN_MS.HOUR);
+        mockDb.setSelectResultsQueue([
+          [
+            {
+              id: batchId,
+              status: BatchStatus.IN_STOCK,
+              availableQuantity: "5.00",
+              expirationDate,
+            },
+          ],
+          [
+            {
+              batch: {
+                id: batchId,
+                batchCode: "BATCH-20261120-CACHUA-7K9M2P",
+                productId,
+                seasonId,
+                harvestDate: new Date("2026-11-18T04:00:00.000Z"),
+                expirationDate,
+                initialQuantity: "10.00",
+                availableQuantity: "5.00",
+                status: BatchStatus.NEAR_EXPIRY,
+                isFlashSale: true,
+                flashSaleDiscountPercent: 50,
+                createdAt: now,
+                updatedAt: now,
+              },
+              product: {
+                id: productId,
+                name: "Ca chua bi",
+                slug: "ca-chua-bi",
+                unit: "kg",
+              },
+              season: {
+                id: seasonId,
+                seasonName: "Vu Dong 2026",
+                plotId,
+              },
+            },
+          ],
+        ]);
+
+        const result = await service.toggleBatchFlashSale(batchId, {
+          enabled: true,
+        });
+
+        expect(result.isFlashSale).toBe(true);
+        expect(result.flashSaleDiscountPercent).toBe(50);
+        expect(result.status).toBe(BatchStatus.NEAR_EXPIRY);
+        expect(mockDb.mockUpdateSet).toHaveBeenCalledWith({
+          isFlashSale: true,
+          flashSaleDiscountPercent: 50,
+          status: BatchStatus.NEAR_EXPIRY,
+          updatedAt: now,
+        });
+        expect(
+          mockTraceCacheService.invalidateByBatchCodes,
+        ).toHaveBeenCalledWith(["BATCH-20261120-CACHUA-7K9M2P"]);
+      } finally {
+        setSystemTime();
+      }
+    });
+
+    it("disables flash sale idempotently without calling trace cache invalidation", async () => {
+      const now = new Date("2026-11-20T04:00:00.000Z");
+      setSystemTime(now);
+      try {
+        const expirationDate = new Date(now.getTime() + 24 * TIME_IN_MS.HOUR);
+        mockDb.setSelectResultsQueue([
+          [
+            {
+              id: batchId,
+              status: BatchStatus.NEAR_EXPIRY,
+              availableQuantity: "5.00",
+              expirationDate,
+            },
+          ],
+          [
+            {
+              batch: {
+                id: batchId,
+                batchCode: "BATCH-20261120-CACHUA-7K9M2P",
+                productId,
+                seasonId,
+                harvestDate: new Date("2026-11-18T04:00:00.000Z"),
+                expirationDate,
+                initialQuantity: "10.00",
+                availableQuantity: "5.00",
+                status: BatchStatus.NEAR_EXPIRY,
+                isFlashSale: false,
+                flashSaleDiscountPercent: null,
+                createdAt: now,
+                updatedAt: now,
+              },
+              product: {
+                id: productId,
+                name: "Ca chua bi",
+                slug: "ca-chua-bi",
+                unit: "kg",
+              },
+              season: {
+                id: seasonId,
+                seasonName: "Vu Dong 2026",
+                plotId,
+              },
+            },
+          ],
+        ]);
+
+        const result = await service.toggleBatchFlashSale(batchId, {
+          enabled: false,
+        });
+
+        expect(result.isFlashSale).toBe(false);
+        expect(result.flashSaleDiscountPercent).toBeNull();
+        expect(mockDb.mockUpdateSet).toHaveBeenCalledWith({
+          isFlashSale: false,
+          flashSaleDiscountPercent: null,
+          updatedAt: now,
+        });
+        expect(
+          mockTraceCacheService.invalidateByBatchCodes,
+        ).not.toHaveBeenCalled();
+      } finally {
+        setSystemTime();
+      }
+    });
+
+    it("throws NotFoundException when batch does not exist", async () => {
+      mockDb.setSelectResultsQueue([[]]);
+
+      try {
+        await service.toggleBatchFlashSale(batchId, { enabled: true });
+        expect.unreachable("Expected NotFoundException");
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundException);
+      }
+    });
+
+    it("rejects enabling flash sale when batch is sold out, expired, or outside near-expiry window", async () => {
+      const now = new Date("2026-11-20T04:00:00.000Z");
+      setSystemTime(now);
+      try {
+        const cases = [
+          {
+            status: BatchStatus.SOLD_OUT,
+            availableQuantity: "0.00",
+            expirationDate: new Date(now.getTime() + 12 * TIME_IN_MS.HOUR),
+          },
+          {
+            status: BatchStatus.EXPIRED,
+            availableQuantity: "5.00",
+            expirationDate: new Date(now.getTime() - TIME_IN_MS.HOUR),
+          },
+          {
+            status: BatchStatus.IN_STOCK,
+            availableQuantity: "5.00",
+            expirationDate: new Date(now.getTime() + 72 * TIME_IN_MS.HOUR),
+          },
+        ];
+
+        for (const row of cases) {
+          mockDb.setSelectResultsQueue([[{ id: batchId, ...row }]]);
+          try {
+            await service.toggleBatchFlashSale(batchId, { enabled: true });
+            expect.unreachable("Expected UnprocessableEntityException");
+          } catch (error) {
+            expect(error).toBeInstanceOf(UnprocessableEntityException);
+            expect(
+              (error as UnprocessableEntityException).getResponse(),
+            ).toEqual({
+              code: API_ERROR_CODES.BATCH_FLASH_SALE_NOT_ELIGIBLE,
+              detail: MESSAGES.BATCHES.FLASH_SALE_NOT_ELIGIBLE,
+            });
+          }
+        }
+      } finally {
+        setSystemTime();
+      }
+    });
+
+    it("rejects discountPercent when enabled is false at schema boundary", () => {
+      const parsed = toggleBatchFlashSaleSchema.safeParse({
+        enabled: false,
+        discountPercent: 30,
+      });
+      expect(parsed.success).toBe(false);
     });
   });
 });

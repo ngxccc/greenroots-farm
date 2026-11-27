@@ -23,16 +23,19 @@ import {
   UserRole,
   UserStatus,
 } from "@greenroots/shared";
+import { TIME_IN_MS } from "@/common/constants/time.constant";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
 import { RedisService } from "@/common/services/redis.service";
 import type { ApiResponse } from "@/common/utils/api-response.util";
 import {
   batchAllocations,
   batches,
+  categories,
   farms,
   orderItems,
   orders,
   payments,
+  seasons,
   userAddresses,
   users,
 } from "@/database/schemas";
@@ -1072,6 +1075,123 @@ describe("Orders Checkout Integration", () => {
         .from(users)
         .where(eq(users.id, customerId));
       expect(customerRow?.rewardPoints).toBe(50_000);
+    });
+
+    it("splits validate-cart and checkout order_items across mixed flash-sale and regular batches and clears flash-sale flags on SOLD_OUT", async () => {
+      const [farmRow] = await setup.db
+        .select({ id: farms.id })
+        .from(farms)
+        .limit(1);
+      const [seasonRow] = await setup.db
+        .select({ id: seasons.id })
+        .from(seasons)
+        .limit(1);
+      const [categoryRow] = await setup.db
+        .select({ id: categories.id })
+        .from(categories)
+        .limit(1);
+
+      expect(farmRow).toBeDefined();
+      expect(seasonRow).toBeDefined();
+      expect(categoryRow).toBeDefined();
+
+      const mixedProduct = await createProduct(setup.db, {
+        categoryId: categoryRow!.id,
+        basePrice: 100_000,
+        salePrice: 80_000,
+      });
+
+      const flashBatch = await createBatch(setup.db, {
+        productId: mixedProduct.id,
+        seasonId: seasonRow!.id,
+        expirationDate: new Date(Date.now() + 12 * TIME_IN_MS.HOUR),
+        initialQuantity: "2.00",
+        availableQuantity: "2.00",
+        status: BatchStatus.NEAR_EXPIRY,
+        isFlashSale: true,
+        flashSaleDiscountPercent: 50,
+      });
+      await createBatch(setup.db, {
+        productId: mixedProduct.id,
+        seasonId: seasonRow!.id,
+        expirationDate: new Date(Date.now() + 96 * TIME_IN_MS.HOUR),
+        initialQuantity: "5.00",
+        availableQuantity: "5.00",
+        status: BatchStatus.IN_STOCK,
+        isFlashSale: false,
+        flashSaleDiscountPercent: null,
+      });
+
+      const validateRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/validate-cart")
+        .set(customerHeader)
+        .send({
+          items: [{ productId: mixedProduct.id, quantity: 5 }],
+          addressId: deliverableAddressId,
+        })
+        .expect(200);
+
+      const validated = (validateRes.body as ApiResponse<ValidateCartResponse>)
+        .data;
+      expect(validated.isValid).toBe(true);
+      expect(validated.items).toHaveLength(2);
+      expect(validated.items[0]).toMatchObject({
+        productId: mixedProduct.id,
+        requestedQuantity: 2,
+        unitPriceVnd: 50_000,
+        lineTotalVnd: 100_000,
+      });
+      expect(validated.items[1]).toMatchObject({
+        productId: mixedProduct.id,
+        requestedQuantity: 3,
+        unitPriceVnd: 80_000,
+        lineTotalVnd: 240_000,
+      });
+      expect(validated.subtotalVnd).toBe(340_000);
+
+      const checkoutRes = await request(app.getHttpServer())
+        .post("/api/v1/orders/checkout")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          items: [{ productId: mixedProduct.id, quantity: 5 }],
+          addressId: deliverableAddressId,
+          loyaltyPoints: 0,
+        })
+        .expect(201);
+
+      const created = (checkoutRes.body as ApiResponse<OrderResponse>).data;
+      expect(created.subtotalVnd).toBe(340_000);
+      expect(created.items).toHaveLength(2);
+      expect(created.items[0]).toMatchObject({
+        productId: mixedProduct.id,
+        quantity: 2,
+        unitPriceVnd: 50_000,
+        lineTotalVnd: 100_000,
+      });
+      expect(created.items[1]).toMatchObject({
+        productId: mixedProduct.id,
+        quantity: 3,
+        unitPriceVnd: 80_000,
+        lineTotalVnd: 240_000,
+      });
+
+      const [depletedFlashBatch] = await setup.db
+        .select({
+          status: batches.status,
+          availableQuantity: batches.availableQuantity,
+          isFlashSale: batches.isFlashSale,
+          flashSaleDiscountPercent: batches.flashSaleDiscountPercent,
+        })
+        .from(batches)
+        .where(eq(batches.id, flashBatch.id));
+
+      expect(depletedFlashBatch).toEqual({
+        status: BatchStatus.SOLD_OUT,
+        availableQuantity: "0.00",
+        isFlashSale: false,
+        flashSaleDiscountPercent: null,
+      });
     });
   });
 });

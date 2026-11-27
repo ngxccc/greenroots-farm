@@ -58,6 +58,7 @@ import {
 } from "../helpers/auth.helper";
 
 type BatchSchema = components["schemas"]["BatchDto"];
+type NearExpiryBatchSchema = components["schemas"]["NearExpiryBatchDto"];
 type BatchQrLabelSchema = components["schemas"]["BatchQrLabelDto"];
 type TraceRecordSchema = components["schemas"]["TraceRecordDto"];
 type PaginationMetaSchema = components["schemas"]["PaginationMetaDto"];
@@ -1108,6 +1109,201 @@ describe("Batches Integration", () => {
           expect(details.code).toBe(PG_ERROR_CODE.CHECK_VIOLATION);
         }
       }
+    });
+
+    it("rejects inconsistent flash-sale state via batches_flash_sale_state_consistent CHECK constraint", async () => {
+      const farm = await createFarm(setup.db);
+      const plot = await createPlot(setup.db, { farmId: farm.id });
+      const season = await createSeason(
+        setup.db,
+        SeasonMother.active({ plotId: plot.id }),
+      );
+      const product = await createProduct(setup.db);
+      const now = new Date();
+      const later = new Date(now.getTime() + 24 * TIME_IN_MS.HOUR);
+
+      try {
+        await setup.db.insert(batches).values({
+          batchCode: "BATCH-CHK-FS1",
+          seasonId: season.id,
+          productId: product.id,
+          harvestDate: now,
+          expirationDate: later,
+          initialQuantity: "10.00",
+          availableQuantity: "0.00",
+          status: BatchStatus.SOLD_OUT,
+          isFlashSale: true,
+          flashSaleDiscountPercent: 50,
+        });
+        expect.unreachable("Expected PG check_violation 23514");
+      } catch (error) {
+        const details = extractDatabaseErrorDetails(error);
+        expect(details.isDatabaseError).toBe(true);
+        expect(details.code).toBe(PG_ERROR_CODE.CHECK_VIOLATION);
+      }
+    });
+  });
+
+  describe("GET /api/v1/inventory/near-expiry", () => {
+    it("enforces staff RBAC and returns FEFO-ordered near-expiry batches including un-swept in_stock rows", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/inventory/near-expiry")
+        .expect(401);
+
+      await request(app.getHttpServer())
+        .get("/api/v1/inventory/near-expiry")
+        .set(customerHeader)
+        .expect(403);
+
+      const farm = await createFarm(setup.db);
+      const plot = await createPlot(setup.db, { farmId: farm.id });
+      const season = await createSeason(
+        setup.db,
+        SeasonMother.active({ plotId: plot.id }),
+      );
+      const product = await createProduct(setup.db, {
+        basePrice: 100_000,
+        salePrice: 80_000,
+      });
+
+      const nowMs = Date.now();
+      const exp12h = new Date(nowMs + 12 * TIME_IN_MS.HOUR);
+      const exp30h = new Date(nowMs + 30 * TIME_IN_MS.HOUR);
+      const exp72h = new Date(nowMs + 72 * TIME_IN_MS.HOUR);
+      const expired = new Date(nowMs - TIME_IN_MS.HOUR);
+
+      const nearBatch = await createBatch(setup.db, {
+        productId: product.id,
+        seasonId: season.id,
+        expirationDate: exp30h,
+        status: BatchStatus.NEAR_EXPIRY,
+        isFlashSale: true,
+        flashSaleDiscountPercent: 40,
+      });
+      const unsweptNearBatch = await createBatch(setup.db, {
+        productId: product.id,
+        seasonId: season.id,
+        expirationDate: exp12h,
+        status: BatchStatus.IN_STOCK,
+      });
+      // Outside 48h threshold
+      await createBatch(setup.db, {
+        productId: product.id,
+        seasonId: season.id,
+        expirationDate: exp72h,
+        status: BatchStatus.IN_STOCK,
+      });
+      // Already expired
+      await createBatch(setup.db, {
+        productId: product.id,
+        seasonId: season.id,
+        expirationDate: expired,
+        status: BatchStatus.EXPIRED,
+      });
+
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/inventory/near-expiry")
+        .set(farmStaffHeader)
+        .expect(200);
+
+      const body = res.body as ApiResponse<
+        NearExpiryBatchSchema[],
+        PaginationMetaSchema
+      >;
+      expect(body.data).toHaveLength(2);
+      expect(body.data[0]?.id).toBe(unsweptNearBatch.id);
+      expect(body.data[0]?.effectiveDiscountPercent).toBe(50);
+      expect(body.data[0]?.rescuePriceVnd).toBe(50_000);
+      expect(body.data[1]?.id).toBe(nearBatch.id);
+      expect(body.data[1]?.effectiveDiscountPercent).toBe(40);
+      expect(body.data[1]?.rescuePriceVnd).toBe(60_000);
+      expect(body.meta?.total).toBe(2);
+    });
+  });
+
+  describe("PATCH /api/v1/batches/:id/flash-sale", () => {
+    it("enforces SALES/ADMIN/SUPER_ADMIN RBAC and toggles flash sale without mutating products.sale_price", async () => {
+      const farm = await createFarm(setup.db);
+      const plot = await createPlot(setup.db, { farmId: farm.id });
+      const season = await createSeason(
+        setup.db,
+        SeasonMother.active({ plotId: plot.id }),
+      );
+      const product = await createProduct(setup.db, {
+        basePrice: 100_000,
+        salePrice: 80_000,
+      });
+      const batch = await createBatch(setup.db, {
+        productId: product.id,
+        seasonId: season.id,
+        expirationDate: new Date(Date.now() + 24 * TIME_IN_MS.HOUR),
+        status: BatchStatus.IN_STOCK,
+      });
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/batches/${batch.id}/flash-sale`)
+        .set(farmStaffHeader)
+        .send({ enabled: true })
+        .expect(403);
+
+      const enableRes = await request(app.getHttpServer())
+        .patch(`/api/v1/batches/${batch.id}/flash-sale`)
+        .set(salesHeader)
+        .send({ enabled: true, discountPercent: 45 })
+        .expect(200);
+
+      const enabled = (enableRes.body as ApiResponse<BatchSchema>).data;
+      expect(enabled.isFlashSale).toBe(true);
+      expect(enabled.flashSaleDiscountPercent).toBe(45);
+      expect(enabled.status).toBe(BatchStatus.NEAR_EXPIRY);
+
+      const [productRow] = await setup.db
+        .select({ salePrice: products.salePrice })
+        .from(products)
+        .where(eq(products.id, product.id));
+      expect(productRow?.salePrice).toBe(80_000);
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/batches/${batch.id}/flash-sale`)
+        .set(adminHeader)
+        .send({ enabled: false, discountPercent: 30 })
+        .expect(400);
+
+      const disableRes = await request(app.getHttpServer())
+        .patch(`/api/v1/batches/${batch.id}/flash-sale`)
+        .set(superAdminHeader)
+        .send({ enabled: false })
+        .expect(200);
+
+      const disabled = (disableRes.body as ApiResponse<BatchSchema>).data;
+      expect(disabled.isFlashSale).toBe(false);
+      expect(disabled.flashSaleDiscountPercent).toBeNull();
+    });
+
+    it("rejects enabling flash sale on ineligible batches", async () => {
+      const farm = await createFarm(setup.db);
+      const plot = await createPlot(setup.db, { farmId: farm.id });
+      const season = await createSeason(
+        setup.db,
+        SeasonMother.active({ plotId: plot.id }),
+      );
+      const product = await createProduct(setup.db);
+      const freshBatch = await createBatch(setup.db, {
+        productId: product.id,
+        seasonId: season.id,
+        expirationDate: new Date(Date.now() + 72 * TIME_IN_MS.HOUR),
+        status: BatchStatus.IN_STOCK,
+      });
+
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/batches/${freshBatch.id}/flash-sale`)
+        .set(salesHeader)
+        .send({ enabled: true })
+        .expect(422);
+
+      expect((res.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.BATCH_FLASH_SALE_NOT_ELIGIBLE,
+      );
     });
   });
 });
