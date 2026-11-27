@@ -21,6 +21,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/analytics/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get operational analytics
+         * @description Returns gross item revenue anchored on deliveredAt, harvest-cohort waste ratio, zero-filled time-series, and top products for ADMIN and SUPER_ADMIN without exposing payment cashflow.
+         */
+        get: operations["AnalyticsController_getOperationsAnalytics_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register": {
         parameters: {
             query?: never;
@@ -1511,6 +1531,44 @@ export interface components {
              */
             timestamp: string;
         };
+        OperationsAnalyticsDto: {
+            period: {
+                /** Format: date */
+                from: string;
+                /** Format: date */
+                to: string;
+                /** @enum {string} */
+                granularity: "day" | "week" | "month";
+                /** @constant */
+                timezone: "Asia/Ho_Chi_Minh";
+            };
+            summary: {
+                grossItemRevenueVnd: number;
+                deliveredOrderCount: number;
+                totalInitialQuantity: number;
+                totalDiscardedQuantity: number;
+                wasteRatio: number;
+            };
+            revenueSeries: {
+                bucket: string;
+                grossItemRevenueVnd: number;
+                deliveredOrderCount: number;
+            }[];
+            wasteSeries: {
+                bucket: string;
+                initialQuantity: number;
+                discardedQuantity: number;
+                wasteRatio: number;
+            }[];
+            topProducts: {
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                productId: string;
+                productName: string;
+                unit: string;
+                totalQuantity: number;
+                grossItemRevenueVnd: number;
+            }[];
+        };
         RegisterDto: {
             email: string;
             fullName: string;
@@ -2857,6 +2915,137 @@ export interface operations {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
                         data: components["schemas"]["HealthResponseDto"];
                     };
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AnalyticsController_getOperationsAnalytics_v1: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                granularity?: "day" | "week" | "month";
+                topLimit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data: components["schemas"]["OperationsAnalyticsDto"];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
                 };
             };
             /** @description Internal server error */

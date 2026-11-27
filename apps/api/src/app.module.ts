@@ -16,6 +16,7 @@ import { RolesGuard } from "@/common/guards/roles.guard";
 import { RedisModule } from "@/common/modules/redis.module";
 import { ZodValidationPipe } from "@/common/pipes/zod-validation.pipe";
 import { DatabaseModule } from "@/database/database.module";
+import { AnalyticsModule } from "@/modules/analytics/analytics.module";
 import { AuthModule } from "@/modules/auth/auth.module";
 import { CatalogModule } from "@/modules/catalog/catalog.module";
 import { ComplaintsModule } from "@/modules/complaints/complaints.module";
@@ -60,6 +61,7 @@ import { SubscriptionsModule } from "@/modules/subscriptions/subscriptions.modul
     }),
     DatabaseModule,
     RedisModule,
+    AnalyticsModule,
     AuthModule,
     UsersModule,
     FarmsModule,
