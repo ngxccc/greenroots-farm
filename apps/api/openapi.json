@@ -140,6 +140,25 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -226,6 +245,25 @@
                       "reason": "Invalid property value"
                     }
                   ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
                   "timestamp": "2026-11-16T00:00:00.000Z"
                 }
               }
@@ -1015,6 +1053,25 @@
                       "reason": "Invalid property value"
                     }
                   ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
                   "timestamp": "2026-11-16T00:00:00.000Z"
                 }
               }

@@ -9,7 +9,7 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { SkipThrottle } from "@nestjs/throttler";
+import { SkipThrottle, Throttle } from "@nestjs/throttler";
 import {
   ApiAuth,
   ApiBadRequestResponseRfc9457,
@@ -71,6 +71,9 @@ export class PaymentsController {
 
   @Post(PAYMENTS_ROUTES.CONFIRM_COD)
   @ApiAuth(...PAYMENTS_ALLOWED_ROLES)
+  @Throttle({
+    default: { limit: 30, ttl: 60000 },
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "Confirm Cash-on-Delivery (COD) collection",
@@ -100,7 +103,7 @@ export class PaymentsController {
 
   @Post(PAYMENTS_ROUTES.PAYOS_WEBHOOK)
   @Public()
-  @SkipThrottle({ default: true, auth: true })
+  @SkipThrottle()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "Reconcile PayOS HMAC-SHA256 payment webhook",

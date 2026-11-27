@@ -48,6 +48,9 @@ export class AuthController {
 
   @Public()
   @Post(AUTH_ROUTES.REGISTER)
+  @Throttle({
+    default: { limit: 5, ttl: 60000 },
+  })
   @ApiOperation({
     summary: "Register new customer account",
     description:
@@ -55,6 +58,7 @@ export class AuthController {
   })
   @ApiCreatedResponseGeneric()
   @ApiConflictResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
   async register(@Body() dto: RegisterDto): Promise<ApiResponse<null>> {
     await this.authService.register(dto);
     return apiSuccess(null);
@@ -63,12 +67,16 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post(AUTH_ROUTES.VERIFY_EMAIL)
+  @Throttle({
+    default: { limit: 10, ttl: 60000 },
+  })
   @ApiOperation({
     summary: "Verify account email",
     description:
       "Validates a 64-character verification token and activates the customer account.",
   })
   @ApiOkResponseGeneric()
+  @ApiTooManyRequestsResponseRfc9457()
   async verifyEmail(@Body() dto: VerifyEmailDto): Promise<ApiResponse<null>> {
     await this.authService.verifyEmail(dto.token);
     return apiSuccess(null);
@@ -78,7 +86,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post(AUTH_ROUTES.RESEND_VERIFICATION)
   @Throttle({
-    auth: { limit: 3, ttl: 60000 },
+    default: { limit: 3, ttl: 60000 },
   })
   @ApiOperation({
     summary: "Resend email verification link",
@@ -98,7 +106,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post(AUTH_ROUTES.CUSTOMER_LOGIN)
   @Throttle({
-    auth: { limit: 5, ttl: 60000 },
+    default: { limit: 5, ttl: 60000 },
   })
   @ApiOperation({
     summary: "Authenticate customer credentials and issue session tokens",
@@ -126,7 +134,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post(AUTH_ROUTES.STAFF_LOGIN)
   @Throttle({
-    auth: { limit: 5, ttl: 60000 },
+    default: { limit: 5, ttl: 60000 },
   })
   @ApiOperation({
     summary: "Authenticate internal staff credentials and issue session tokens",
@@ -154,7 +162,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post(AUTH_ROUTES.CUSTOMER_REFRESH)
   @Throttle({
-    auth: { limit: 10, ttl: 60000 },
+    default: { limit: 10, ttl: 60000 },
   })
   @ApiOperation({
     summary: "Rotate customer refresh token and issue renewed session",
@@ -182,7 +190,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post(AUTH_ROUTES.STAFF_REFRESH)
   @Throttle({
-    auth: { limit: 10, ttl: 60000 },
+    default: { limit: 10, ttl: 60000 },
   })
   @ApiOperation({
     summary: "Rotate staff refresh token and issue renewed session",
@@ -209,12 +217,16 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post(AUTH_ROUTES.LOGOUT)
+  @Throttle({
+    default: { limit: 10, ttl: 60000 },
+  })
   @ApiOperation({
     summary: "Revoke single device session",
     description:
       "Revokes the provided refresh token and blacklists the caller access token in Redis.",
   })
   @ApiOkResponseGeneric()
+  @ApiTooManyRequestsResponseRfc9457()
   async logout(
     @Body() dto: RefreshTokenDto,
     @Req() req: Request,
@@ -232,7 +244,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post(AUTH_ROUTES.LOGOUT_ALL)
   @Throttle({
-    auth: { limit: 2, ttl: 60000 },
+    default: { limit: 2, ttl: 60000 },
   })
   @ApiOperation({
     summary: "Revoke all user sessions globally",
@@ -252,7 +264,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post(AUTH_ROUTES.FORGOT_PASSWORD)
   @Throttle({
-    auth: { limit: 3, ttl: 60000 },
+    default: { limit: 3, ttl: 60000 },
   })
   @ApiOperation({
     summary: "Request password recovery email",
@@ -272,7 +284,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post(AUTH_ROUTES.RESET_PASSWORD)
   @Throttle({
-    auth: { limit: 5, ttl: 60000 },
+    default: { limit: 5, ttl: 60000 },
   })
   @ApiOperation({
     summary: "Reset account password",
