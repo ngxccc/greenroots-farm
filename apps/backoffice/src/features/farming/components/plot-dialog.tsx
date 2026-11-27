@@ -17,8 +17,10 @@ import {
   validatePlotInput,
   type CreatePlotDto,
   type PlotDto,
+  type SoilTestDraft,
   type SoilTestResult,
   type UpdatePlotDto,
+  type WaterTestDraft,
   type WaterTestResult,
 } from "../plots-seasons.utils";
 import { SoilTestEditor, WaterTestEditor } from "./lab-test-section";
@@ -82,11 +84,12 @@ function PlotDialogForm({
   const [plotCode, setPlotCode] = useState(plot?.plotCode ?? "");
   const [name, setName] = useState(plot?.name ?? "");
   const [areaSqm, setAreaSqm] = useState(plot ? String(plot.areaSqm) : "500");
-  const [soilTestResult, setSoilTestResult] = useState<SoilTestResult | null>(
+  const [soilTestResult, setSoilTestResult] = useState<SoilTestDraft | null>(
     plot?.soilTestResult ?? null,
   );
-  const [waterTestResult, setWaterTestResult] =
-    useState<WaterTestResult | null>(plot?.waterTestResult ?? null);
+  const [waterTestResult, setWaterTestResult] = useState<WaterTestDraft | null>(
+    plot?.waterTestResult ?? null,
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
@@ -96,6 +99,8 @@ function PlotDialogForm({
       plotCode,
       name,
       areaSqm: numericArea,
+      soilTestResult,
+      waterTestResult,
     });
 
     if (!validation.valid) {
@@ -110,16 +115,16 @@ function PlotDialogForm({
         name: name.trim(),
         areaSqm: numericArea,
         soilTestResult: soilTestResult
-          ? {
+          ? ({
               ...soilTestResult,
               tested_at: toIsoDateTime(soilTestResult.tested_at),
-            }
+            } as SoilTestResult)
           : null,
         waterTestResult: waterTestResult
-          ? {
+          ? ({
               ...waterTestResult,
               tested_at: toIsoDateTime(waterTestResult.tested_at),
-            }
+            } as WaterTestResult)
           : null,
       });
       onClose();

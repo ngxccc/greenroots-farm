@@ -155,6 +155,65 @@ describe("plots-seasons.utils", () => {
           .valid,
       ).toBe(true);
     });
+
+    it("rejects enabled soil or water test drafts with unset numeric fields or missing tested_at", () => {
+      // Invariant: INV-PLOT-LAB-NO-FABRICATED-DEFAULTS
+      expect(
+        validatePlotInput({
+          plotCode: "A1",
+          name: "Lô A1",
+          areaSqm: 250,
+          soilTestResult: {
+            ph: null,
+            nitrogen_ppm: 45,
+            phosphorus_ppm: 30,
+            potassium_ppm: 120,
+            heavy_metals: { lead_ppm: 0.1, cadmium_ppm: 0.02, pass: false },
+            tested_at: "2026-11-28",
+          },
+        }).valid,
+      ).toBe(false);
+
+      expect(
+        validatePlotInput({
+          plotCode: "A1",
+          name: "Lô A1",
+          areaSqm: 250,
+          waterTestResult: {
+            ph: 6.8,
+            ec_ms_cm: null,
+            dissolved_oxygen_ppm: 7.2,
+            e_coli_cfu_100ml: 0,
+            heavy_metals_pass: false,
+            tested_at: "2026-11-28",
+          },
+        }).valid,
+      ).toBe(false);
+
+      expect(
+        validatePlotInput({
+          plotCode: "A1",
+          name: "Lô A1",
+          areaSqm: 250,
+          soilTestResult: {
+            ph: 6.5,
+            nitrogen_ppm: 45,
+            phosphorus_ppm: 30,
+            potassium_ppm: 120,
+            heavy_metals: { lead_ppm: 0.1, cadmium_ppm: 0.02, pass: true },
+            tested_at: "2026-11-28",
+          },
+          waterTestResult: {
+            ph: 6.8,
+            ec_ms_cm: 1.1,
+            dissolved_oxygen_ppm: 7.2,
+            e_coli_cfu_100ml: 0,
+            heavy_metals_pass: true,
+            tested_at: "2026-11-28",
+          },
+        }).valid,
+      ).toBe(true);
+    });
   });
 
   describe("validateSeasonInput", () => {
