@@ -62,6 +62,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0045-complaint-triage-state-and-staff-projection.md` — `ComplaintStatus.TRIAGED` intermediate state, `complaints` triage audit columns (`triaged_by`, `triaged_at`, `triage_note`), strict `pending`-only `FOR UPDATE` triage FSM, and `StaffComplaintDto` projection (`#246`; extends `ADR-0040`).
 - `docs/adr/0046-complaint-refund-channels-and-replacement-order.md` — Dual-channel complaint refund (`bank_transfer` ledger vs `loyalty_points` credit), `0đ` FEFO-allocated replacement order (`COD`, `PAID`, `CONFIRMED`), `complaints` resolution columns, and `complaints -> orders -> batches -> users` lock order (`#247`; extends `ADR-0045`).
 - `docs/adr/0047-product-detail-fefo-trace-rescue-projection-and-storage.md` — `ProductDetailDto` separation for `GET /api/v1/products/:slug` (amending `ADR-0027`), lightweight FEFO `activeBatchTrace` summary without `TraceService` duplication (`ADR-0024`), redacted `near_expiry` `rescueProgress` (`claimedPercent` without raw batch quantities or unbacked discounts), and nullable `products.storage_instructions` (`#255`).
+- `docs/adr/0048-operational-analytics-gross-revenue-cohort-waste-and-delivered-anchor.md` — Operational analytics `grossItemRevenueVnd` without cashflow/discount leakage (`#250` vs. `#251`), `orders.delivered_at` partial index and `CHECK` invariant, harvest-cohort `wasteRatio`, and `grossItemRevenueVnd`-ranked `topProducts`.
 
 ### Context-Scoped Decisions
 
