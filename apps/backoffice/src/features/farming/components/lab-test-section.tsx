@@ -11,44 +11,54 @@ import { useState, type ChangeEvent } from "react";
 import { uploadSignedMedia } from "@/lib/cloudinary-upload";
 import {
   formatDisplayDate,
+  type SoilTestDraft,
   type SoilTestResult,
+  type WaterTestDraft,
   type WaterTestResult,
 } from "../plots-seasons.utils";
 
 interface SoilTestEditorProps {
-  readonly value: SoilTestResult | null;
-  readonly onChange: (next: SoilTestResult | null) => void;
+  readonly value: SoilTestDraft | null;
+  readonly onChange: (next: SoilTestDraft | null) => void;
 }
 
 interface WaterTestEditorProps {
-  readonly value: WaterTestResult | null;
-  readonly onChange: (next: WaterTestResult | null) => void;
+  readonly value: WaterTestDraft | null;
+  readonly onChange: (next: WaterTestDraft | null) => void;
 }
 
-function createDefaultSoilTest(): SoilTestResult {
+function createEmptySoilTest(): SoilTestDraft {
   return {
-    ph: 6.5,
-    nitrogen_ppm: 45,
-    phosphorus_ppm: 30,
-    potassium_ppm: 120,
+    ph: null,
+    nitrogen_ppm: null,
+    phosphorus_ppm: null,
+    potassium_ppm: null,
     heavy_metals: {
-      lead_ppm: 0.1,
-      cadmium_ppm: 0.02,
-      pass: true,
+      lead_ppm: null,
+      cadmium_ppm: null,
+      pass: false,
     },
     tested_at: new Date().toISOString().slice(0, 10),
   };
 }
 
-function createDefaultWaterTest(): WaterTestResult {
+function createEmptyWaterTest(): WaterTestDraft {
   return {
-    ph: 6.8,
-    ec_ms_cm: 1.1,
-    dissolved_oxygen_ppm: 7.2,
-    e_coli_cfu_100ml: 0,
-    heavy_metals_pass: true,
+    ph: null,
+    ec_ms_cm: null,
+    dissolved_oxygen_ppm: null,
+    e_coli_cfu_100ml: null,
+    heavy_metals_pass: false,
     tested_at: new Date().toISOString().slice(0, 10),
   };
+}
+
+function parseNullableNumber(raw: string): number | null {
+  if (raw.trim() === "") {
+    return null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /**
@@ -87,7 +97,7 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
             id="enable-soil-test"
             checked={Boolean(value)}
             onCheckedChange={(checked) =>
-              onChange(checked ? (value ?? createDefaultSoilTest()) : null)
+              onChange(checked ? (value ?? createEmptySoilTest()) : null)
             }
           />
           <Label htmlFor="enable-soil-test" className="text-sm font-semibold">
@@ -96,7 +106,7 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
         </div>
         {value ? (
           <Badge variant="outline" className="text-xs tabular-nums">
-            pH {value.ph}
+            pH {value.ph ?? "—"}
           </Badge>
         ) : null}
       </div>
@@ -111,9 +121,12 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
               id="soil-ph"
               type="number"
               step="0.1"
-              value={value.ph}
+              min="0"
+              max="14"
+              placeholder="VD: 6.5"
+              value={value.ph ?? ""}
               onChange={(e) =>
-                onChange({ ...value, ph: Number(e.target.value) || 0 })
+                onChange({ ...value, ph: parseNullableNumber(e.target.value) })
               }
             />
           </div>
@@ -125,11 +138,13 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
               id="soil-n"
               type="number"
               step="0.1"
-              value={value.nitrogen_ppm}
+              min="0"
+              placeholder="VD: 45"
+              value={value.nitrogen_ppm ?? ""}
               onChange={(e) =>
                 onChange({
                   ...value,
-                  nitrogen_ppm: Number(e.target.value) || 0,
+                  nitrogen_ppm: parseNullableNumber(e.target.value),
                 })
               }
             />
@@ -142,11 +157,13 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
               id="soil-p"
               type="number"
               step="0.1"
-              value={value.phosphorus_ppm}
+              min="0"
+              placeholder="VD: 30"
+              value={value.phosphorus_ppm ?? ""}
               onChange={(e) =>
                 onChange({
                   ...value,
-                  phosphorus_ppm: Number(e.target.value) || 0,
+                  phosphorus_ppm: parseNullableNumber(e.target.value),
                 })
               }
             />
@@ -159,11 +176,13 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
               id="soil-k"
               type="number"
               step="0.1"
-              value={value.potassium_ppm}
+              min="0"
+              placeholder="VD: 120"
+              value={value.potassium_ppm ?? ""}
               onChange={(e) =>
                 onChange({
                   ...value,
-                  potassium_ppm: Number(e.target.value) || 0,
+                  potassium_ppm: parseNullableNumber(e.target.value),
                 })
               }
             />
@@ -176,13 +195,15 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
               id="soil-lead"
               type="number"
               step="0.01"
-              value={value.heavy_metals.lead_ppm}
+              min="0"
+              placeholder="VD: 0.1"
+              value={value.heavy_metals.lead_ppm ?? ""}
               onChange={(e) =>
                 onChange({
                   ...value,
                   heavy_metals: {
                     ...value.heavy_metals,
-                    lead_ppm: Number(e.target.value) || 0,
+                    lead_ppm: parseNullableNumber(e.target.value),
                   },
                 })
               }
@@ -196,13 +217,15 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
               id="soil-cadmium"
               type="number"
               step="0.01"
-              value={value.heavy_metals.cadmium_ppm}
+              min="0"
+              placeholder="VD: 0.02"
+              value={value.heavy_metals.cadmium_ppm ?? ""}
               onChange={(e) =>
                 onChange({
                   ...value,
                   heavy_metals: {
                     ...value.heavy_metals,
-                    cadmium_ppm: Number(e.target.value) || 0,
+                    cadmium_ppm: parseNullableNumber(e.target.value),
                   },
                 })
               }
@@ -324,7 +347,7 @@ export function WaterTestEditor({ value, onChange }: WaterTestEditorProps) {
             id="enable-water-test"
             checked={Boolean(value)}
             onCheckedChange={(checked) =>
-              onChange(checked ? (value ?? createDefaultWaterTest()) : null)
+              onChange(checked ? (value ?? createEmptyWaterTest()) : null)
             }
           />
           <Label htmlFor="enable-water-test" className="text-sm font-semibold">
@@ -333,7 +356,7 @@ export function WaterTestEditor({ value, onChange }: WaterTestEditorProps) {
         </div>
         {value ? (
           <Badge variant="outline" className="text-xs tabular-nums">
-            pH {value.ph}
+            pH {value.ph ?? "—"}
           </Badge>
         ) : null}
       </div>
@@ -348,9 +371,12 @@ export function WaterTestEditor({ value, onChange }: WaterTestEditorProps) {
               id="water-ph"
               type="number"
               step="0.1"
-              value={value.ph}
+              min="0"
+              max="14"
+              placeholder="VD: 6.8"
+              value={value.ph ?? ""}
               onChange={(e) =>
-                onChange({ ...value, ph: Number(e.target.value) || 0 })
+                onChange({ ...value, ph: parseNullableNumber(e.target.value) })
               }
             />
           </div>
@@ -362,9 +388,14 @@ export function WaterTestEditor({ value, onChange }: WaterTestEditorProps) {
               id="water-ec"
               type="number"
               step="0.1"
-              value={value.ec_ms_cm}
+              min="0"
+              placeholder="VD: 1.1"
+              value={value.ec_ms_cm ?? ""}
               onChange={(e) =>
-                onChange({ ...value, ec_ms_cm: Number(e.target.value) || 0 })
+                onChange({
+                  ...value,
+                  ec_ms_cm: parseNullableNumber(e.target.value),
+                })
               }
             />
           </div>
@@ -376,11 +407,13 @@ export function WaterTestEditor({ value, onChange }: WaterTestEditorProps) {
               id="water-do"
               type="number"
               step="0.1"
-              value={value.dissolved_oxygen_ppm}
+              min="0"
+              placeholder="VD: 7.2"
+              value={value.dissolved_oxygen_ppm ?? ""}
               onChange={(e) =>
                 onChange({
                   ...value,
-                  dissolved_oxygen_ppm: Number(e.target.value) || 0,
+                  dissolved_oxygen_ppm: parseNullableNumber(e.target.value),
                 })
               }
             />
@@ -393,11 +426,13 @@ export function WaterTestEditor({ value, onChange }: WaterTestEditorProps) {
               id="water-ecoli"
               type="number"
               step="1"
-              value={value.e_coli_cfu_100ml}
+              min="0"
+              placeholder="VD: 0"
+              value={value.e_coli_cfu_100ml ?? ""}
               onChange={(e) =>
                 onChange({
                   ...value,
-                  e_coli_cfu_100ml: Number(e.target.value) || 0,
+                  e_coli_cfu_100ml: parseNullableNumber(e.target.value),
                 })
               }
             />

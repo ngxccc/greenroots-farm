@@ -10,6 +10,30 @@ export type UpdateSeasonDto = components["schemas"]["UpdateSeasonDto"];
 export type SoilTestResult = NonNullable<PlotDto["soilTestResult"]>;
 export type WaterTestResult = NonNullable<PlotDto["waterTestResult"]>;
 
+export interface SoilTestDraft {
+  readonly ph: number | null;
+  readonly nitrogen_ppm: number | null;
+  readonly phosphorus_ppm: number | null;
+  readonly potassium_ppm: number | null;
+  readonly heavy_metals: {
+    readonly lead_ppm: number | null;
+    readonly cadmium_ppm: number | null;
+    readonly pass: boolean;
+  };
+  readonly tested_at: string;
+  readonly certificate_url?: string;
+}
+
+export interface WaterTestDraft {
+  readonly ph: number | null;
+  readonly ec_ms_cm: number | null;
+  readonly dissolved_oxygen_ppm: number | null;
+  readonly e_coli_cfu_100ml: number | null;
+  readonly heavy_metals_pass: boolean;
+  readonly tested_at: string;
+  readonly certificate_url?: string;
+}
+
 const LINEAR_SEASON_TRANSITIONS: Record<SeasonStatus, SeasonStatus | null> = {
   [SeasonStatus.PLANNING]: SeasonStatus.ACTIVE,
   [SeasonStatus.ACTIVE]: SeasonStatus.HARVESTED,
@@ -152,16 +176,22 @@ export function getActiveSeasonForPlot(
   );
 }
 
+function isValidNonNegativeNumber(value: number | null): value is number {
+  return value !== null && Number.isFinite(value) && value >= 0;
+}
+
 /**
- * Validates plot creation/update form fields before submitting to the API.
+ * Validates plot creation/update form fields and optional lab test drafts before submitting.
  *
- * @param input Plot form fields.
+ * @param input Plot form fields and optional soil/water test drafts.
  * @returns Validation status with a Vietnamese error message when invalid.
  */
 export function validatePlotInput(input: {
   readonly plotCode: string;
   readonly name: string;
   readonly areaSqm: number;
+  readonly soilTestResult?: SoilTestDraft | null;
+  readonly waterTestResult?: WaterTestDraft | null;
 }): ValidationResult {
   if (!input.plotCode.trim()) {
     return { valid: false, error: "Vui lòng nhập mã lô đất." };
@@ -172,6 +202,45 @@ export function validatePlotInput(input: {
   if (!Number.isFinite(input.areaSqm) || input.areaSqm <= 0) {
     return { valid: false, error: "Diện tích (m²) phải lớn hơn 0." };
   }
+
+  if (input.soilTestResult) {
+    const soil = input.soilTestResult;
+    if (
+      !isValidNonNegativeNumber(soil.ph) ||
+      soil.ph > 14 ||
+      !isValidNonNegativeNumber(soil.nitrogen_ppm) ||
+      !isValidNonNegativeNumber(soil.phosphorus_ppm) ||
+      !isValidNonNegativeNumber(soil.potassium_ppm) ||
+      !isValidNonNegativeNumber(soil.heavy_metals.lead_ppm) ||
+      !isValidNonNegativeNumber(soil.heavy_metals.cadmium_ppm) ||
+      !soil.tested_at.trim()
+    ) {
+      return {
+        valid: false,
+        error:
+          "Vui lòng nhập đầy đủ chỉ số xét nghiệm đất hợp lệ (pH 0–14, NPK, kim loại nặng và ngày xét nghiệm).",
+      };
+    }
+  }
+
+  if (input.waterTestResult) {
+    const water = input.waterTestResult;
+    if (
+      !isValidNonNegativeNumber(water.ph) ||
+      water.ph > 14 ||
+      !isValidNonNegativeNumber(water.ec_ms_cm) ||
+      !isValidNonNegativeNumber(water.dissolved_oxygen_ppm) ||
+      !isValidNonNegativeNumber(water.e_coli_cfu_100ml) ||
+      !water.tested_at.trim()
+    ) {
+      return {
+        valid: false,
+        error:
+          "Vui lòng nhập đầy đủ chỉ số xét nghiệm nước hợp lệ (pH 0–14, EC, DO, E.coli và ngày xét nghiệm).",
+      };
+    }
+  }
+
   return { valid: true, error: null };
 }
 
