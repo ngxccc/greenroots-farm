@@ -24,6 +24,7 @@
     "qrcode.react": "^4.2.0",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "recharts": "^3.11.2",
     "zod": "catalog:",
     "zustand": "catalog:"
   },
