@@ -69,6 +69,7 @@ export const API_ERROR_CODES = {
   ORDER_COMPLAINT_WINDOW_EXPIRED: "ORDER_COMPLAINT_WINDOW_EXPIRED",
   ORDER_COMPLAINT_ALREADY_EXISTS: "ORDER_COMPLAINT_ALREADY_EXISTS",
   COMPLAINT_MEDIA_INVALID: "COMPLAINT_MEDIA_INVALID",
+  COMPLAINT_ITEMS_INVALID: "COMPLAINT_ITEMS_INVALID",
   COMPLAINT_NOT_FOUND: "COMPLAINT_NOT_FOUND",
   COMPLAINT_INVALID_STATUS_TRANSITION: "COMPLAINT_INVALID_STATUS_TRANSITION",
   COMPLAINT_ORDER_NOT_PAID: "COMPLAINT_ORDER_NOT_PAID",
@@ -246,6 +247,8 @@ export const API_ERROR_DICTIONARY: Record<ApiErrorCode, string> = {
     "Đơn hàng này đã có khiếu nại được ghi nhận.",
   [API_ERROR_CODES.COMPLAINT_MEDIA_INVALID]:
     "Hình ảnh hoặc video minh chứng không hợp lệ hoặc vượt quá giới hạn cho phép.",
+  [API_ERROR_CODES.COMPLAINT_ITEMS_INVALID]:
+    "Danh sách sản phẩm khiếu nại không thuộc đơn hàng này.",
   [API_ERROR_CODES.COMPLAINT_NOT_FOUND]: "Không tìm thấy khiếu nại yêu cầu.",
   [API_ERROR_CODES.COMPLAINT_INVALID_STATUS_TRANSITION]:
     "Trạng thái hiện tại của khiếu nại không cho phép thực hiện phân loại.",

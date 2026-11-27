@@ -143,6 +143,16 @@ export const ComplaintRefundChannel = {
 export type ComplaintRefundChannel =
   (typeof ComplaintRefundChannel)[keyof typeof ComplaintRefundChannel];
 
+export const ComplaintCategory = {
+  DAMAGED_WILTED: "damaged_wilted",
+  MISSING_ITEM: "missing_item",
+  WRONG_ITEM: "wrong_item",
+  NOT_FRESH: "not_fresh",
+  OTHER: "other",
+} as const;
+export type ComplaintCategory =
+  (typeof ComplaintCategory)[keyof typeof ComplaintCategory];
+
 export const WasteLogStatus = {
   PENDING_APPROVAL: "pending_approval",
   APPROVED: "approved",
