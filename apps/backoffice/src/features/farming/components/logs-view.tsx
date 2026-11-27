@@ -271,7 +271,7 @@ export function FarmingLogsView() {
       ) : null}
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        <Card className="border-border-subtle bg-surface-card shadow-sm lg:col-span-5">
+        <Card className="min-w-0 border-border-subtle bg-surface-card shadow-sm lg:col-span-5">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold text-gray-900">
               Ghi nhật ký hiện trường
@@ -298,9 +298,13 @@ export function FarmingLogsView() {
                   <SelectTrigger
                     id="farming-season-select"
                     aria-label="Chọn mùa vụ và lô đất"
-                    className="min-h-11 w-full"
+                    className="min-h-11 w-full min-w-0"
                   >
-                    <SelectValue placeholder="Chọn mùa vụ..." />
+                    <SelectValue placeholder="Chọn mùa vụ...">
+                      {activeSeason
+                        ? formatSeasonOptionLabel(activeSeason)
+                        : "Chọn mùa vụ..."}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {seasons.length === 0 ? (
@@ -440,7 +444,7 @@ export function FarmingLogsView() {
           </CardContent>
         </Card>
 
-        <Card className="border-border-subtle bg-surface-card shadow-sm lg:col-span-7">
+        <Card className="min-w-0 border-border-subtle bg-surface-card shadow-sm lg:col-span-7">
           <CardHeader className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-0.5">
               <CardTitle className="text-base font-bold text-gray-900">
@@ -464,9 +468,13 @@ export function FarmingLogsView() {
               >
                 <SelectTrigger
                   aria-label="Lọc theo hành động"
-                  className="h-9 w-44"
+                  className="h-9 w-full min-w-0 sm:w-44"
                 >
-                  <SelectValue />
+                  <SelectValue>
+                    {actionFilter === "all"
+                      ? "Tất cả hành động"
+                      : FARMING_ACTION_MAP[actionFilter].label}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả hành động</SelectItem>
