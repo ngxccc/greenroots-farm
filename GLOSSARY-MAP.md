@@ -59,6 +59,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0042-payos-checkout-two-phase-reservation-and-webhook-reconciliation.md` — Unified `POST /orders/checkout` PayOS initiation, two-phase TX + compensating cancel around `PaymentDriver.createPaymentLink`, `PENDING_PAYMENT` FEFO reservation & `-> CONFIRMED` transition, server-derived redirect URLs, and fail-closed idempotent webhook reconciliation (`#243`).
 - `docs/adr/0043-staff-payment-ledger-and-cod-confirmation.md` — Staff-scoped (`sales`, `admin`, `super_admin`) payment ledger projection, `orders -> payments` `FOR UPDATE` COD confirmation with `orders.paymentStatus` sync, natural DB-level idempotency, and `delivered -> completed` paid-order gate (`#245`).
 - `docs/adr/0044-goong-place-geocoding-and-road-distance-shipping.md` — Breaking removal of `districtCode`, server-side Goong Place `placeId` geocoding (`GEOCODING_DRIVER=goong|mock`), `GoongShippingDriver` road-distance routing with Haversine fallback, Redis caching, and customer-only Goong access (`#107`, `#199`; amends `ADR-0018` and `ADR-0030`).
+- `docs/adr/0045-complaint-triage-state-and-staff-projection.md` — `ComplaintStatus.TRIAGED` intermediate state, `complaints` triage audit columns (`triaged_by`, `triaged_at`, `triage_note`), strict `pending`-only `FOR UPDATE` triage FSM, and `StaffComplaintDto` projection (`#246`; extends `ADR-0040`).
 
 ### Context-Scoped Decisions
 
