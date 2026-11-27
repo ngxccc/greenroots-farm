@@ -12,10 +12,12 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import {
+  ComplaintCategory,
   ComplaintStatus,
   type ComplaintProofImageUrls,
 } from "@greenroots/shared";
 import {
+  complaintCategoryEnum,
   complaintRefundChannelEnum,
   complaintResolutionEnum,
   complaintStatusEnum,
@@ -35,6 +37,10 @@ export const complaints = snakeCase.table(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     resolvedBy: uuid().references(() => users.id, { onDelete: "set null" }),
+    category: complaintCategoryEnum()
+      .default(ComplaintCategory.OTHER)
+      .notNull(),
+    affectedOrderItemIds: jsonb().$type<string[]>().default([]).notNull(),
     reason: text().notNull(),
     proofImageUrls: jsonb().$type<ComplaintProofImageUrls>().notNull(),
     proofVideoUrl: varchar({ length: 500 }),

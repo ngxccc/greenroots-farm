@@ -1,0 +1,98 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1c98c42a-c9e4-4ca2-aed7-1c36567f08c6",
+  "prevIds": ["13d37a4b-e8ee-4a1f-bfdc-19e7cfc37692"],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "complaint_category"],
+      "writes": [
+        "s|enum|public.complaint_category",
+        "n|enum|public.complaint_category",
+        "e|enum|public.complaint_category",
+        "n|type|public.complaint_category"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "complaints", "category"],
+      "writes": [
+        "s|col|public.complaints.category",
+        "n|col|public.complaints.category",
+        "e|col|public.complaints.category"
+      ],
+      "reads": [
+        "n|tbl|public.complaints",
+        "n|sch|public",
+        "n|enum|public.complaint_category"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "complaints",
+        "affected_order_item_ids"
+      ],
+      "writes": [
+        "s|col|public.complaints.affected_order_item_ids",
+        "n|col|public.complaints.affected_order_item_ids",
+        "e|col|public.complaints.affected_order_item_ids"
+      ],
+      "reads": ["n|tbl|public.complaints", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "complaint_category",
+        "values": [
+          "damaged_wilted",
+          "missing_item",
+          "wrong_item",
+          "not_fresh",
+          "other"
+        ],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "category",
+        "type": "complaint_category",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'other'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "affected_order_item_ids",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'[]'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

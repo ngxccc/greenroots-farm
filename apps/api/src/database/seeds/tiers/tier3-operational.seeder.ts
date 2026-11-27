@@ -1,5 +1,6 @@
 import {
   BUSINESS_RULES,
+  ComplaintCategory,
   ComplaintStatus,
   DeliveryDay,
   OrderStatus,
@@ -122,6 +123,23 @@ export async function seedTier3Operational(
         orderStatus: OrderStatus.COMPLETED,
         deliveredAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
       },
+      {
+        id: SEED_IDS.orderDeliveredComplaintEligible,
+        orderCode: "ORD-20261112-003",
+        customerId: SEED_IDS.customer,
+        receiverName: "Trần Thị Khách",
+        receiverPhone: "0912345678",
+        shippingAddress: SNAPSHOT_ADDRESS,
+        shippingDistanceKm: "12.50",
+        shippingFee: 76750,
+        subtotal: 115000,
+        discountAmount: 0,
+        totalAmount: 191750,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PAID,
+        orderStatus: OrderStatus.DELIVERED,
+        deliveredAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      },
     ])
     .onConflictDoNothing();
 
@@ -149,6 +167,20 @@ export async function seedTier3Operational(
         quantity: "3.00",
         unitPrice: 50000,
       },
+      {
+        id: SEED_IDS.orderItemDeliveredSpinach,
+        orderId: SEED_IDS.orderDeliveredComplaintEligible,
+        productId: SEED_IDS.productSpinach,
+        quantity: "2.00",
+        unitPrice: 35000,
+      },
+      {
+        id: SEED_IDS.orderItemDeliveredLettuce,
+        orderId: SEED_IDS.orderDeliveredComplaintEligible,
+        productId: SEED_IDS.productLettuce,
+        quantity: "1.00",
+        unitPrice: 45000,
+      },
     ])
     .onConflictDoNothing();
 
@@ -172,6 +204,18 @@ export async function seedTier3Operational(
         orderItemId: SEED_IDS.orderItemSubscription,
         batchId: SEED_IDS.batchTomato,
         allocatedQuantity: "3.00",
+      },
+      {
+        id: SEED_IDS.allocationDeliveredSpinach,
+        orderItemId: SEED_IDS.orderItemDeliveredSpinach,
+        batchId: SEED_IDS.batchSpinach,
+        allocatedQuantity: "2.00",
+      },
+      {
+        id: SEED_IDS.allocationDeliveredLettuce,
+        orderItemId: SEED_IDS.orderItemDeliveredLettuce,
+        batchId: SEED_IDS.batchLettuce,
+        allocatedQuantity: "1.00",
       },
     ])
     .onConflictDoNothing();
@@ -207,6 +251,15 @@ export async function seedTier3Operational(
         },
         paidAt: SEED_TIMESTAMPS.subscriptionPaidAt,
       },
+      {
+        id: SEED_IDS.paymentDeliveredComplaintEligible,
+        orderId: SEED_IDS.orderDeliveredComplaintEligible,
+        amount: 191750,
+        paymentMethod: PaymentMethod.COD,
+        status: PaymentStatus.PAID,
+        transactionType: PaymentTransactionType.PAYMENT,
+        paidAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      },
     ])
     .onConflictDoNothing();
 
@@ -216,6 +269,8 @@ export async function seedTier3Operational(
       id: SEED_IDS.complaint,
       orderId: SEED_IDS.orderSubscription,
       customerId: SEED_IDS.customer,
+      category: ComplaintCategory.DAMAGED_WILTED,
+      affectedOrderItemIds: [SEED_IDS.orderItemSubscription],
       reason: "Rau bị dập nát khi giao, đề nghị đổi bù.",
       proofImageUrls: [
         "https://res.cloudinary.com/greenroots/complaints/order-002-01.webp",
@@ -228,11 +283,11 @@ export async function seedTier3Operational(
 
   return {
     userAddresses: 1,
-    orders: 2,
-    orderItems: 3,
-    batchAllocations: 3,
+    orders: 3,
+    orderItems: 5,
+    batchAllocations: 5,
     subscriptions: 1,
-    payments: 2,
+    payments: 3,
     complaints: 1,
   };
 }
