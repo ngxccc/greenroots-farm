@@ -1,0 +1,279 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8a68207a-bb80-4641-81f8-7cbc142cecec",
+  "prevIds": ["23bc3c54-7d71-49ba-81eb-8e1b2bf93c50"],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "complaint_refund_channel"],
+      "writes": [
+        "s|enum|public.complaint_refund_channel",
+        "n|enum|public.complaint_refund_channel",
+        "e|enum|public.complaint_refund_channel",
+        "n|type|public.complaint_refund_channel"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "complaints", "resolved_at"],
+      "writes": [
+        "s|col|public.complaints.resolved_at",
+        "n|col|public.complaints.resolved_at",
+        "e|col|public.complaints.resolved_at"
+      ],
+      "reads": ["n|tbl|public.complaints", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "complaints", "resolution_note"],
+      "writes": [
+        "s|col|public.complaints.resolution_note",
+        "n|col|public.complaints.resolution_note",
+        "e|col|public.complaints.resolution_note"
+      ],
+      "reads": ["n|tbl|public.complaints", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "complaints", "refund_channel"],
+      "writes": [
+        "s|col|public.complaints.refund_channel",
+        "n|col|public.complaints.refund_channel",
+        "e|col|public.complaints.refund_channel"
+      ],
+      "reads": [
+        "n|tbl|public.complaints",
+        "n|sch|public",
+        "n|enum|public.complaint_refund_channel"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "complaints",
+        "refund_amount_vnd"
+      ],
+      "writes": [
+        "s|col|public.complaints.refund_amount_vnd",
+        "n|col|public.complaints.refund_amount_vnd",
+        "e|col|public.complaints.refund_amount_vnd"
+      ],
+      "reads": ["n|tbl|public.complaints", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "complaints",
+        "replacement_order_id"
+      ],
+      "writes": [
+        "s|col|public.complaints.replacement_order_id",
+        "n|col|public.complaints.replacement_order_id",
+        "e|col|public.complaints.replacement_order_id"
+      ],
+      "reads": ["n|tbl|public.complaints", "n|sch|public"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "complaints",
+        "complaints_replacement_order_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.complaints_replacement_order_id_idx",
+        "n|idx|public.complaints_replacement_order_id_idx",
+        "e|idx|public.complaints_replacement_order_id_idx",
+        "n|rel|public.complaints_replacement_order_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.complaints",
+        "n|sch|public",
+        "n|col|public.complaints.replacement_order_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "complaints"],
+      "writes": [
+        "s|fk|public.complaints.complaints_replacement_order_id_orders_id_fkey",
+        "n|fk|public.complaints.complaints_replacement_order_id_orders_id_fkey",
+        "e|fk|public.complaints.complaints_replacement_order_id_orders_id_fkey",
+        "n|con|public.complaints.complaints_replacement_order_id_orders_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.complaints",
+        "n|sch|public",
+        "n|tbl|public.orders",
+        "n|sch|public",
+        "n|col|public.complaints.replacement_order_id",
+        "n|col|public.orders.id",
+        "e|uniqueness|public.orders.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "complaints"],
+      "writes": [
+        "s|ck|public.complaints.complaints_refund_amount_vnd_positive",
+        "n|ck|public.complaints.complaints_refund_amount_vnd_positive",
+        "e|ck|public.complaints.complaints_refund_amount_vnd_positive",
+        "n|con|public.complaints.complaints_refund_amount_vnd_positive"
+      ],
+      "reads": [
+        "n|tbl|public.complaints",
+        "n|sch|public",
+        "n|col|public.complaints.refund_amount_vnd"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "complaint_refund_channel",
+        "values": ["bank_transfer", "loyalty_points"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "resolved_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "resolution_note",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "refund_channel",
+        "type": "complaint_refund_channel",
+        "typeSchema": "public",
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "refund_amount_vnd",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "replacement_order_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "complaints_replacement_order_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "replacement_order_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "complaints_replacement_order_id_orders_id_fkey",
+        "nameExplicit": false,
+        "columns": ["replacement_order_id"],
+        "schemaTo": "public",
+        "tableTo": "orders",
+        "columnsTo": ["id"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "complaints_refund_amount_vnd_positive",
+        "value": "\"refund_amount_vnd\" IS NULL OR \"refund_amount_vnd\" > 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

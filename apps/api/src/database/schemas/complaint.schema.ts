@@ -1,5 +1,7 @@
 import {
+  check,
   index,
+  integer,
   jsonb,
   snakeCase,
   text,
@@ -8,11 +10,16 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import {
   ComplaintStatus,
   type ComplaintProofImageUrls,
 } from "@greenroots/shared";
-import { complaintResolutionEnum, complaintStatusEnum } from "./enums.schema";
+import {
+  complaintRefundChannelEnum,
+  complaintResolutionEnum,
+  complaintStatusEnum,
+} from "./enums.schema";
 import { baseEntity } from "./helpers.schema";
 import { users } from "./user.schema";
 import { orders } from "./order.schema";
@@ -36,12 +43,24 @@ export const complaints = snakeCase.table(
     triagedBy: uuid().references(() => users.id, { onDelete: "set null" }),
     triagedAt: timestamp({ withTimezone: true, mode: "date" }),
     triageNote: text(),
+    resolvedAt: timestamp({ withTimezone: true, mode: "date" }),
+    resolutionNote: text(),
+    refundChannel: complaintRefundChannelEnum(),
+    refundAmountVnd: integer(),
+    replacementOrderId: uuid().references(() => orders.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     uniqueIndex("complaints_order_id_uidx").on(table.orderId),
     index("complaints_customer_id_idx").on(table.customerId),
     index("complaints_status_idx").on(table.status),
     index("complaints_triaged_by_idx").on(table.triagedBy),
+    index("complaints_replacement_order_id_idx").on(table.replacementOrderId),
+    check(
+      "complaints_refund_amount_vnd_positive",
+      sql`${table.refundAmountVnd} IS NULL OR ${table.refundAmountVnd} > 0`,
+    ),
   ],
 );
 

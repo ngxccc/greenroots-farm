@@ -2,6 +2,7 @@ import { pgEnum } from "drizzle-orm/pg-core";
 import {
   AuthSurface,
   BatchStatus,
+  ComplaintRefundChannel,
   ComplaintResolution,
   ComplaintStatus,
   DeliveryDay,
@@ -69,6 +70,10 @@ export const complaintStatusEnum = pgEnum(
 export const complaintResolutionEnum = pgEnum(
   "complaint_resolution",
   enumValues(ComplaintResolution),
+);
+export const complaintRefundChannelEnum = pgEnum(
+  "complaint_refund_channel",
+  enumValues(ComplaintRefundChannel),
 );
 export const wasteLogStatusEnum = pgEnum(
   "waste_log_status",

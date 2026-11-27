@@ -277,6 +277,11 @@ export const schemaRelations = defineRelations(
         to: r.orders.id,
         optional: false,
       }),
+      replacementOrder: r.one.orders({
+        from: r.complaints.replacementOrderId,
+        to: r.orders.id,
+        alias: "complaintReplacementOrder",
+      }),
       customer: r.one.users({
         from: r.complaints.customerId,
         to: r.users.id,
