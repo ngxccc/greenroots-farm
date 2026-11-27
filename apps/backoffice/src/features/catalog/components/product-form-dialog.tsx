@@ -374,7 +374,7 @@ function ProductFormBody({
             id="prod-base-price"
             type="number"
             min={1}
-            step={100}
+            step={1}
             value={basePriceVnd}
             onChange={(e) => setBasePriceVnd(e.target.value)}
             placeholder="65000"
@@ -391,7 +391,7 @@ function ProductFormBody({
             id="prod-sale-price"
             type="number"
             min={1}
-            step={100}
+            step={1}
             value={salePriceVnd}
             onChange={(e) => setSalePriceVnd(e.target.value)}
             placeholder="Nhỏ hơn giá gốc"
