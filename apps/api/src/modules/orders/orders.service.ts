@@ -1,8 +1,7 @@
-import { randomBytes } from "node:crypto";
 import {
+  ConflictException,
   BadGatewayException,
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -17,7 +16,6 @@ import {
   count,
   desc,
   eq,
-  gt,
   inArray,
   isNotNull,
   isNull,
@@ -85,14 +83,21 @@ import type {
   ValidateCartResponse,
   ValidatedCartItem,
 } from "./dto";
-import { CROCKFORD_BASE32_ALPHABET } from "@/common/constants/encoding.constant";
-import { VIETNAM_TIMEZONE } from "@/common/constants/time.constant";
+import {
+  applyFefoAllocations,
+  buildOrderCode,
+  formatOrderCalendarDateVn,
+  formatQuantityFromCents,
+  isOrderCodeUniqueViolation,
+  lockCandidateSellableBatches,
+  planFefoAllocations,
+  toQuantityCents,
+  type FefoAllocationPlan,
+} from "./fefo-allocation.util";
 import {
   ALLOCATED_CANCELLABLE_STATUSES,
   EXPIRY_SWEEP_BATCH_SIZE,
   ORDER_CODE_MAX_GENERATION_ATTEMPTS,
-  ORDER_CODE_PREFIX,
-  ORDER_CODE_RANDOM_LENGTH,
   ORDER_ITEM_MAX_QUANTITY,
   ORDER_STATUS_TRANSITIONS,
   PICK_LIST_ALLOWED_STATUSES,
@@ -103,13 +108,6 @@ import {
 import type { NormalizedCartItem } from "./orders.interface";
 import type { ShippingQuote } from "./shipping/dto";
 import { ShippingService } from "./shipping/shipping.service";
-
-const VN_CALENDAR_FORMATTER = new Intl.DateTimeFormat("en-CA", {
-  timeZone: VIETNAM_TIMEZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
 
 const ORDER_COLUMNS = {
   id: orders.id,
@@ -133,20 +131,6 @@ const ORDER_COLUMNS = {
 } as const;
 
 type OrderRow = Pick<typeof orders.$inferSelect, keyof typeof ORDER_COLUMNS>;
-
-// Keep sellable statuses as SQL literals so PostgreSQL proves predicate implication for batches_sellable_stock_idx.
-const SELLABLE_BATCH_STATUS_SQL = sql.raw(
-  `'${BatchStatus.IN_STOCK}', '${BatchStatus.NEAR_EXPIRY}'`,
-);
-
-interface LockedSellableBatch {
-  readonly id: string;
-  readonly productId: string;
-  readonly batchCode: string;
-  readonly expirationDate: Date;
-  readonly availableQuantity: string;
-  readonly status: BatchStatus;
-}
 
 interface OrderItemWithProductRow {
   readonly id: string;
@@ -199,23 +183,6 @@ interface ComputedOrderTotals {
   readonly loyaltyPointsUsed: number;
   readonly discountAmountVnd: number;
   readonly totalAmountVnd: number;
-}
-
-interface PlannedBatchAllocation {
-  readonly productId: string;
-  readonly batchId: string;
-  readonly allocatedQuantity: string;
-}
-
-interface PlannedBatchUpdate {
-  readonly batchId: string;
-  readonly availableQuantity: string;
-  readonly status: BatchStatus;
-}
-
-interface FefoAllocationPlan {
-  readonly allocations: readonly PlannedBatchAllocation[];
-  readonly batchUpdates: readonly PlannedBatchUpdate[];
 }
 
 /**
@@ -739,7 +706,7 @@ export class OrdersService {
         continue;
       }
 
-      const deltaCents = this.toQuantityCents(row.allocatedQuantity);
+      const deltaCents = toQuantityCents(row.allocatedQuantity);
       const existing = groupedBatches.get(row.batchId);
       if (existing) {
         existing.allocatedCents += deltaCents;
@@ -1039,7 +1006,7 @@ export class OrdersService {
       shippingAddress: resolvedAddress.formattedAddress,
       shippingDistanceKm: shippingQuote.roadDistanceKm,
       shippingDistanceKmStr: shippingQuote.roadDistanceKm.toFixed(2),
-      yyyymmdd: this.formatCalendarDateVn(new Date()).replaceAll("-", ""),
+      yyyymmdd: formatOrderCalendarDateVn(new Date()),
     };
   }
 
@@ -1070,7 +1037,7 @@ export class OrdersService {
         });
       } catch (error) {
         if (
-          this.isOrderCodeUniqueViolation(error) ||
+          isOrderCodeUniqueViolation(error) ||
           (paymentMethod === PaymentMethod.PAYOS &&
             this.isPaymentOrderCodeUniqueViolation(error))
         ) {
@@ -1151,7 +1118,7 @@ export class OrdersService {
       }
 
       // Enforce global lock order `batches (id ASC) -> users` to prevent deadlocks with cancel/expiry sweeps (`INV-ORD-19`).
-      const candidateBatches = await this.lockCandidateSellableBatches(
+      const candidateBatches = await lockCandidateSellableBatches(
         tx,
         productIds,
         now,
@@ -1393,7 +1360,7 @@ export class OrdersService {
     paymentOrderCode: number | null;
     reservationExpiresAt: Date;
   }> {
-    const orderCode = this.buildOrderCode(params.yyyymmdd);
+    const orderCode = buildOrderCode(params.yyyymmdd);
     const [createdOrder] = await tx
       .insert(orders)
       .values({
@@ -1438,7 +1405,7 @@ export class OrdersService {
       insertedItems.map((row) => [row.productId, row.id]),
     );
 
-    await this.applyFefoAllocations(
+    await applyFefoAllocations(
       tx,
       params.fefoPlan,
       insertedItemIdByProduct,
@@ -1687,7 +1654,7 @@ export class OrdersService {
     row: OrderItemWithProductRow,
   ): OrderItemProjection {
     const quantity = Number(row.quantity);
-    const quantityCents = this.toQuantityCents(quantity);
+    const quantityCents = toQuantityCents(quantity);
 
     return {
       id: row.id,
@@ -1806,120 +1773,16 @@ export class OrdersService {
     return orderRow;
   }
 
-  private async lockCandidateSellableBatches(
-    tx: DrizzleTx,
-    productIds: readonly string[],
-    now: Date,
-  ): Promise<LockedSellableBatch[]> {
-    const sortedProductIds = Array.from(new Set(productIds)).sort((a, b) =>
-      a.localeCompare(b),
-    );
-
-    // Lock all candidate sellable batches across every order item in one ascending-ID query to eliminate crossed-item deadlocks.
-    return tx
-      .select({
-        id: batches.id,
-        productId: batches.productId,
-        batchCode: batches.batchCode,
-        expirationDate: batches.expirationDate,
-        availableQuantity: batches.availableQuantity,
-        status: batches.status,
-      })
-      .from(batches)
-      .where(
-        and(
-          inArray(batches.productId, sortedProductIds),
-          sql`${batches.status} IN (${SELLABLE_BATCH_STATUS_SQL})`,
-          gt(batches.expirationDate, now),
-          sql`${batches.availableQuantity} > 0`,
-        ),
-      )
-      .orderBy(asc(batches.id))
-      .for("update");
-  }
-
   private planFefoAllocations(
     items: readonly NormalizedCartItem[],
-    candidateBatches: readonly LockedSellableBatch[],
+    candidateBatches: Awaited<ReturnType<typeof lockCandidateSellableBatches>>,
   ): FefoAllocationPlan {
-    const batchesByProduct = new Map<string, LockedSellableBatch[]>();
-    const remainingCentsByBatchId = new Map<string, number>();
-
-    for (const batch of candidateBatches) {
-      remainingCentsByBatchId.set(
-        batch.id,
-        this.toQuantityCents(batch.availableQuantity),
-      );
-      const list = batchesByProduct.get(batch.productId);
-      if (list) {
-        list.push(batch);
-      } else {
-        batchesByProduct.set(batch.productId, [batch]);
-      }
-    }
-
-    for (const list of batchesByProduct.values()) {
-      list.sort((a, b) => {
-        const expDiff = a.expirationDate.getTime() - b.expirationDate.getTime();
-        return expDiff !== 0 ? expDiff : a.id.localeCompare(b.id);
-      });
-    }
-
-    const allocations: PlannedBatchAllocation[] = [];
-    const touchedBatches = new Map<string, LockedSellableBatch>();
-    const shortages: {
-      productId: string;
-      requested: number;
-      available: number;
-    }[] = [];
-
-    for (const item of items) {
-      const requestedCents = item.quantityCents;
-      let remainingNeededCents = requestedCents;
-      const productBatches = batchesByProduct.get(item.productId) ?? [];
-
-      const availableForProductCents = productBatches.reduce(
-        (sum, batch) => sum + (remainingCentsByBatchId.get(batch.id) ?? 0),
-        0,
-      );
-
-      if (availableForProductCents < requestedCents) {
-        shortages.push({
-          productId: item.productId,
-          requested: requestedCents / 100,
-          available: availableForProductCents / 100,
-        });
-        continue;
-      }
-
-      for (const batch of productBatches) {
-        if (remainingNeededCents === 0) {
-          break;
-        }
-
-        const batchRemainingCents = remainingCentsByBatchId.get(batch.id) ?? 0;
-        if (batchRemainingCents <= 0) {
-          continue;
-        }
-
-        const takeCents = Math.min(remainingNeededCents, batchRemainingCents);
-        remainingCentsByBatchId.set(batch.id, batchRemainingCents - takeCents);
-        remainingNeededCents -= takeCents;
-        touchedBatches.set(batch.id, batch);
-
-        allocations.push({
-          productId: item.productId,
-          batchId: batch.id,
-          allocatedQuantity: this.formatQuantityFromCents(takeCents),
-        });
-      }
-    }
-
-    if (shortages.length > 0) {
+    const outcome = planFefoAllocations(items, candidateBatches);
+    if (!outcome.ok) {
       throw new ConflictException({
         code: API_ERROR_CODES.INSUFFICIENT_STOCK,
         detail: MESSAGES.ORDERS.INSUFFICIENT_STOCK,
-        invalidParams: shortages.map((shortage) => ({
+        invalidParams: outcome.shortages.map((shortage) => ({
           name: "items",
           code: API_ERROR_CODES.INSUFFICIENT_STOCK,
           reason: MESSAGES.ORDERS.INSUFFICIENT_STOCK,
@@ -1927,57 +1790,7 @@ export class OrdersService {
         })),
       });
     }
-
-    const batchUpdates: PlannedBatchUpdate[] = [];
-    for (const batch of touchedBatches.values()) {
-      const nextAvailableCents = remainingCentsByBatchId.get(batch.id) ?? 0;
-      batchUpdates.push({
-        batchId: batch.id,
-        availableQuantity: this.formatQuantityFromCents(nextAvailableCents),
-        status: nextAvailableCents === 0 ? BatchStatus.SOLD_OUT : batch.status,
-      });
-    }
-
-    return { allocations, batchUpdates };
-  }
-
-  private async applyFefoAllocations(
-    tx: DrizzleTx,
-    plan: FefoAllocationPlan,
-    insertedItemIdByProduct: ReadonlyMap<string, string>,
-    now: Date,
-  ): Promise<void> {
-    if (plan.allocations.length > 0) {
-      await tx.insert(batchAllocations).values(
-        plan.allocations.map((allocation) => {
-          const orderItemId = insertedItemIdByProduct.get(allocation.productId);
-          if (!orderItemId) {
-            throw new Error(
-              `Missing inserted order item for product ${allocation.productId}.`,
-            );
-          }
-
-          return {
-            orderItemId,
-            batchId: allocation.batchId,
-            allocatedQuantity: allocation.allocatedQuantity,
-            allocatedAt: now,
-            releasedAt: null,
-          };
-        }),
-      );
-    }
-
-    for (const update of plan.batchUpdates) {
-      await tx
-        .update(batches)
-        .set({
-          availableQuantity: update.availableQuantity,
-          status: update.status,
-          updatedAt: now,
-        })
-        .where(eq(batches.id, update.batchId));
-    }
+    return outcome.plan;
   }
 
   private async releaseOrderAllocations(
@@ -2010,7 +1823,7 @@ export class OrdersService {
 
     for (const allocation of activeAllocations) {
       allocationIds.push(allocation.id);
-      const cents = this.toQuantityCents(allocation.allocatedQuantity);
+      const cents = toQuantityCents(allocation.allocatedQuantity);
       restoredCentsByBatchId.set(
         allocation.batchId,
         (restoredCentsByBatchId.get(allocation.batchId) ?? 0) + cents,
@@ -2040,7 +1853,7 @@ export class OrdersService {
       }
 
       const nextAvailableCents =
-        this.toQuantityCents(batch.availableQuantity) + restoredCents;
+        toQuantityCents(batch.availableQuantity) + restoredCents;
       const nextStatus = this.resolveBatchStatusAfterRestore(
         batch.expirationDate,
         hoursThreshold,
@@ -2050,7 +1863,7 @@ export class OrdersService {
       await tx
         .update(batches)
         .set({
-          availableQuantity: this.formatQuantityFromCents(nextAvailableCents),
+          availableQuantity: formatQuantityFromCents(nextAvailableCents),
           status: nextStatus,
           updatedAt: now,
         })
@@ -2201,14 +2014,6 @@ export class OrdersService {
     );
   }
 
-  private toQuantityCents(value: string | number): number {
-    return Math.round(Number(value) * 100);
-  }
-
-  private formatQuantityFromCents(cents: number): string {
-    return (cents / 100).toFixed(2);
-  }
-
   private async hydratePendingPaymentUrls(
     orderRows: readonly OrderRow[],
   ): Promise<Map<string, string | null>> {
@@ -2281,23 +2086,6 @@ export class OrdersService {
     return Math.round((quantityCents * unitPriceVnd) / 100);
   }
 
-  private buildOrderCode(yyyymmdd: string): string {
-    return `${ORDER_CODE_PREFIX}-${yyyymmdd}-${this.generateRandomCodeSuffix()}`;
-  }
-
-  private generateRandomCodeSuffix(): string {
-    const bytes = randomBytes(ORDER_CODE_RANDOM_LENGTH);
-    let suffix = "";
-    for (const byte of bytes) {
-      suffix += CROCKFORD_BASE32_ALPHABET[byte % 32];
-    }
-    return suffix;
-  }
-
-  private formatCalendarDateVn(date: Date): string {
-    return VN_CALENDAR_FORMATTER.format(date);
-  }
-
   private logClientTotalMismatchIfAny(
     clientTotalVnd: number | undefined,
     serverTotalVnd: number,
@@ -2307,15 +2095,6 @@ export class OrdersService {
         `${MESSAGES.ORDERS.CLIENT_TOTAL_MISMATCH_PREFIX} server=${serverTotalVnd} client=${clientTotalVnd}`,
       );
     }
-  }
-
-  private isOrderCodeUniqueViolation(error: unknown): boolean {
-    const details = extractDatabaseErrorDetails(error);
-    return (
-      details.isDatabaseError &&
-      details.code === PG_ERROR_CODE.UNIQUE_VIOLATION &&
-      details.constraint === "orders_order_code_uidx"
-    );
   }
 
   private isPaymentOrderCodeUniqueViolation(error: unknown): boolean {
