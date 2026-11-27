@@ -311,7 +311,7 @@ export function BackofficeShell({
   }
 
   return (
-    <div className="flex min-h-dvh bg-surface-warm">
+    <div className="flex min-h-dvh overflow-x-clip bg-surface-warm">
       <aside
         className={cn(
           "sticky top-0 flex h-dvh shrink-0 flex-col justify-between border-r border-border-subtle bg-surface-card transition-[width] duration-200",
