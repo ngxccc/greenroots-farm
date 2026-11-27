@@ -268,6 +268,14 @@ export const MESSAGES = {
       "Media verification service is temporarily unavailable.",
     NOT_FOUND: "Complaint not found.",
     INVALID_STATUS_TRANSITION: "Only pending complaints can be triaged.",
+    INVALID_RESOLVE_STATUS_TRANSITION:
+      "Only triaged complaints can be resolved.",
+    ORDER_NOT_PAID:
+      "Refunds can only be processed for orders with paid payment status.",
+    REPLACEMENT_ITEMS_INVALID:
+      "Replacement items must be a positive subset of the original order items.",
+    REFUND_AMOUNT_INVALID:
+      "Refund amount must be between 1 VND and the original order total.",
   },
   ADDRESS: {
     NOT_FOUND: "Address not found.",

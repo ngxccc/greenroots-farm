@@ -136,6 +136,13 @@ export const ComplaintResolution = {
 export type ComplaintResolution =
   (typeof ComplaintResolution)[keyof typeof ComplaintResolution];
 
+export const ComplaintRefundChannel = {
+  BANK_TRANSFER: "bank_transfer",
+  LOYALTY_POINTS: "loyalty_points",
+} as const;
+export type ComplaintRefundChannel =
+  (typeof ComplaintRefundChannel)[keyof typeof ComplaintRefundChannel];
+
 export const WasteLogStatus = {
   PENDING_APPROVAL: "pending_approval",
   APPROVED: "approved",
