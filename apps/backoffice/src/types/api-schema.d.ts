@@ -2158,6 +2158,7 @@ export interface components {
             name: string;
             slug: string;
             description: string | null;
+            storageInstructions: string | null;
             basePriceVnd: number;
             salePriceVnd: number | null;
             availableQuantity: number;
@@ -2172,6 +2173,52 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        ProductDetailDto: {
+            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+            id: string;
+            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+            categoryId: string;
+            category: {
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                id: string;
+                name: string;
+                slug: string;
+                parentId: string | null;
+            };
+            name: string;
+            slug: string;
+            description: string | null;
+            storageInstructions: string | null;
+            basePriceVnd: number;
+            salePriceVnd: number | null;
+            availableQuantity: number;
+            unit: string;
+            imageUrls: string[];
+            isVietGap: boolean;
+            isUsda: boolean;
+            isSubscriptionEligible: boolean;
+            isActive: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            activeBatchTrace: {
+                batchCode: string;
+                /** Format: date-time */
+                harvestDate: string;
+                /** Format: date-time */
+                expirationDate: string;
+                /** @enum {string} */
+                status: "in_stock" | "near_expiry";
+                plotCode: string;
+                plotName: string;
+            } | null;
+            rescueProgress: {
+                /** Format: date-time */
+                expiresAt: string;
+                claimedPercent: number;
+            } | null;
+        };
         CreateProductDto: {
             /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
             categoryId: string;
@@ -2179,6 +2226,7 @@ export interface components {
             /** @example rau-an-la */
             slug: string;
             description?: string | null;
+            storageInstructions?: string | null;
             basePriceVnd: number;
             salePriceVnd?: number | null;
             unit?: string;
@@ -2199,6 +2247,7 @@ export interface components {
             /** @example rau-an-la */
             slug?: string;
             description?: string | null;
+            storageInstructions?: string | null;
             basePriceVnd?: number;
             salePriceVnd?: number | null;
             unit?: string;
@@ -8679,7 +8728,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data: components["schemas"]["ProductDto"];
+                        data: components["schemas"]["ProductDetailDto"];
                     };
                 };
             };

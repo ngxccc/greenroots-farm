@@ -21,6 +21,7 @@ const MOCK_PRODUCT_DTO: ProductDto = {
   slug: "xa-lach-romaine",
   description:
     "Thu hoạch thủ công lúc 15h chiều tại nông trại GreenRoots Đà Lạt (Đơn Dương, Lâm Đồng), xe lạnh đêm về TP.HCM.",
+  storageInstructions: null,
   basePriceVnd: 36000,
   salePriceVnd: 18000,
   availableQuantity: 12.5,

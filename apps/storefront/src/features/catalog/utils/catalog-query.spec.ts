@@ -40,6 +40,7 @@ function makeProduct(
       parentId: null,
     },
     description: null,
+    storageInstructions: null,
     basePriceVnd: 36_000,
     salePriceVnd: 18_000,
     availableQuantity: 12,

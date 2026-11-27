@@ -63,6 +63,7 @@ const MOCK_LEAF_PRODUCT_DTO: ProductDto = {
   name: "Cải ngọt baby sống",
   slug: "cai-ngot-baby-song",
   description: "Thu hoạch tươi từ Đà Lạt.",
+  storageInstructions: null,
   basePriceVnd: 30000,
   salePriceVnd: null,
   availableQuantity: 20,

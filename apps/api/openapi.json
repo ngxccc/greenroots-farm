@@ -7242,7 +7242,7 @@
                       ],
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/ProductDto"
+                          "$ref": "#/components/schemas/ProductDetailDto"
                         }
                       }
                     }
@@ -17726,6 +17726,12 @@
               "null"
             ]
           },
+          "storageInstructions": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "basePriceVnd": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -17786,6 +17792,7 @@
           "name",
           "slug",
           "description",
+          "storageInstructions",
           "basePriceVnd",
           "salePriceVnd",
           "availableQuantity",
@@ -17797,6 +17804,219 @@
           "isActive",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "ProductDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+          },
+          "categoryId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+          },
+          "category": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+              },
+              "name": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "parentId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                    "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "slug",
+              "parentId"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "storageInstructions": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "basePriceVnd": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "salePriceVnd": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "availableQuantity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string"
+          },
+          "imageUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isVietGap": {
+            "type": "boolean"
+          },
+          "isUsda": {
+            "type": "boolean"
+          },
+          "isSubscriptionEligible": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "activeBatchTrace": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "batchCode": {
+                    "type": "string"
+                  },
+                  "harvestDate": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "expirationDate": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "in_stock",
+                      "near_expiry"
+                    ]
+                  },
+                  "plotCode": {
+                    "type": "string"
+                  },
+                  "plotName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "batchCode",
+                  "harvestDate",
+                  "expirationDate",
+                  "status",
+                  "plotCode",
+                  "plotName"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rescueProgress": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "claimedPercent": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "expiresAt",
+                  "claimedPercent"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "categoryId",
+          "category",
+          "name",
+          "slug",
+          "description",
+          "storageInstructions",
+          "basePriceVnd",
+          "salePriceVnd",
+          "availableQuantity",
+          "unit",
+          "imageUrls",
+          "isVietGap",
+          "isUsda",
+          "isSubscriptionEligible",
+          "isActive",
+          "createdAt",
+          "updatedAt",
+          "activeBatchTrace",
+          "rescueProgress"
         ]
       },
       "CreateProductDto": {
@@ -17818,6 +18038,12 @@
             "example": "rau-an-la"
           },
           "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "storageInstructions": {
             "type": [
               "string",
               "null"
@@ -17902,6 +18128,12 @@
             "example": "rau-an-la"
           },
           "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "storageInstructions": {
             "type": [
               "string",
               "null"
