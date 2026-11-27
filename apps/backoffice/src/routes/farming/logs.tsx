@@ -18,6 +18,7 @@ import {
   cn,
 } from "@greenroots/ui";
 import { createFileRoute } from "@tanstack/react-router";
+import { PageHeader } from "@/components/layout/page-header";
 import {
   AlertCircle,
   Bug,
@@ -108,18 +109,13 @@ function FarmingLogsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-extrabold text-gray-900">
-            Ghi Nhật Ký Canh Tác
-          </h1>
-          <p className="text-xs text-gray-500">
-            Bản ghi bất biến (Append-only)
-          </p>
-        </div>
-        <Badge variant="secondary">VietGAP</Badge>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Canh tác"
+        title="Nhật ký canh tác"
+        description="Bản ghi bất biến (Append-only) theo từng mùa vụ."
+        actions={<Badge variant="secondary">VietGAP</Badge>}
+      />
 
       <Card className="border-border-subtle bg-surface-card shadow-sm">
         <CardHeader className="pb-3">

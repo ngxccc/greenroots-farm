@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@greenroots/ui";
 import { createFileRoute } from "@tanstack/react-router";
+import { PageHeader } from "@/components/layout/page-header";
 import {
   createColumnHelper,
   flexRender,
@@ -175,18 +176,13 @@ function OrdersFefoPage() {
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-extrabold text-gray-900">
-            Điều Phối Đơn &amp; Xuất Kho FEFO
-          </h1>
-          <p className="text-sm text-gray-500">
-            Tự động gợi ý lô cận hạn nhất (First-Expired, First-Out)
-          </p>
-        </div>
-        <Badge variant="secondary">TanStack Table</Badge>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Bán hàng & Kho"
+        title="Đơn hàng"
+        description="Điều phối đơn hàng và tự động gợi ý lô cận hạn nhất (First-Expired, First-Out)."
+        actions={<Badge variant="secondary">FEFO</Badge>}
+      />
 
       {actionNotice ? (
         <Alert variant="success">
