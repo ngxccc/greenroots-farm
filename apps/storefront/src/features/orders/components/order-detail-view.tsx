@@ -3,28 +3,23 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { OrderStatus } from "@greenroots/shared";
-import {
-  Badge,
-  Button,
-  Skeleton,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@greenroots/ui";
+import { Badge, Button, Skeleton } from "@greenroots/ui";
 import { AlertTriangle, Leaf } from "lucide-react";
 import { BackLink } from "@/components/common/back-link";
 import {
   ORDER_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
 } from "@/constants/domain-labels.constant";
-import { FARM_METADATA } from "@/constants/farm-metadata.constant";
 import { AccountProfileDegradedCard } from "@/features/account/components/account-profile-view";
 import { formatViDateTime, formatVnd, roundQuantity } from "@/lib/format";
 import { isApprovedStorefrontImageUrl } from "@/lib/image-url";
 import type { OrderDto } from "../schemas/order.schema";
+import {
+  isComplaintWindowExpired,
+  isOrderComplaintEligibleStatus,
+} from "../utils/complaint.utils";
 import {
   type OrderTimelineStep,
   buildOrderTimelineSteps,
@@ -91,12 +86,23 @@ export function OrderDetailView({
   initialPaymentQuery,
 }: OrderDetailViewProps) {
   const [order, setOrder] = useState(initialOrder);
+  const [nowMs, setNowMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setNowMs(Date.now());
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
   const timelineSteps = buildOrderTimelineSteps(
     order.orderStatus,
     order.createdAt,
     order.updatedAt,
   );
-  const showComplaintEntry = order.orderStatus === OrderStatus.DELIVERED;
+  const showComplaintEntry = isOrderComplaintEligibleStatus(order.orderStatus);
+  const isComplaintExpired =
+    nowMs !== null ? isComplaintWindowExpired(order.deliveredAt, nowMs) : false;
   // Avoid duplicating the reorder CTA when the inline PayOS expired/cancelled banner already renders it.
   const showHeaderReorder =
     canReorderOrder(order) && resolvePayosPanelPhase(order) !== "expired";
@@ -144,36 +150,22 @@ export function OrderDetailView({
               ) : null}
 
               {showComplaintEntry ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <span className="inline-flex" tabIndex={0}>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            disabled
-                            className="gap-1.5"
-                          >
-                            <AlertTriangle
-                              className="size-4"
-                              aria-hidden="true"
-                            />
-                            <span>Gửi khiếu nại (Sắp ra mắt)</span>
-                          </Button>
-                        </span>
-                      }
-                    />
-                    <TooltipContent
-                      side="bottom"
-                      className="max-w-xs text-pretty"
-                    >
-                      Hỗ trợ khiếu nại trong 24h sau khi nhận hàng. Tính năng
-                      gửi trực tuyến đang được hoàn thiện — vui lòng liên hệ
-                      hotline {FARM_METADATA.hotline} để được xử lý ngay.
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Button
+                  nativeButton={false}
+                  variant="outline"
+                  render={<Link href={`/orders/${order.id}/complaint`} />}
+                  className="gap-1.5"
+                >
+                  <AlertTriangle
+                    className="size-4 text-status-spoiled"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    {isComplaintExpired
+                      ? "Khiếu nại (đã quá 24h)"
+                      : "Khiếu nại đơn hàng"}
+                  </span>
+                </Button>
               ) : null}
             </div>
           ) : null}

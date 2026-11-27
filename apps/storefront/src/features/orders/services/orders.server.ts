@@ -4,6 +4,7 @@ import type { components } from "@/types/api-schema";
 import { AUTH_DEGRADED_HEADER } from "@/features/auth/services/cookies";
 import { readServerAccessToken } from "@/features/auth/services/server-token";
 import { runWithServerActionRefresh } from "@/features/auth/services/session.server";
+import type { ComplaintDto } from "../schemas/complaint.schema";
 import type { OrderDto } from "../schemas/order.schema";
 import {
   ORDER_HISTORY_PAGE_SIZE,
@@ -38,6 +39,20 @@ export type CustomerOrderDetailSessionResolution =
   | { readonly status: "degraded" };
 
 /**
+ * Discriminated SSR outcome for `/orders/[id]/complaint` (`SF-05`).
+ */
+export type CustomerOrderComplaintSessionResolution =
+  | {
+      readonly status: "authenticated";
+      readonly order: OrderDto;
+      readonly complaint: ComplaintDto | null;
+    }
+  | { readonly status: "unauthenticated" }
+  | { readonly status: "forbidden" }
+  | { readonly status: "not_found" }
+  | { readonly status: "degraded" };
+
+/**
  * Dependency overrides for isolated unit testing of order SSR resolvers.
  */
 export interface OrdersServerDeps {
@@ -56,6 +71,11 @@ export interface OrdersServerDeps {
   readonly fetchMyOrderById?: (id: string) => Promise<{
     response: Response;
     data?: { data: OrderDto };
+    error?: unknown;
+  }>;
+  readonly fetchOrderComplaint?: (id: string) => Promise<{
+    response: Response;
+    data?: { data: ComplaintDto | null };
     error?: unknown;
   }>;
 }
@@ -195,6 +215,90 @@ export async function resolveCustomerOrderDetailSession(
       return { status: "unauthenticated" };
     }
     if (result.response.status === 403) {
+      return { status: "forbidden" };
+    }
+    return { status: "degraded" };
+  } catch {
+    return { status: "degraded" };
+  }
+}
+
+/**
+ * Resolves a customer-owned order and its existing complaint (if any) for `/orders/[id]/complaint` (`SF-05`).
+ */
+export async function resolveCustomerOrderComplaintSession(
+  orderId: string,
+  deps?: OrdersServerDeps,
+): Promise<CustomerOrderComplaintSessionResolution> {
+  try {
+    const gate = await checkOrdersSessionGate(deps);
+    if (gate !== "ready") {
+      return { status: gate };
+    }
+
+    if (!UUID_REGEX.test(orderId)) {
+      return { status: "not_found" };
+    }
+
+    const runWithRefresh = deps?.runWithRefresh ?? runWithServerActionRefresh;
+    const fetchMyOrderById =
+      deps?.fetchMyOrderById ??
+      ((id) =>
+        api.GET("/api/v1/orders/{id}", {
+          params: { path: { id } },
+          cache: "no-store",
+        }));
+    const fetchOrderComplaint =
+      deps?.fetchOrderComplaint ??
+      ((id) =>
+        api.GET("/api/v1/orders/{id}/complaints", {
+          params: { path: { id } },
+          cache: "no-store",
+        }));
+
+    const [orderResult, complaintResult] = await Promise.all([
+      runWithRefresh(() => fetchMyOrderById(orderId)),
+      runWithRefresh(() => fetchOrderComplaint(orderId)),
+    ]);
+
+    if (
+      orderResult.error ||
+      !orderResult.response.ok ||
+      !orderResult.data?.data
+    ) {
+      if (
+        orderResult.response.status === 400 ||
+        orderResult.response.status === 404
+      ) {
+        return { status: "not_found" };
+      }
+      if (orderResult.response.status === 401) {
+        return { status: "unauthenticated" };
+      }
+      if (orderResult.response.status === 403) {
+        return { status: "forbidden" };
+      }
+      return { status: "degraded" };
+    }
+
+    if (!complaintResult.error && complaintResult.response.ok) {
+      return {
+        status: "authenticated",
+        order: orderResult.data.data,
+        complaint: complaintResult.data?.data ?? null,
+      };
+    }
+
+    if (
+      complaintResult.response.status === 400 ||
+      complaintResult.response.status === 404
+    ) {
+      return { status: "not_found" };
+    }
+    if (complaintResult.response.status === 401) {
+      return { status: "unauthenticated" };
+    }
+    if (complaintResult.response.status === 403) {
       return { status: "forbidden" };
     }
     return { status: "degraded" };
