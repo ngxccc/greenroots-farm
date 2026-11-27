@@ -1,5 +1,8 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { getDefaultRouteForRole, useAuthStore } from "@/stores/auth.store";
+import {
+  getDefaultRouteForRole,
+  useAuthStore,
+} from "@/features/auth/stores/auth.store";
 
 export const Route = createFileRoute("/")({
   component: IndexRedirect,

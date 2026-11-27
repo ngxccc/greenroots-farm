@@ -17,8 +17,8 @@ import {
   Truck,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { fetchApiHealth } from "@/lib/api-client";
-import { getDefaultRouteForRole, useAuthStore } from "@/stores/auth.store";
+import { useAuthStore } from "@/features/auth/stores/auth.store";
+import { fetchApiHealth, logoutStaffSession } from "@/lib/api-client";
 
 interface NavItem {
   readonly to: string;
@@ -107,14 +107,13 @@ export function BackofficeShell({
   readonly children: ReactNode;
 }) {
   const user = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
-  const loginDemoRole = useAuthStore((state) => state.loginDemoRole);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const { data: health } = useQuery({
     queryKey: ["api-health"],
     queryFn: fetchApiHealth,
+    enabled: Boolean(user),
     refetchInterval: 30_000,
   });
 
@@ -127,13 +126,8 @@ export function BackofficeShell({
     item.roles.includes(user.role),
   );
 
-  function handleRoleSwitch(role: UserRole) {
-    loginDemoRole(role);
-    void navigate({ to: getDefaultRouteForRole(role) });
-  }
-
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logoutStaffSession();
     void navigate({ to: "/login" });
   }
 
@@ -243,23 +237,6 @@ export function BackofficeShell({
               {health?.reachable ? "Online" : "Offline"}
             </Badge>
           </div>
-          {import.meta.env.DEV ? (
-            <div className="grid grid-cols-2 gap-1.5">
-              {(["farm_staff", "sales", "admin", "super_admin"] as const).map(
-                (r) => (
-                  <Button
-                    key={r}
-                    size="xs"
-                    variant={user.role === r ? "default" : "outline"}
-                    onClick={() => handleRoleSwitch(r)}
-                    className="text-[11px]"
-                  >
-                    {r}
-                  </Button>
-                ),
-              )}
-            </div>
-          ) : null}
           <Button
             variant="outline"
             size="sm"
