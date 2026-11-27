@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -9,7 +10,7 @@ import {
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
-import { AuthSurface } from "@greenroots/shared";
+import { AuthSurface, UserRole } from "@greenroots/shared";
 import {
   ApiAuth,
   ApiBadRequestResponseRfc9457,
@@ -22,12 +23,14 @@ import {
   ApiUnauthorizedResponseRfc9457,
   CurrentUser,
   Public,
+  type JwtPayload,
 } from "@/common/decorators";
 import { apiSuccess, type ApiResponse } from "@/common/utils/api-response.util";
 import { extractClientMetadata } from "@/common/utils/client-info.util";
 import { AUTH_ROUTES } from "./auth.routes";
 import { AuthService } from "./auth.service";
 import {
+  ActiveSessionDto,
   ForgotPasswordDto,
   LoginDto,
   LoginResponseDto,
@@ -238,6 +241,28 @@ export class AuthController {
 
     await this.authService.logout(dto.refreshToken, accessToken);
     return apiSuccess(null);
+  }
+
+  @ApiAuth(UserRole.CUSTOMER)
+  @Get(AUTH_ROUTES.CUSTOMER_SESSIONS)
+  @Throttle({
+    default: { limit: 20, ttl: 60000 },
+  })
+  @ApiOperation({
+    summary: "List active customer sessions",
+    description:
+      "Returns a bounded closed projection of non-expired customer refresh sessions, flagging the caller's current session.",
+  })
+  @ApiOkResponseGeneric(ActiveSessionDto, { isArray: true })
+  @ApiTooManyRequestsResponseRfc9457()
+  async listCustomerSessions(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ApiResponse<ActiveSessionDto[]>> {
+    const sessions = await this.authService.listCustomerSessions(
+      user.sub,
+      user.sid,
+    );
+    return apiSuccess(sessions);
   }
 
   @ApiAuth()

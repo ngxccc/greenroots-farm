@@ -12,6 +12,7 @@ export const AUTH_ROUTES = {
   STAFF_LOGIN: "staff/login",
   CUSTOMER_REFRESH: "customer/refresh",
   STAFF_REFRESH: "staff/refresh",
+  CUSTOMER_SESSIONS: "customer/sessions",
   LOGOUT: "logout",
   LOGOUT_ALL: "logout-all",
   FORGOT_PASSWORD: "forgot-password",

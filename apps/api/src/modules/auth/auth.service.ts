@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   API_ERROR_CODES,
@@ -44,7 +44,9 @@ import {
 import { refreshTokens, users } from "@/database/schemas";
 import { STAFF_USER_COLUMNS } from "@/database/utils/user-projections";
 import { MailService } from "@/modules/mail/mail.service";
+import { MAX_ACTIVE_SESSIONS_LIST } from "./auth.constant";
 import type {
+  ActiveSession,
   ForgotPasswordDto,
   LoginDto,
   LoginResponseDto,
@@ -88,28 +90,82 @@ export class AuthService {
     surface: AuthSurface,
     metadata?: ClientMetadata,
   ): Promise<{ accessToken: string; refreshToken: string }> {
+    const refreshToken = generateRefreshToken();
+    const tokenHash = sha256(refreshToken);
+    const expiresAt = getExpiryDate("7d");
+
+    // Persist the refresh session first so its UUIDv7 id can be embedded as the JWT `sid` claim.
+    const [insertedSession] = await this.db
+      .insert(refreshTokens)
+      .values({
+        userId,
+        token: tokenHash,
+        surface,
+        deviceName: metadata?.deviceName ?? null,
+        ipAddress: metadata?.ipAddress ?? null,
+        expiresAt,
+      })
+      .returning({ id: refreshTokens.id });
+
+    if (!insertedSession) {
+      throw new Error("Failed to create refresh token session.");
+    }
+
     const jti = randomUUID();
-    const payload = { sub: userId, email, role, jti };
+    const payload = {
+      sub: userId,
+      email,
+      role,
+      jti,
+      sid: insertedSession.id,
+    };
 
     const accessToken = await this.jwtService.signAsync(payload, {
       secret: env.JWT_ACCESS_SECRET,
       expiresIn: ACCESS_TOKEN_TTL_SECONDS,
     });
 
-    const refreshToken = generateRefreshToken();
-    const tokenHash = sha256(refreshToken);
-    const expiresAt = getExpiryDate("7d");
-
-    await this.db.insert(refreshTokens).values({
-      userId,
-      token: tokenHash,
-      surface,
-      deviceName: metadata?.deviceName ?? null,
-      ipAddress: metadata?.ipAddress ?? null,
-      expiresAt,
-    });
-
     return { accessToken, refreshToken };
+  }
+
+  /**
+   * Lists non-expired active customer sessions for the authenticated user.
+   *
+   * @param userId Authenticated customer UUID (`jwt.sub`).
+   * @param currentSessionId Optional refresh session ID from `jwt.sid` to flag `isCurrent`.
+   * @returns Bounded closed projection ordered newest-first.
+   */
+  async listCustomerSessions(
+    userId: string,
+    currentSessionId?: string,
+  ): Promise<ActiveSession[]> {
+    const rows = await this.db
+      .select({
+        id: refreshTokens.id,
+        deviceName: refreshTokens.deviceName,
+        ipAddress: refreshTokens.ipAddress,
+        createdAt: refreshTokens.createdAt,
+        expiresAt: refreshTokens.expiresAt,
+      })
+      .from(refreshTokens)
+      .where(
+        and(
+          eq(refreshTokens.userId, userId),
+          eq(refreshTokens.surface, AuthSurface.CUSTOMER),
+          gt(refreshTokens.expiresAt, sql`NOW()`),
+        ),
+      )
+      .orderBy(desc(refreshTokens.createdAt), desc(refreshTokens.id))
+      .limit(MAX_ACTIVE_SESSIONS_LIST);
+
+    return rows.map((row) => ({
+      id: row.id,
+      deviceName: row.deviceName,
+      ipAddress: row.ipAddress,
+      createdAt: row.createdAt.toISOString(),
+      expiresAt: row.expiresAt.toISOString(),
+      isCurrent: currentSessionId !== undefined && row.id === currentSessionId,
+    }));
   }
 
   /**
