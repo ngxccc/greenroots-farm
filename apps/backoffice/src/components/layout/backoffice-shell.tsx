@@ -314,11 +314,11 @@ export function BackofficeShell({
     <div className="flex min-h-dvh bg-surface-warm">
       <aside
         className={cn(
-          "flex shrink-0 flex-col justify-between border-r border-border-subtle bg-surface-card transition-[width] duration-200",
+          "sticky top-0 flex h-dvh shrink-0 flex-col justify-between border-r border-border-subtle bg-surface-card transition-[width] duration-200",
           sidebarCollapsed ? "w-16" : "w-64",
         )}
       >
-        <div className="flex flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">
           <div
             className={cn(
               "flex items-center border-b border-border-subtle py-4",
@@ -362,7 +362,10 @@ export function BackofficeShell({
 
           <nav
             aria-label="Điều hướng quản trị"
-            className={cn("space-y-4", sidebarCollapsed ? "p-2" : "p-3")}
+            className={cn(
+              "flex-1 space-y-4 overflow-y-auto",
+              sidebarCollapsed ? "p-2" : "p-3",
+            )}
           >
             {visibleGroups.map((group, groupIndex) => (
               <div
