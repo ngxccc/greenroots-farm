@@ -243,12 +243,19 @@ describe("Orders Fulfillment Integration", () => {
       )
       .returning();
 
+    const paymentStatus = params.paymentStatus ?? PaymentStatus.PENDING;
+
     await setup.db.insert(payments).values({
       orderId: createdOrder!.id,
       amount: totalAmount,
       paymentMethod: params.paymentMethod ?? PaymentMethod.COD,
-      status: params.paymentStatus ?? PaymentStatus.PENDING,
+      status: paymentStatus,
       transactionType: PaymentTransactionType.PAYMENT,
+      paidAt:
+        paymentStatus === PaymentStatus.PAID ||
+        paymentStatus === PaymentStatus.REFUNDED
+          ? new Date()
+          : null,
     });
 
     if (params.allocations && params.allocations.length > 0) {
