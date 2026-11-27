@@ -638,8 +638,9 @@ export function FarmSettingsPanel() {
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-4">
               <div className="flex flex-wrap gap-6">
-                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-800">
+                <div className="flex items-center gap-2">
                   <Checkbox
+                    id="farm-payos-enabled"
                     checked={formValues.isPayosEnabled}
                     onCheckedChange={(checked) => {
                       updateField("isPayosEnabled", Boolean(checked));
@@ -650,11 +651,17 @@ export function FarmSettingsPanel() {
                       });
                     }}
                   />
-                  <span>Bật thanh toán VietQR (PayOS)</span>
-                </label>
+                  <Label
+                    htmlFor="farm-payos-enabled"
+                    className="cursor-pointer text-sm font-medium text-gray-800"
+                  >
+                    Bật thanh toán VietQR (PayOS)
+                  </Label>
+                </div>
 
-                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-800">
+                <div className="flex items-center gap-2">
                   <Checkbox
+                    id="farm-cod-enabled"
                     checked={formValues.isCodEnabled}
                     onCheckedChange={(checked) => {
                       updateField("isCodEnabled", Boolean(checked));
@@ -665,8 +672,13 @@ export function FarmSettingsPanel() {
                       });
                     }}
                   />
-                  <span>Bật thanh toán tiền mặt (COD)</span>
-                </label>
+                  <Label
+                    htmlFor="farm-cod-enabled"
+                    className="cursor-pointer text-sm font-medium text-gray-800"
+                  >
+                    Bật thanh toán tiền mặt (COD)
+                  </Label>
+                </div>
               </div>
               {fieldErrors.paymentMethods && (
                 <p className="text-xs text-destructive">
@@ -716,7 +728,7 @@ export function FarmSettingsPanel() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Label htmlFor="vietgap-upload">Ảnh chứng nhận VietGAP</Label>
                   <div className="flex items-center gap-2">
-                    <input
+                    <Input
                       ref={fileInputRef}
                       id="vietgap-upload"
                       type="file"
