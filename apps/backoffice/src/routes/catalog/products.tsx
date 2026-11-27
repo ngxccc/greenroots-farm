@@ -9,8 +9,9 @@ import {
 } from "@greenroots/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { AlertCircle, CheckCircle2, Plus } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
+import { PageHeader } from "@/components/layout/page-header";
 import {
   getDefaultRouteForRole,
   useAuthStore,
@@ -105,33 +106,24 @@ function CatalogProductsPage() {
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <p className="text-xs font-semibold text-gray-500">
-            Danh mục cửa hàng
-          </p>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Quản lý Danh mục &amp; Sản phẩm
-          </h1>
-          <p className="text-sm text-gray-600">
-            Quản trị cây danh mục 2 cấp và danh sách sản phẩm nông trại (giá
-            VNĐ, hướng dẫn bảo quản, hình ảnh, trạng thái hiển thị).
-          </p>
-        </div>
-
-        <Button
-          type="button"
-          onClick={
-            activeTab === "products"
-              ? handleOpenNewProduct
-              : handleOpenNewRootCategory
-          }
-          className="shrink-0 bg-brand-forest text-white hover:bg-brand-dark"
-        >
-          <Plus className="mr-1.5 size-4" aria-hidden="true" />
-          {activeTab === "products" ? "Thêm sản phẩm" : "Thêm danh mục"}
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Sản phẩm & Tài chính"
+        title="Quản lý Sản phẩm"
+        description="Quản trị cây danh mục 2 cấp và danh sách sản phẩm nông trại (giá VNĐ, hướng dẫn bảo quản, hình ảnh, trạng thái hiển thị)."
+        actions={
+          <Button
+            type="button"
+            onClick={
+              activeTab === "products"
+                ? handleOpenNewProduct
+                : handleOpenNewRootCategory
+            }
+            className="bg-brand-forest text-white hover:bg-brand-dark"
+          >
+            {activeTab === "products" ? "Thêm sản phẩm" : "Thêm danh mục"}
+          </Button>
+        }
+      />
 
       {statusMessage ? (
         <Alert variant="success">
