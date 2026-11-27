@@ -37,6 +37,7 @@ import { MESSAGES } from "@/common/constants/messages.constant";
 import type { PaginationMetaDto } from "@/common/dto/api-response.dto";
 import { buildPaginationMeta } from "@/common/utils/api-response.util";
 import { extractDatabaseErrorDetails } from "@/common/utils/error.util";
+import { formatVnCalendarDate } from "@/common/utils/time.util";
 import {
   DATABASE_CONNECTION,
   type DrizzleDB,
@@ -74,13 +75,6 @@ import {
   SUBSCRIPTION_CODE_UIDX,
   SUBSCRIPTION_EXPIRY_SWEEP_BATCH_SIZE,
 } from "./subscriptions.constant";
-
-const VN_CALENDAR_FORMATTER = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Ho_Chi_Minh",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
 
 const SUBSCRIPTION_COLUMNS = {
   id: subscriptions.id,
@@ -142,7 +136,7 @@ export function calculateSubscriptionSchedule(
   totalDeliveries: number,
   now: Date = new Date(),
 ): { startDate: string; endDate: string; yyyymmdd: string } {
-  const vnToday = VN_CALENDAR_FORMATTER.format(now);
+  const vnToday = formatVnCalendarDate(now);
   const [yearStr, monthStr, dayStr] = vnToday.split("-");
   const year = Number(yearStr);
   const month = Number(monthStr);

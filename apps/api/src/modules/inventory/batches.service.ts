@@ -46,7 +46,7 @@ import type {
   ListBatchesQuery,
 } from "./dto";
 import { CROCKFORD_BASE32_ALPHABET } from "@/common/constants/encoding.constant";
-import { VIETNAM_TIMEZONE } from "@/common/constants/time.constant";
+import { formatVnCalendarDate } from "@/common/utils/time.util";
 import {
   ALLOWED_BATCH_INTAKE_SEASON_STATUSES,
   BATCH_CODE_MAX_GENERATION_ATTEMPTS,
@@ -97,13 +97,6 @@ const BATCH_SORT_EXPRESSIONS = new Map<BatchSortOption, SQL[]>([
   ["harvestDate:desc", [desc(batches.harvestDate), desc(batches.id)]],
   ["harvestDate:asc", [asc(batches.harvestDate), desc(batches.id)]],
 ]);
-
-const VN_CALENDAR_FORMATTER = new Intl.DateTimeFormat("en-CA", {
-  timeZone: VIETNAM_TIMEZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
 
 /**
  * Manages harvested batch intake, server-side batch code generation,
@@ -486,7 +479,7 @@ export class BatchesService {
   }
 
   private formatCalendarDateVn(date: Date): string {
-    return VN_CALENDAR_FORMATTER.format(date);
+    return formatVnCalendarDate(date);
   }
 
   private isBatchCodeUniqueViolation(error: unknown): boolean {

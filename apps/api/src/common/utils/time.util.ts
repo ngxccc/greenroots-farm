@@ -1,4 +1,35 @@
-import { TIME_IN_MS, TIME_IN_SECONDS } from "@/common/constants/time.constant";
+import {
+  TIME_IN_MS,
+  TIME_IN_SECONDS,
+  VIETNAM_TIMEZONE,
+} from "@/common/constants/time.constant";
+
+const VN_CALENDAR_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: VIETNAM_TIMEZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/**
+ * Formats a `Date` into an ISO calendar date string (`YYYY-MM-DD`) in `Asia/Ho_Chi_Minh`.
+ *
+ * @param date Instant to format
+ * @returns Calendar date in `YYYY-MM-DD` format
+ */
+export function formatVnCalendarDate(date: Date): string {
+  return VN_CALENDAR_FORMATTER.format(date);
+}
+
+/**
+ * Formats a `Date` into a compact calendar date string (`YYYYMMDD`) in `Asia/Ho_Chi_Minh`.
+ *
+ * @param date Instant to format
+ * @returns Compact calendar date in `YYYYMMDD` format
+ */
+export function formatVnCompactDate(date: Date): string {
+  return VN_CALENDAR_FORMATTER.format(date).replaceAll("-", "");
+}
 
 /**
  * Converts seconds to equivalent milliseconds.

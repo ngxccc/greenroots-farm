@@ -22,7 +22,8 @@ import {
 import { env } from "@/common/config/env.config";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
-import { TIME_IN_MS, VIETNAM_TIMEZONE } from "@/common/constants/time.constant";
+import { TIME_IN_MS } from "@/common/constants/time.constant";
+import { formatVnCalendarDate } from "@/common/utils/time.util";
 import type { FarmSettingsService } from "@/modules/farms/farm-settings.service";
 import { BATCH_CODE_REGEX } from "@/modules/farms/farms.constant";
 import type { TraceCacheService } from "@/modules/farms/trace-cache.service";
@@ -379,23 +380,13 @@ describe("BatchesService", () => {
 
       // Anchor clock via a season starting today in Asia/Ho_Chi_Minh at 00:00+07:00
       const now = new Date();
-      const todayVn = new Intl.DateTimeFormat("en-CA", {
-        timeZone: VIETNAM_TIMEZONE,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(now);
+      const todayVn = formatVnCalendarDate(now);
       const fourAmTodayVn = new Date(`${todayVn}T04:00:00+07:00`);
       const testHarvest =
         fourAmTodayVn.getTime() <= now.getTime()
           ? fourAmTodayVn
           : new Date(now.getTime() - 1000);
-      const testHarvestVnDate = new Intl.DateTimeFormat("en-CA", {
-        timeZone: VIETNAM_TIMEZONE,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(testHarvest);
+      const testHarvestVnDate = formatVnCalendarDate(testHarvest);
       const expiration = new Date(testHarvest.getTime() + 4 * TIME_IN_MS.DAY);
 
       mockDb.setSelectResultsQueue([

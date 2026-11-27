@@ -2,6 +2,8 @@ import { describe, expect, it } from "bun:test";
 import {
   daysToMs,
   daysToSeconds,
+  formatVnCalendarDate,
+  formatVnCompactDate,
   getExpiryDate,
   getPastDate,
   hoursToMs,
@@ -82,6 +84,15 @@ describe("time.util", () => {
       const base = new Date("2026-11-16T12:00:00.000Z");
       const past = getPastDate("1h", base);
       expect(past.toISOString()).toBe("2026-11-16T11:00:00.000Z");
+    });
+  });
+
+  describe("formatVnCalendarDate and formatVnCompactDate", () => {
+    it("formats UTC instants using Asia/Ho_Chi_Minh calendar boundaries", () => {
+      const lateUtcAug31 = new Date("2026-08-31T21:00:00.000Z");
+
+      expect(formatVnCalendarDate(lateUtcAug31)).toBe("2026-09-01");
+      expect(formatVnCompactDate(lateUtcAug31)).toBe("20260901");
     });
   });
 });

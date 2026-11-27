@@ -16,7 +16,11 @@ import { API_ERROR_CODES, BatchStatus, UserRole } from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { IDEMPOTENCY_HEADER_NAME } from "@/common/constants/idempotency.constant";
-import { TIME_IN_MS, VIETNAM_TIMEZONE } from "@/common/constants/time.constant";
+import { TIME_IN_MS } from "@/common/constants/time.constant";
+import {
+  formatVnCalendarDate,
+  formatVnCompactDate,
+} from "@/common/utils/time.util";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
 import { RedisService } from "@/common/services/redis.service";
 import type { ApiResponse } from "@/common/utils/api-response.util";
@@ -59,15 +63,6 @@ type TraceRecordSchema = components["schemas"]["TraceRecordDto"];
 type PaginationMetaSchema = components["schemas"]["PaginationMetaDto"];
 
 const UNKNOWN_UUID_V7 = "019fa8bc-8f4d-7000-b366-e691f45cffff";
-
-function formatVnDate(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: VIETNAM_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
 
 describe("Batches Integration", () => {
   let setup: TestAppSetup;
@@ -479,7 +474,7 @@ describe("Batches Integration", () => {
       });
 
       const harvestDate = new Date(Date.now() - TIME_IN_MS.HOUR);
-      const yyyymmdd = formatVnDate(harvestDate).replaceAll("-", "");
+      const yyyymmdd = formatVnCompactDate(harvestDate);
       const predictedCode = `BATCH-${yyyymmdd}-CAIBOX-NEGHIT`;
 
       await request(app.getHttpServer())
@@ -717,7 +712,7 @@ describe("Batches Integration", () => {
       const plot = await createPlot(setup.db, { farmId: farm.id });
 
       const yesterdayMs = Date.now() - 2 * TIME_IN_MS.DAY;
-      const vnDate = formatVnDate(new Date(yesterdayMs));
+      const vnDate = formatVnCalendarDate(new Date(yesterdayMs));
       const season = await createSeason(
         setup.db,
         SeasonMother.active({
@@ -743,7 +738,7 @@ describe("Batches Integration", () => {
       expect((res.body as ApiResponse<BatchSchema>).success).toBe(true);
 
       // 23:59:59+07:00 on the day before season.startDate must fail
-      const dayBeforeVn = formatVnDate(
+      const dayBeforeVn = formatVnCalendarDate(
         new Date(
           new Date(`${vnDate}T12:00:00+07:00`).getTime() - TIME_IN_MS.DAY,
         ),

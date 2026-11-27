@@ -3,8 +3,8 @@ import { asc, and, eq, gt, inArray, sql } from "drizzle-orm";
 import { BatchStatus } from "@greenroots/shared";
 import { CROCKFORD_BASE32_ALPHABET } from "@/common/constants/encoding.constant";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
-import { VIETNAM_TIMEZONE } from "@/common/constants/time.constant";
 import { extractDatabaseErrorDetails } from "@/common/utils/error.util";
+import { formatVnCompactDate } from "@/common/utils/time.util";
 import type { DrizzleTx } from "@/database/database.module";
 import { batchAllocations, batches } from "@/database/schemas";
 import { ORDER_CODE_PREFIX, ORDER_CODE_RANDOM_LENGTH } from "./orders.constant";
@@ -13,13 +13,6 @@ import { ORDER_CODE_PREFIX, ORDER_CODE_RANDOM_LENGTH } from "./orders.constant";
 const SELLABLE_BATCH_STATUS_SQL = sql.raw(
   `'${BatchStatus.IN_STOCK}', '${BatchStatus.NEAR_EXPIRY}'`,
 );
-
-const VN_CALENDAR_FORMATTER = new Intl.DateTimeFormat("en-CA", {
-  timeZone: VIETNAM_TIMEZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
 
 /** Locked sellable batch row returned by `lockCandidateSellableBatches`. */
 export interface LockedSellableBatch {
@@ -87,7 +80,7 @@ export function formatQuantityFromCents(cents: number): string {
  * Formats a `Date` into `YYYYMMDD` in `Asia/Ho_Chi_Minh` timezone for order codes.
  */
 export function formatOrderCalendarDateVn(date: Date): string {
-  return VN_CALENDAR_FORMATTER.format(date).replaceAll("-", "");
+  return formatVnCompactDate(date);
 }
 
 /**
