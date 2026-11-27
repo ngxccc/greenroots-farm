@@ -80,7 +80,7 @@ sequenceDiagram
 ## Domain Invariants
 
 - **`INV-CMP-5` (Staff RBAC Boundary)**: `GET /api/v1/complaints` and `PATCH /api/v1/complaints/:id/triage` MUST permit only `UserRole.SALES`, `UserRole.ADMIN`, and `UserRole.SUPER_ADMIN`; `customer`, `guest`, and `farm_staff` receive `403`.
-- **`INV-CMP-6` (One-Shot Triage FSM & Concurrency)**: `PATCH /api/v1/complaints/:id/triage` MUST lock the target `complaints` row with `FOR UPDATE` and allow transitions strictly from `ComplaintStatus.PENDING` to `ComplaintStatus.TRIAGED` or `ComplaintStatus.REJECTED`. Any non-`pending` complaint MUST fail with `422 COMPLAINT_INVALID_STATUS_TRANSITION`.
+- **`INV-CMP-6` (Triage FSM & Concurrency)**: `PATCH /api/v1/complaints/:id/triage` MUST lock the target `complaints` row with `FOR UPDATE` and allow `SALES` to transition strictly from `ComplaintStatus.PENDING` to `ComplaintStatus.TRIAGED` or `ComplaintStatus.REJECTED`, while `ADMIN` and `SUPER_ADMIN` may also override `ComplaintStatus.TRIAGED` to `ComplaintStatus.REJECTED`. Any other current/target status combination MUST fail with `422 COMPLAINT_INVALID_STATUS_TRANSITION`.
 - **`INV-CMP-7` (Mandatory Rejection Rationale)**: Transitioning a complaint to `ComplaintStatus.REJECTED` MUST require a trimmed, HTML-stripped `triageNote` between `5` and `500` characters; `ComplaintStatus.TRIAGED` allows an optional `triageNote` (`<= 500` chars, `null` if omitted/empty).
 - **`INV-CMP-8` (Staff Projection Isolation)**: Internal fields (`triagedBy`, `triagedAt`, `triageNote`, `resolvedBy`) MUST be exposed only on `StaffComplaintDto` and MUST NOT leak into customer `ComplaintDto`.
 

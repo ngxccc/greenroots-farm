@@ -21,9 +21,9 @@ Issue `#246` (split from `#33` alongside `#247`) introduces staff complaint list
 ## Decision
 
 - **Add `ComplaintStatus.TRIAGED = "triaged"` to `@greenroots/shared` and PostgreSQL `complaint_status` enum**:
-  - `PATCH /api/v1/complaints/:id/triage` (`#246`) accepts only target statuses `triaged` or `rejected` and strictly requires current status `pending`.
-  - `triaged` represents a complaint verified by staff as eligible for Admin resolution (`#247`), while `rejected` is terminal at the triage stage.
-  - Locks the target `complaints` row (`SELECT ... FOR UPDATE`) inside a transaction before validating `status === pending`, returning `404 COMPLAINT_NOT_FOUND` when missing and `422 COMPLAINT_INVALID_STATUS_TRANSITION` when not `pending`.
+  - `PATCH /api/v1/complaints/:id/triage` (`#246`) allows `SALES` to transition strictly `pending -> triaged | rejected`, and allows `ADMIN` / `SUPER_ADMIN` to transition `pending -> triaged | rejected` or override `triaged -> rejected`.
+  - `triaged` represents a complaint verified by staff as eligible for Admin resolution (`#247`), while `rejected` is terminal.
+  - Locks the target `complaints` row (`SELECT ... FOR UPDATE`) inside a transaction before validating the transition and actor role, returning `404 COMPLAINT_NOT_FOUND` when missing and `422 COMPLAINT_INVALID_STATUS_TRANSITION` when the current status cannot transition to the requested target status.
 
 - **Persist triage attribution and rationale on `complaints`**:
   - Add `triagedBy` (`uuid`, nullable, `references(() => users.id, { onDelete: "set null" })`), `triagedAt` (`timestamptz`, nullable), and `triageNote` (`text`, nullable) via a forward-only Drizzle migration (`ADR-0002`).
