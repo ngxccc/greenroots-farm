@@ -2,13 +2,28 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@greenroots/ui";
-import { LogOut } from "lucide-react";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Badge,
+  Button,
+} from "@greenroots/ui";
+import { AlertCircle, Info, LogOut, Monitor, Smartphone } from "lucide-react";
 import { ConfirmActionDialog } from "@/components/common/confirm-action-dialog";
+import {
+  formatSessionDeviceLabel,
+  formatSessionIpAddress,
+  formatSessionTimestamp,
+  isMobileSessionDevice,
+} from "@/features/account/utils/session-display";
 import { logoutAllAction } from "@/features/auth/actions/auth-actions";
+import type { CustomerSessionsState } from "@/features/auth/services/session.server";
+import type { CustomerActiveSession } from "@/features/auth/types/auth.types";
 import { invalidateStorefrontClientSession } from "@/features/auth/utils/client-logout";
 
 interface SecuritySessionsViewProps {
+  readonly sessionsState: CustomerSessionsState;
   readonly dialogOpen: boolean;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
@@ -16,13 +31,69 @@ interface SecuritySessionsViewProps {
   readonly onConfirmLogoutAll: () => void;
 }
 
+interface SecuritySessionsCardProps {
+  readonly sessionsState: CustomerSessionsState;
+}
+
+function ActiveSessionRow({
+  session,
+}: {
+  readonly session: CustomerActiveSession;
+}) {
+  const isMobile = isMobileSessionDevice(session.deviceName);
+  const deviceLabel = formatSessionDeviceLabel(session.deviceName);
+  const ipLabel = formatSessionIpAddress(session.ipAddress);
+  const createdAtLabel = formatSessionTimestamp(session.createdAt);
+  const expiresAtLabel = formatSessionTimestamp(session.expiresAt);
+
+  return (
+    <li className="flex items-start gap-3 py-3.5 first:pt-1">
+      <span
+        aria-hidden="true"
+        className={
+          session.isCurrent
+            ? "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-brand-dark"
+            : "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600"
+        }
+      >
+        {isMobile ? (
+          <Smartphone className="size-4" />
+        ) : (
+          <Monitor className="size-4" />
+        )}
+      </span>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="truncate text-sm font-semibold text-gray-900">
+            {deviceLabel}
+          </span>
+          {session.isCurrent ? (
+            <Badge className="h-auto shrink-0 border-0 bg-green-100 px-2.5 py-0.5 text-[11px] font-semibold text-brand-dark">
+              Phiên hiện tại
+            </Badge>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500 tabular-nums">
+          <span>IP: {ipLabel}</span>
+          <span>Đăng nhập: {createdAtLabel}</span>
+          <span>Hết hạn: {expiresAtLabel}</span>
+        </div>
+      </div>
+    </li>
+  );
+}
+
 /**
- * Pure presentational security section and global revocation confirmation dialog (`INV-SF-PROFILE-7`).
+ * Pure presentational security section displaying live active sessions (`GET /api/v1/auth/customer/sessions`),
+ * empty/degraded inline alerts, and the global revocation confirmation dialog (`INV-SF-PROFILE-7`).
  *
- * @param props Modal visibility, pending/error state, and confirmation handlers.
- * @returns Session security card with confirmed global revocation trigger.
+ * @param props Active sessions state, modal visibility, pending/error state, and confirmation handlers.
+ * @returns Session security card with live active session rows and confirmed global revocation trigger.
  */
 export function SecuritySessionsView({
+  sessionsState,
   dialogOpen,
   isPending,
   errorMessage,
@@ -35,13 +106,46 @@ export function SecuritySessionsView({
       className="flex flex-col gap-5"
     >
       <div className="flex flex-col gap-1 border-b border-border-subtle pb-3">
-        <h2 className="text-base font-bold text-gray-900 sm:text-lg">
-          Bảo mật phiên đăng nhập
-        </h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-base font-bold text-gray-900 sm:text-lg">
+            Bảo mật phiên đăng nhập
+          </h2>
+          {sessionsState.status === "loaded" ? (
+            <span className="text-xs font-semibold text-brand-dark tabular-nums sm:text-sm">
+              {sessionsState.sessions.length} phiên hoạt động
+            </span>
+          ) : null}
+        </div>
         <p className="text-xs text-gray-500 sm:text-sm">
           Quản lý các thiết bị đang giữ phiên đăng nhập tài khoản của bạn.
         </p>
       </div>
+
+      {sessionsState.status === "degraded" ? (
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" aria-hidden="true" />
+          <AlertTitle>Không thể tải danh sách phiên đăng nhập</AlertTitle>
+          <AlertDescription>{sessionsState.errorMessage}</AlertDescription>
+        </Alert>
+      ) : sessionsState.sessions.length === 0 ? (
+        <Alert role="status">
+          <Info className="size-4" aria-hidden="true" />
+          <AlertTitle>Chưa có phiên đăng nhập nào đang hoạt động</AlertTitle>
+          <AlertDescription>
+            Hiện chưa ghi nhận phiên đăng nhập nào còn hiệu lực cho tài khoản
+            của bạn.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <ul
+          aria-label="Danh sách phiên đang hoạt động"
+          className="divide-y divide-border-subtle border-b border-border-subtle"
+        >
+          {sessionsState.sessions.map((session) => (
+            <ActiveSessionRow key={session.id} session={session} />
+          ))}
+        </ul>
+      )}
 
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex flex-col gap-0.5">
@@ -81,10 +185,12 @@ export function SecuritySessionsView({
 }
 
 /**
- * Security section providing a confirmed global session revocation dialog calling
- * `POST /api/v1/auth/logout-all` (`INV-SF-PROFILE-6`, `INV-SF-PROFILE-7`).
+ * Security section hydrating server-fetched active customer sessions alongside a confirmed
+ * global session revocation dialog calling `POST /api/v1/auth/logout-all` (`INV-SF-PROFILE-6`, `INV-SF-PROFILE-7`).
  */
-export function SecuritySessionsCard() {
+export function SecuritySessionsCard({
+  sessionsState,
+}: SecuritySessionsCardProps) {
   const router = useRouter();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -136,6 +242,7 @@ export function SecuritySessionsCard() {
 
   return (
     <SecuritySessionsView
+      sessionsState={sessionsState}
       dialogOpen={dialogOpen}
       isPending={isPending}
       errorMessage={errorMessage}

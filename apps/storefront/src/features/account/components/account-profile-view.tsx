@@ -15,6 +15,7 @@ import {
 } from "@greenroots/ui";
 import { AlertCircle, Home, RefreshCw } from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
+import type { CustomerSessionsState } from "@/features/auth/services/session.server";
 import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
 import { LoyaltyBalanceCard } from "./loyalty-balance-card";
 import { ProfileDetailsForm } from "./profile-details-form";
@@ -22,16 +23,20 @@ import { SecuritySessionsCard } from "./security-sessions-card";
 
 interface AccountProfileViewProps {
   readonly initialUser: StorefrontSessionUser;
+  readonly initialSessionsState: CustomerSessionsState;
 }
 
 /**
  * Coordinates the customer loyalty balance, editable profile details, and security cards
  * inside persistent `/account/layout.tsx`, syncing fresh SSR profile data into `useAuthStore`.
  *
- * @param props Fresh server-fetched `StorefrontSessionUser`.
+ * @param props Fresh server-fetched `StorefrontSessionUser` and active sessions state.
  * @returns Profile, loyalty, and security card stack.
  */
-export function AccountProfileView({ initialUser }: AccountProfileViewProps) {
+export function AccountProfileView({
+  initialUser,
+  initialSessionsState,
+}: AccountProfileViewProps) {
   const setUser = useAuthStore((state) => state.setUser);
   const [editedSnapshot, setEditedSnapshot] = useState<{
     readonly base: StorefrontSessionUser;
@@ -54,7 +59,7 @@ export function AccountProfileView({ initialUser }: AccountProfileViewProps) {
           setEditedSnapshot({ base: initialUser, next: updated })
         }
       />
-      <SecuritySessionsCard />
+      <SecuritySessionsCard sessionsState={initialSessionsState} />
     </div>
   );
 }

@@ -7,7 +7,7 @@ import {
   AccountProfileSkeleton,
   AccountProfileView,
 } from "@/features/account/components/account-profile-view";
-import { getAccountProfileSession } from "@/features/auth/services/session.server";
+import { getAccountProfileWithSessions } from "@/features/auth/services/session.server";
 
 export const metadata: Metadata = {
   title: "Hồ sơ & Bảo mật",
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 async function AccountProfileGate() {
   // Force per-request dynamic execution before uncached session/API reads under cacheComponents.
   await connection();
-  const resolution = await getAccountProfileSession();
+  const resolution = await getAccountProfileWithSessions();
 
   if (resolution.status === "unauthenticated") {
     redirect("/login?redirect=%2Faccount%2Fprofile");
@@ -28,7 +28,12 @@ async function AccountProfileGate() {
     return <AccountProfileDegradedView />;
   }
 
-  return <AccountProfileView initialUser={resolution.user} />;
+  return (
+    <AccountProfileView
+      initialUser={resolution.user}
+      initialSessionsState={resolution.sessionsState}
+    />
+  );
 }
 
 /**

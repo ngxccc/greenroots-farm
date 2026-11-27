@@ -283,6 +283,7 @@ describe("Account Profile UI Components", () => {
         await act(async () => {
           root.render(
             createElement(SecuritySessionsView, {
+              sessionsState: { status: "loaded", sessions: [] },
               dialogOpen: true,
               isPending: false,
               errorMessage: "Quá nhiều yêu cầu",
