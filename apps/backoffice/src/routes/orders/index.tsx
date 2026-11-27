@@ -182,7 +182,7 @@ function OrdersFefoPage() {
             Điều Phối Đơn &amp; Xuất Kho FEFO
           </h1>
           <p className="text-sm text-gray-500">
-            BO-04 · Tự động gợi ý lô cận hạn nhất (First-Expired, First-Out)
+            Tự động gợi ý lô cận hạn nhất (First-Expired, First-Out)
           </p>
         </div>
         <Badge variant="secondary">TanStack Table</Badge>

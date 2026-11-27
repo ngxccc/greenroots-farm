@@ -169,7 +169,24 @@ export function ProductsTab({
                 className="w-full sm:w-56"
                 aria-label="Lọc theo danh mục"
               >
-                <SelectValue placeholder="Tất cả danh mục" />
+                <SelectValue placeholder="Tất cả danh mục">
+                  {categoryFilter === ALL_CATEGORIES_VALUE
+                    ? "Tất cả danh mục"
+                    : (() => {
+                        for (const { category, children } of categoryTree) {
+                          if (category.id === categoryFilter) {
+                            return category.name;
+                          }
+                          const child = children.find(
+                            (c) => c.id === categoryFilter,
+                          );
+                          if (child) {
+                            return `${category.name} > ${child.name}`;
+                          }
+                        }
+                        return "Tất cả danh mục";
+                      })()}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_CATEGORIES_VALUE}>
@@ -201,7 +218,13 @@ export function ProductsTab({
                 className="w-full sm:w-44"
                 aria-label="Lọc theo trạng thái"
               >
-                <SelectValue placeholder="Tất cả trạng thái" />
+                <SelectValue placeholder="Tất cả trạng thái">
+                  {statusFilter === ALL_STATUS_VALUE
+                    ? "Tất cả trạng thái"
+                    : statusFilter === "active"
+                      ? "Đang bán"
+                      : "Đang ẩn"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_STATUS_VALUE}>

@@ -250,7 +250,11 @@ function CategoryFormBody({
           disabled={hasChildren}
         >
           <SelectTrigger id="cat-parent" className="w-full">
-            <SelectValue placeholder="Chọn danh mục cha" />
+            <SelectValue placeholder="Chọn danh mục cha">
+              {parentId === ROOT_PARENT_VALUE
+                ? "Không có (Danh mục gốc — Cấp 1)"
+                : availableParents.find((r) => r.id === parentId)?.name}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ROOT_PARENT_VALUE}>

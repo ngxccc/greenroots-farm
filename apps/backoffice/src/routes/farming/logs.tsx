@@ -115,7 +115,7 @@ function FarmingLogsPage() {
             Ghi Nhật Ký Canh Tác
           </h1>
           <p className="text-xs text-gray-500">
-            BO-02 · Bản ghi bất biến (Append-only)
+            Bản ghi bất biến (Append-only)
           </p>
         </div>
         <Badge variant="secondary">VietGAP</Badge>

@@ -427,7 +427,11 @@ export function StaffRbacPanel({ currentUserId }: StaffRbacPanelProps) {
                   aria-label="Lọc theo vai trò"
                   className="w-44 bg-surface-warm"
                 >
-                  <SelectValue placeholder="Tất cả vai trò" />
+                  <SelectValue placeholder="Tất cả vai trò">
+                    {roleFilter === "all"
+                      ? "Tất cả vai trò"
+                      : STAFF_ROLE_LABELS[roleFilter]}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả vai trò</SelectItem>
@@ -447,7 +451,15 @@ export function StaffRbacPanel({ currentUserId }: StaffRbacPanelProps) {
                   aria-label="Lọc theo trạng thái"
                   className="w-44 bg-surface-warm"
                 >
-                  <SelectValue placeholder="Tất cả trạng thái" />
+                  <SelectValue placeholder="Tất cả trạng thái">
+                    {statusFilter === "all"
+                      ? "Tất cả trạng thái"
+                      : statusFilter === "active"
+                        ? "Đang hoạt động"
+                        : statusFilter === "suspended"
+                          ? "Đã khóa"
+                          : "Ngừng kích hoạt"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả trạng thái</SelectItem>
@@ -731,7 +743,7 @@ export function StaffRbacPanel({ currentUserId }: StaffRbacPanelProps) {
                 }}
               >
                 <SelectTrigger id="create-staff-role" className="w-full">
-                  <SelectValue />
+                  <SelectValue>{STAFF_ROLE_LABELS[createRole]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {SELECTABLE_STAFF_ROLES.map((role) => (
@@ -817,7 +829,7 @@ export function StaffRbacPanel({ currentUserId }: StaffRbacPanelProps) {
                 }}
               >
                 <SelectTrigger id="edit-staff-role" className="w-full">
-                  <SelectValue />
+                  <SelectValue>{STAFF_ROLE_LABELS[editRole]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {SELECTABLE_STAFF_ROLES.map((role) => (
@@ -844,7 +856,13 @@ export function StaffRbacPanel({ currentUserId }: StaffRbacPanelProps) {
                 }}
               >
                 <SelectTrigger id="edit-staff-status" className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {editStatus === "active"
+                      ? "Đang hoạt động"
+                      : editStatus === "suspended"
+                        ? "Đã khóa"
+                        : "Ngừng kích hoạt"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Đang hoạt động</SelectItem>

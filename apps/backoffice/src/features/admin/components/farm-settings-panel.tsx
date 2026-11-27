@@ -70,11 +70,15 @@ export function FarmSettingsPanel() {
     },
   });
 
-  const formValues =
-    draftValues ??
-    (settingsQuery.data
-      ? mapFarmSettingsDtoToFormValues(settingsQuery.data)
-      : null);
+  const baselineValues = settingsQuery.data
+    ? mapFarmSettingsDtoToFormValues(settingsQuery.data)
+    : null;
+  const formValues = draftValues ?? baselineValues;
+  const isDirty = Boolean(
+    draftValues &&
+    baselineValues &&
+    JSON.stringify(draftValues) !== JSON.stringify(baselineValues),
+  );
 
   const updateMutation = useMutation({
     mutationFn: async (values: FarmSettingsFormValues) => {
@@ -91,7 +95,7 @@ export function FarmSettingsPanel() {
     },
     onSuccess: (updated) => {
       queryClient.setQueryData(FARM_SETTINGS_QUERY_KEY, updated);
-      setDraftValues(mapFarmSettingsDtoToFormValues(updated));
+      setDraftValues(null);
       setFieldErrors({});
       setSubmitStatus({
         variant: "success",
@@ -201,7 +205,7 @@ export function FarmSettingsPanel() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <form onSubmit={handleSubmit} className="flex min-w-0 flex-col gap-6">
       {submitStatus && (
         <Alert variant={submitStatus.variant}>
           {submitStatus.variant === "success" ? (
@@ -214,8 +218,8 @@ export function FarmSettingsPanel() {
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="border-border-subtle bg-surface-card">
+      <div className="flex min-w-0 flex-col gap-6">
+        <Card className="min-w-0 border-border-subtle bg-surface-card">
           <CardHeader className="border-b border-border-subtle pb-4">
             <CardTitle className="text-lg font-bold text-gray-900">
               Hồ sơ Nông trại &amp; Liên hệ
@@ -428,8 +432,8 @@ export function FarmSettingsPanel() {
           </CardContent>
         </Card>
 
-        <div className="flex flex-col gap-6">
-          <Card className="border-border-subtle bg-surface-card">
+        <div className="flex min-w-0 flex-col gap-6">
+          <Card className="min-w-0 border-border-subtle bg-surface-card">
             <CardHeader className="border-b border-border-subtle pb-4">
               <CardTitle className="text-lg font-bold text-gray-900">
                 Giao hàng &amp; Flash Sale
@@ -734,7 +738,7 @@ export function FarmSettingsPanel() {
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
                       onChange={handleCertificateUpload}
-                      className="sr-only"
+                      className="hidden"
                     />
                     <Button
                       type="button"
@@ -801,20 +805,39 @@ export function FarmSettingsPanel() {
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <Button
-          type="submit"
-          disabled={updateMutation.isPending || uploadingCert}
-          className="bg-brand-forest px-6 text-white hover:bg-brand-dark"
-        >
-          <Save className="size-4" aria-hidden="true" />
-          <span>
-            {updateMutation.isPending
-              ? "Đang lưu cấu hình..."
-              : "Lưu cấu hình nông trại"}
-          </span>
-        </Button>
-      </div>
+      {isDirty ? (
+        <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-card px-4 py-3 shadow-md">
+          <p className="text-sm font-medium text-gray-700">
+            Bạn có thay đổi chưa lưu trong cấu hình nông trại.
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={updateMutation.isPending || uploadingCert}
+              onClick={() => {
+                setDraftValues(null);
+                setFieldErrors({});
+                setSubmitStatus(null);
+              }}
+            >
+              Hủy thay đổi
+            </Button>
+            <Button
+              type="submit"
+              disabled={updateMutation.isPending || uploadingCert}
+              className="bg-brand-forest px-5 text-white hover:bg-brand-dark"
+            >
+              <Save className="size-4" aria-hidden="true" />
+              <span>
+                {updateMutation.isPending
+                  ? "Đang lưu cấu hình..."
+                  : "Lưu cấu hình nông trại"}
+              </span>
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }
