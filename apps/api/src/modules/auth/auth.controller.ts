@@ -1,16 +1,22 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
   Post,
   Req,
+  Res,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import type { Request } from "express";
-import { AuthSurface, UserRole } from "@greenroots/shared";
+import type { Request, Response } from "express";
+import { API_ERROR_CODES, AuthSurface, UserRole } from "@greenroots/shared";
+import { resolveAllowedOrigins } from "@/common/config/cors.config";
+import { env } from "@/common/config/env.config";
+import { MESSAGES } from "@/common/constants/messages.constant";
 import {
   ApiAuth,
   ApiBadRequestResponseRfc9457,
@@ -27,6 +33,11 @@ import {
 } from "@/common/decorators";
 import { apiSuccess, type ApiResponse } from "@/common/utils/api-response.util";
 import { extractClientMetadata } from "@/common/utils/client-info.util";
+import {
+  STAFF_REFRESH_COOKIE,
+  STAFF_REFRESH_COOKIE_MAX_AGE_MS,
+  STAFF_REFRESH_COOKIE_PATH,
+} from "./auth.constant";
 import { AUTH_ROUTES } from "./auth.routes";
 import { AuthService } from "./auth.service";
 import {
@@ -34,11 +45,13 @@ import {
   ForgotPasswordDto,
   LoginDto,
   LoginResponseDto,
+  LogoutDto,
   RefreshResponseDto,
   RefreshTokenDto,
   RegisterDto,
   ResendVerificationDto,
   ResetPasswordDto,
+  StaffAuthResponseDto,
   VerifyEmailDto,
 } from "./dto";
 
@@ -47,6 +60,8 @@ import {
 @ApiBadRequestResponseRfc9457()
 @ApiInternalServerErrorResponseRfc9457()
 export class AuthController {
+  private readonly allowedOrigins = resolveAllowedOrigins(env.CORS_ORIGINS);
+
   constructor(private readonly authService: AuthService) {}
 
   @Public()
@@ -142,23 +157,24 @@ export class AuthController {
   @ApiOperation({
     summary: "Authenticate internal staff credentials and issue session tokens",
     description:
-      "Verifies internal staff credentials and returns a short-lived access token and staff-bound refresh token.",
+      "Verifies internal staff credentials, sets an HttpOnly staff refresh cookie, and returns an access token and staff user profile.",
   })
-  @ApiOkResponseGeneric(LoginResponseDto)
+  @ApiOkResponseGeneric(StaffAuthResponseDto)
   @ApiUnauthorizedResponseRfc9457()
   @ApiForbiddenResponseRfc9457()
   @ApiTooManyRequestsResponseRfc9457()
   async staffLogin(
     @Body() dto: LoginDto,
     @Req() req: Request,
-  ): Promise<ApiResponse<LoginResponseDto>> {
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ApiResponse<StaffAuthResponseDto>> {
     const metadata = extractClientMetadata(req);
     const result = await this.authService.login(
       dto,
       AuthSurface.STAFF,
       metadata,
     );
-    return apiSuccess(result);
+    return this.issueStaffAuthResponse(res, result);
   }
 
   @Public()
@@ -186,7 +202,10 @@ export class AuthController {
       AuthSurface.CUSTOMER,
       metadata,
     );
-    return apiSuccess(result);
+    return apiSuccess({
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
   }
 
   @Public()
@@ -196,25 +215,40 @@ export class AuthController {
     default: { limit: 10, ttl: 60000 },
   })
   @ApiOperation({
-    summary: "Rotate staff refresh token and issue renewed session",
+    summary: "Rotate staff refresh cookie and issue renewed session",
     description:
-      "Validates single-use staff refresh token, atomically deletes it, and issues a new pair.",
+      "Validates the HttpOnly staff refresh cookie, atomically rotates it, and returns a new access token and staff user profile.",
   })
-  @ApiOkResponseGeneric(RefreshResponseDto)
+  @ApiOkResponseGeneric(StaffAuthResponseDto)
   @ApiUnauthorizedResponseRfc9457()
   @ApiForbiddenResponseRfc9457()
   @ApiTooManyRequestsResponseRfc9457()
   async staffRefresh(
-    @Body() dto: RefreshTokenDto,
     @Req() req: Request,
-  ): Promise<ApiResponse<RefreshResponseDto>> {
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ApiResponse<StaffAuthResponseDto>> {
+    this.assertAllowedOrigin(req);
+    const cookieToken = this.readStaffRefreshCookie(req);
+    if (!cookieToken) {
+      this.clearStaffRefreshCookie(res);
+      throw new UnauthorizedException({
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
+        detail: MESSAGES.AUTH.TOKEN_INVALID_OR_EXPIRED,
+      });
+    }
+
     const metadata = extractClientMetadata(req);
-    const result = await this.authService.refreshToken(
-      dto,
-      AuthSurface.STAFF,
-      metadata,
-    );
-    return apiSuccess(result);
+    try {
+      const result = await this.authService.refreshToken(
+        { refreshToken: cookieToken },
+        AuthSurface.STAFF,
+        metadata,
+      );
+      return this.issueStaffAuthResponse(res, result);
+    } catch (error) {
+      this.clearStaffRefreshCookie(res);
+      throw error;
+    }
   }
 
   @Public()
@@ -226,20 +260,31 @@ export class AuthController {
   @ApiOperation({
     summary: "Revoke single device session",
     description:
-      "Revokes the provided refresh token and blacklists the caller access token in Redis.",
+      "Revokes the provided refresh token or HttpOnly staff refresh cookie and blacklists the caller access token in Redis.",
   })
   @ApiOkResponseGeneric()
+  @ApiForbiddenResponseRfc9457()
   @ApiTooManyRequestsResponseRfc9457()
   async logout(
-    @Body() dto: RefreshTokenDto,
+    @Body() dto: LogoutDto | undefined,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<ApiResponse<null>> {
+    const cookieToken = this.readStaffRefreshCookie(req);
+    if (!dto?.refreshToken && cookieToken) {
+      this.assertAllowedOrigin(req);
+    }
+
     const authHeader = req.headers.authorization;
     const accessToken = authHeader?.startsWith("Bearer ")
       ? authHeader.slice(7)
       : undefined;
 
-    await this.authService.logout(dto.refreshToken, accessToken);
+    await this.authService.logout(
+      dto?.refreshToken ?? cookieToken,
+      accessToken,
+    );
+    this.clearStaffRefreshCookie(res);
     return apiSuccess(null);
   }
 
@@ -324,5 +369,52 @@ export class AuthController {
   ): Promise<ApiResponse<null>> {
     await this.authService.resetPassword(dto);
     return apiSuccess(null);
+  }
+
+  private readStaffRefreshCookie(req: Request): string | undefined {
+    const cookies = req.cookies as Record<string, unknown> | undefined;
+    const raw = cookies?.[STAFF_REFRESH_COOKIE];
+    return typeof raw === "string" && raw.trim().length > 0 ? raw : undefined;
+  }
+
+  private setStaffRefreshCookie(res: Response, refreshToken: string): void {
+    res.cookie(STAFF_REFRESH_COOKIE, refreshToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: env.NODE_ENV === "production",
+      path: STAFF_REFRESH_COOKIE_PATH,
+      maxAge: STAFF_REFRESH_COOKIE_MAX_AGE_MS,
+    });
+  }
+
+  private clearStaffRefreshCookie(res: Response): void {
+    res.clearCookie(STAFF_REFRESH_COOKIE, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: env.NODE_ENV === "production",
+      path: STAFF_REFRESH_COOKIE_PATH,
+    });
+  }
+
+  private issueStaffAuthResponse(
+    res: Response,
+    result: LoginResponseDto,
+  ): ApiResponse<StaffAuthResponseDto> {
+    this.setStaffRefreshCookie(res, result.refreshToken);
+    return apiSuccess({
+      accessToken: result.accessToken,
+      user: result.user,
+    });
+  }
+
+  private assertAllowedOrigin(req: Request): void {
+    const origin = req.headers.origin;
+    if (!origin) return;
+    if (!this.allowedOrigins.includes(origin)) {
+      throw new ForbiddenException({
+        code: API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+        detail: MESSAGES.AUTH.SURFACE_FORBIDDEN,
+      });
+    }
   }
 }

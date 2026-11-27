@@ -2825,7 +2825,8 @@ describe("Authentication Integration", () => {
       );
     });
 
-    it("authenticates staff on staff login and revokes token on cross-surface refresh", async () => {
+    it("authenticates staff on staff login via HttpOnly cookie, rotates on staff refresh, and rejects bad Origin", async () => {
+      // Invariant: INV-1, INV-2
       const password = "StaffPassword123!";
       const staff = await seedVerifiedUser(
         "admin.surface@greenroots.farm",
@@ -2837,14 +2838,62 @@ describe("Authentication Integration", () => {
         .post("/api/v1/auth/staff/login")
         .send({ email: staff.email, password });
       expect(staffLoginRes.status).toBe(200);
-      const { refreshToken: staffRefresh } = (
-        staffLoginRes.body as ApiResponse<LoginData>
-      ).data;
+      const loginBody = staffLoginRes.body as ApiResponse<
+        Omit<LoginData, "refreshToken">
+      >;
+      expect(loginBody.data.accessToken).toBeString();
+      expect(loginBody.data.user.email).toBe(staff.email);
+      expect("refreshToken" in loginBody.data).toBe(false);
+
+      const setCookieHeader = staffLoginRes.headers["set-cookie"] as
+        | string[]
+        | undefined;
+      const refreshCookie = setCookieHeader?.find((c) =>
+        c.startsWith("gr_staff_refresh="),
+      );
+      expect(refreshCookie).toBeDefined();
+      expect(refreshCookie).toContain("HttpOnly");
+      const staffRefresh = refreshCookie!.split(";")[0]!.split("=")[1]!;
+
+      // Mismatched Origin on cookie-based staff refresh and logout must return 403
+      const badOriginRes = await request(getHttpServer())
+        .post("/api/v1/auth/staff/refresh")
+        .set("Origin", "https://evil.example.com")
+        .set("Cookie", [`gr_staff_refresh=${staffRefresh}`]);
+      expect(badOriginRes.status).toBe(403);
+      expect((badOriginRes.body as Rfc9457Error).code).toBe(
+        API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+      );
+
+      const badLogoutOriginRes = await request(getHttpServer())
+        .post("/api/v1/auth/logout")
+        .set("Origin", "https://evil.example.com")
+        .set("Cookie", [`gr_staff_refresh=${staffRefresh}`]);
+      expect(badLogoutOriginRes.status).toBe(403);
+      expect((badLogoutOriginRes.body as Rfc9457Error).code).toBe(
+        API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
+      );
+
+      // Valid staff refresh rotates cookie and returns { accessToken, user }
+      const staffRefreshRes = await request(getHttpServer())
+        .post("/api/v1/auth/staff/refresh")
+        .set("Cookie", [`gr_staff_refresh=${staffRefresh}`]);
+      expect(staffRefreshRes.status).toBe(200);
+      const refreshedCookie = (
+        staffRefreshRes.headers["set-cookie"] as string[] | undefined
+      )?.find((c) => c.startsWith("gr_staff_refresh="));
+      expect(refreshedCookie).toBeDefined();
+      const rotatedToken = refreshedCookie!.split(";")[0]!.split("=")[1]!;
+      expect(rotatedToken).not.toBe(staffRefresh);
+      expect(
+        (staffRefreshRes.body as ApiResponse<Omit<LoginData, "refreshToken">>)
+          .data.user.role,
+      ).toBe(UserRole.ADMIN);
 
       // Cross-surface refresh on customer endpoint must return 403 and revoke token
       const crossRefreshRes = await request(getHttpServer())
         .post("/api/v1/auth/customer/refresh")
-        .send({ refreshToken: staffRefresh });
+        .send({ refreshToken: rotatedToken });
       expect(crossRefreshRes.status).toBe(403);
       expect((crossRefreshRes.body as Rfc9457Error).code).toBe(
         API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
@@ -2853,7 +2902,7 @@ describe("Authentication Integration", () => {
       // Replaying the revoked token on staff refresh must now fail with 401
       const replayRes = await request(getHttpServer())
         .post("/api/v1/auth/staff/refresh")
-        .send({ refreshToken: staffRefresh });
+        .set("Cookie", [`gr_staff_refresh=${rotatedToken}`]);
       expect(replayRes.status).toBe(401);
       expect((replayRes.body as Rfc9457Error).code).toBe(
         API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
@@ -2911,7 +2960,7 @@ describe("Authentication Integration", () => {
         .send({ email: staff.email, password });
       expect(staffLogin.status).toBe(200);
       const { accessToken: staffToken } = (
-        staffLogin.body as ApiResponse<LoginData>
+        staffLogin.body as ApiResponse<Omit<LoginData, "refreshToken">>
       ).data;
 
       const staffRes = await request(getHttpServer())

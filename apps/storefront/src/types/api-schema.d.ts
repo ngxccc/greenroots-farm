@@ -152,7 +152,7 @@ export interface paths {
         put?: never;
         /**
          * Authenticate internal staff credentials and issue session tokens
-         * @description Verifies internal staff credentials and returns a short-lived access token and staff-bound refresh token.
+         * @description Verifies internal staff credentials, sets an HttpOnly staff refresh cookie, and returns an access token and staff user profile.
          */
         post: operations["AuthController_staffLogin_v1"];
         delete?: never;
@@ -191,8 +191,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Rotate staff refresh token and issue renewed session
-         * @description Validates single-use staff refresh token, atomically deletes it, and issues a new pair.
+         * Rotate staff refresh cookie and issue renewed session
+         * @description Validates the HttpOnly staff refresh cookie, atomically rotates it, and returns a new access token and staff user profile.
          */
         post: operations["AuthController_staffRefresh_v1"];
         delete?: never;
@@ -212,7 +212,7 @@ export interface paths {
         put?: never;
         /**
          * Revoke single device session
-         * @description Revokes the provided refresh token and blacklists the caller access token in Redis.
+         * @description Revokes the provided refresh token or HttpOnly staff refresh cookie and blacklists the caller access token in Redis.
          */
         post: operations["AuthController_logout_v1"];
         delete?: never;
@@ -1766,6 +1766,20 @@ export interface components {
             email: string;
             password: string;
         };
+        StaffAuthResponseDto: {
+            /** @description 15-minute JWT access token */
+            accessToken: string;
+            user: {
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                id: string;
+                email: string;
+                fullName: string;
+                /** @enum {string} */
+                role: "guest" | "customer" | "farm_staff" | "sales" | "admin" | "super_admin";
+                /** @enum {string} */
+                status: "active" | "inactive" | "suspended";
+            };
+        };
         RefreshResponseDto: {
             /** @description Newly issued 15-minute JWT access token */
             accessToken: string;
@@ -1774,6 +1788,9 @@ export interface components {
         };
         RefreshTokenDto: {
             refreshToken: string;
+        };
+        LogoutDto: {
+            refreshToken?: string;
         };
         ActiveSessionDto: {
             /**
@@ -3898,7 +3915,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data: components["schemas"]["LoginResponseDto"];
+                        data: components["schemas"]["StaffAuthResponseDto"];
                     };
                 };
             };
@@ -4146,11 +4163,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RefreshTokenDto"];
-            };
-        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
@@ -4158,7 +4171,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDto"] & {
-                        data: components["schemas"]["RefreshResponseDto"];
+                        data: components["schemas"]["StaffAuthResponseDto"];
                     };
                 };
             };
@@ -4278,7 +4291,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RefreshTokenDto"];
+                "application/json": components["schemas"]["LogoutDto"];
             };
         };
         responses: {
@@ -4312,6 +4325,26 @@ export interface operations {
                      *           "reason": "Invalid property value"
                      *         }
                      *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"
                      *     }
                      */

@@ -794,6 +794,7 @@ describe("AuthService", () => {
         {
           id: "user-id",
           fullName: "Farmer Bob",
+          role: UserRole.CUSTOMER,
           status: UserStatus.ACTIVE,
         },
       ]);
@@ -811,6 +812,28 @@ describe("AuthService", () => {
         "customer@greenroots.farm",
         "Farmer Bob",
         expect.stringMatching(/^[0-9a-f]{64}$/),
+        false,
+      );
+    });
+
+    it("passes isStaff=true when dispatching password reset email for staff roles", async () => {
+      // Invariant: INV-3
+      mockDb.setSelectResult([
+        {
+          id: "staff-id",
+          fullName: "Staff Alice",
+          role: UserRole.ADMIN,
+          status: UserStatus.ACTIVE,
+        },
+      ]);
+
+      await service.forgotPassword({ email: "staff@greenroots.farm" });
+
+      expect(mockMailService.sendPasswordResetEmail).toHaveBeenCalledWith(
+        "staff@greenroots.farm",
+        "Staff Alice",
+        expect.stringMatching(/^[0-9a-f]{64}$/),
+        true,
       );
     });
   });

@@ -1,5 +1,6 @@
 import { Test, type TestingModule } from "@nestjs/testing";
 import { type INestApplication } from "@nestjs/common";
+import cookieParser from "cookie-parser";
 import Redis from "ioredis";
 import { AppModule } from "@/app.module";
 import {
@@ -108,6 +109,7 @@ export async function createTestApp(
     .compile();
 
   const app = moduleFixture.createNestApplication();
+  app.use(cookieParser());
   setupGlobalPrefix(app);
   app.useGlobalPipes(new ZodValidationPipe());
   app.useGlobalFilters(new GlobalExceptionFilter());
