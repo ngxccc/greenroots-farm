@@ -48,31 +48,24 @@ function ActiveSessionRow({
 
   return (
     <li className="flex items-start gap-3 py-3.5 first:pt-1">
-      <span
+      <Badge
         aria-hidden="true"
-        className={
-          session.isCurrent
-            ? "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-brand-dark"
-            : "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600"
-        }
+        variant="secondary"
+        className="mt-0.5 size-9 rounded-full bg-gray-100 p-0 [&>svg]:size-4!"
       >
         {isMobile ? (
           <Smartphone className="size-4" />
         ) : (
           <Monitor className="size-4" />
         )}
-      </span>
+      </Badge>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="truncate text-sm font-semibold text-gray-900">
             {deviceLabel}
           </span>
-          {session.isCurrent ? (
-            <Badge className="h-auto shrink-0 border-0 bg-green-100 px-2.5 py-0.5 text-[11px] font-semibold text-brand-dark">
-              Phiên hiện tại
-            </Badge>
-          ) : null}
+          {session.isCurrent ? <Badge>Phiên hiện tại</Badge> : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500 tabular-nums">
@@ -111,7 +104,7 @@ export function SecuritySessionsView({
             Bảo mật phiên đăng nhập
           </h2>
           {sessionsState.status === "loaded" ? (
-            <span className="text-xs font-semibold text-brand-dark tabular-nums sm:text-sm">
+            <span className="text-xs font-semibold text-primary tabular-nums sm:text-sm">
               {sessionsState.sessions.length} phiên hoạt động
             </span>
           ) : null}
