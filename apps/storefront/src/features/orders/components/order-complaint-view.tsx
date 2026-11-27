@@ -379,10 +379,7 @@ export function OrderComplaintView({
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-4 pb-10 lg:px-6 lg:pt-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <BackLink
-          href={`/orders/${order.id}`}
-          label="Quay lại chi tiết đơn hàng"
-        />
+        <BackLink href={`/orders/${order.id}`} />
       </div>
 
       {/* 24h Deadline Banner */}

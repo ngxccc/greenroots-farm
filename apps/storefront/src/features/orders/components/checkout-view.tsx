@@ -329,7 +329,7 @@ export function CheckoutView() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 lg:px-6 lg:py-8">
       <div className="flex flex-col gap-2 border-b border-border-subtle pb-4">
-        <BackLink href="/cart" label="Quay lại giỏ hàng" />
+        <BackLink href="/cart" />
 
         <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
           Thanh toán đơn hàng

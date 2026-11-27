@@ -88,11 +88,7 @@ async function ProductDetailContent({ slug }: { readonly slug: string }) {
   return (
     <div className="w-full flex-1 bg-surface-card pb-16 lg:pb-0">
       <div className="mx-auto flex w-full max-w-6xl flex-col lg:gap-5 lg:px-6 lg:pt-5 lg:pb-10">
-        <BackLink
-          href="/products"
-          label="Quay lại danh mục"
-          className="hidden lg:block"
-        />
+        <BackLink href="/products" className="hidden lg:block" />
 
         <section aria-label="Thông tin chi tiết sản phẩm">
           <ProductDetailHero product={product} dto={dto} />

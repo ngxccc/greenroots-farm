@@ -112,7 +112,7 @@ export function OrderDetailView({
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 pt-4 pb-8 lg:px-6 lg:pt-5 lg:pb-10">
       <div className="flex flex-col gap-2 border-b border-border-subtle pb-5">
-        <BackLink href="/account/orders" label="Quay lại đơn hàng của tôi" />
+        <BackLink href="/account/orders" />
 
         {/* Order Summary Header */}
         <section
