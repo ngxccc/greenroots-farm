@@ -20,6 +20,18 @@ export const COMPLAINTS_STAFF_ALLOWED_ROLES = Object.freeze([
   UserRole.SUPER_ADMIN,
 ] as const);
 
+/** Staff roles authorized to resolve triaged complaints (`ADR-0046`, `INV-CMP-9`). */
+export const COMPLAINTS_RESOLVE_ALLOWED_ROLES = Object.freeze([
+  UserRole.ADMIN,
+  UserRole.SUPER_ADMIN,
+] as const);
+
+/** Maximum trimmed length for administrative `resolutionNote`. */
+export const RESOLUTION_NOTE_MAX_LENGTH = 500;
+
+/** Maximum trimmed length for manual bank-transfer refund `referenceCode`. */
+export const REFUND_REFERENCE_CODE_MAX_LENGTH = 100;
+
 /** Valid target statuses for staff complaint triage (`ADR-0045`). */
 export const TRIAGE_TARGET_STATUSES = Object.freeze([
   ComplaintStatus.TRIAGED,

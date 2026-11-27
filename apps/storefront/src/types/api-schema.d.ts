@@ -1391,10 +1391,30 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Triage a pending customer complaint
-         * @description Transitions a pending complaint to triaged or rejected under a row-level lock, recording staff attribution and mandatory rejection rationale.
+         * Triage a customer complaint
+         * @description Transitions a pending complaint to triaged or rejected (or allows Admin/SuperAdmin to override triaged to rejected) under a row-level lock, recording staff attribution and mandatory rejection rationale.
          */
         patch: operations["ComplaintsStaffController_triageComplaint_v1"];
+        trace?: never;
+    };
+    "/api/v1/complaints/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve a triaged customer complaint
+         * @description Atomically transitions a triaged complaint to approved via either a dual-channel refund (bank_transfer ledger or loyalty_points credit) or a 0đ FEFO-allocated replacement order.
+         */
+        post: operations["ComplaintsStaffController_resolveComplaint_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -2715,6 +2735,11 @@ export interface components {
             triagedAt: string | null;
             triageNote: string | null;
             resolvedBy: string | null;
+            resolvedAt: string | null;
+            resolutionNote: string | null;
+            refundChannel: ("bank_transfer" | "loyalty_points") | null;
+            refundAmountVnd: number | null;
+            replacementOrderId: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2728,6 +2753,34 @@ export interface components {
             status: "triaged" | "rejected";
             /** @description Mandatory rationale (5-500 chars) when rejecting; optional (<= 500 chars) when triaging */
             triageNote?: string | null;
+        };
+        ResolveComplaintDto: {
+            /**
+             * @description Resolution action (refund or replacement)
+             * @enum {string}
+             */
+            resolution: "refund" | "replacement";
+            /**
+             * @description Required when resolution is refund (bank_transfer or loyalty_points)
+             * @enum {string}
+             */
+            refundChannel?: "bank_transfer" | "loyalty_points";
+            /** @description Optional refund amount in integer VND (defaults to original order totalAmount) */
+            refundAmountVnd?: number;
+            /** @description Optional bank-transfer reference code when refundChannel is bank_transfer */
+            referenceCode?: string | null;
+            /** @description Optional subset of original order items for replacement (defaults to full copy) */
+            items?: {
+                /**
+                 * @description Product UUIDv7 from the original order
+                 * @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f
+                 */
+                productId: string;
+                /** @description Replacement quantity (up to 2 decimal places, <= original item quantity) */
+                quantity: number;
+            }[];
+            /** @description Optional administrative resolution note (<= 500 chars) */
+            resolutionNote?: string | null;
         };
     };
     responses: never;
@@ -14573,6 +14626,222 @@ export interface operations {
                      *       "title": "Internal Server Error",
                      *       "status": 500,
                      *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    ComplaintsStaffController_resolveComplaint_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Required UUID idempotency key caching mutation responses for 24 hours per authenticated staff actor and endpoint. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description Complaint UUIDv7 identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveComplaintDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDto"] & {
+                        data: components["schemas"]["StaffComplaintDto"];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Forbidden resource access (Forbidden) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Resource not found (Not Found) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/not-found",
+                     *       "title": "Not Found",
+                     *       "status": 404,
+                     *       "detail": "The requested resource could not be found",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Resource conflict or concurrency collision (Conflict) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/conflict",
+                     *       "title": "Conflict",
+                     *       "status": 409,
+                     *       "detail": "A conflict occurred with the current state of the resource",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Semantic validation failure (Unprocessable Entity) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unprocessable-entity",
+                     *       "title": "Unprocessable Entity",
+                     *       "status": 422,
+                     *       "detail": "The request was well-formed but could not be processed due to semantic errors",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Idempotency store unavailable (Service Unavailable) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/service-unavailable",
+                     *       "title": "Service Unavailable",
+                     *       "status": 503,
+                     *       "detail": "The service is temporarily unavailable.",
                      *       "instance": "/api/v1/resource",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"

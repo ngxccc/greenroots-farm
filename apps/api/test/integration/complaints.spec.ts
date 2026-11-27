@@ -12,21 +12,39 @@ import request from "supertest";
 import type { INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { UnprocessableEntityException } from "@nestjs/common";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   API_ERROR_CODES,
+  BatchStatus,
+  ComplaintRefundChannel,
+  ComplaintResolution,
   ComplaintStatus,
   OrderStatus,
+  PaymentMethod,
   PaymentStatus,
+  PaymentTransactionType,
   UserRole,
 } from "@greenroots/shared";
 import { env } from "@/common/config/env.config";
 import type { Rfc9457ProblemDetails } from "@/common/filters/global-exception.filter";
 import type { PaginationMetaDto } from "@/common/dto/api-response.dto";
 import type { ApiResponse } from "@/common/utils/api-response.util";
-import { complaints, orders } from "@/database/schemas";
+import {
+  batchAllocations,
+  batches,
+  complaints,
+  orderItems,
+  orders,
+  payments,
+  users,
+} from "@/database/schemas";
 import { CloudinaryService } from "@/modules/media/cloudinary.service";
-import { createCategory, createOrder, createProduct } from "../factories";
+import {
+  createBatch,
+  createCategory,
+  createOrder,
+  createProduct,
+} from "../factories";
 import type { components } from "../generated/api-schema";
 import {
   cleanScopedRedisKeys,
@@ -73,7 +91,7 @@ describe("Complaints Integration", () => {
 
   beforeEach(async () => {
     await setup.db.execute(
-      sql`TRUNCATE TABLE "complaints", "payments", "batch_allocations", "order_items", "orders", "products", "categories", "users" CASCADE;`,
+      sql`TRUNCATE TABLE "complaints", "payments", "batch_allocations", "order_items", "orders", "batches", "seasons", "plots", "farms", "products", "categories", "users" CASCADE;`,
     );
     await cleanScopedRedisKeys(setup.redisClient);
 
@@ -678,6 +696,19 @@ describe("Complaints Integration", () => {
       expect((secondRes.body as Rfc9457ProblemDetails).code).toBe(
         API_ERROR_CODES.COMPLAINT_INVALID_STATUS_TRANSITION,
       );
+
+      const overrideRes = await request(app.getHttpServer())
+        .patch(`/api/v1/complaints/${created!.id}/triage`)
+        .set(adminHeader)
+        .send({
+          status: ComplaintStatus.REJECTED,
+          triageNote: "Quản trị viên từ chối sau khi rà soát lại",
+        })
+        .expect(200);
+
+      expect(
+        (overrideRes.body as ApiResponse<StaffComplaintResponse>).data.status,
+      ).toBe(ComplaintStatus.REJECTED);
     });
 
     it("requires valid HTML-stripped triageNote when rejecting a pending complaint", async () => {
@@ -760,7 +791,7 @@ describe("Complaints Integration", () => {
           .send({ status: ComplaintStatus.TRIAGED }),
         request(app.getHttpServer())
           .patch(`/api/v1/complaints/${created!.id}/triage`)
-          .set(adminHeader)
+          .set(salesHeader)
           .send({
             status: ComplaintStatus.REJECTED,
             triageNote: "Từ chối đồng thời để kiểm tra lock",
@@ -769,6 +800,487 @@ describe("Complaints Integration", () => {
 
       const statuses = [first.status, second.status].sort((a, b) => a - b);
       expect(statuses).toEqual([200, 422]);
+    });
+  });
+
+  describe("POST /api/v1/complaints/:id/resolve", () => {
+    async function seedTriagedComplaint(options?: {
+      paymentStatus?: PaymentStatus;
+      paymentMethod?: PaymentMethod;
+      shippingFee?: number;
+      loyaltyPointsUsed?: number;
+      customerRewardPoints?: number;
+      items?: { productId: string; quantity: string; unitPrice: number }[];
+    }) {
+      if (options?.customerRewardPoints !== undefined) {
+        await setup.db
+          .update(users)
+          .set({ rewardPoints: options.customerRewardPoints })
+          .where(eq(users.id, customerId));
+      }
+
+      const { order } = await createOrder(setup.db, {
+        customerId,
+        orderStatus: OrderStatus.DELIVERED,
+        paymentStatus: options?.paymentStatus ?? PaymentStatus.PAID,
+        paymentMethod: options?.paymentMethod ?? PaymentMethod.PAYOS,
+        shippingFee: options?.shippingFee ?? 0,
+        loyaltyPointsUsed: options?.loyaltyPointsUsed ?? 0,
+        deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
+        items: options?.items ?? [
+          { productId, quantity: "2.00", unitPrice: 75_000 },
+        ],
+      });
+
+      const [complaint] = await setup.db
+        .insert(complaints)
+        .values({
+          orderId: order.id,
+          customerId,
+          reason: "Sản phẩm giao bị hư hỏng cần giải quyết",
+          proofImageUrls: [VALID_IMAGE_URL],
+          status: ComplaintStatus.TRIAGED,
+          triagedBy: salesId,
+          triagedAt: new Date(),
+        })
+        .returning({ id: complaints.id });
+
+      return { order, complaintId: complaint!.id };
+    }
+
+    it("restricts resolution to admin and super_admin and requires an idempotency key", async () => {
+      // Invariant: INV-CMP-9
+      const { complaintId } = await seedTriagedComplaint();
+      const idempotencyKey = crypto.randomUUID();
+      const payload = {
+        resolution: ComplaintResolution.REFUND,
+        refundChannel: ComplaintRefundChannel.LOYALTY_POINTS,
+      };
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set("Idempotency-Key", idempotencyKey)
+        .send(payload)
+        .expect(401);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set(customerHeader)
+        .set("Idempotency-Key", idempotencyKey)
+        .send(payload)
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set(farmStaffHeader)
+        .set("Idempotency-Key", idempotencyKey)
+        .send(payload)
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set(salesHeader)
+        .set("Idempotency-Key", idempotencyKey)
+        .send(payload)
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set(adminHeader)
+        .send(payload)
+        .expect(400);
+
+      const firstRes = await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set(adminHeader)
+        .set("Idempotency-Key", idempotencyKey)
+        .send(payload)
+        .expect(200);
+
+      const replayRes = await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set(adminHeader)
+        .set("Idempotency-Key", idempotencyKey)
+        .send(payload)
+        .expect(200);
+
+      expect(
+        (replayRes.body as ApiResponse<StaffComplaintResponse>).data,
+      ).toEqual((firstRes.body as ApiResponse<StaffComplaintResponse>).data);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set(adminHeader)
+        .set("Idempotency-Key", idempotencyKey)
+        .send({
+          resolution: ComplaintResolution.REFUND,
+          refundChannel: ComplaintRefundChannel.BANK_TRANSFER,
+        })
+        .expect(422);
+    });
+
+    it("rejects refund when order is not paid or refundAmountVnd exceeds order total", async () => {
+      // Invariant: INV-CMP-11
+      const unpaid = await seedTriagedComplaint({
+        paymentStatus: PaymentStatus.PENDING,
+        paymentMethod: PaymentMethod.COD,
+      });
+
+      const unpaidRes = await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${unpaid.complaintId}/resolve`)
+        .set(adminHeader)
+        .set("Idempotency-Key", crypto.randomUUID())
+        .send({
+          resolution: ComplaintResolution.REFUND,
+          refundChannel: ComplaintRefundChannel.BANK_TRANSFER,
+        })
+        .expect(422);
+
+      expect((unpaidRes.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.COMPLAINT_ORDER_NOT_PAID,
+      );
+
+      const paid = await seedTriagedComplaint({
+        paymentStatus: PaymentStatus.PAID,
+        items: [{ productId, quantity: "2.00", unitPrice: 50_000 }],
+      });
+
+      const overAmountRes = await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${paid.complaintId}/resolve`)
+        .set(adminHeader)
+        .set("Idempotency-Key", crypto.randomUUID())
+        .send({
+          resolution: ComplaintResolution.REFUND,
+          refundChannel: ComplaintRefundChannel.LOYALTY_POINTS,
+          refundAmountVnd: 100_001,
+        })
+        .expect(422);
+
+      expect((overAmountRes.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.COMPLAINT_REFUND_AMOUNT_INVALID,
+      );
+    });
+
+    it("records full bank_transfer refund ledger, updates order paymentStatus, and restores loyaltyPointsUsed", async () => {
+      // Invariant: INV-CMP-12
+      const { order, complaintId } = await seedTriagedComplaint({
+        paymentStatus: PaymentStatus.PAID,
+        items: [{ productId, quantity: "2.00", unitPrice: 67_500 }],
+        loyaltyPointsUsed: 15_000,
+        customerRewardPoints: 1_000,
+      });
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set(superAdminHeader)
+        .set("Idempotency-Key", crypto.randomUUID())
+        .send({
+          resolution: ComplaintResolution.REFUND,
+          refundChannel: ComplaintRefundChannel.BANK_TRANSFER,
+          referenceCode: "FT26331999",
+          resolutionNote: "Hoàn tiền toàn phần qua chuyển khoản",
+        })
+        .expect(200);
+
+      const body = res.body as ApiResponse<StaffComplaintResponse>;
+      expect(body.data.status).toBe(ComplaintStatus.APPROVED);
+      expect(body.data.resolution).toBe(ComplaintResolution.REFUND);
+      expect(body.data.refundChannel).toBe(
+        ComplaintRefundChannel.BANK_TRANSFER,
+      );
+      expect(body.data.refundAmountVnd).toBe(120_000);
+      expect(body.data.resolvedAt).not.toBeNull();
+      expect(body.data.replacementOrderId).toBeNull();
+
+      const [updatedOrder] = await setup.db
+        .select({ paymentStatus: orders.paymentStatus })
+        .from(orders)
+        .where(eq(orders.id, order.id));
+      expect(updatedOrder?.paymentStatus).toBe(PaymentStatus.REFUNDED);
+
+      const [refundPayment] = await setup.db
+        .select({
+          amount: payments.amount,
+          status: payments.status,
+          transactionType: payments.transactionType,
+          referenceCode: payments.referenceCode,
+        })
+        .from(payments)
+        .where(
+          and(
+            eq(payments.orderId, order.id),
+            eq(payments.transactionType, PaymentTransactionType.REFUND),
+          ),
+        );
+      expect(refundPayment).toEqual({
+        amount: 120_000,
+        status: PaymentStatus.REFUNDED,
+        transactionType: PaymentTransactionType.REFUND,
+        referenceCode: "FT26331999",
+      });
+
+      const [customerRow] = await setup.db
+        .select({ rewardPoints: users.rewardPoints })
+        .from(users)
+        .where(eq(users.id, customerId));
+      expect(customerRow?.rewardPoints).toBe(16_000);
+    });
+
+    it("keeps order paid on partial bank_transfer refund and isolates loyalty_points refund from payments ledger", async () => {
+      // Invariant: INV-CMP-12
+      const partial = await seedTriagedComplaint({
+        paymentStatus: PaymentStatus.PAID,
+        items: [{ productId, quantity: "2.00", unitPrice: 65_000 }],
+        loyaltyPointsUsed: 10_000,
+        customerRewardPoints: 500,
+      });
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${partial.complaintId}/resolve`)
+        .set(adminHeader)
+        .set("Idempotency-Key", crypto.randomUUID())
+        .send({
+          resolution: ComplaintResolution.REFUND,
+          refundChannel: ComplaintRefundChannel.BANK_TRANSFER,
+          refundAmountVnd: 50_000,
+        })
+        .expect(200);
+
+      const [partialOrder] = await setup.db
+        .select({ paymentStatus: orders.paymentStatus })
+        .from(orders)
+        .where(eq(orders.id, partial.order.id));
+      expect(partialOrder?.paymentStatus).toBe(PaymentStatus.PAID);
+
+      const [customerAfterPartial] = await setup.db
+        .select({ rewardPoints: users.rewardPoints })
+        .from(users)
+        .where(eq(users.id, customerId));
+      expect(customerAfterPartial?.rewardPoints).toBe(500);
+
+      const loyalty = await seedTriagedComplaint({
+        paymentStatus: PaymentStatus.PAID,
+        items: [{ productId, quantity: "2.00", unitPrice: 45_000 }],
+        customerRewardPoints: 500,
+      });
+
+      const loyaltyRes = await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${loyalty.complaintId}/resolve`)
+        .set(adminHeader)
+        .set("Idempotency-Key", crypto.randomUUID())
+        .send({
+          resolution: ComplaintResolution.REFUND,
+          refundChannel: ComplaintRefundChannel.LOYALTY_POINTS,
+          refundAmountVnd: 40_000,
+        })
+        .expect(200);
+
+      expect(
+        (loyaltyRes.body as ApiResponse<StaffComplaintResponse>).data
+          .refundChannel,
+      ).toBe(ComplaintRefundChannel.LOYALTY_POINTS);
+
+      const loyaltyRefundPayments = await setup.db
+        .select({ id: payments.id })
+        .from(payments)
+        .where(
+          and(
+            eq(payments.orderId, loyalty.order.id),
+            eq(payments.transactionType, PaymentTransactionType.REFUND),
+          ),
+        );
+      expect(loyaltyRefundPayments).toHaveLength(0);
+
+      const [customerAfterLoyalty] = await setup.db
+        .select({ rewardPoints: users.rewardPoints })
+        .from(users)
+        .where(eq(users.id, customerId));
+      expect(customerAfterLoyalty?.rewardPoints).toBe(40_500);
+    });
+
+    it("creates a zero-VND FEFO-allocated replacement order and rolls back on insufficient stock", async () => {
+      // Invariant: INV-CMP-13
+      const { complaintId } = await seedTriagedComplaint({
+        items: [{ productId, quantity: "3.00", unitPrice: 50_000 }],
+      });
+
+      const insufficientRes = await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set(adminHeader)
+        .set("Idempotency-Key", crypto.randomUUID())
+        .send({
+          resolution: ComplaintResolution.REPLACEMENT,
+        })
+        .expect(422);
+
+      expect((insufficientRes.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.INSUFFICIENT_STOCK,
+      );
+
+      const [stillTriaged] = await setup.db
+        .select({ status: complaints.status })
+        .from(complaints)
+        .where(eq(complaints.id, complaintId));
+      expect(stillTriaged?.status).toBe(ComplaintStatus.TRIAGED);
+
+      const earlierBatch = await createBatch(setup.db, {
+        productId,
+        availableQuantity: "2.00",
+        initialQuantity: "5.00",
+        status: BatchStatus.IN_STOCK,
+        expirationDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+      });
+      const laterBatch = await createBatch(setup.db, {
+        productId,
+        availableQuantity: "5.00",
+        initialQuantity: "5.00",
+        status: BatchStatus.IN_STOCK,
+        expirationDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+      });
+
+      const invalidSubsetRes = await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set(adminHeader)
+        .set("Idempotency-Key", crypto.randomUUID())
+        .send({
+          resolution: ComplaintResolution.REPLACEMENT,
+          items: [{ productId, quantity: 4 }],
+        })
+        .expect(422);
+
+      expect((invalidSubsetRes.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.COMPLAINT_REPLACEMENT_ITEMS_INVALID,
+      );
+
+      const resolveRes = await request(app.getHttpServer())
+        .post(`/api/v1/complaints/${complaintId}/resolve`)
+        .set(adminHeader)
+        .set("Idempotency-Key", crypto.randomUUID())
+        .send({
+          resolution: ComplaintResolution.REPLACEMENT,
+          items: [{ productId, quantity: 3 }],
+          resolutionNote: "Giao bù 3 đơn vị nông sản",
+        })
+        .expect(200);
+
+      const body = resolveRes.body as ApiResponse<StaffComplaintResponse>;
+      expect(body.data.status).toBe(ComplaintStatus.APPROVED);
+      expect(body.data.resolution).toBe(ComplaintResolution.REPLACEMENT);
+      expect(body.data.replacementOrderId).not.toBeNull();
+
+      const [replacementOrder] = await setup.db
+        .select({
+          totalAmount: orders.totalAmount,
+          subtotal: orders.subtotal,
+          shippingFee: orders.shippingFee,
+          paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
+          orderStatus: orders.orderStatus,
+        })
+        .from(orders)
+        .where(eq(orders.id, body.data.replacementOrderId!));
+
+      expect(replacementOrder).toEqual({
+        totalAmount: 0,
+        subtotal: 0,
+        shippingFee: 0,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PAID,
+        orderStatus: OrderStatus.CONFIRMED,
+      });
+
+      const replacementItems = await setup.db
+        .select({
+          id: orderItems.id,
+          quantity: orderItems.quantity,
+          unitPrice: orderItems.unitPrice,
+        })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, body.data.replacementOrderId!));
+
+      expect(replacementItems).toHaveLength(1);
+      expect(replacementItems[0]?.quantity).toBe("3.00");
+      expect(replacementItems[0]?.unitPrice).toBe(0);
+
+      const allocations = await setup.db
+        .select({
+          batchId: batchAllocations.batchId,
+          allocatedQuantity: batchAllocations.allocatedQuantity,
+        })
+        .from(batchAllocations)
+        .where(eq(batchAllocations.orderItemId, replacementItems[0]!.id));
+
+      expect(allocations).toHaveLength(2);
+      expect(
+        allocations.find((a) => a.batchId === earlierBatch.id)
+          ?.allocatedQuantity,
+      ).toBe("2.00");
+      expect(
+        allocations.find((a) => a.batchId === laterBatch.id)?.allocatedQuantity,
+      ).toBe("1.00");
+
+      const [updatedEarlier] = await setup.db
+        .select({
+          availableQuantity: batches.availableQuantity,
+          status: batches.status,
+        })
+        .from(batches)
+        .where(eq(batches.id, earlierBatch.id));
+      expect(updatedEarlier).toEqual({
+        availableQuantity: "0.00",
+        status: BatchStatus.SOLD_OUT,
+      });
+
+      const [updatedLater] = await setup.db
+        .select({
+          availableQuantity: batches.availableQuantity,
+          status: batches.status,
+        })
+        .from(batches)
+        .where(eq(batches.id, laterBatch.id));
+      expect(updatedLater).toEqual({
+        availableQuantity: "4.00",
+        status: BatchStatus.IN_STOCK,
+      });
+    });
+
+    it("serializes concurrent resolution attempts on the same triaged complaint", async () => {
+      // Invariant: INV-CMP-9, INV-CMP-10
+      const { complaintId } = await seedTriagedComplaint({
+        customerRewardPoints: 0,
+      });
+      const payload = {
+        resolution: ComplaintResolution.REFUND,
+        refundChannel: ComplaintRefundChannel.LOYALTY_POINTS,
+        refundAmountVnd: 25_000,
+      };
+
+      const [resA, resB] = await Promise.all([
+        request(app.getHttpServer())
+          .post(`/api/v1/complaints/${complaintId}/resolve`)
+          .set(adminHeader)
+          .set("Idempotency-Key", crypto.randomUUID())
+          .send(payload),
+        request(app.getHttpServer())
+          .post(`/api/v1/complaints/${complaintId}/resolve`)
+          .set(superAdminHeader)
+          .set("Idempotency-Key", crypto.randomUUID())
+          .send(payload),
+      ]);
+
+      const statuses = [resA.status, resB.status].sort((a, b) => a - b);
+      expect(statuses).toEqual([200, 422]);
+
+      const failed = resA.status === 422 ? resA : resB;
+      expect((failed.body as Rfc9457ProblemDetails).code).toBe(
+        API_ERROR_CODES.COMPLAINT_INVALID_STATUS_TRANSITION,
+      );
+
+      const [updatedCustomer] = await setup.db
+        .select({ rewardPoints: users.rewardPoints })
+        .from(users)
+        .where(eq(users.id, customerId));
+      expect(updatedCustomer?.rewardPoints).toBe(25_000);
     });
   });
 });

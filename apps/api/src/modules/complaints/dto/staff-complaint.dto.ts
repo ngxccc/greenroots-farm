@@ -1,6 +1,7 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import {
+  ComplaintRefundChannel,
   ComplaintResolution,
   ComplaintStatus,
   PaymentMethod,
@@ -30,6 +31,11 @@ export const staffComplaintSchema = z.object({
   triagedAt: z.iso.datetime().nullable(),
   triageNote: z.string().nullable(),
   resolvedBy: zUuidV7().nullable(),
+  resolvedAt: z.iso.datetime().nullable(),
+  resolutionNote: z.string().nullable(),
+  refundChannel: z.enum(ComplaintRefundChannel).nullable(),
+  refundAmountVnd: z.number().int().positive().nullable(),
+  replacementOrderId: zUuidV7().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

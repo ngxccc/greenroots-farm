@@ -6,9 +6,13 @@ import {
 import { describe, expect, it, mock } from "bun:test";
 import {
   API_ERROR_CODES,
+  ComplaintRefundChannel,
   ComplaintResolution,
   ComplaintStatus,
   OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  UserRole,
 } from "@greenroots/shared";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { env } from "@/common/config/env.config";
@@ -18,6 +22,7 @@ import { ComplaintsService } from "./complaints.service";
 import {
   createComplaintSchema,
   listComplaintsQuerySchema,
+  resolveComplaintSchema,
   triageComplaintSchema,
 } from "./dto";
 
@@ -452,7 +457,7 @@ describe("ComplaintsService", () => {
 
       let caught: unknown;
       try {
-        await service.triageComplaint(STAFF_ID, COMPLAINT_ID, {
+        await service.triageComplaint(STAFF_ID, UserRole.SALES, COMPLAINT_ID, {
           status: ComplaintStatus.TRIAGED,
         });
       } catch (error) {
@@ -461,7 +466,7 @@ describe("ComplaintsService", () => {
       expect(caught).toBeInstanceOf(NotFoundException);
     });
 
-    it("rejects triage when complaint is no longer pending", async () => {
+    it("rejects triage when sales tries to override a triaged complaint", async () => {
       // Invariant: INV-CMP-6
       const { service, setMock } = createTriageHarness({
         lockedRows: [{ id: COMPLAINT_ID, status: ComplaintStatus.TRIAGED }],
@@ -469,7 +474,7 @@ describe("ComplaintsService", () => {
 
       let caught: unknown;
       try {
-        await service.triageComplaint(STAFF_ID, COMPLAINT_ID, {
+        await service.triageComplaint(STAFF_ID, UserRole.SALES, COMPLAINT_ID, {
           status: ComplaintStatus.REJECTED,
           triageNote: "Không thể phân loại lại",
         });
@@ -480,6 +485,61 @@ describe("ComplaintsService", () => {
         response: { code: API_ERROR_CODES.COMPLAINT_INVALID_STATUS_TRANSITION },
       });
       expect(setMock).not.toHaveBeenCalled();
+    });
+
+    it("allows admin to override a triaged complaint to rejected", async () => {
+      // Invariant: INV-CMP-6, INV-CMP-7
+      const now = new Date("2026-11-27T02:00:00.000Z");
+      const { service, setMock } = createTriageHarness({
+        lockedRows: [{ id: COMPLAINT_ID, status: ComplaintStatus.TRIAGED }],
+        hydratedRow: {
+          id: COMPLAINT_ID,
+          orderId: ORDER_ID,
+          orderCode: "ORD-20261127-000001",
+          orderTotalVnd: 150_000,
+          orderPaymentMethod: "cod",
+          orderDeliveredAt: now,
+          customerId: CUSTOMER_ID,
+          customerName: "Nguyen Van A",
+          customerPhone: "0912345678",
+          reason: "Rau bị dập nát khi giao hàng",
+          proofImageUrls: [VALID_IMAGE_URL],
+          proofVideoUrl: null,
+          status: ComplaintStatus.REJECTED,
+          resolution: null,
+          triagedBy: STAFF_ID,
+          triagedAt: now,
+          triageNote: "Quản trị viên từ chối sau khi rà soát",
+          resolvedBy: null,
+          resolvedAt: null,
+          resolutionNote: null,
+          refundChannel: null,
+          refundAmountVnd: null,
+          replacementOrderId: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+
+      const result = await service.triageComplaint(
+        STAFF_ID,
+        UserRole.ADMIN,
+        COMPLAINT_ID,
+        {
+          status: ComplaintStatus.REJECTED,
+          triageNote: "Quản trị viên từ chối sau khi rà soát",
+        },
+        now,
+      );
+
+      expect(setMock).toHaveBeenCalledWith({
+        status: ComplaintStatus.REJECTED,
+        triagedBy: STAFF_ID,
+        triagedAt: now,
+        triageNote: "Quản trị viên từ chối sau khi rà soát",
+        updatedAt: now,
+      });
+      expect(result.status).toBe(ComplaintStatus.REJECTED);
     });
 
     it("transitions pending complaint to triaged and normalizes empty note to null", async () => {
@@ -506,6 +566,11 @@ describe("ComplaintsService", () => {
           triagedAt: now,
           triageNote: null,
           resolvedBy: null,
+          resolvedAt: null,
+          resolutionNote: null,
+          refundChannel: null,
+          refundAmountVnd: null,
+          replacementOrderId: null,
           createdAt: now,
           updatedAt: now,
         },
@@ -513,6 +578,7 @@ describe("ComplaintsService", () => {
 
       const result = await service.triageComplaint(
         STAFF_ID,
+        UserRole.SALES,
         COMPLAINT_ID,
         { status: ComplaintStatus.TRIAGED, triageNote: "" },
         now,
@@ -528,6 +594,240 @@ describe("ComplaintsService", () => {
       expect(result.status).toBe(ComplaintStatus.TRIAGED);
       expect(result.triagedBy).toBe(STAFF_ID);
       expect(result.triageNote).toBeNull();
+    });
+  });
+
+  describe("resolveComplaintSchema", () => {
+    it("accepts bank_transfer refund with sanitized note and referenceCode", () => {
+      const parsed = resolveComplaintSchema.parse({
+        resolution: ComplaintResolution.REFUND,
+        refundChannel: ComplaintRefundChannel.BANK_TRANSFER,
+        refundAmountVnd: 50_000,
+        referenceCode: "  <b>FT26331001</b>  ",
+        resolutionNote: "  <script>x</script>Hoàn tiền một phần  ",
+      });
+
+      expect(parsed.refundChannel).toBe(ComplaintRefundChannel.BANK_TRANSFER);
+      expect(parsed.refundAmountVnd).toBe(50_000);
+      expect(parsed.referenceCode).toBe("FT26331001");
+      expect(parsed.resolutionNote).toBe("Hoàn tiền một phần");
+    });
+
+    it("rejects refund without refundChannel or with replacement items", () => {
+      expect(
+        resolveComplaintSchema.safeParse({
+          resolution: ComplaintResolution.REFUND,
+        }).success,
+      ).toBe(false);
+
+      expect(
+        resolveComplaintSchema.safeParse({
+          resolution: ComplaintResolution.REFUND,
+          refundChannel: ComplaintRefundChannel.LOYALTY_POINTS,
+          items: [{ productId: ORDER_ID, quantity: 1 }],
+        }).success,
+      ).toBe(false);
+    });
+
+    it("rejects replacement with refund fields or duplicate productIds", () => {
+      expect(
+        resolveComplaintSchema.safeParse({
+          resolution: ComplaintResolution.REPLACEMENT,
+          refundChannel: ComplaintRefundChannel.BANK_TRANSFER,
+        }).success,
+      ).toBe(false);
+
+      expect(
+        resolveComplaintSchema.safeParse({
+          resolution: ComplaintResolution.REPLACEMENT,
+          items: [
+            { productId: ORDER_ID, quantity: 1 },
+            { productId: ORDER_ID, quantity: 2 },
+          ],
+        }).success,
+      ).toBe(false);
+    });
+  });
+
+  describe("resolveComplaint", () => {
+    const ADMIN_ID = "019fa8bc-8f4d-7000-b366-e691f45cfb96";
+
+    function createResolveHarness(options: {
+      lockedComplaints: {
+        id: string;
+        orderId: string;
+        customerId: string;
+        status: ComplaintStatus;
+      }[];
+      lockedOrders?: {
+        id: string;
+        customerId: string;
+        receiverName: string;
+        receiverPhone: string;
+        shippingAddress: string;
+        shippingDistanceKm: string;
+        totalAmount: number;
+        loyaltyPointsUsed: number;
+        paymentMethod: PaymentMethod;
+        paymentStatus: PaymentStatus;
+      }[];
+    }) {
+      let selectIndex = 0;
+      const txMock = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              for: () => {
+                selectIndex += 1;
+                if (selectIndex === 1) {
+                  return Promise.resolve(options.lockedComplaints);
+                }
+                return Promise.resolve(options.lockedOrders ?? []);
+              },
+            }),
+          }),
+        }),
+      };
+
+      const dbMock = {
+        transaction: mock(async (fn: (tx: typeof txMock) => Promise<unknown>) =>
+          fn(txMock),
+        ),
+      } as unknown as DrizzleDB;
+
+      const service = new ComplaintsService(
+        dbMock,
+        {} as unknown as CloudinaryService,
+      );
+      return { service };
+    }
+
+    it("throws not-found when complaint does not exist", async () => {
+      const { service } = createResolveHarness({ lockedComplaints: [] });
+
+      let caught: unknown;
+      try {
+        await service.resolveComplaint(ADMIN_ID, COMPLAINT_ID, {
+          resolution: ComplaintResolution.REFUND,
+          refundChannel: ComplaintRefundChannel.LOYALTY_POINTS,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(NotFoundException);
+    });
+
+    it("rejects resolution when complaint is not in triaged status", async () => {
+      // Invariant: INV-CMP-9
+      const { service } = createResolveHarness({
+        lockedComplaints: [
+          {
+            id: COMPLAINT_ID,
+            orderId: ORDER_ID,
+            customerId: CUSTOMER_ID,
+            status: ComplaintStatus.PENDING,
+          },
+        ],
+      });
+
+      let caught: unknown;
+      try {
+        await service.resolveComplaint(ADMIN_ID, COMPLAINT_ID, {
+          resolution: ComplaintResolution.REPLACEMENT,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toMatchObject({
+        response: { code: API_ERROR_CODES.COMPLAINT_INVALID_STATUS_TRANSITION },
+      });
+    });
+
+    it("rejects refund when order paymentStatus is not paid", async () => {
+      // Invariant: INV-CMP-11
+      const { service } = createResolveHarness({
+        lockedComplaints: [
+          {
+            id: COMPLAINT_ID,
+            orderId: ORDER_ID,
+            customerId: CUSTOMER_ID,
+            status: ComplaintStatus.TRIAGED,
+          },
+        ],
+        lockedOrders: [
+          {
+            id: ORDER_ID,
+            customerId: CUSTOMER_ID,
+            receiverName: "Nguyen Van A",
+            receiverPhone: "0912345678",
+            shippingAddress: "123 Le Loi",
+            shippingDistanceKm: "3.50",
+            totalAmount: 150_000,
+            loyaltyPointsUsed: 0,
+            paymentMethod: PaymentMethod.COD,
+            paymentStatus: PaymentStatus.PENDING,
+          },
+        ],
+      });
+
+      let caught: unknown;
+      try {
+        await service.resolveComplaint(ADMIN_ID, COMPLAINT_ID, {
+          resolution: ComplaintResolution.REFUND,
+          refundChannel: ComplaintRefundChannel.BANK_TRANSFER,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toMatchObject({
+        response: { code: API_ERROR_CODES.COMPLAINT_ORDER_NOT_PAID },
+      });
+    });
+
+    it("rejects refund when refundAmountVnd exceeds order totalAmount", async () => {
+      // Invariant: INV-CMP-11
+      const { service } = createResolveHarness({
+        lockedComplaints: [
+          {
+            id: COMPLAINT_ID,
+            orderId: ORDER_ID,
+            customerId: CUSTOMER_ID,
+            status: ComplaintStatus.TRIAGED,
+          },
+        ],
+        lockedOrders: [
+          {
+            id: ORDER_ID,
+            customerId: CUSTOMER_ID,
+            receiverName: "Nguyen Van A",
+            receiverPhone: "0912345678",
+            shippingAddress: "123 Le Loi",
+            shippingDistanceKm: "3.50",
+            totalAmount: 150_000,
+            loyaltyPointsUsed: 0,
+            paymentMethod: PaymentMethod.PAYOS,
+            paymentStatus: PaymentStatus.PAID,
+          },
+        ],
+      });
+
+      let caught: unknown;
+      try {
+        await service.resolveComplaint(ADMIN_ID, COMPLAINT_ID, {
+          resolution: ComplaintResolution.REFUND,
+          refundChannel: ComplaintRefundChannel.LOYALTY_POINTS,
+          refundAmountVnd: 150_001,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toMatchObject({
+        response: { code: API_ERROR_CODES.COMPLAINT_REFUND_AMOUNT_INVALID },
+      });
     });
   });
 });

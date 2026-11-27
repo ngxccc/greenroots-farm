@@ -14556,7 +14556,7 @@
     },
     "/api/v1/complaints/{id}/triage": {
       "patch": {
-        "description": "Transitions a pending complaint to triaged or rejected under a row-level lock, recording staff attribution and mandatory rejection rationale.",
+        "description": "Transitions a pending complaint to triaged or rejected (or allows Admin/SuperAdmin to override triaged to rejected) under a row-level lock, recording staff attribution and mandatory rejection rationale.",
         "operationId": "ComplaintsStaffController_triageComplaint_v1",
         "parameters": [
           {
@@ -14749,7 +14749,256 @@
             "bearer": []
           }
         ],
-        "summary": "Triage a pending customer complaint",
+        "summary": "Triage a customer complaint",
+        "tags": [
+          "complaints"
+        ]
+      }
+    },
+    "/api/v1/complaints/{id}/resolve": {
+      "post": {
+        "description": "Atomically transitions a triaged complaint to approved via either a dual-channel refund (bank_transfer ledger or loyalty_points credit) or a 0đ FEFO-allocated replacement order.",
+        "operationId": "ComplaintsStaffController_resolveComplaint_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Complaint UUIDv7 identifier",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required UUID idempotency key caching mutation responses for 24 hours per authenticated staff actor and endpoint.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveComplaintDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponseDto"
+                    },
+                    {
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/StaffComplaintDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure (Bad Request)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/bad-request",
+                  "title": "Bad Request",
+                  "status": 400,
+                  "detail": "Submitted payload failed validation",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [
+                    {
+                      "name": "field",
+                      "reason": "Invalid property value"
+                    }
+                  ],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or invalid token (Unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unauthorized",
+                  "title": "Unauthorized",
+                  "status": 401,
+                  "detail": "Authentication credentials are required or have expired",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden resource access (Forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/forbidden",
+                  "title": "Forbidden",
+                  "status": 403,
+                  "detail": "You do not have permission to perform this action",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found (Not Found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/not-found",
+                  "title": "Not Found",
+                  "status": 404,
+                  "detail": "The requested resource could not be found",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict or concurrency collision (Conflict)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/conflict",
+                  "title": "Conflict",
+                  "status": 409,
+                  "detail": "A conflict occurred with the current state of the resource",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Semantic validation failure (Unprocessable Entity)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/unprocessable-entity",
+                  "title": "Unprocessable Entity",
+                  "status": 422,
+                  "detail": "The request was well-formed but could not be processed due to semantic errors",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit threshold exceeded (Too Many Requests)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/too-many-requests",
+                  "title": "Too Many Requests",
+                  "status": 429,
+                  "detail": "Too many requests. Please try again later.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/internal-server-error",
+                  "title": "Internal Server Error",
+                  "status": 500,
+                  "detail": "An unexpected internal server error occurred",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Idempotency store unavailable (Service Unavailable)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rfc9457ErrorResponseDto"
+                },
+                "example": {
+                  "type": "/errors/service-unavailable",
+                  "title": "Service Unavailable",
+                  "status": 503,
+                  "detail": "The service is temporarily unavailable.",
+                  "instance": "/api/v1/resource",
+                  "invalidParams": [],
+                  "timestamp": "2026-11-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Resolve a triaged customer complaint",
         "tags": [
           "complaints"
         ]
@@ -19921,6 +20170,62 @@
               }
             ]
           },
+          "resolvedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolutionNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refundChannel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "bank_transfer",
+                  "loyalty_points"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "refundAmountVnd": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replacementOrderId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -19951,6 +20256,11 @@
           "triagedAt",
           "triageNote",
           "resolvedBy",
+          "resolvedAt",
+          "resolutionNote",
+          "refundChannel",
+          "refundAmountVnd",
+          "replacementOrderId",
           "createdAt",
           "updatedAt"
         ]
@@ -19976,6 +20286,79 @@
         },
         "required": [
           "status"
+        ],
+        "additionalProperties": false
+      },
+      "ResolveComplaintDto": {
+        "type": "object",
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "refund",
+              "replacement"
+            ],
+            "description": "Resolution action (refund or replacement)"
+          },
+          "refundChannel": {
+            "description": "Required when resolution is refund (bank_transfer or loyalty_points)",
+            "type": "string",
+            "enum": [
+              "bank_transfer",
+              "loyalty_points"
+            ]
+          },
+          "refundAmountVnd": {
+            "description": "Optional refund amount in integer VND (defaults to original order totalAmount)",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "referenceCode": {
+            "description": "Optional bank-transfer reference code when refundChannel is bank_transfer",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "items": {
+            "description": "Optional subset of original order items for replacement (defaults to full copy)",
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "productId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "example": "019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f",
+                  "description": "Product UUIDv7 from the original order"
+                },
+                "quantity": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 10000,
+                  "description": "Replacement quantity (up to 2 decimal places, <= original item quantity)"
+                }
+              },
+              "required": [
+                "productId",
+                "quantity"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "resolutionNote": {
+            "description": "Optional administrative resolution note (<= 500 chars)",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "resolution"
         ],
         "additionalProperties": false
       }

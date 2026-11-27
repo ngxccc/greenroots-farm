@@ -9,10 +9,14 @@ import {
   API_ERROR_CODES,
   BUSINESS_RULES,
   type ComplaintProofImageUrls,
-  type ComplaintResolution,
+  ComplaintRefundChannel,
+  ComplaintResolution,
   ComplaintStatus,
   OrderStatus,
-  type PaymentMethod,
+  PaymentMethod,
+  PaymentStatus,
+  PaymentTransactionType,
+  type UserRole,
 } from "@greenroots/shared";
 import {
   and,
@@ -23,6 +27,7 @@ import {
   ilike,
   lte,
   or,
+  sql,
   type SQL,
 } from "drizzle-orm";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
@@ -34,13 +39,34 @@ import { escapeLikePattern } from "@/common/utils/query.util";
 import {
   DATABASE_CONNECTION,
   type DrizzleDB,
+  type DrizzleTx,
 } from "@/database/database.module";
-import { complaints, orders, users } from "@/database/schemas";
+import {
+  complaints,
+  orderItems,
+  orders,
+  payments,
+  users,
+} from "@/database/schemas";
 import { CloudinaryService } from "@/modules/media/cloudinary.service";
+import {
+  applyFefoAllocations,
+  buildOrderCode,
+  formatOrderCalendarDateVn,
+  formatQuantityFromCents,
+  isOrderCodeUniqueViolation,
+  lockCandidateSellableBatches,
+  planFefoAllocations,
+  toQuantityCents,
+  type FefoAllocationItemInput,
+} from "@/modules/orders/fefo-allocation.util";
+import { ORDER_CODE_MAX_GENERATION_ATTEMPTS } from "@/modules/orders/orders.constant";
+import { COMPLAINTS_RESOLVE_ALLOWED_ROLES } from "./complaints.constant";
 import type {
   ComplaintProjection,
   CreateComplaintInput,
   ListComplaintsQuery,
+  ResolveComplaintInput,
   StaffComplaintProjection,
   TriageComplaintInput,
 } from "./dto";
@@ -67,6 +93,11 @@ const STAFF_COMPLAINT_SELECT = {
   triagedAt: complaints.triagedAt,
   triageNote: complaints.triageNote,
   resolvedBy: complaints.resolvedBy,
+  resolvedAt: complaints.resolvedAt,
+  resolutionNote: complaints.resolutionNote,
+  refundChannel: complaints.refundChannel,
+  refundAmountVnd: complaints.refundAmountVnd,
+  replacementOrderId: complaints.replacementOrderId,
   createdAt: complaints.createdAt,
   updatedAt: complaints.updatedAt,
 } as const;
@@ -90,6 +121,11 @@ type RawStaffComplaintRow = {
   triagedAt: Date | null;
   triageNote: string | null;
   resolvedBy: string | null;
+  resolvedAt: Date | null;
+  resolutionNote: string | null;
+  refundChannel: ComplaintRefundChannel | null;
+  refundAmountVnd: number | null;
+  replacementOrderId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -118,6 +154,11 @@ function toStaffComplaintProjection(
     triagedAt: row.triagedAt ? row.triagedAt.toISOString() : null,
     triageNote: row.triageNote,
     resolvedBy: row.resolvedBy,
+    resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
+    resolutionNote: row.resolutionNote,
+    refundChannel: row.refundChannel,
+    refundAmountVnd: row.refundAmountVnd,
+    replacementOrderId: row.replacementOrderId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -336,9 +377,11 @@ export class ComplaintsService {
   }
 
   /**
-   * Transitions a `pending` complaint to `triaged` or `rejected` under a `FOR UPDATE` row lock (`INV-CMP-6`, `INV-CMP-7`).
+   * Transitions a `pending` complaint to `triaged` or `rejected` — or allows `ADMIN`/`SUPER_ADMIN`
+   * to override `triaged -> rejected` — under a `FOR UPDATE` row lock (`INV-CMP-6`, `INV-CMP-7`).
    *
    * @param actorId Authenticated staff user UUIDv7 performing the triage.
+   * @param actorRole Role of the authenticated staff actor.
    * @param complaintId Target complaint UUIDv7 identifier.
    * @param input Validated triage status and optional/mandatory note.
    * @param now Timestamp override for deterministic testing.
@@ -346,6 +389,7 @@ export class ComplaintsService {
    */
   async triageComplaint(
     actorId: string,
+    actorRole: UserRole,
     complaintId: string,
     input: TriageComplaintInput,
     now: Date = new Date(),
@@ -367,7 +411,14 @@ export class ComplaintsService {
         });
       }
 
-      if (locked.status !== ComplaintStatus.PENDING) {
+      const isAdminOverride =
+        locked.status === ComplaintStatus.TRIAGED &&
+        input.status === ComplaintStatus.REJECTED &&
+        (COMPLAINTS_RESOLVE_ALLOWED_ROLES as readonly UserRole[]).includes(
+          actorRole,
+        );
+
+      if (locked.status !== ComplaintStatus.PENDING && !isAdminOverride) {
         throw new UnprocessableEntityException({
           code: API_ERROR_CODES.COMPLAINT_INVALID_STATUS_TRANSITION,
           detail: MESSAGES.COMPLAINTS.INVALID_STATUS_TRANSITION,
@@ -392,6 +443,399 @@ export class ComplaintsService {
     });
 
     return this.findStaffComplaintById(complaintId);
+  }
+
+  /**
+   * Atomically resolves a `triaged` complaint (`triaged -> approved`) via dual-channel refund
+   * or a `0đ` FEFO-allocated replacement order (`INV-CMP-9..13`, `ADR-0046`).
+   *
+   * Acquires `FOR UPDATE` row locks strictly in `complaints -> orders -> batches -> users` order.
+   *
+   * @param actorId Authenticated Admin/SuperAdmin user UUIDv7.
+   * @param complaintId Target complaint UUIDv7 identifier.
+   * @param input Validated resolution payload.
+   * @param now Timestamp override for deterministic testing.
+   * @returns Hydrated staff complaint projection.
+   */
+  async resolveComplaint(
+    actorId: string,
+    complaintId: string,
+    input: ResolveComplaintInput,
+    now: Date = new Date(),
+  ): Promise<StaffComplaintProjection> {
+    const maxAttempts =
+      input.resolution === ComplaintResolution.REPLACEMENT
+        ? ORDER_CODE_MAX_GENERATION_ATTEMPTS
+        : 1;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        await this.db.transaction(async (tx) => {
+          await this.executeResolveTransaction(
+            tx,
+            actorId,
+            complaintId,
+            input,
+            now,
+          );
+        });
+        return this.findStaffComplaintById(complaintId);
+      } catch (error) {
+        if (
+          input.resolution === ComplaintResolution.REPLACEMENT &&
+          isOrderCodeUniqueViolation(error)
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw new ConflictException({
+      code: API_ERROR_CODES.CONFLICT_RECORD,
+      detail: MESSAGES.ORDERS.CODE_GENERATION_EXHAUSTED,
+    });
+  }
+
+  private async executeResolveTransaction(
+    tx: DrizzleTx,
+    actorId: string,
+    complaintId: string,
+    input: ResolveComplaintInput,
+    now: Date,
+  ): Promise<void> {
+    // Lock order: complaints -> orders -> batches -> users (`INV-CMP-10`).
+    const [lockedComplaint] = await tx
+      .select({
+        id: complaints.id,
+        orderId: complaints.orderId,
+        customerId: complaints.customerId,
+        status: complaints.status,
+      })
+      .from(complaints)
+      .where(eq(complaints.id, complaintId))
+      .for("update");
+
+    if (!lockedComplaint) {
+      throw new NotFoundException({
+        code: API_ERROR_CODES.COMPLAINT_NOT_FOUND,
+        detail: MESSAGES.COMPLAINTS.NOT_FOUND,
+      });
+    }
+
+    if (lockedComplaint.status !== ComplaintStatus.TRIAGED) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.COMPLAINT_INVALID_STATUS_TRANSITION,
+        detail: MESSAGES.COMPLAINTS.INVALID_RESOLVE_STATUS_TRANSITION,
+      });
+    }
+
+    const [lockedOrder] = await tx
+      .select({
+        id: orders.id,
+        customerId: orders.customerId,
+        receiverName: orders.receiverName,
+        receiverPhone: orders.receiverPhone,
+        shippingAddress: orders.shippingAddress,
+        shippingDistanceKm: orders.shippingDistanceKm,
+        totalAmount: orders.totalAmount,
+        loyaltyPointsUsed: orders.loyaltyPointsUsed,
+        paymentMethod: orders.paymentMethod,
+        paymentStatus: orders.paymentStatus,
+      })
+      .from(orders)
+      .where(eq(orders.id, lockedComplaint.orderId))
+      .for("update");
+
+    if (!lockedOrder) {
+      throw new NotFoundException({
+        code: API_ERROR_CODES.ORDER_NOT_FOUND,
+        detail: MESSAGES.ORDERS.NOT_FOUND,
+      });
+    }
+
+    const normalizedNote =
+      input.resolutionNote && input.resolutionNote.length > 0
+        ? input.resolutionNote
+        : null;
+
+    let resolvedRefundChannel: ComplaintRefundChannel | null = null;
+    let resolvedRefundAmountVnd: number | null = null;
+    let replacementOrderId: string | null = null;
+
+    if (input.resolution === ComplaintResolution.REFUND) {
+      const refundResult = await this.executeRefundResolution(
+        tx,
+        actorId,
+        lockedOrder,
+        input,
+        now,
+      );
+      resolvedRefundChannel = refundResult.refundChannel;
+      resolvedRefundAmountVnd = refundResult.refundAmountVnd;
+    } else {
+      replacementOrderId = await this.executeReplacementResolution(
+        tx,
+        lockedOrder,
+        input,
+        now,
+      );
+    }
+
+    await tx
+      .update(complaints)
+      .set({
+        status: ComplaintStatus.APPROVED,
+        resolution: input.resolution,
+        resolvedBy: actorId,
+        resolvedAt: now,
+        resolutionNote: normalizedNote,
+        refundChannel: resolvedRefundChannel,
+        refundAmountVnd: resolvedRefundAmountVnd,
+        replacementOrderId,
+        updatedAt: now,
+      })
+      .where(eq(complaints.id, complaintId));
+  }
+
+  private async executeRefundResolution(
+    tx: DrizzleTx,
+    actorId: string,
+    lockedOrder: {
+      readonly id: string;
+      readonly customerId: string;
+      readonly totalAmount: number;
+      readonly loyaltyPointsUsed: number;
+      readonly paymentMethod: PaymentMethod;
+      readonly paymentStatus: PaymentStatus;
+    },
+    input: ResolveComplaintInput,
+    now: Date,
+  ): Promise<{
+    readonly refundChannel: ComplaintRefundChannel;
+    readonly refundAmountVnd: number;
+  }> {
+    if (lockedOrder.paymentStatus !== PaymentStatus.PAID) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.COMPLAINT_ORDER_NOT_PAID,
+        detail: MESSAGES.COMPLAINTS.ORDER_NOT_PAID,
+      });
+    }
+
+    const refundAmountVnd = input.refundAmountVnd ?? lockedOrder.totalAmount;
+    if (refundAmountVnd < 1 || refundAmountVnd > lockedOrder.totalAmount) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.COMPLAINT_REFUND_AMOUNT_INVALID,
+        detail: MESSAGES.COMPLAINTS.REFUND_AMOUNT_INVALID,
+      });
+    }
+
+    const refundChannel = input.refundChannel!;
+
+    if (refundChannel === ComplaintRefundChannel.BANK_TRANSFER) {
+      const normalizedRef =
+        input.referenceCode && input.referenceCode.length > 0
+          ? input.referenceCode
+          : null;
+
+      await tx.insert(payments).values({
+        orderId: lockedOrder.id,
+        amount: refundAmountVnd,
+        paymentMethod: lockedOrder.paymentMethod,
+        status: PaymentStatus.REFUNDED,
+        transactionType: PaymentTransactionType.REFUND,
+        referenceCode: normalizedRef,
+        verifiedBy: actorId,
+        paidAt: now,
+      });
+
+      if (refundAmountVnd === lockedOrder.totalAmount) {
+        await tx
+          .update(orders)
+          .set({
+            paymentStatus: PaymentStatus.REFUNDED,
+            updatedAt: now,
+          })
+          .where(eq(orders.id, lockedOrder.id));
+
+        if (lockedOrder.loyaltyPointsUsed > 0) {
+          await this.creditCustomerLoyaltyPoints(
+            tx,
+            lockedOrder.customerId,
+            lockedOrder.loyaltyPointsUsed,
+            now,
+          );
+        }
+      }
+    } else {
+      await this.creditCustomerLoyaltyPoints(
+        tx,
+        lockedOrder.customerId,
+        refundAmountVnd,
+        now,
+      );
+    }
+
+    return { refundChannel, refundAmountVnd };
+  }
+
+  private async creditCustomerLoyaltyPoints(
+    tx: DrizzleTx,
+    customerId: string,
+    points: number,
+    now: Date,
+  ): Promise<void> {
+    await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, customerId))
+      .for("update");
+
+    await tx
+      .update(users)
+      .set({
+        rewardPoints: sql`${users.rewardPoints} + ${points}`,
+        updatedAt: now,
+      })
+      .where(eq(users.id, customerId));
+  }
+
+  private async executeReplacementResolution(
+    tx: DrizzleTx,
+    lockedOrder: {
+      readonly id: string;
+      readonly customerId: string;
+      readonly receiverName: string;
+      readonly receiverPhone: string;
+      readonly shippingAddress: string;
+      readonly shippingDistanceKm: string;
+    },
+    input: ResolveComplaintInput,
+    now: Date,
+  ): Promise<string> {
+    const originalItems = await tx
+      .select({
+        productId: orderItems.productId,
+        quantity: orderItems.quantity,
+      })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, lockedOrder.id));
+
+    const originalCentsByProduct = new Map<string, number>();
+    for (const row of originalItems) {
+      originalCentsByProduct.set(
+        row.productId,
+        (originalCentsByProduct.get(row.productId) ?? 0) +
+          toQuantityCents(row.quantity),
+      );
+    }
+
+    const replacementItems: FefoAllocationItemInput[] = [];
+    if (input.items === undefined) {
+      for (const [productId, quantityCents] of originalCentsByProduct) {
+        replacementItems.push({ productId, quantityCents });
+      }
+    } else {
+      for (const item of input.items) {
+        const originalCents = originalCentsByProduct.get(item.productId);
+        const requestedCents = toQuantityCents(item.quantity);
+        if (
+          originalCents === undefined ||
+          requestedCents <= 0 ||
+          requestedCents > originalCents
+        ) {
+          throw new UnprocessableEntityException({
+            code: API_ERROR_CODES.COMPLAINT_REPLACEMENT_ITEMS_INVALID,
+            detail: MESSAGES.COMPLAINTS.REPLACEMENT_ITEMS_INVALID,
+          });
+        }
+        replacementItems.push({
+          productId: item.productId,
+          quantityCents: requestedCents,
+        });
+      }
+    }
+
+    if (replacementItems.length === 0) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.COMPLAINT_REPLACEMENT_ITEMS_INVALID,
+        detail: MESSAGES.COMPLAINTS.REPLACEMENT_ITEMS_INVALID,
+      });
+    }
+
+    const candidateBatches = await lockCandidateSellableBatches(
+      tx,
+      replacementItems.map((item) => item.productId),
+      now,
+    );
+
+    const planOutcome = planFefoAllocations(replacementItems, candidateBatches);
+    if (!planOutcome.ok) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.INSUFFICIENT_STOCK,
+        detail: MESSAGES.ORDERS.INSUFFICIENT_STOCK,
+        invalidParams: planOutcome.shortages.map((shortage) => ({
+          name: "items",
+          code: API_ERROR_CODES.INSUFFICIENT_STOCK,
+          reason: MESSAGES.ORDERS.INSUFFICIENT_STOCK,
+          params: shortage,
+        })),
+      });
+    }
+
+    const orderCode = buildOrderCode(formatOrderCalendarDateVn(now));
+    const [replacementOrder] = await tx
+      .insert(orders)
+      .values({
+        orderCode,
+        customerId: lockedOrder.customerId,
+        receiverName: lockedOrder.receiverName,
+        receiverPhone: lockedOrder.receiverPhone,
+        shippingAddress: lockedOrder.shippingAddress,
+        shippingDistanceKm: lockedOrder.shippingDistanceKm,
+        shippingFee: 0,
+        subtotal: 0,
+        discountAmount: 0,
+        loyaltyPointsUsed: 0,
+        totalAmount: 0,
+        paymentMethod: PaymentMethod.COD,
+        paymentStatus: PaymentStatus.PAID,
+        orderStatus: OrderStatus.CONFIRMED,
+        reservationExpiresAt: null,
+      })
+      .returning({ id: orders.id });
+
+    if (!replacementOrder) {
+      throw new Error("Failed to insert replacement order record.");
+    }
+
+    const insertedItems = await tx
+      .insert(orderItems)
+      .values(
+        replacementItems.map((item) => ({
+          orderId: replacementOrder.id,
+          productId: item.productId,
+          quantity: formatQuantityFromCents(item.quantityCents),
+          unitPrice: 0,
+        })),
+      )
+      .returning({
+        id: orderItems.id,
+        productId: orderItems.productId,
+      });
+
+    const insertedItemIdByProduct = new Map(
+      insertedItems.map((row) => [row.productId, row.id]),
+    );
+
+    await applyFefoAllocations(
+      tx,
+      planOutcome.plan,
+      insertedItemIdByProduct,
+      now,
+    );
+
+    return replacementOrder.id;
   }
 
   private async findStaffComplaintById(
