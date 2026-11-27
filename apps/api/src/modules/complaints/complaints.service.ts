@@ -8,6 +8,7 @@ import {
 import {
   API_ERROR_CODES,
   BUSINESS_RULES,
+  ComplaintCategory,
   type ComplaintProofImageUrls,
   ComplaintRefundChannel,
   ComplaintResolution,
@@ -25,6 +26,7 @@ import {
   eq,
   gte,
   ilike,
+  inArray,
   lte,
   or,
   sql,
@@ -84,6 +86,8 @@ const STAFF_COMPLAINT_SELECT = {
   customerId: complaints.customerId,
   customerName: users.fullName,
   customerPhone: users.phone,
+  category: complaints.category,
+  affectedOrderItemIds: complaints.affectedOrderItemIds,
   reason: complaints.reason,
   proofImageUrls: complaints.proofImageUrls,
   proofVideoUrl: complaints.proofVideoUrl,
@@ -112,6 +116,8 @@ type RawStaffComplaintRow = {
   customerId: string;
   customerName: string;
   customerPhone: string | null;
+  category: ComplaintCategory;
+  affectedOrderItemIds: string[];
   reason: string;
   proofImageUrls: ComplaintProofImageUrls;
   proofVideoUrl: string | null;
@@ -145,6 +151,8 @@ function toStaffComplaintProjection(
     customerId: row.customerId,
     customerName: row.customerName,
     customerPhone: row.customerPhone,
+    category: row.category,
+    affectedOrderItemIds: row.affectedOrderItemIds,
     reason: row.reason,
     proofImageUrls: row.proofImageUrls,
     proofVideoUrl: row.proofVideoUrl,
@@ -155,6 +163,70 @@ function toStaffComplaintProjection(
     triageNote: row.triageNote,
     resolvedBy: row.resolvedBy,
     resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
+    resolutionNote: row.resolutionNote,
+    refundChannel: row.refundChannel,
+    refundAmountVnd: row.refundAmountVnd,
+    replacementOrderId: row.replacementOrderId,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+const CUSTOMER_COMPLAINT_SELECT = {
+  id: complaints.id,
+  orderId: complaints.orderId,
+  customerId: complaints.customerId,
+  category: complaints.category,
+  affectedOrderItemIds: complaints.affectedOrderItemIds,
+  reason: complaints.reason,
+  proofImageUrls: complaints.proofImageUrls,
+  proofVideoUrl: complaints.proofVideoUrl,
+  status: complaints.status,
+  resolution: complaints.resolution,
+  triageNote: complaints.triageNote,
+  resolutionNote: complaints.resolutionNote,
+  refundChannel: complaints.refundChannel,
+  refundAmountVnd: complaints.refundAmountVnd,
+  replacementOrderId: complaints.replacementOrderId,
+  createdAt: complaints.createdAt,
+  updatedAt: complaints.updatedAt,
+} as const;
+
+type RawCustomerComplaintRow = {
+  id: string;
+  orderId: string;
+  customerId: string;
+  category: ComplaintCategory;
+  affectedOrderItemIds: string[];
+  reason: string;
+  proofImageUrls: ComplaintProofImageUrls;
+  proofVideoUrl: string | null;
+  status: ComplaintStatus;
+  resolution: ComplaintResolution | null;
+  triageNote: string | null;
+  resolutionNote: string | null;
+  refundChannel: ComplaintRefundChannel | null;
+  refundAmountVnd: number | null;
+  replacementOrderId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function toCustomerComplaintProjection(
+  row: RawCustomerComplaintRow,
+): ComplaintProjection {
+  return {
+    id: row.id,
+    orderId: row.orderId,
+    customerId: row.customerId,
+    category: row.category,
+    affectedOrderItemIds: row.affectedOrderItemIds,
+    reason: row.reason,
+    proofImageUrls: row.proofImageUrls,
+    proofVideoUrl: row.proofVideoUrl,
+    status: row.status,
+    resolution: row.resolution,
+    triageNote: row.triageNote,
     resolutionNote: row.resolutionNote,
     refundChannel: row.refundChannel,
     refundAmountVnd: row.refundAmountVnd,
@@ -184,6 +256,38 @@ export class ComplaintsService {
     private readonly db: DrizzleDB,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
+
+  /**
+   * Returns the submitted complaint for an owned customer order, or null when none exists (`ADR-0032`).
+   */
+  async getOrderComplaint(
+    customerId: string,
+    orderId: string,
+  ): Promise<ComplaintProjection | null> {
+    const [orderRow] = await this.db
+      .select({
+        id: orders.id,
+        customerId: orders.customerId,
+      })
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+
+    if (!orderRow || orderRow.customerId !== customerId) {
+      throw new NotFoundException({
+        code: API_ERROR_CODES.ORDER_NOT_FOUND,
+        detail: MESSAGES.ORDERS.NOT_FOUND,
+      });
+    }
+
+    const [row] = await this.db
+      .select(CUSTOMER_COMPLAINT_SELECT)
+      .from(complaints)
+      .where(eq(complaints.orderId, orderId))
+      .limit(1);
+
+    return row ? toCustomerComplaintProjection(row) : null;
+  }
 
   /**
    * Submits a complaint for an owned delivered/completed order within 24 hours of `deliveredAt`.
@@ -243,6 +347,23 @@ export class ComplaintsService {
       });
     }
 
+    const matchingOrderItems = await this.db
+      .select({ id: orderItems.id })
+      .from(orderItems)
+      .where(
+        and(
+          eq(orderItems.orderId, orderId),
+          inArray(orderItems.id, input.affectedOrderItemIds),
+        ),
+      );
+
+    if (matchingOrderItems.length !== input.affectedOrderItemIds.length) {
+      throw new UnprocessableEntityException({
+        code: API_ERROR_CODES.COMPLAINT_ITEMS_INVALID,
+        detail: MESSAGES.COMPLAINTS.ITEMS_INVALID,
+      });
+    }
+
     // Verify uploaded media metadata via Cloudinary Admin API strictly outside any DB transaction (`ADR-0040`).
     await this.cloudinaryService.verifyComplaintMedia(
       input.proofImageUrls,
@@ -255,39 +376,19 @@ export class ComplaintsService {
         .values({
           orderId,
           customerId,
+          category: input.category,
+          affectedOrderItemIds: input.affectedOrderItemIds,
           reason: input.reason,
           proofImageUrls: input.proofImageUrls,
           proofVideoUrl: input.proofVideoUrl ?? null,
         })
-        .returning({
-          id: complaints.id,
-          orderId: complaints.orderId,
-          customerId: complaints.customerId,
-          reason: complaints.reason,
-          proofImageUrls: complaints.proofImageUrls,
-          proofVideoUrl: complaints.proofVideoUrl,
-          status: complaints.status,
-          resolution: complaints.resolution,
-          createdAt: complaints.createdAt,
-          updatedAt: complaints.updatedAt,
-        });
+        .returning(CUSTOMER_COMPLAINT_SELECT);
 
       if (!created) {
         throw new Error("Failed to insert complaint.");
       }
 
-      return {
-        id: created.id,
-        orderId: created.orderId,
-        customerId: created.customerId,
-        reason: created.reason,
-        proofImageUrls: created.proofImageUrls,
-        proofVideoUrl: created.proofVideoUrl,
-        status: created.status,
-        resolution: created.resolution,
-        createdAt: created.createdAt.toISOString(),
-        updatedAt: created.updatedAt.toISOString(),
-      };
+      return toCustomerComplaintProjection(created);
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new ConflictException({

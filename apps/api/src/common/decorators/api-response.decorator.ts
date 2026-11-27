@@ -15,6 +15,7 @@ export { ApiResponseDto, PaginatedApiResponseDto, PaginationMetaDto };
 
 export interface ApiResponseOptions {
   isArray?: boolean;
+  nullable?: boolean;
 }
 
 /**
@@ -48,14 +49,19 @@ const createApiResponseGeneric = (
   }
 
   const isArray = options?.isArray ?? false;
+  const isNullable = options?.nullable ?? false;
   const dataSchema = isArray
     ? {
         type: "array",
         items: { $ref: getSchemaPath(model) },
       }
-    : {
-        $ref: getSchemaPath(model),
-      };
+    : isNullable
+      ? {
+          oneOf: [{ $ref: getSchemaPath(model) }, { type: "null" }],
+        }
+      : {
+          $ref: getSchemaPath(model),
+        };
 
   return applyDecorators(
     ApiExtraModels(ApiResponseDto, model),

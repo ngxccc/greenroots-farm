@@ -6,6 +6,7 @@ import {
 import { describe, expect, it, mock } from "bun:test";
 import {
   API_ERROR_CODES,
+  ComplaintCategory,
   ComplaintRefundChannel,
   ComplaintResolution,
   ComplaintStatus,
@@ -30,6 +31,8 @@ const ORDER_ID = "019fa8bc-8f4d-7000-b366-e691f45cfb91";
 const CUSTOMER_ID = "019fa8bc-8f4d-7000-b366-e691f45cfb92";
 const OTHER_CUSTOMER_ID = "019fa8bc-8f4d-7000-b366-e691f45cfb93";
 const COMPLAINT_ID = "019fa8bc-8f4d-7000-b366-e691f45cfb94";
+const ORDER_ITEM_ID = "019fa8bc-8f4d-7000-b366-e691f45cfb95";
+const FOREIGN_ITEM_ID = "019fa8bc-8f4d-7000-b366-e691f45cfb96";
 
 const VALID_IMAGE_URL = `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/image/upload/v1/complaints/damage-1.webp`;
 const VALID_VIDEO_URL = `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/video/upload/v1/complaints/clip.mp4`;
@@ -44,6 +47,14 @@ function createSelectChain<T>(rows: T[]) {
   };
 }
 
+function createWhereChain<T>(rows: T[]) {
+  return {
+    from: () => ({
+      where: () => Promise.resolve(rows),
+    }),
+  };
+}
+
 function createServiceHarness(options: {
   orderRows: {
     id: string;
@@ -51,7 +62,8 @@ function createServiceHarness(options: {
     orderStatus: OrderStatus;
     deliveredAt: Date | null;
   }[];
-  existingComplaintRows?: { id: string }[];
+  existingComplaintRows?: Record<string, unknown>[];
+  matchingOrderItemRows?: { id: string }[];
   insertError?: Error;
   verifyError?: Error;
 }) {
@@ -66,11 +78,18 @@ function createServiceHarness(options: {
         id: COMPLAINT_ID,
         orderId: ORDER_ID,
         customerId: CUSTOMER_ID,
+        category: ComplaintCategory.DAMAGED_WILTED,
+        affectedOrderItemIds: [ORDER_ITEM_ID],
         reason: "Rau bị dập nát khi giao hàng",
         proofImageUrls: [VALID_IMAGE_URL],
         proofVideoUrl: VALID_VIDEO_URL,
         status: ComplaintStatus.PENDING,
         resolution: null as ComplaintResolution | null,
+        triageNote: null,
+        resolutionNote: null,
+        refundChannel: null,
+        refundAmountVnd: null,
+        replacementOrderId: null,
         createdAt: now,
         updatedAt: now,
       },
@@ -83,7 +102,12 @@ function createServiceHarness(options: {
       if (selectCall === 1) {
         return createSelectChain(options.orderRows);
       }
-      return createSelectChain(options.existingComplaintRows ?? []);
+      if (selectCall === 2) {
+        return createSelectChain(options.existingComplaintRows ?? []);
+      }
+      return createWhereChain(
+        options.matchingOrderItemRows ?? [{ id: ORDER_ITEM_ID }],
+      );
     }),
     insert: mock(() => ({
       values: () => ({
@@ -111,6 +135,8 @@ describe("ComplaintsService", () => {
   describe("createComplaintSchema", () => {
     it("strips HTML tags and trims complaint reason", () => {
       const parsed = createComplaintSchema.parse({
+        category: ComplaintCategory.DAMAGED_WILTED,
+        affectedOrderItemIds: [ORDER_ITEM_ID],
         reason: "  <b>Rau</b>   bị dập nát khi giao hàng  ",
         proofImageUrls: [VALID_IMAGE_URL],
       });
@@ -120,18 +146,111 @@ describe("ComplaintsService", () => {
 
     it("rejects duplicate proof image URLs and non-complaints folders", () => {
       const duplicateResult = createComplaintSchema.safeParse({
+        category: ComplaintCategory.DAMAGED_WILTED,
+        affectedOrderItemIds: [ORDER_ITEM_ID],
         reason: "Rau bị dập nát khi giao hàng",
         proofImageUrls: [VALID_IMAGE_URL, VALID_IMAGE_URL],
       });
       expect(duplicateResult.success).toBe(false);
 
       const wrongFolderResult = createComplaintSchema.safeParse({
+        category: ComplaintCategory.DAMAGED_WILTED,
+        affectedOrderItemIds: [ORDER_ITEM_ID],
         reason: "Rau bị dập nát khi giao hàng",
         proofImageUrls: [
           `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/image/upload/v1/products/item.webp`,
         ],
       });
       expect(wrongFolderResult.success).toBe(false);
+    });
+  });
+
+  describe("getOrderComplaint", () => {
+    it("returns null when owned order has no complaint yet", async () => {
+      // Invariant: INV-CMP-1
+      const { service } = createServiceHarness({
+        orderRows: [
+          {
+            id: ORDER_ID,
+            customerId: CUSTOMER_ID,
+            orderStatus: OrderStatus.DELIVERED,
+            deliveredAt: new Date("2026-11-25T08:00:00.000Z"),
+          },
+        ],
+        existingComplaintRows: [],
+      });
+
+      const result = await service.getOrderComplaint(CUSTOMER_ID, ORDER_ID);
+      expect(result).toBeNull();
+    });
+
+    it("throws not-found when order belongs to another customer", async () => {
+      // Invariant: INV-CMP-1
+      const { service } = createServiceHarness({
+        orderRows: [
+          {
+            id: ORDER_ID,
+            customerId: OTHER_CUSTOMER_ID,
+            orderStatus: OrderStatus.DELIVERED,
+            deliveredAt: new Date("2026-11-25T08:00:00.000Z"),
+          },
+        ],
+      });
+
+      let caught: unknown;
+      try {
+        await service.getOrderComplaint(CUSTOMER_ID, ORDER_ID);
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(NotFoundException);
+    });
+
+    it("returns customer-safe complaint projection when complaint exists", async () => {
+      // Invariant: INV-CMP-6
+      const now = new Date("2026-11-25T10:00:00.000Z");
+      const { service } = createServiceHarness({
+        orderRows: [
+          {
+            id: ORDER_ID,
+            customerId: CUSTOMER_ID,
+            orderStatus: OrderStatus.DELIVERED,
+            deliveredAt: new Date("2026-11-25T08:00:00.000Z"),
+          },
+        ],
+        existingComplaintRows: [
+          {
+            id: COMPLAINT_ID,
+            orderId: ORDER_ID,
+            customerId: CUSTOMER_ID,
+            category: ComplaintCategory.DAMAGED_WILTED,
+            affectedOrderItemIds: [ORDER_ITEM_ID],
+            reason: "Rau bị dập nát khi giao hàng",
+            proofImageUrls: [VALID_IMAGE_URL],
+            proofVideoUrl: null,
+            status: ComplaintStatus.APPROVED,
+            resolution: ComplaintResolution.REFUND,
+            triageNote: "Đã xác nhận hình ảnh",
+            resolutionNote: "Hoàn tiền 100%",
+            refundChannel: ComplaintRefundChannel.LOYALTY_POINTS,
+            refundAmountVnd: 50_000,
+            replacementOrderId: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+      });
+
+      const result = await service.getOrderComplaint(CUSTOMER_ID, ORDER_ID);
+      expect(result).toMatchObject({
+        id: COMPLAINT_ID,
+        category: ComplaintCategory.DAMAGED_WILTED,
+        affectedOrderItemIds: [ORDER_ITEM_ID],
+        status: ComplaintStatus.APPROVED,
+        resolution: ComplaintResolution.REFUND,
+        refundChannel: ComplaintRefundChannel.LOYALTY_POINTS,
+        refundAmountVnd: 50_000,
+      });
     });
   });
 
@@ -155,6 +274,8 @@ describe("ComplaintsService", () => {
         CUSTOMER_ID,
         ORDER_ID,
         {
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [ORDER_ITEM_ID],
           reason: "Rau bị dập nát khi giao hàng",
           proofImageUrls: [VALID_IMAGE_URL],
           proofVideoUrl: VALID_VIDEO_URL,
@@ -183,6 +304,8 @@ describe("ComplaintsService", () => {
       let caught: unknown;
       try {
         await service.submitComplaint(CUSTOMER_ID, ORDER_ID, {
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [ORDER_ITEM_ID],
           reason: "Rau bị dập nát khi giao hàng",
           proofImageUrls: [VALID_IMAGE_URL],
         });
@@ -207,6 +330,8 @@ describe("ComplaintsService", () => {
       let caught: unknown;
       try {
         await service.submitComplaint(CUSTOMER_ID, ORDER_ID, {
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [ORDER_ITEM_ID],
           reason: "Rau bị dập nát khi giao hàng",
           proofImageUrls: [VALID_IMAGE_URL],
         });
@@ -239,6 +364,8 @@ describe("ComplaintsService", () => {
           CUSTOMER_ID,
           ORDER_ID,
           {
+            category: ComplaintCategory.DAMAGED_WILTED,
+            affectedOrderItemIds: [ORDER_ITEM_ID],
             reason: "Rau bị dập nát khi giao hàng",
             proofImageUrls: [VALID_IMAGE_URL],
           },
@@ -250,6 +377,42 @@ describe("ComplaintsService", () => {
       expect(caught).toMatchObject({
         response: { code: API_ERROR_CODES.ORDER_COMPLAINT_WINDOW_EXPIRED },
       });
+    });
+
+    it("rejects affected order item IDs that do not belong to the target order", async () => {
+      // Invariant: INV-CMP-5
+      const { service, verifyComplaintMedia } = createServiceHarness({
+        orderRows: [
+          {
+            id: ORDER_ID,
+            customerId: CUSTOMER_ID,
+            orderStatus: OrderStatus.DELIVERED,
+            deliveredAt: new Date("2026-11-25T08:00:00.000Z"),
+          },
+        ],
+        matchingOrderItemRows: [],
+      });
+
+      let caught: unknown;
+      try {
+        await service.submitComplaint(
+          CUSTOMER_ID,
+          ORDER_ID,
+          {
+            category: ComplaintCategory.WRONG_ITEM,
+            affectedOrderItemIds: [FOREIGN_ITEM_ID],
+            reason: "Giao nhầm sản phẩm không thuộc đơn hàng",
+            proofImageUrls: [VALID_IMAGE_URL],
+          },
+          new Date("2026-11-25T09:00:00.000Z"),
+        );
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toMatchObject({
+        response: { code: API_ERROR_CODES.COMPLAINT_ITEMS_INVALID },
+      });
+      expect(verifyComplaintMedia).not.toHaveBeenCalled();
     });
 
     it("maps PostgreSQL 23505 on complaints_order_id_uidx to conflict exception", async () => {
@@ -275,6 +438,8 @@ describe("ComplaintsService", () => {
           CUSTOMER_ID,
           ORDER_ID,
           {
+            category: ComplaintCategory.DAMAGED_WILTED,
+            affectedOrderItemIds: [ORDER_ITEM_ID],
             reason: "Rau bị dập nát khi giao hàng",
             proofImageUrls: [VALID_IMAGE_URL],
           },
@@ -309,6 +474,8 @@ describe("ComplaintsService", () => {
           CUSTOMER_ID,
           ORDER_ID,
           {
+            category: ComplaintCategory.DAMAGED_WILTED,
+            affectedOrderItemIds: [ORDER_ITEM_ID],
             reason: "Rau bị dập nát khi giao hàng",
             proofImageUrls: [VALID_IMAGE_URL],
             proofVideoUrl: VALID_VIDEO_URL,

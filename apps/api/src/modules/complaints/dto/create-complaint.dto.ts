@@ -1,10 +1,11 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
-import { BUSINESS_RULES } from "@greenroots/shared";
+import { BUSINESS_RULES, ComplaintCategory } from "@greenroots/shared";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import {
   zCloudinaryMediaUrl,
   zSanitizedString,
+  zUuidV7,
 } from "@/common/schemas/zod-primitives";
 import {
   COMPLAINT_MEDIA_URL_MAX_LENGTH,
@@ -17,6 +18,16 @@ import {
  */
 export const createComplaintSchema = z
   .object({
+    category: z
+      .enum(ComplaintCategory)
+      .describe("Standardized complaint category"),
+    affectedOrderItemIds: z
+      .array(zUuidV7())
+      .min(1)
+      .refine((ids) => new Set(ids).size === ids.length, {
+        message: "Affected order item IDs must be unique",
+      })
+      .describe("Unique UUIDv7 IDs of affected order line items"),
     reason: zSanitizedString({
       min: COMPLAINT_REASON_MIN_LENGTH,
       max: COMPLAINT_REASON_MAX_LENGTH,

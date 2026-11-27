@@ -38,6 +38,7 @@ export const orderSchema = z.object({
   totalAmountVnd: z.number().int().nonnegative(),
   paymentUrl: z.string().nullable(),
   reservationExpiresAt: z.iso.datetime().nullable(),
+  deliveredAt: z.iso.datetime().nullable(),
   items: z.array(orderItemSchema),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),

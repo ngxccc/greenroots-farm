@@ -1233,6 +1233,7 @@ describe("OrdersService", () => {
             orderStatus: OrderStatus.PENDING_CONFIRMATION,
             paymentMethod: PaymentMethod.COD,
             paymentStatus: PaymentStatus.PENDING,
+            deliveredAt: null,
             receiverName: "Nguyen Van An",
             receiverPhone: "0912345678",
             shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",
@@ -1289,6 +1290,7 @@ describe("OrdersService", () => {
         totalAmountVnd: 185_000,
         paymentUrl: null,
         reservationExpiresAt: null,
+        deliveredAt: null,
         items: [
           {
             id: "019fa8bc-8f4d-7000-b366-e691f45cfb51",
@@ -1942,6 +1944,7 @@ describe("OrdersService", () => {
             orderStatus: OrderStatus.DELIVERED,
             paymentMethod: PaymentMethod.COD,
             paymentStatus: PaymentStatus.PENDING,
+            deliveredAt: null,
             receiverName: "Nguyen Van An",
             receiverPhone: "0912345678",
             shippingAddress: "12 Nguyen Van Linh, Quận 7, TP. Hồ Chí Minh",

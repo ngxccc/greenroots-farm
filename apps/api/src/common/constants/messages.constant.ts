@@ -268,6 +268,8 @@ export const MESSAGES = {
     ALREADY_EXISTS: "A complaint has already been submitted for this order.",
     MEDIA_INVALID:
       "Proof media asset is missing on Cloudinary or exceeds allowed size/duration limits.",
+    ITEMS_INVALID:
+      "Every affected order item ID must belong to the target order.",
     MEDIA_SERVICE_UNAVAILABLE:
       "Media verification service is temporarily unavailable.",
     NOT_FOUND: "Complaint not found.",
