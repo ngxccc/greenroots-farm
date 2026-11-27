@@ -217,28 +217,20 @@ export interface AccountProfileSessionDeps {
   }>;
 }
 
+function isProblemObject(error: unknown): error is Record<string, unknown> {
+  return typeof error === "object" && error !== null;
+}
+
 function extractProblemStatus(error: unknown): number | undefined {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof error.status === "number"
-  ) {
-    return error.status;
-  }
-  return undefined;
+  return isProblemObject(error) && typeof error.status === "number"
+    ? error.status
+    : undefined;
 }
 
 function extractProblemCode(error: unknown): string | undefined {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    typeof error.code === "string"
-  ) {
-    return error.code;
-  }
-  return undefined;
+  return isProblemObject(error) && typeof error.code === "string"
+    ? error.code
+    : undefined;
 }
 
 function resolveSessionsDegradedMessage(result: {
@@ -295,6 +287,28 @@ async function checkProtectedSessionGate(
   return { ready: true };
 }
 
+type MeFetchResult = {
+  readonly response?: { readonly status: number };
+  readonly data?: { data: StorefrontSessionUser };
+  readonly error?: unknown;
+};
+
+function resolveAuthenticatedCustomerProfile(
+  meResult: MeFetchResult,
+): AccountProfileSessionResolution {
+  const outcome = classifyFetchOutcome(meResult, Boolean(meResult.data?.data));
+  if (outcome === "unauthenticated") {
+    return { status: "unauthenticated" };
+  }
+  if (outcome !== "ok" || !meResult.data?.data) {
+    return { status: "degraded" };
+  }
+  if (meResult.data.data.role !== UserRole.CUSTOMER) {
+    return { status: "unauthenticated" };
+  }
+  return { status: "authenticated", user: meResult.data.data };
+}
+
 /**
  * Resolves customer identity for protected `/account/*` Server Components while distinguishing
  * terminal `401`/missing-token states from transient `5xx` or proxy-degraded failures.
@@ -312,19 +326,7 @@ export async function resolveAccountProfileSession(
     }
 
     const fetchMe = deps?.fetchMe ?? fetchCachedMe;
-    const result = await fetchMe();
-    const classification = classifyFetchOutcome(
-      result,
-      Boolean(result.data?.data),
-    );
-    if (classification === "ok" && result.data?.data) {
-      if (result.data.data.role !== UserRole.CUSTOMER) {
-        return { status: "unauthenticated" };
-      }
-      return { status: "authenticated", user: result.data.data };
-    }
-
-    return { status: classification === "ok" ? "degraded" : classification };
+    return resolveAuthenticatedCustomerProfile(await fetchMe());
   } catch {
     return { status: "degraded" };
   }
@@ -412,18 +414,9 @@ export async function resolveAccountProfileWithSessions(
       safeSessionsPromise,
     ]);
 
-    const meOutcome = classifyFetchOutcome(
-      meResult,
-      Boolean(meResult.data?.data),
-    );
-    if (meOutcome === "unauthenticated") {
-      return { status: "unauthenticated" };
-    }
-    if (meOutcome !== "ok" || !meResult.data?.data) {
-      return { status: "degraded" };
-    }
-    if (meResult.data.data.role !== UserRole.CUSTOMER) {
-      return { status: "unauthenticated" };
+    const profile = resolveAuthenticatedCustomerProfile(meResult);
+    if (profile.status !== "authenticated") {
+      return profile;
     }
 
     const sessionsArray = sessionsResult.data?.data;
@@ -445,7 +438,7 @@ export async function resolveAccountProfileWithSessions(
 
     return {
       status: "authenticated",
-      user: meResult.data.data,
+      user: profile.user,
       sessionsState,
     };
   } catch {
@@ -542,38 +535,30 @@ export async function resolveAccountAddressesSession(
       fetchAddresses(),
     ]);
 
-    const meOutcome = classifyFetchOutcome(
-      meResult,
-      Boolean(meResult.data?.data),
-    );
+    const profile = resolveAuthenticatedCustomerProfile(meResult);
     const addressesOutcome = classifyFetchOutcome(
       addressesResult,
       Boolean(addressesResult.data?.data),
     );
 
     if (
-      meOutcome === "unauthenticated" ||
+      profile.status === "unauthenticated" ||
       addressesOutcome === "unauthenticated"
     ) {
       return { status: "unauthenticated" };
     }
 
     if (
-      meOutcome !== "ok" ||
+      profile.status !== "authenticated" ||
       addressesOutcome !== "ok" ||
-      !meResult.data?.data ||
       !addressesResult.data?.data
     ) {
       return { status: "degraded" };
     }
 
-    if (meResult.data.data.role !== UserRole.CUSTOMER) {
-      return { status: "unauthenticated" };
-    }
-
     return {
       status: "authenticated",
-      user: meResult.data.data,
+      user: profile.user,
       addresses: addressesResult.data.data,
     };
   } catch {
