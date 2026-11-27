@@ -451,7 +451,7 @@ function ProductFormBody({
             accept="image/jpeg,image/png,image/webp"
             multiple
             onChange={handleImageFilesSelected}
-            className="sr-only"
+            className="hidden"
           />
         </div>
 
