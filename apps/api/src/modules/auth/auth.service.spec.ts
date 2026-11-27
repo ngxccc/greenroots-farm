@@ -53,7 +53,9 @@ describe("AuthService", () => {
   }
 
   const mockJwtService = {
-    signAsync: mock(() => Promise.resolve("mock_jwt_access_token")),
+    signAsync: mock((_payload?: Record<string, unknown>, _options?: unknown) =>
+      Promise.resolve("mock_jwt_access_token"),
+    ),
     verifyAsync: mock(() =>
       Promise.resolve({ sub: "user-id", email: "test@greenroots.farm" }),
     ),
@@ -579,6 +581,7 @@ describe("AuthService", () => {
             status: UserStatus.ACTIVE,
           },
         ],
+        [{ id: "new-session-id" }],
       ]);
 
       const result = await service.refreshToken(
@@ -890,6 +893,123 @@ describe("AuthService", () => {
       expect(service.resetPassword(resetDto)).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  describe("login", () => {
+    it("embeds inserted refresh session id as sid claim alongside independent jti", async () => {
+      const hashedPassword = await getCachedPasswordHash("Password123!");
+      const sessionId = "019fa8bc-8f4d-7000-b366-e691f45cfb91";
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            id: "user-id",
+            email: "customer@greenroots.farm",
+            fullName: "Farmer Bob",
+            role: UserRole.CUSTOMER,
+            status: UserStatus.ACTIVE,
+            password: hashedPassword,
+            emailVerified: true,
+          },
+        ],
+        [{ id: sessionId }],
+      ]);
+
+      await service.login(
+        { email: "customer@greenroots.farm", password: "Password123!" },
+        AuthSurface.CUSTOMER,
+      );
+
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sub: "user-id",
+          email: "customer@greenroots.farm",
+          role: UserRole.CUSTOMER,
+          sid: sessionId,
+          jti: expect.any(String),
+        }),
+        expect.any(Object),
+      );
+      const signedPayload = mockJwtService.signAsync.mock.calls[0]?.[0] as
+        | { jti?: string; sid?: string }
+        | undefined;
+      expect(signedPayload?.jti).not.toBe(sessionId);
+    });
+  });
+
+  describe("listCustomerSessions", () => {
+    it("returns closed projection with isCurrent matching current sid", async () => {
+      const createdAt1 = new Date("2026-11-27T10:00:00.000Z");
+      const expiresAt1 = new Date("2026-12-04T10:00:00.000Z");
+      const createdAt2 = new Date("2026-11-26T10:00:00.000Z");
+      const expiresAt2 = new Date("2026-12-03T10:00:00.000Z");
+      const currentSid = "019fa8bc-8f4d-7000-b366-e691f45cfb91";
+      const otherSid = "019fa8bc-8f4d-7000-b366-e691f45cfb92";
+
+      mockDb.setSelectResult([
+        {
+          id: currentSid,
+          deviceName: "Chrome on Linux",
+          ipAddress: "203.0.113.10",
+          createdAt: createdAt1,
+          expiresAt: expiresAt1,
+        },
+        {
+          id: otherSid,
+          deviceName: null,
+          ipAddress: null,
+          createdAt: createdAt2,
+          expiresAt: expiresAt2,
+        },
+      ]);
+
+      const result = await service.listCustomerSessions("user-id", currentSid);
+
+      expect(result).toEqual([
+        {
+          id: currentSid,
+          deviceName: "Chrome on Linux",
+          ipAddress: "203.0.113.10",
+          createdAt: createdAt1.toISOString(),
+          expiresAt: expiresAt1.toISOString(),
+          isCurrent: true,
+        },
+        {
+          id: otherSid,
+          deviceName: null,
+          ipAddress: null,
+          createdAt: createdAt2.toISOString(),
+          expiresAt: expiresAt2.toISOString(),
+          isCurrent: false,
+        },
+      ]);
+      expect(Object.keys(result[0] ?? {}).sort()).toEqual([
+        "createdAt",
+        "deviceName",
+        "expiresAt",
+        "id",
+        "ipAddress",
+        "isCurrent",
+      ]);
+    });
+
+    it("marks all sessions as not current when sid is omitted", async () => {
+      const createdAt = new Date("2026-11-27T10:00:00.000Z");
+      const expiresAt = new Date("2026-12-04T10:00:00.000Z");
+      mockDb.setSelectResult([
+        {
+          id: "019fa8bc-8f4d-7000-b366-e691f45cfb91",
+          deviceName: "Mobile Safari",
+          ipAddress: "198.51.100.5",
+          createdAt,
+          expiresAt,
+        },
+      ]);
+
+      const result = await service.listCustomerSessions("user-id");
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.isCurrent).toBe(false);
     });
   });
 });

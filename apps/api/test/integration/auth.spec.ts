@@ -41,7 +41,7 @@ import { RedisService } from "@/common/services/redis.service";
 import { env } from "@/common/config/env.config";
 import type { Redis } from "ioredis";
 
-// Standard response envelope types
+import type { components } from "../generated/api-schema";
 interface ApiResponse<T = unknown> {
   success: boolean;
   data: T;
@@ -2886,6 +2886,212 @@ describe("Authentication Integration", () => {
       expect((refreshRes.body as Rfc9457Error).code).toBe(
         API_ERROR_CODES.AUTH_SURFACE_FORBIDDEN,
       );
+    });
+  });
+
+  describe("GET /api/v1/auth/customer/sessions", () => {
+    type ActiveSessionDto = components["schemas"]["ActiveSessionDto"];
+
+    it("rejects unauthenticated and non-customer callers", async () => {
+      // Invariant: INV-AUTH-SESS-1
+      const unauthRes = await request(getHttpServer()).get(
+        "/api/v1/auth/customer/sessions",
+      );
+      expect(unauthRes.status).toBe(401);
+
+      const password = "StaffPassword123!";
+      const staff = await seedVerifiedUser(
+        "staff.sessions@greenroots.farm",
+        password,
+        { role: UserRole.ADMIN },
+      );
+
+      const staffLogin = await request(getHttpServer())
+        .post("/api/v1/auth/staff/login")
+        .send({ email: staff.email, password });
+      expect(staffLogin.status).toBe(200);
+      const { accessToken: staffToken } = (
+        staffLogin.body as ApiResponse<LoginData>
+      ).data;
+
+      const staffRes = await request(getHttpServer())
+        .get("/api/v1/auth/customer/sessions")
+        .set("Authorization", `Bearer ${staffToken}`);
+      expect(staffRes.status).toBe(403);
+    });
+
+    it("returns closed projection scoped to active customer sessions with isCurrent", async () => {
+      // Invariants: INV-AUTH-SESS-2, INV-AUTH-SESS-3, INV-AUTH-SESS-4
+      const password = "CustomerPassword123!";
+      const customer = await seedVerifiedUser(
+        "sessions.owner@greenroots.farm",
+        password,
+      );
+      const otherCustomer = await seedVerifiedUser(
+        "sessions.other@greenroots.farm",
+        password,
+      );
+
+      const login1 = await request(getHttpServer())
+        .post("/api/v1/auth/customer/login")
+        .set("User-Agent", "DeviceOne/1.0")
+        .send({ email: customer.email, password });
+      expect(login1.status).toBe(200);
+      const token1 = (login1.body as ApiResponse<LoginData>).data.accessToken;
+
+      const login2 = await request(getHttpServer())
+        .post("/api/v1/auth/customer/login")
+        .set("User-Agent", "DeviceTwo/2.0")
+        .send({ email: customer.email, password });
+      expect(login2.status).toBe(200);
+      const token2 = (login2.body as ApiResponse<LoginData>).data.accessToken;
+
+      // Seed an expired customer session, a staff-surface session for the same user, and another user's session
+      await db.insert(refreshTokens).values([
+        {
+          userId: customer.id,
+          token: sha256(randomBytes(32).toString("hex")),
+          surface: AuthSurface.CUSTOMER,
+          deviceName: "ExpiredDevice",
+          expiresAt: new Date(Date.now() - 60_000),
+        },
+        {
+          userId: customer.id,
+          token: sha256(randomBytes(32).toString("hex")),
+          surface: AuthSurface.STAFF,
+          deviceName: "StaffSurfaceDevice",
+          expiresAt: new Date(Date.now() + 86_400_000),
+        },
+        {
+          userId: otherCustomer.id,
+          token: sha256(randomBytes(32).toString("hex")),
+          surface: AuthSurface.CUSTOMER,
+          deviceName: "OtherUserDevice",
+          expiresAt: new Date(Date.now() + 86_400_000),
+        },
+      ]);
+
+      const res = await request(getHttpServer())
+        .get("/api/v1/auth/customer/sessions")
+        .set("Authorization", `Bearer ${token2}`);
+
+      expect(res.status).toBe(200);
+      const sessions = (res.body as ApiResponse<ActiveSessionDto[]>).data;
+      expect(sessions).toHaveLength(2);
+
+      // Ordered newest-first: login2 is current, login1 is older
+      expect(sessions[0]?.isCurrent).toBe(true);
+      expect(sessions[1]?.isCurrent).toBe(false);
+
+      // Closed projection keys only
+      for (const session of sessions) {
+        expect(Object.keys(session).sort()).toEqual([
+          "createdAt",
+          "deviceName",
+          "expiresAt",
+          "id",
+          "ipAddress",
+          "isCurrent",
+        ]);
+      }
+
+      // Calling with token1 flips isCurrent to the first session
+      const res1 = await request(getHttpServer())
+        .get("/api/v1/auth/customer/sessions")
+        .set("Authorization", `Bearer ${token1}`);
+      expect(res1.status).toBe(200);
+      const sessionsFrom1 = (res1.body as ApiResponse<ActiveSessionDto[]>).data;
+      expect(sessionsFrom1[0]?.isCurrent).toBe(false);
+      expect(sessionsFrom1[1]?.isCurrent).toBe(true);
+    });
+
+    it("caps returned sessions at 50 rows", async () => {
+      // Invariant: INV-AUTH-SESS-2
+      const customer = await seedVerifiedUser(
+        "sessions.cap@greenroots.farm",
+        "CustomerPassword123!",
+      );
+      const accessToken = await generateTestToken(jwtService, {
+        sub: customer.id,
+        email: customer.email,
+        role: customer.role,
+      });
+
+      const rows = Array.from({ length: 55 }, (_, i) => ({
+        userId: customer.id,
+        token: sha256(randomBytes(32).toString("hex")),
+        surface: AuthSurface.CUSTOMER,
+        deviceName: `Device-${i}`,
+        expiresAt: new Date(Date.now() + 86_400_000),
+      }));
+      await db.insert(refreshTokens).values(rows);
+
+      const res = await request(getHttpServer())
+        .get("/api/v1/auth/customer/sessions")
+        .set("Authorization", `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(200);
+      const sessions = (res.body as ApiResponse<ActiveSessionDto[]>).data;
+      expect(sessions).toHaveLength(50);
+    });
+
+    it("evaluates isCurrent to false for legacy tokens without sid and rotated sessions", async () => {
+      // Invariant: INV-AUTH-SESS-4
+      const password = "CustomerPassword123!";
+      const customer = await seedVerifiedUser(
+        "sessions.legacy@greenroots.farm",
+        password,
+      );
+
+      const loginRes = await request(getHttpServer())
+        .post("/api/v1/auth/customer/login")
+        .send({ email: customer.email, password });
+      expect(loginRes.status).toBe(200);
+      const { accessToken: oldAccessToken, refreshToken } = (
+        loginRes.body as ApiResponse<LoginData>
+      ).data;
+
+      // Legacy token without sid claim
+      const legacyToken = await generateTestToken(jwtService, {
+        sub: customer.id,
+        email: customer.email,
+        role: customer.role,
+      });
+      const legacyRes = await request(getHttpServer())
+        .get("/api/v1/auth/customer/sessions")
+        .set("Authorization", `Bearer ${legacyToken}`);
+      expect(legacyRes.status).toBe(200);
+      const legacySessions = (legacyRes.body as ApiResponse<ActiveSessionDto[]>)
+        .data;
+      expect(legacySessions).toHaveLength(1);
+      expect(legacySessions[0]?.isCurrent).toBe(false);
+
+      // Rotate refresh token: oldAccessToken's sid now points to deleted row
+      const refreshRes = await request(getHttpServer())
+        .post("/api/v1/auth/customer/refresh")
+        .send({ refreshToken });
+      expect(refreshRes.status).toBe(200);
+      const { accessToken: rotatedAccessToken } = (
+        refreshRes.body as ApiResponse<RefreshData>
+      ).data;
+
+      const staleRes = await request(getHttpServer())
+        .get("/api/v1/auth/customer/sessions")
+        .set("Authorization", `Bearer ${oldAccessToken}`);
+      expect(staleRes.status).toBe(200);
+      const staleSessions = (staleRes.body as ApiResponse<ActiveSessionDto[]>)
+        .data;
+      expect(staleSessions).toHaveLength(1);
+      expect(staleSessions[0]?.isCurrent).toBe(false);
+
+      const freshRes = await request(getHttpServer())
+        .get("/api/v1/auth/customer/sessions")
+        .set("Authorization", `Bearer ${rotatedAccessToken}`);
+      expect(freshRes.status).toBe(200);
+      const freshSessions = (freshRes.body as ApiResponse<ActiveSessionDto[]>)
+        .data;
+      expect(freshSessions).toHaveLength(1);
+      expect(freshSessions[0]?.isCurrent).toBe(true);
     });
   });
 });
