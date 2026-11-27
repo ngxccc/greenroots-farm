@@ -409,7 +409,7 @@ function ProductFormBody({
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>
+          <Label htmlFor="prod-images">
             Hình ảnh sản phẩm ({imageUrls.length}/{MAX_PRODUCT_IMAGES})
           </Label>
           <Button
@@ -429,14 +429,14 @@ function ProductFormBody({
             )}
             {isUploading ? "Đang tải lên..." : "Tải ảnh lên"}
           </Button>
-          <input
+          <Input
+            id="prod-images"
             ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
             multiple
             onChange={handleImageFilesSelected}
             className="sr-only"
-            aria-label="Chọn hình ảnh sản phẩm"
           />
         </div>
 
@@ -452,14 +452,16 @@ function ProductFormBody({
                   alt={`Ảnh sản phẩm ${idx + 1}`}
                   className="size-full object-cover"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => handleRemoveImage(idx)}
                   aria-label={`Xóa ảnh ${idx + 1}`}
-                  className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-gray-900/75 text-white hover:bg-gray-900"
+                  className="absolute top-1 right-1 size-6 rounded-full bg-gray-900/75 text-white hover:bg-gray-900 hover:text-white"
                 >
                   <X className="size-3.5" aria-hidden="true" />
-                </button>
+                </Button>
               </div>
             ))}
           </div>
