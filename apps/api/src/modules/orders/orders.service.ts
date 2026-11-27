@@ -303,18 +303,153 @@ export class OrdersService {
       });
     }
 
+    let resolvedOrderRow = orderRow;
+    if (
+      resolvedOrderRow.orderStatus === OrderStatus.PENDING_PAYMENT &&
+      resolvedOrderRow.paymentMethod === PaymentMethod.PAYOS
+    ) {
+      resolvedOrderRow =
+        await this.reconcilePendingPayosOrder(resolvedOrderRow);
+    }
+
     const itemsByOrderId = await this.hydrateOrderItemsByOrderIds([
-      orderRow.id,
+      resolvedOrderRow.id,
     ]);
     const paymentUrlsByOrderId = await this.hydratePendingPaymentUrls([
-      orderRow,
+      resolvedOrderRow,
     ]);
 
     return this.mapOrderRowToProjection(
-      orderRow,
-      itemsByOrderId.get(orderRow.id) ?? [],
-      paymentUrlsByOrderId.get(orderRow.id) ?? null,
+      resolvedOrderRow,
+      itemsByOrderId.get(resolvedOrderRow.id) ?? [],
+      paymentUrlsByOrderId.get(resolvedOrderRow.id) ?? null,
     );
+  }
+
+  /**
+   * Actively reconciles a `pending_payment` PayOS order against `GET /v2/payment-requests/{orderCode}`
+   * so local dev environments (without public HTTPS webhooks) and delayed webhook deliveries settle or cancel immediately.
+   * Fails open on gateway lookup errors so order reads never break.
+   */
+  private async reconcilePendingPayosOrder(
+    orderRow: OrderRow,
+  ): Promise<OrderRow> {
+    const [pendingPayment] = await this.db
+      .select({
+        id: payments.id,
+        orderCode: payments.orderCode,
+        amount: payments.amount,
+      })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.orderId, orderRow.id),
+          eq(payments.status, PaymentStatus.PENDING),
+          eq(payments.transactionType, PaymentTransactionType.PAYMENT),
+        ),
+      )
+      .limit(1);
+
+    if (!pendingPayment?.orderCode) {
+      return orderRow;
+    }
+
+    let info;
+    try {
+      info = await this.paymentDriver.getPaymentLinkInfo(
+        pendingPayment.orderCode,
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown error";
+      this.logger.warn(
+        `Active PayOS status check failed for orderId=${orderRow.id} orderCode=${pendingPayment.orderCode}: ${detail}`,
+      );
+      return orderRow;
+    }
+
+    const normalizedStatus = info.status.toUpperCase();
+    const now = new Date();
+
+    if (
+      normalizedStatus === "PAID" &&
+      info.amountPaidVnd >= pendingPayment.amount
+    ) {
+      const settledOrder = await this.db.transaction(async (tx) => {
+        const lockedOrder = await this.lockOrderForUpdate(tx, orderRow.id);
+        if (lockedOrder.orderStatus !== OrderStatus.PENDING_PAYMENT) {
+          return lockedOrder;
+        }
+
+        const [lockedPayment] = await tx
+          .select({
+            id: payments.id,
+            status: payments.status,
+          })
+          .from(payments)
+          .where(eq(payments.id, pendingPayment.id))
+          .for("update");
+
+        if (!lockedPayment || lockedPayment.status === PaymentStatus.PAID) {
+          return lockedOrder;
+        }
+
+        const firstTx = info.transactions[0];
+        const reference =
+          firstTx && typeof firstTx["reference"] === "string"
+            ? firstTx["reference"]
+            : null;
+
+        await tx
+          .update(payments)
+          .set({
+            status: PaymentStatus.PAID,
+            referenceCode: reference ?? (info.paymentLinkId || null),
+            rawPayload:
+              info.rawPayload as (typeof payments.$inferInsert)["rawPayload"],
+            paidAt: now,
+            updatedAt: now,
+          })
+          .where(eq(payments.id, lockedPayment.id));
+
+        const [updatedOrder] = await tx
+          .update(orders)
+          .set({
+            paymentStatus: PaymentStatus.PAID,
+            orderStatus: OrderStatus.CONFIRMED,
+            reservationExpiresAt: null,
+            updatedAt: now,
+          })
+          .where(eq(orders.id, lockedOrder.id))
+          .returning(ORDER_COLUMNS);
+
+        return updatedOrder ?? lockedOrder;
+      });
+
+      return settledOrder;
+    }
+
+    if (normalizedStatus === "CANCELLED") {
+      const hoursThreshold = await this.resolveHoursThreshold();
+      const cancelledOrder = await this.db.transaction(async (tx) => {
+        const lockedOrder = await this.lockOrderForUpdate(tx, orderRow.id);
+        if (lockedOrder.orderStatus !== OrderStatus.PENDING_PAYMENT) {
+          return lockedOrder;
+        }
+
+        const { cancelledOrder: updatedOrder } = await this.cancelOrderWithinTx(
+          tx,
+          lockedOrder,
+          hoursThreshold,
+          now,
+          PaymentStatus.CANCELLED,
+        );
+        return updatedOrder;
+      });
+
+      return cancelledOrder;
+    }
+
+    return orderRow;
   }
 
   /**

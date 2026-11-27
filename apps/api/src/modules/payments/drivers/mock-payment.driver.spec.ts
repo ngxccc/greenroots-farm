@@ -168,4 +168,27 @@ describe("MockPaymentDriver", () => {
       expect(driver.getCreatedLinks()[0]?.status).toBe("CANCELLED");
     });
   });
+
+  describe("getPaymentLinkInfo", () => {
+    it("returns tracked status for created/cancelled links and PENDING for untracked orderCodes", async () => {
+      await driver.createPaymentLink({
+        orderCode: 790,
+        amountVnd: 150_000,
+        description: "GRF-790",
+        returnUrl: "https://greenroots.farm/return",
+        cancelUrl: "https://greenroots.farm/cancel",
+      });
+
+      const pending = await driver.getPaymentLinkInfo(790);
+      expect(pending.status).toBe("PENDING");
+      expect(pending.amountVnd).toBe(150_000);
+
+      await driver.cancelPaymentLink(790, "Cancelled by user");
+      const cancelled = await driver.getPaymentLinkInfo(790);
+      expect(cancelled.status).toBe("CANCELLED");
+
+      const untracked = await driver.getPaymentLinkInfo(999);
+      expect(untracked.status).toBe("PENDING");
+    });
+  });
 });

@@ -95,6 +95,16 @@ describe("PaymentsWebhookService", () => {
       });
     });
 
+    it("acknowledges signed PayOS confirm-webhook probe (orderCode=123) without a payment row", async () => {
+      mockDb.setSelectResultsQueue([[]]);
+
+      const res = await service.handlePayosWebhook({
+        ...validPayload,
+        data: { ...validPayload.data, orderCode: 123 },
+      });
+      expect(res).toEqual({ received: true });
+    });
+
     // Invariant: INV-PAY-CHK-6
     it("returns acknowledged idempotently when payment is already paid", async () => {
       const updates: unknown[] = [];

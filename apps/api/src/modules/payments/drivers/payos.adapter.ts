@@ -10,6 +10,7 @@ import type {
   CreatePaymentLinkInput,
   CreatePaymentLinkResult,
   PaymentDriver,
+  PaymentLinkInfoResult,
   PayosWebhookPayload,
   VerifiedPaymentWebhookData,
 } from "../payments.interface";
@@ -37,6 +38,17 @@ interface PayosApiEnvelope<T> {
   readonly code?: string;
   readonly desc?: string;
   readonly data?: T;
+}
+
+interface PayosPaymentLinkInfoData {
+  readonly id?: string;
+  readonly paymentLinkId?: string;
+  readonly orderCode: number;
+  readonly amount: number;
+  readonly amountPaid: number;
+  readonly amountRemaining: number;
+  readonly status: string;
+  readonly transactions?: readonly Record<string, unknown>[];
 }
 
 interface PayosCreateLinkData {
@@ -180,7 +192,8 @@ export class PayOSAdapter implements PaymentDriver {
       body["buyerAddress"] = input.buyerAddress;
     }
 
-    const data = await this.postPayos<PayosCreateLinkData>(
+    const data = await this.requestPayos<PayosCreateLinkData>(
+      "POST",
       "/v2/payment-requests",
       body,
     );
@@ -250,7 +263,8 @@ export class PayOSAdapter implements PaymentDriver {
     assertValidOrderCode(orderCode);
 
     const body = reason ? { cancellationReason: reason } : undefined;
-    const data = await this.postPayos<PayosCancelLinkData>(
+    const data = await this.requestPayos<PayosCancelLinkData>(
+      "POST",
       `/v2/payment-requests/${orderCode}/cancel`,
       body,
     );
@@ -261,6 +275,32 @@ export class PayOSAdapter implements PaymentDriver {
       status: data.status,
       canceledAt: data.canceledAt ?? null,
       cancellationReason: data.cancellationReason ?? null,
+    };
+  }
+
+  /**
+   * Queries PayOS for the current payment link status via `GET /v2/payment-requests/{orderCode}`.
+   *
+   * @param orderCode Numeric PayOS order code.
+   * @returns Normalized payment link status snapshot.
+   */
+  async getPaymentLinkInfo(orderCode: number): Promise<PaymentLinkInfoResult> {
+    assertValidOrderCode(orderCode);
+
+    const data = await this.requestPayos<PayosPaymentLinkInfoData>(
+      "GET",
+      `/v2/payment-requests/${orderCode}`,
+    );
+
+    return {
+      paymentLinkId: data.paymentLinkId ?? data.id ?? "",
+      orderCode: data.orderCode,
+      amountVnd: data.amount,
+      amountPaidVnd: data.amountPaid,
+      amountRemainingVnd: data.amountRemaining,
+      status: data.status,
+      transactions: Array.isArray(data.transactions) ? data.transactions : [],
+      rawPayload: { ...data },
     };
   }
 
@@ -284,22 +324,27 @@ export class PayOSAdapter implements PaymentDriver {
     return { clientId, apiKey, checksumKey };
   }
 
-  private async postPayos<T>(
+  private async requestPayos<T>(
+    method: "GET" | "POST",
     path: string,
     body?: Record<string, unknown>,
   ): Promise<T> {
     const { clientId, apiKey } = this.getCredentials();
 
+    const headers: Record<string, string> = {
+      "x-client-id": clientId,
+      "x-api-key": apiKey,
+    };
+    if (body !== undefined) {
+      headers["Content-Type"] = "application/json";
+    }
+
     let response: Response;
     try {
       response = await this.fetchImpl(`${PAYOS_API_BASE_URL}${path}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-client-id": clientId,
-          "x-api-key": apiKey,
-        },
-        body: body ? JSON.stringify(body) : undefined,
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: AbortSignal.timeout(PAYOS_REQUEST_TIMEOUT_MS),
       });
     } catch (error) {

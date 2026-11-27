@@ -4,6 +4,7 @@ import type {
   CreatePaymentLinkInput,
   CreatePaymentLinkResult,
   PaymentDriver,
+  PaymentLinkInfoResult,
   PayosWebhookPayload,
   VerifiedPaymentWebhookData,
 } from "../payments.interface";
@@ -144,6 +145,37 @@ export class MockPaymentDriver implements PaymentDriver {
         status: "CANCELLED",
         canceledAt,
         cancellationReason,
+      };
+    });
+  }
+
+  /**
+   * Returns the current in-memory status of a mock payment link.
+   *
+   * @param orderCode Numeric PayOS order code.
+   * @returns Normalized payment link status snapshot (defaults to `PENDING` if not tracked in memory).
+   */
+  getPaymentLinkInfo(orderCode: number): Promise<PaymentLinkInfoResult> {
+    return Promise.resolve().then(() => {
+      assertValidOrderCode(orderCode);
+
+      const existing = this.links.get(orderCode);
+      const status = existing?.status ?? "PENDING";
+      const amountVnd = existing?.amountVnd ?? 0;
+
+      return {
+        paymentLinkId: existing?.paymentLinkId ?? `mock-link-${orderCode}`,
+        orderCode,
+        amountVnd,
+        amountPaidVnd: status === "PAID" ? amountVnd : 0,
+        amountRemainingVnd: status === "PAID" ? 0 : amountVnd,
+        status,
+        transactions: [],
+        rawPayload: {
+          orderCode,
+          status,
+          amount: amountVnd,
+        },
       };
     });
   }

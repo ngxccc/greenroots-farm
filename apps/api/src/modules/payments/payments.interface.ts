@@ -80,6 +80,21 @@ export interface CancelPaymentLinkResult {
 }
 
 /**
+ * Payment link status snapshot returned by `PaymentDriver.getPaymentLinkInfo`
+ * (`GET /v2/payment-requests/{orderCode}`).
+ */
+export interface PaymentLinkInfoResult {
+  readonly paymentLinkId: string;
+  readonly orderCode: number;
+  readonly amountVnd: number;
+  readonly amountPaidVnd: number;
+  readonly amountRemainingVnd: number;
+  readonly status: string;
+  readonly transactions: readonly Record<string, unknown>[];
+  readonly rawPayload: Record<string, unknown>;
+}
+
+/**
  * Contract for payment gateway drivers (PayOS or mock).
  */
 export interface PaymentDriver {
@@ -93,4 +108,5 @@ export interface PaymentDriver {
     orderCode: number,
     reason?: string,
   ): Promise<CancelPaymentLinkResult>;
+  getPaymentLinkInfo(orderCode: number): Promise<PaymentLinkInfoResult>;
 }

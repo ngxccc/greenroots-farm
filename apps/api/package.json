@@ -18,6 +18,8 @@
     "doppler:dev": "doppler run -- bun run dev",
     "lint": "oxlint --type-aware src test",
     "openapi:generate": "bun scripts/generate-openapi.ts",
+    "payos:confirm-webhook": "bun scripts/confirm-payos-webhook.ts",
+    "payos:tunnel": "bun scripts/payos-tunnel.ts",
     "start": "bun dist/main.js",
     "test": "bun test src/",
     "test:all": "bun run test && bun run test:e2e",

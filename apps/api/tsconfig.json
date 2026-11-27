@@ -29,6 +29,12 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*", "drizzle.config.ts", "test/**/*"],
+  "include": [
+    "src/**/*",
+    "drizzle.config.ts",
+    "test/**/*",
+    "scripts/confirm-payos-webhook.ts",
+    "scripts/payos-tunnel.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

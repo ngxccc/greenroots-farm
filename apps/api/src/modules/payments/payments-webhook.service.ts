@@ -32,6 +32,8 @@ function parsePayosTransactionDate(rawDateTime: string, fallback: Date): Date {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
+const PAYOS_CONFIRM_WEBHOOK_SAMPLE_ORDER_CODE = 123;
+
 /**
  * Verifies and reconciles incoming PayOS HMAC-SHA256 webhooks against `payments` and `orders` (`ADR-0042`).
  */
@@ -82,6 +84,17 @@ export class PaymentsWebhookService {
         !paymentLookup ||
         (!paymentLookup.orderId && !paymentLookup.subscriptionId)
       ) {
+        // PayOS `POST /confirm-webhook` sends a signed probe with sample `orderCode = 123` that has no DB row.
+        if (
+          !paymentLookup &&
+          verified.orderCode === PAYOS_CONFIRM_WEBHOOK_SAMPLE_ORDER_CODE
+        ) {
+          this.logger.log(
+            "Acknowledged PayOS confirm-webhook verification probe (orderCode=123).",
+          );
+          return { received: true };
+        }
+
         throw new NotFoundException({
           code: API_ERROR_CODES.PAYMENT_NOT_FOUND,
           detail: MESSAGES.PAYMENTS.NOT_FOUND,

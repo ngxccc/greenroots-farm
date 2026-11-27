@@ -308,4 +308,55 @@ describe("PayOSAdapter", () => {
       await expectErrorMessage(adapter.cancelPaymentLink(9001), /invalid JSON/);
     });
   });
+
+  describe("getPaymentLinkInfo", () => {
+    it("queries GET /v2/payment-requests/{orderCode} with PayOS headers and normalizes PAID status", async () => {
+      let capturedUrl = "";
+      let capturedMethod = "";
+      let capturedHeaders: Record<string, string> = {};
+
+      const mockFetch = (input: string | URL | Request, init?: RequestInit) => {
+        capturedUrl =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        capturedMethod = init?.method ?? "GET";
+        capturedHeaders = init?.headers as Record<string, string>;
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              code: "00",
+              desc: "success",
+              data: {
+                id: "link_9001",
+                orderCode: 9001,
+                amount: 185000,
+                amountPaid: 185000,
+                amountRemaining: 0,
+                status: "PAID",
+                transactions: [{ reference: "FT26331001" }],
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      };
+
+      const adapter = PayOSAdapter.withCredentials(TEST_CREDS, mockFetch);
+      const info = await adapter.getPaymentLinkInfo(9001);
+
+      expect(capturedUrl).toBe(
+        `${PAYOS_API_BASE_URL}/v2/payment-requests/9001`,
+      );
+      expect(capturedMethod).toBe("GET");
+      expect(capturedHeaders["x-client-id"]).toBe(TEST_CREDS.clientId);
+      expect(capturedHeaders["x-api-key"]).toBe(TEST_CREDS.apiKey);
+      expect(info.paymentLinkId).toBe("link_9001");
+      expect(info.status).toBe("PAID");
+      expect(info.amountPaidVnd).toBe(185000);
+      expect(info.transactions).toHaveLength(1);
+    });
+  });
 });
