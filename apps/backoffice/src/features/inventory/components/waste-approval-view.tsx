@@ -19,9 +19,18 @@ import {
   TabsTrigger,
 } from "@greenroots/ui";
 import { useQuery } from "@tanstack/react-query";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
 import { AlertCircle, CheckCircle2, RefreshCw, Search } from "lucide-react";
-import { useState } from "react";
-import { useAuthStore } from "@/features/auth/stores/auth.store";
+import { useMemo, useState } from "react";
+import {
+  useAuthStore,
+  type BackofficeUser,
+} from "@/features/auth/stores/auth.store";
 import { fetchWasteLogs, WASTE_QUERY_KEYS } from "../waste-api";
 import {
   evaluateWasteReviewGuard,
@@ -34,6 +43,115 @@ import {
 import { WasteDetailDialog } from "./waste-detail-dialog";
 
 const PAGE_LIMIT = 20;
+const EMPTY_WASTE_LOGS: WasteLogDto[] = [];
+
+const columnHelper = createColumnHelper<WasteLogDto>();
+
+function createWasteColumns(options: {
+  readonly currentUser: BackofficeUser | null;
+  readonly onOpenDetail: (log: WasteLogDto) => void;
+}) {
+  return [
+    columnHelper.accessor((row) => row.batch.productName, {
+      id: "batch",
+      header: "Lô hàng / Sản phẩm",
+      cell: (info) => {
+        const log = info.row.original;
+        return (
+          <div>
+            <div className="font-medium text-gray-900">
+              {log.batch.productName}
+            </div>
+            <div className="text-xs text-gray-500 tabular-nums">
+              {log.batch.batchCode} · Tồn: {log.batch.availableQuantity}{" "}
+              {log.batch.unit}
+            </div>
+          </div>
+        );
+      },
+    }),
+    columnHelper.accessor("discardedQuantity", {
+      header: () => <div className="text-right">Số lượng hủy</div>,
+      cell: (info) => {
+        const log = info.row.original;
+        return (
+          <div className="text-right font-semibold text-destructive tabular-nums">
+            -{log.discardedQuantity} {log.batch.unit}
+          </div>
+        );
+      },
+    }),
+    columnHelper.accessor((row) => row.reporter.fullName, {
+      id: "reporter",
+      header: "Người đề xuất",
+      cell: (info) => {
+        const log = info.row.original;
+        const guard = evaluateWasteReviewGuard(log, options.currentUser);
+        return (
+          <div>
+            <div className="text-gray-900">{log.reporter.fullName}</div>
+            {guard.isSelfProposal ? (
+              <div className="text-xs text-amber-700">
+                Phiếu của bạn (4 mắt)
+              </div>
+            ) : null}
+          </div>
+        );
+      },
+    }),
+    columnHelper.accessor("reason", {
+      header: "Lý do",
+      cell: (info) => (
+        <p className="line-clamp-2 max-w-xs text-gray-700">{info.getValue()}</p>
+      ),
+    }),
+    columnHelper.accessor("createdAt", {
+      header: "Thời gian",
+      cell: (info) => (
+        <span className="text-gray-600 tabular-nums">
+          {formatWasteTimestamp(info.getValue())}
+        </span>
+      ),
+    }),
+    columnHelper.accessor("status", {
+      header: "Trạng thái",
+      cell: (info) => {
+        const statusMeta = WASTE_STATUS_META[info.getValue()];
+        return (
+          <Badge variant="outline" className={statusMeta.badgeClassName}>
+            {statusMeta.label}
+          </Badge>
+        );
+      },
+    }),
+    columnHelper.display({
+      id: "actions",
+      header: () => <div className="text-right">Thao tác</div>,
+      cell: (info) => {
+        const log = info.row.original;
+        const guard = evaluateWasteReviewGuard(log, options.currentUser);
+        const isPending = log.status === WasteLogStatus.PENDING_APPROVAL;
+        return (
+          <div className="text-right">
+            <Button
+              type="button"
+              variant={isPending && guard.canReview ? "default" : "outline"}
+              size="sm"
+              onClick={() => options.onOpenDetail(log)}
+              className={
+                isPending && guard.canReview
+                  ? "bg-brand-forest text-white hover:bg-brand-dark"
+                  : undefined
+              }
+            >
+              {isPending && guard.canReview ? "Thẩm định" : "Chi tiết"}
+            </Button>
+          </div>
+        );
+      },
+    }),
+  ];
+}
 
 /**
  * Interactive 2-step waste review and approval workspace for Backoffice Admins.
@@ -63,8 +181,27 @@ export function WasteApprovalView() {
     queryFn: () => fetchWasteLogs(queryParams),
   });
 
-  const items = data?.items ?? [];
+  const items = data?.items ?? EMPTY_WASTE_LOGS;
   const totalPages = data?.totalPages ?? 1;
+
+  const columns = useMemo(
+    () =>
+      createWasteColumns({
+        currentUser,
+        onOpenDetail: (log) => {
+          setSelectedLog(log);
+          setDetailOpen(true);
+        },
+      }),
+    [currentUser],
+  );
+
+  // oxlint-disable-next-line react/incompatible-library
+  const table = useReactTable({
+    data: items,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   function handleTabChange(value: unknown) {
     if (
@@ -76,11 +213,6 @@ export function WasteApprovalView() {
       setStatusFilter(value);
       setPage(1);
     }
-  }
-
-  function handleOpenDetail(log: WasteLogDto) {
-    setSelectedLog(log);
-    setDetailOpen(true);
   }
 
   return (
@@ -167,85 +299,34 @@ export function WasteApprovalView() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Lô hàng / Sản phẩm</TableHead>
-                  <TableHead className="text-right">Số lượng hủy</TableHead>
-                  <TableHead>Người đề xuất</TableHead>
-                  <TableHead>Lý do</TableHead>
-                  <TableHead>Thời gian</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead className="text-right">Thao tác</TableHead>
-                </TableRow>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
               </TableHeader>
               <TableBody>
-                {items.map((log) => {
-                  const statusMeta = WASTE_STATUS_META[log.status];
-                  const guard = evaluateWasteReviewGuard(log, currentUser);
-                  const isPending =
-                    log.status === WasteLogStatus.PENDING_APPROVAL;
-
-                  return (
-                    <TableRow key={log.id}>
-                      <TableCell>
-                        <div className="font-medium text-gray-900">
-                          {log.batch.productName}
-                        </div>
-                        <div className="text-xs text-gray-500 tabular-nums">
-                          {log.batch.batchCode} · Tồn:{" "}
-                          {log.batch.availableQuantity} {log.batch.unit}
-                        </div>
+                {table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
                       </TableCell>
-                      <TableCell className="text-right font-semibold text-destructive tabular-nums">
-                        -{log.discardedQuantity} {log.batch.unit}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-gray-900">
-                          {log.reporter.fullName}
-                        </div>
-                        {guard.isSelfProposal ? (
-                          <div className="text-xs text-amber-700">
-                            Phiếu của bạn (4 mắt)
-                          </div>
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="max-w-xs">
-                        <p className="line-clamp-2 text-gray-700">
-                          {log.reason}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-gray-600 tabular-nums">
-                        {formatWasteTimestamp(log.createdAt)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={statusMeta.badgeClassName}
-                        >
-                          {statusMeta.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          type="button"
-                          variant={
-                            isPending && guard.canReview ? "default" : "outline"
-                          }
-                          size="sm"
-                          onClick={() => handleOpenDetail(log)}
-                          className={
-                            isPending && guard.canReview
-                              ? "bg-brand-forest text-white hover:bg-brand-dark"
-                              : undefined
-                          }
-                        >
-                          {isPending && guard.canReview
-                            ? "Thẩm định"
-                            : "Chi tiết"}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                    ))}
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}
