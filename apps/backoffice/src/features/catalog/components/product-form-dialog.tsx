@@ -230,6 +230,24 @@ function ProductFormBody({
         URL.revokeObjectURL(item.previewUrl);
       }
       setPendingImages([]);
+
+      queryClient.setQueriesData<{
+        readonly items: ProductDto[];
+        readonly total: number;
+        readonly page: number;
+        readonly totalPages: number;
+      }>({ queryKey: ["admin", "products"] }, (existing) => {
+        if (!existing || !Array.isArray(existing.items)) {
+          return existing;
+        }
+        return {
+          ...existing,
+          items: existing.items.map((item) =>
+            item.id === saved.id ? saved : item,
+          ),
+        };
+      });
+
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["admin", "products"] }),
         queryClient.invalidateQueries({
