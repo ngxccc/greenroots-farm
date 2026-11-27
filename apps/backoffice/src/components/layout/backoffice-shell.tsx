@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   AlertTriangle,
+  BarChart3,
   Boxes,
   CalendarClock,
   ChevronsUpDown,
@@ -129,7 +130,13 @@ const NAV_GROUPS: readonly NavGroup[] = [
         to: "/finance/payments",
         label: "Đối soát thanh toán",
         icon: <Receipt className="size-4 shrink-0" aria-hidden="true" />,
-        roles: ["super_admin"],
+        roles: ["sales", "admin", "super_admin"],
+      },
+      {
+        to: "/analytics",
+        label: "Báo cáo vận hành",
+        icon: <BarChart3 className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["admin", "super_admin"],
       },
     ],
   },
