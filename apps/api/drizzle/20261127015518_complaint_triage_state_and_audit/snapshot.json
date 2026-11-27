@@ -1,0 +1,181 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "23bc3c54-7d71-49ba-81eb-8e1b2bf93c50",
+  "prevIds": ["e3b7d1b6-528a-4249-87cc-03190bc5e8d2"],
+  "footprints": [
+    {
+      "statementType": "alter_enum",
+      "statementTarget": ["enum", "public", "complaint_status"],
+      "writes": ["s|enum|public.complaint_status"],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "complaints", "triaged_by"],
+      "writes": [
+        "s|col|public.complaints.triaged_by",
+        "n|col|public.complaints.triaged_by",
+        "e|col|public.complaints.triaged_by"
+      ],
+      "reads": ["n|tbl|public.complaints", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "complaints", "triaged_at"],
+      "writes": [
+        "s|col|public.complaints.triaged_at",
+        "n|col|public.complaints.triaged_at",
+        "e|col|public.complaints.triaged_at"
+      ],
+      "reads": ["n|tbl|public.complaints", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "complaints", "triage_note"],
+      "writes": [
+        "s|col|public.complaints.triage_note",
+        "n|col|public.complaints.triage_note",
+        "e|col|public.complaints.triage_note"
+      ],
+      "reads": ["n|tbl|public.complaints", "n|sch|public"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "complaints",
+        "complaints_triaged_by_idx"
+      ],
+      "writes": [
+        "s|idx|public.complaints_triaged_by_idx",
+        "n|idx|public.complaints_triaged_by_idx",
+        "e|idx|public.complaints_triaged_by_idx",
+        "n|rel|public.complaints_triaged_by_idx"
+      ],
+      "reads": [
+        "n|tbl|public.complaints",
+        "n|sch|public",
+        "n|col|public.complaints.triaged_by"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "complaints"],
+      "writes": [
+        "s|fk|public.complaints.complaints_triaged_by_users_id_fkey",
+        "n|fk|public.complaints.complaints_triaged_by_users_id_fkey",
+        "e|fk|public.complaints.complaints_triaged_by_users_id_fkey",
+        "n|con|public.complaints.complaints_triaged_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.complaints",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.complaints.triaged_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "triaged_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "triaged_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "triage_note",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "complaints_triaged_by_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "triaged_by",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "complaints",
+        "name": "complaints_triaged_by_users_id_fkey",
+        "nameExplicit": false,
+        "columns": ["triaged_by"],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": ["id"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"complaint_status\"]",
+      "set": {
+        "values": ["pending", "triaged", "approved", "rejected"]
+      }
+    }
+  ]
+}

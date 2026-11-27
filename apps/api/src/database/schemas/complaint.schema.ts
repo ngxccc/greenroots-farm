@@ -3,6 +3,7 @@ import {
   jsonb,
   snakeCase,
   text,
+  timestamp,
   uniqueIndex,
   uuid,
   varchar,
@@ -32,11 +33,15 @@ export const complaints = snakeCase.table(
     proofVideoUrl: varchar({ length: 500 }),
     status: complaintStatusEnum().default(ComplaintStatus.PENDING).notNull(),
     resolution: complaintResolutionEnum(),
+    triagedBy: uuid().references(() => users.id, { onDelete: "set null" }),
+    triagedAt: timestamp({ withTimezone: true, mode: "date" }),
+    triageNote: text(),
   },
   (table) => [
     uniqueIndex("complaints_order_id_uidx").on(table.orderId),
     index("complaints_customer_id_idx").on(table.customerId),
     index("complaints_status_idx").on(table.status),
+    index("complaints_triaged_by_idx").on(table.triagedBy),
   ],
 );
 
