@@ -35,6 +35,7 @@ describe("StaffService", () => {
     email: "superadmin@greenroots.farm",
     role: UserRole.SUPER_ADMIN,
     jti: "jti-1",
+    sid: "sid-1",
   };
 
   const targetId = "019fa8bc-8f4d-7000-b366-e691f45cfb02";

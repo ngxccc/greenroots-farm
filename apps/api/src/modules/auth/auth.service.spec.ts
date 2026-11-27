@@ -993,7 +993,7 @@ describe("AuthService", () => {
       ]);
     });
 
-    it("marks all sessions as not current when sid is omitted", async () => {
+    it("marks all sessions as not current when sid does not match any active row", async () => {
       const createdAt = new Date("2026-11-27T10:00:00.000Z");
       const expiresAt = new Date("2026-12-04T10:00:00.000Z");
       mockDb.setSelectResult([
@@ -1006,7 +1006,10 @@ describe("AuthService", () => {
         },
       ]);
 
-      const result = await service.listCustomerSessions("user-id");
+      const result = await service.listCustomerSessions(
+        "user-id",
+        "019fa8bc-8f4d-7000-b366-e691f45cfb99",
+      );
 
       expect(result).toHaveLength(1);
       expect(result[0]?.isCurrent).toBe(false);

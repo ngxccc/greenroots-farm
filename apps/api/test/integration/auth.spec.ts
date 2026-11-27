@@ -3035,7 +3035,7 @@ describe("Authentication Integration", () => {
       expect(sessions).toHaveLength(50);
     });
 
-    it("evaluates isCurrent to false for legacy tokens without sid and rotated sessions", async () => {
+    it("rejects tokens missing sid and evaluates isCurrent to false for rotated sessions", async () => {
       // Invariant: INV-AUTH-SESS-4
       const password = "CustomerPassword123!";
       const customer = await seedVerifiedUser(
@@ -3051,20 +3051,20 @@ describe("Authentication Integration", () => {
         loginRes.body as ApiResponse<LoginData>
       ).data;
 
-      // Legacy token without sid claim
-      const legacyToken = await generateTestToken(jwtService, {
-        sub: customer.id,
-        email: customer.email,
-        role: customer.role,
-      });
-      const legacyRes = await request(getHttpServer())
+      // Token signed without sid claim must be rejected by JwtAuthGuard
+      const tokenWithoutSid = await jwtService.signAsync(
+        {
+          sub: customer.id,
+          email: customer.email,
+          role: customer.role,
+          jti: randomUUID(),
+        },
+        { expiresIn: "15m" },
+      );
+      const missingSidRes = await request(getHttpServer())
         .get("/api/v1/auth/customer/sessions")
-        .set("Authorization", `Bearer ${legacyToken}`);
-      expect(legacyRes.status).toBe(200);
-      const legacySessions = (legacyRes.body as ApiResponse<ActiveSessionDto[]>)
-        .data;
-      expect(legacySessions).toHaveLength(1);
-      expect(legacySessions[0]?.isCurrent).toBe(false);
+        .set("Authorization", `Bearer ${tokenWithoutSid}`);
+      expect(missingSidRes.status).toBe(401);
 
       // Rotate refresh token: oldAccessToken's sid now points to deleted row
       const refreshRes = await request(getHttpServer())

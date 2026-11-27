@@ -132,12 +132,12 @@ export class AuthService {
    * Lists non-expired active customer sessions for the authenticated user.
    *
    * @param userId Authenticated customer UUID (`jwt.sub`).
-   * @param currentSessionId Optional refresh session ID from `jwt.sid` to flag `isCurrent`.
+   * @param currentSessionId Refresh session ID from `jwt.sid` to flag `isCurrent`.
    * @returns Bounded closed projection ordered newest-first.
    */
   async listCustomerSessions(
     userId: string,
-    currentSessionId?: string,
+    currentSessionId: string,
   ): Promise<ActiveSession[]> {
     const rows = await this.db
       .select({
@@ -164,7 +164,7 @@ export class AuthService {
       ipAddress: row.ipAddress,
       createdAt: row.createdAt.toISOString(),
       expiresAt: row.expiresAt.toISOString(),
-      isCurrent: currentSessionId !== undefined && row.id === currentSessionId,
+      isCurrent: row.id === currentSessionId,
     }));
   }
 

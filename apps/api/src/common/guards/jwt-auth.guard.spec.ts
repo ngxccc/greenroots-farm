@@ -135,12 +135,35 @@ describe("JwtAuthGuard", () => {
     );
   });
 
+  it("throws UnauthorizedException when payload lacks sid claim", () => {
+    (mockJwtService.verifyAsync as ReturnType<typeof mock>).mockResolvedValue({
+      sub: "user-123",
+      email: "customer@greenroots.farm",
+      role: UserRole.CUSTOMER,
+      jti: "jti-no-sid",
+    });
+
+    const context = createMockContext({
+      headers: {
+        authorization: "Bearer valid.token.without.sid",
+      },
+    });
+
+    expect(guard.canActivate(context)).rejects.toThrow(
+      new UnauthorizedException({
+        code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
+        detail: MESSAGES.AUTH.TOKEN_INVALID_OR_EXPIRED,
+      }),
+    );
+  });
+
   it("throws UnauthorizedException when token or user is revoked in Redis", () => {
     const payload: JwtPayload = {
       sub: "user-123",
       email: "customer@greenroots.farm",
       role: UserRole.CUSTOMER,
       jti: "jti-revoked-uuid",
+      sid: "sid-revoked-uuid",
     };
 
     (mockJwtService.verifyAsync as ReturnType<typeof mock>).mockResolvedValue(
@@ -170,6 +193,7 @@ describe("JwtAuthGuard", () => {
       email: "staff@greenroots.farm",
       role: UserRole.FARM_STAFF,
       jti: "jti-valid-uuid",
+      sid: "sid-valid-uuid",
     };
 
     (mockJwtService.verifyAsync as ReturnType<typeof mock>).mockResolvedValue(

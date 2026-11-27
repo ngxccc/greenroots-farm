@@ -16,12 +16,19 @@ export interface AuthenticatedSession {
 
 export async function generateTestToken(
   jwtService: JwtService,
-  payload: { sub: string; email: string; role: string; jti?: string },
+  payload: {
+    sub: string;
+    email: string;
+    role: string;
+    jti?: string;
+    sid?: string;
+  },
 ): Promise<string> {
-  const { jti = randomUUID(), ...rest } = payload;
+  const { jti = randomUUID(), sid = randomUUID(), ...rest } = payload;
   return jwtService.signAsync(
     {
       jti,
+      sid,
       ...rest,
     },
     {

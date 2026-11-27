@@ -66,7 +66,7 @@ export class JwtAuthGuard implements CanActivate {
       });
     }
 
-    if (!payload.sub) {
+    if (!payload.sub || !payload.sid) {
       throw new UnauthorizedException({
         code: API_ERROR_CODES.AUTH_TOKEN_INVALID_OR_EXPIRED,
         detail: MESSAGES.AUTH.TOKEN_INVALID_OR_EXPIRED,
