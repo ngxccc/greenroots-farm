@@ -1,0 +1,81 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "4ae62056-b85f-4df4-8126-031aed3dd119",
+  "prevIds": ["82fb34f8-0ed3-4daf-84d0-3a067ff51fdc"],
+  "footprints": [
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "orders",
+        "orders_delivered_at_idx"
+      ],
+      "writes": [
+        "s|idx|public.orders_delivered_at_idx",
+        "n|idx|public.orders_delivered_at_idx",
+        "e|idx|public.orders_delivered_at_idx",
+        "n|rel|public.orders_delivered_at_idx"
+      ],
+      "reads": [
+        "n|tbl|public.orders",
+        "n|sch|public",
+        "n|col|public.orders.delivered_at"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "orders"],
+      "writes": [
+        "s|ck|public.orders.orders_delivered_at_required",
+        "n|ck|public.orders.orders_delivered_at_required",
+        "e|ck|public.orders.orders_delivered_at_required",
+        "n|con|public.orders.orders_delivered_at_required"
+      ],
+      "reads": [
+        "n|tbl|public.orders",
+        "n|sch|public",
+        "n|col|public.orders.order_status",
+        "n|col|public.orders.delivered_at"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "orders",
+        "name": "orders_delivered_at_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "delivered_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"order_status\" IN ('delivered', 'completed') AND \"delivered_at\" IS NOT NULL",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "orders",
+        "name": "orders_delivered_at_required",
+        "value": "\"order_status\" NOT IN ('delivered', 'completed') OR \"delivered_at\" IS NOT NULL",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

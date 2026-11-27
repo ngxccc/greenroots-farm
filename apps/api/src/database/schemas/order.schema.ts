@@ -76,6 +76,15 @@ export const orders = snakeCase.table(
       .where(
         sql`${table.orderStatus} IN ('pending_payment', 'pending_confirmation') AND ${table.reservationExpiresAt} IS NOT NULL`,
       ),
+    index("orders_delivered_at_idx")
+      .on(table.deliveredAt)
+      .where(
+        sql`${table.orderStatus} IN ('delivered', 'completed') AND ${table.deliveredAt} IS NOT NULL`,
+      ),
+    check(
+      "orders_delivered_at_required",
+      sql`${table.orderStatus} NOT IN ('delivered', 'completed') OR ${table.deliveredAt} IS NOT NULL`,
+    ),
     check("orders_shipping_fee_non_negative", sql`${table.shippingFee} >= 0`),
     check("orders_subtotal_non_negative", sql`${table.subtotal} >= 0`),
     check(

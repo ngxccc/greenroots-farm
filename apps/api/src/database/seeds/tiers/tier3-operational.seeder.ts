@@ -120,6 +120,7 @@ export async function seedTier3Operational(
         paymentMethod: PaymentMethod.SUBSCRIPTION,
         paymentStatus: PaymentStatus.PAID,
         orderStatus: OrderStatus.COMPLETED,
+        deliveredAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
       },
     ])
     .onConflictDoNothing();

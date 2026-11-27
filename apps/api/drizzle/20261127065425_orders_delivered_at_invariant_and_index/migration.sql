@@ -1,0 +1,3 @@
+UPDATE "orders" SET "delivered_at" = COALESCE("delivered_at", "updated_at") WHERE "order_status" IN ('delivered', 'completed') AND "delivered_at" IS NULL;--> statement-breakpoint
+CREATE INDEX "orders_delivered_at_idx" ON "orders" ("delivered_at") WHERE "order_status" IN ('delivered', 'completed') AND "delivered_at" IS NOT NULL;--> statement-breakpoint
+ALTER TABLE "orders" ADD CONSTRAINT "orders_delivered_at_required" CHECK ("order_status" NOT IN ('delivered', 'completed') OR "delivered_at" IS NOT NULL);

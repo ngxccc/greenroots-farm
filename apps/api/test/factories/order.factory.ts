@@ -63,6 +63,14 @@ export async function createOrder(
   const totalAmount = subtotal - loyaltyPointsUsed + shippingFee;
   const paymentMethod = options.paymentMethod ?? PaymentMethod.COD;
   const paymentStatus = options.paymentStatus ?? PaymentStatus.PENDING;
+  const orderStatus = options.orderStatus ?? OrderStatus.PENDING_CONFIRMATION;
+  const deliveredAt =
+    options.deliveredAt !== undefined
+      ? options.deliveredAt
+      : orderStatus === OrderStatus.DELIVERED ||
+          orderStatus === OrderStatus.COMPLETED
+        ? new Date()
+        : null;
 
   const [createdOrder] = await db
     .insert(orders)
@@ -80,8 +88,8 @@ export async function createOrder(
       totalAmount,
       paymentMethod,
       paymentStatus,
-      orderStatus: options.orderStatus ?? OrderStatus.PENDING_CONFIRMATION,
-      deliveredAt: options.deliveredAt ?? null,
+      orderStatus,
+      deliveredAt,
     })
     .returning();
 

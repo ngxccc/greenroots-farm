@@ -223,6 +223,11 @@ describe("Orders History Integration", () => {
         paymentMethod: params.paymentMethod ?? PaymentMethod.COD,
         paymentStatus: params.paymentStatus ?? PaymentStatus.PENDING,
         orderStatus: params.orderStatus ?? OrderStatus.PENDING_CONFIRMATION,
+        deliveredAt:
+          params.orderStatus === OrderStatus.DELIVERED ||
+          params.orderStatus === OrderStatus.COMPLETED
+            ? createdAt
+            : null,
         createdAt,
         updatedAt: createdAt,
       })
