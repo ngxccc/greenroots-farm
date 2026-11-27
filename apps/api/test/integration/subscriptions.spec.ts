@@ -709,4 +709,69 @@ describe("Subscriptions Integration", () => {
       expect(invalidUuidRes.status).toBe(400);
     });
   });
+
+  describe("POST /api/v1/subscriptions/:id/cancel", () => {
+    it("cancels an owned pending_payment subscription and stays idempotent on replay", async () => {
+      const plan = await createSubscriptionPlan(setup.db);
+      const createdRes = await request(app.getHttpServer())
+        .post("/api/v1/subscriptions")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          planId: plan.id,
+          addressId: innerDistrictAddressId,
+          deliveryDay: DeliveryDay.TUESDAY,
+        });
+      expect(createdRes.status).toBe(201);
+      const createdId = (createdRes.body as ApiResponse<SubscriptionResponse>)
+        .data.id;
+
+      const cancelRes = await request(app.getHttpServer())
+        .post(`/api/v1/subscriptions/${createdId}/cancel`)
+        .set(customerHeader);
+      expect(cancelRes.status).toBe(200);
+      const cancelledBody = cancelRes.body as ApiResponse<SubscriptionResponse>;
+      expect(cancelledBody.data.status).toBe(SubscriptionStatus.CANCELLED);
+      expect(cancelledBody.data.reservationExpiresAt).toBeNull();
+
+      const replayRes = await request(app.getHttpServer())
+        .post(`/api/v1/subscriptions/${createdId}/cancel`)
+        .set(customerHeader);
+      expect(replayRes.status).toBe(200);
+      expect(
+        (replayRes.body as ApiResponse<SubscriptionResponse>).data.status,
+      ).toBe(SubscriptionStatus.CANCELLED);
+    });
+
+    it("rejects cancelling foreign or non-pending subscriptions", async () => {
+      const plan = await createSubscriptionPlan(setup.db);
+      const createdRes = await request(app.getHttpServer())
+        .post("/api/v1/subscriptions")
+        .set(customerHeader)
+        .set("Idempotency-Key", randomUUID())
+        .send({
+          planId: plan.id,
+          addressId: innerDistrictAddressId,
+          deliveryDay: DeliveryDay.TUESDAY,
+        });
+      expect(createdRes.status).toBe(201);
+      const createdId = (createdRes.body as ApiResponse<SubscriptionResponse>)
+        .data.id;
+
+      const foreignRes = await request(app.getHttpServer())
+        .post(`/api/v1/subscriptions/${createdId}/cancel`)
+        .set(otherCustomerHeader);
+      expect(foreignRes.status).toBe(404);
+
+      await setup.db
+        .update(subscriptions)
+        .set({ status: SubscriptionStatus.ACTIVE })
+        .where(eq(subscriptions.id, createdId));
+
+      const activeRes = await request(app.getHttpServer())
+        .post(`/api/v1/subscriptions/${createdId}/cancel`)
+        .set(customerHeader);
+      expect(activeRes.status).toBe(422);
+    });
+  });
 });

@@ -212,6 +212,7 @@ export const MESSAGES = {
       "Maximum number of pending subscriptions awaiting payment has been reached.",
     CODE_GENERATION_EXHAUSTED:
       "Failed to allocate a unique subscription code after maximum retries.",
+    CANCEL_PENDING_ONLY: "Only pending_payment subscriptions can be cancelled.",
   },
   ORDERS: {
     NOT_FOUND: "Order not found.",

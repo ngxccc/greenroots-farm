@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   Post,
@@ -140,5 +141,34 @@ export class SubscriptionsController {
       dto,
     );
     return apiSuccess(created);
+  }
+
+  @Post(SUBSCRIPTIONS_ROUTES.CANCEL)
+  @ApiAuth(UserRole.CUSTOMER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Cancel a pending subscription checkout",
+    description:
+      "Cancels an owned subscription in pending_payment status (or returns idempotently if already cancelled), clears reservationExpiresAt, marks pending payments as cancelled, and voids the PayOS payment link best-effort.",
+  })
+  @ApiParam({
+    name: "id",
+    type: "string",
+    format: "uuid",
+    description: "Subscription UUIDv7 identifier",
+  })
+  @ApiOkResponseGeneric(SubscriptionDto)
+  @ApiNotFoundResponseRfc9457()
+  @ApiUnprocessableEntityResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
+  async cancelPendingSubscription(
+    @CurrentUser("sub") userId: string,
+    @Param("id", new ZodValidationPipe(zUuidV7())) subscriptionId: string,
+  ): Promise<ApiResponse<SubscriptionProjection>> {
+    const cancelled = await this.subscriptionsService.cancelPendingSubscription(
+      userId,
+      subscriptionId,
+    );
+    return apiSuccess(cancelled);
   }
 }

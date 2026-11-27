@@ -378,7 +378,7 @@ describe("SubscriptionsService", () => {
   });
 
   describe("getMySubscriptionById", () => {
-    it("throws not found when subscription does not exist or belongs to another customer", async () => {
+    it("throws when subscription does not exist or belongs to another customer", async () => {
       mockDb.setSelectResultsQueue([[]]);
 
       let caught: unknown;
@@ -461,6 +461,222 @@ describe("SubscriptionsService", () => {
         987654321,
         "Subscription reservation expired",
       );
+    });
+  });
+
+  describe("cancelPendingSubscription", () => {
+    const baseSubRow = {
+      id: subscriptionId,
+      subscriptionCode: "SUB-20261126-ABCD12",
+      planId,
+      planName: "Gói Rau Tuần",
+      price: 250_000,
+      totalDeliveries: 4,
+      weightPerDeliveryKg: "3.00",
+      basketDescription: "3kg rau hữu cơ",
+      deliveryDay: DeliveryDay.TUESDAY,
+      remainingDeliveries: 4,
+      status: SubscriptionStatus.PENDING_PAYMENT,
+      receiverName: "Nguyễn Văn A",
+      receiverPhone: "0901234567",
+      shippingAddress: "123 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
+      shippingDistanceKm: "6.50",
+      shippingFeePerDelivery: 0,
+      startDate: "2026-12-01",
+      endDate: "2026-12-22",
+      reservationExpiresAt: new Date("2026-11-26T02:15:00.000Z"),
+      createdAt: new Date("2026-11-26T02:00:00.000Z"),
+      updatedAt: new Date("2026-11-26T02:00:00.000Z"),
+    };
+
+    it("throws when subscription does not exist or belongs to another customer", async () => {
+      mockDb.setSelectResultsQueue([[]]);
+
+      let caught: unknown;
+      try {
+        await service.cancelPendingSubscription(customerId, subscriptionId);
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(NotFoundException);
+      expect((caught as NotFoundException).getResponse()).toMatchObject({
+        code: API_ERROR_CODES.SUBSCRIPTION_NOT_FOUND,
+      });
+      expect(mockDb.update).not.toHaveBeenCalled();
+    });
+
+    // Invariant: INV-SF04-1
+    it("returns cancelled projection idempotently when subscription is already cancelled", async () => {
+      mockDb.setSelectResultsQueue([
+        [
+          {
+            ...baseSubRow,
+            status: SubscriptionStatus.CANCELLED,
+            reservationExpiresAt: null,
+          },
+        ],
+      ]);
+
+      const result = await service.cancelPendingSubscription(
+        customerId,
+        subscriptionId,
+      );
+
+      expect(result.id).toBe(subscriptionId);
+      expect(result.status).toBe(SubscriptionStatus.CANCELLED);
+      expect(result.reservationExpiresAt).toBeNull();
+      expect(result.paymentUrl).toBeNull();
+      expect(mockDb.update).not.toHaveBeenCalled();
+    });
+
+    // Invariant: INV-SF04-1
+    it("rejects cancellation when subscription is active, paused, or completed", async () => {
+      for (const nonCancellableStatus of [
+        SubscriptionStatus.ACTIVE,
+        SubscriptionStatus.PAUSED,
+        SubscriptionStatus.COMPLETED,
+      ]) {
+        mockDb.setSelectResultsQueue([
+          [
+            {
+              ...baseSubRow,
+              status: nonCancellableStatus,
+              reservationExpiresAt: null,
+            },
+          ],
+        ]);
+
+        let caught: unknown;
+        try {
+          await service.cancelPendingSubscription(customerId, subscriptionId);
+        } catch (error) {
+          caught = error;
+        }
+
+        expect(caught).toBeInstanceOf(UnprocessableEntityException);
+        expect(
+          (caught as UnprocessableEntityException).getResponse(),
+        ).toMatchObject({
+          code: API_ERROR_CODES.UNPROCESSABLE_ENTITY,
+        });
+      }
+      expect(mockDb.update).not.toHaveBeenCalled();
+    });
+
+    // Invariant: INV-SF04-1
+    it("cancels pending_payment subscription, clears reservationExpiresAt, marks pending payments cancelled, and invokes cancelPaymentLink post-commit", async () => {
+      const subscriptionUpdates: Record<string, unknown>[] = [];
+      const paymentUpdates: Record<string, unknown>[] = [];
+      const callOrder: string[] = [];
+
+      const origUpdate = mockDb.update.bind(mockDb);
+      mockDb.update = ((table: unknown) => ({
+        set: (vals: Record<string, unknown>) => {
+          if (table === subscriptions) {
+            subscriptionUpdates.push(vals);
+            callOrder.push("update_subscription");
+          }
+          if (table === payments) {
+            paymentUpdates.push(vals);
+            callOrder.push("update_payment");
+          }
+          return origUpdate(table as never).set(vals as never);
+        },
+      })) as unknown as typeof mockDb.update;
+
+      const origTransaction = mockDb.transaction.bind(mockDb);
+      mockDb.transaction = mock(async (cb: (tx: unknown) => unknown) => {
+        const res = await origTransaction(cb as never);
+        callOrder.push("tx_committed");
+        return res;
+      }) as unknown as typeof mockDb.transaction;
+
+      const cancelPaymentLinkMock = mock(() => {
+        callOrder.push("cancel_payos_link");
+        return Promise.resolve({
+          paymentLinkId: "link-1",
+          orderCode: 987654321,
+          status: "CANCELLED" as const,
+          canceledAt: new Date().toISOString(),
+          cancellationReason: "Customer cancelled pending subscription",
+        });
+      });
+      (
+        service as unknown as {
+          paymentDriver: { cancelPaymentLink: typeof cancelPaymentLinkMock };
+        }
+      ).paymentDriver.cancelPaymentLink = cancelPaymentLinkMock;
+
+      const cancelledRow = {
+        ...baseSubRow,
+        status: SubscriptionStatus.CANCELLED,
+        reservationExpiresAt: null,
+        updatedAt: new Date("2026-11-26T02:05:00.000Z"),
+      };
+
+      mockDb.setSelectResultsQueue([
+        [baseSubRow],
+        [{ id: paymentId, orderCode: 987654321 }],
+        [cancelledRow],
+      ]);
+
+      const result = await service.cancelPendingSubscription(
+        customerId,
+        subscriptionId,
+      );
+
+      expect(result.status).toBe(SubscriptionStatus.CANCELLED);
+      expect(result.reservationExpiresAt).toBeNull();
+      expect(result.paymentUrl).toBeNull();
+      expect(subscriptionUpdates).toHaveLength(1);
+      expect(subscriptionUpdates[0]).toMatchObject({
+        status: SubscriptionStatus.CANCELLED,
+        reservationExpiresAt: null,
+      });
+      expect(paymentUpdates).toHaveLength(1);
+      expect(paymentUpdates[0]).toMatchObject({
+        status: PaymentStatus.CANCELLED,
+      });
+      expect(cancelPaymentLinkMock).toHaveBeenCalledWith(
+        987654321,
+        "Customer cancelled pending subscription",
+      );
+      expect(callOrder.indexOf("tx_committed")).toBeLessThan(
+        callOrder.indexOf("cancel_payos_link"),
+      );
+    });
+
+    it("completes cancellation even when cancelPaymentLink rejects post-commit", async () => {
+      const cancelPaymentLinkMock = mock(() =>
+        Promise.reject(new Error("PayOS network error")),
+      );
+      (
+        service as unknown as {
+          paymentDriver: { cancelPaymentLink: typeof cancelPaymentLinkMock };
+        }
+      ).paymentDriver.cancelPaymentLink = cancelPaymentLinkMock;
+
+      const cancelledRow = {
+        ...baseSubRow,
+        status: SubscriptionStatus.CANCELLED,
+        reservationExpiresAt: null,
+        updatedAt: new Date("2026-11-26T02:05:00.000Z"),
+      };
+
+      mockDb.setSelectResultsQueue([
+        [baseSubRow],
+        [{ id: paymentId, orderCode: 987654321 }],
+        [cancelledRow],
+      ]);
+
+      const result = await service.cancelPendingSubscription(
+        customerId,
+        subscriptionId,
+      );
+
+      expect(result.status).toBe(SubscriptionStatus.CANCELLED);
+      expect(cancelPaymentLinkMock).toHaveBeenCalledTimes(1);
     });
   });
 });

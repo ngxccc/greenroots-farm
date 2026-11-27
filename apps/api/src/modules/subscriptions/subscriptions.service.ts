@@ -507,6 +507,122 @@ export class SubscriptionsService {
     return this.toProjection(row, paymentUrl);
   }
 
+  /**
+   * Cancels an owned `pending_payment` subscription (`INV-SF04-1`, `ADR-0038`, `ADR-0041`).
+   * Locks `subscriptions -> payments` (`FOR UPDATE`), transitions `PENDING_PAYMENT -> CANCELLED`,
+   * returns idempotently when already `CANCELLED`, rejects `ACTIVE`/`PAUSED`/`COMPLETED` with `422`,
+   * and invokes `cancelPaymentLinksBestEffort` strictly post-commit.
+   *
+   * @param sub Authenticated customer UUID from JWT `sub`.
+   * @param subscriptionId Subscription UUIDv7 identifier.
+   * @returns Closed `SubscriptionProjection` with `status: "cancelled"` and `reservationExpiresAt: null`.
+   */
+  async cancelPendingSubscription(
+    sub: string,
+    subscriptionId: string,
+  ): Promise<SubscriptionProjection> {
+    const { projection, cancelledPayosOrderCode } = await this.db.transaction(
+      async (tx) => {
+        // Lock subscriptions before payments so concurrent sweeps and webhooks cannot deadlock.
+        const [lockedSub] = await tx
+          .select(SUBSCRIPTION_COLUMNS)
+          .from(subscriptions)
+          .where(
+            and(
+              eq(subscriptions.id, subscriptionId),
+              eq(subscriptions.customerId, sub),
+            ),
+          )
+          .for("update");
+
+        if (!lockedSub) {
+          throw new NotFoundException({
+            code: API_ERROR_CODES.SUBSCRIPTION_NOT_FOUND,
+            detail: MESSAGES.SUBSCRIPTIONS.NOT_FOUND,
+          });
+        }
+
+        if (lockedSub.status === SubscriptionStatus.CANCELLED) {
+          return {
+            projection: this.toProjection(lockedSub, null),
+            cancelledPayosOrderCode: null,
+          };
+        }
+
+        if (lockedSub.status !== SubscriptionStatus.PENDING_PAYMENT) {
+          throw new UnprocessableEntityException({
+            code: API_ERROR_CODES.UNPROCESSABLE_ENTITY,
+            detail: MESSAGES.SUBSCRIPTIONS.CANCEL_PENDING_ONLY,
+          });
+        }
+
+        const pendingPayments = await tx
+          .select({ id: payments.id, orderCode: payments.orderCode })
+          .from(payments)
+          .where(
+            and(
+              eq(payments.subscriptionId, lockedSub.id),
+              eq(payments.status, PaymentStatus.PENDING),
+              eq(payments.transactionType, PaymentTransactionType.PAYMENT),
+            ),
+          )
+          .orderBy(asc(payments.id))
+          .for("update");
+
+        const now = new Date();
+        const [updatedSub] = await tx
+          .update(subscriptions)
+          .set({
+            status: SubscriptionStatus.CANCELLED,
+            reservationExpiresAt: null,
+            updatedAt: now,
+          })
+          .where(eq(subscriptions.id, lockedSub.id))
+          .returning(SUBSCRIPTION_COLUMNS);
+
+        if (pendingPayments.length > 0) {
+          await tx
+            .update(payments)
+            .set({
+              status: PaymentStatus.CANCELLED,
+              updatedAt: now,
+            })
+            .where(
+              inArray(
+                payments.id,
+                pendingPayments.map((row) => row.id),
+              ),
+            );
+        }
+
+        const orderCode =
+          pendingPayments.find((row) => row.orderCode !== null)?.orderCode ??
+          null;
+
+        return {
+          projection: this.toProjection(updatedSub ?? lockedSub, null),
+          cancelledPayosOrderCode: orderCode,
+        };
+      },
+    );
+
+    if (cancelledPayosOrderCode !== null) {
+      await cancelPaymentLinksBestEffort(
+        this.paymentDriver,
+        this.logger,
+        [
+          {
+            orderCode: cancelledPayosOrderCode,
+            referenceId: subscriptionId,
+          },
+        ],
+        "Customer cancelled pending subscription",
+      );
+    }
+
+    return projection;
+  }
+
   private async runCheckoutReservationWithRetry(
     sub: string,
     input: CreateSubscriptionCheckoutInput,

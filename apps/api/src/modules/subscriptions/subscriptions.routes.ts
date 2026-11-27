@@ -14,4 +14,5 @@ export const SUBSCRIPTIONS_ROUTES = Object.freeze({
   BASE: "subscriptions",
   ME: "me",
   BY_ID: ":id",
+  CANCEL: ":id/cancel",
 } as const);
