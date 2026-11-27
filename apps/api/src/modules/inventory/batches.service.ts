@@ -13,11 +13,19 @@ import {
   count,
   desc,
   eq,
+  gt,
   ilike,
+  inArray,
   isNull,
+  lt,
+  sql,
   type SQL,
 } from "drizzle-orm";
-import { API_ERROR_CODES, BatchStatus } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  BatchStatus,
+  computeFlashSaleUnitPriceVnd,
+} from "@greenroots/shared";
 import { env, resolvePublicStorefrontOrigin } from "@/common/config/env.config";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
@@ -30,7 +38,10 @@ import {
   DATABASE_CONNECTION,
   type DrizzleDB,
 } from "@/database/database.module";
-import { resolveFlashSaleHoursThreshold } from "./inventory.helper";
+import {
+  resolveFlashSaleConfig,
+  resolveFlashSaleHoursThreshold,
+} from "./inventory.helper";
 import { batches, products, seasons } from "@/database/schemas";
 import { FarmSettingsService } from "@/modules/farms/farm-settings.service";
 import { TraceCacheService } from "@/modules/farms/trace-cache.service";
@@ -41,6 +52,9 @@ import type {
   BatchSeasonSummary,
   CreateBatchInput,
   ListBatchesQuery,
+  ListNearExpiryQuery,
+  NearExpiryBatchProjection,
+  ToggleBatchFlashSaleInput,
 } from "./dto";
 import { CROCKFORD_BASE32_ALPHABET } from "@/common/constants/encoding.constant";
 import { formatVnCalendarDate } from "@/common/utils/time.util";
@@ -61,6 +75,8 @@ const BATCH_COLUMNS = {
   initialQuantity: batches.initialQuantity,
   availableQuantity: batches.availableQuantity,
   status: batches.status,
+  isFlashSale: batches.isFlashSale,
+  flashSaleDiscountPercent: batches.flashSaleDiscountPercent,
   createdAt: batches.createdAt,
   updatedAt: batches.updatedAt,
 } as const;
@@ -375,6 +391,203 @@ export class BatchesService {
   }
 
   /**
+   * Lists live sellable batches expiring within the farm's near-expiry threshold in FEFO order.
+   *
+   * @param query Validated pagination parameters.
+   * @returns Paginated near-expiry batch projections with computed rescue pricing and hours remaining.
+   */
+  async listNearExpiryBatches(
+    query: ListNearExpiryQuery,
+  ): Promise<{ items: NearExpiryBatchProjection[]; meta: PaginationMetaDto }> {
+    const { hoursThreshold, discountPercent: defaultDiscountPercent } =
+      await resolveFlashSaleConfig(this.farmSettingsService, this.logger);
+    const now = new Date();
+    const cutoff = new Date(now.getTime() + hoursThreshold * TIME_IN_MS.HOUR);
+    const offset = (query.page - 1) * query.limit;
+
+    const whereClause = and(
+      inArray(batches.status, [BatchStatus.IN_STOCK, BatchStatus.NEAR_EXPIRY]),
+      sql`${batches.availableQuantity} > 0`,
+      gt(batches.expirationDate, now),
+      lt(batches.expirationDate, cutoff),
+    );
+
+    const [totalRow] = await this.db
+      .select({ total: count() })
+      .from(batches)
+      .innerJoin(products, eq(batches.productId, products.id))
+      .innerJoin(seasons, eq(batches.seasonId, seasons.id))
+      .where(whereClause);
+
+    const rows = await this.db
+      .select({
+        batch: BATCH_COLUMNS,
+        product: BATCH_PRODUCT_SUMMARY_COLUMNS,
+        season: BATCH_SEASON_SUMMARY_COLUMNS,
+        basePrice: products.basePrice,
+        salePrice: products.salePrice,
+      })
+      .from(batches)
+      .innerJoin(products, eq(batches.productId, products.id))
+      .innerJoin(seasons, eq(batches.seasonId, seasons.id))
+      .where(whereClause)
+      .orderBy(asc(batches.expirationDate), asc(batches.id))
+      .limit(query.limit)
+      .offset(offset);
+
+    const total = Number(totalRow?.total ?? 0);
+
+    return {
+      items: rows.map((row) => {
+        const effectiveDiscountPercent =
+          row.batch.isFlashSale && row.batch.flashSaleDiscountPercent !== null
+            ? row.batch.flashSaleDiscountPercent
+            : defaultDiscountPercent;
+        const rescuePriceVnd = computeFlashSaleUnitPriceVnd(
+          row.basePrice,
+          effectiveDiscountPercent,
+        );
+        const hoursRemaining = Math.max(
+          0,
+          Math.round(
+            ((row.batch.expirationDate.getTime() - now.getTime()) /
+              TIME_IN_MS.HOUR) *
+              100,
+          ) / 100,
+        );
+
+        return {
+          ...this.toProjection({
+            batch: row.batch,
+            product: row.product,
+            season: row.season,
+          }),
+          basePriceVnd: row.basePrice,
+          salePriceVnd: row.salePrice,
+          effectiveDiscountPercent,
+          rescuePriceVnd,
+          hoursRemaining,
+        };
+      }),
+      meta: buildPaginationMeta(total, query.page, query.limit),
+    };
+  }
+
+  /**
+   * Toggles 48-hour Rescue Flash Sale eligibility on a single batch under `SELECT ... FOR UPDATE`.
+   *
+   * @param id Batch UUIDv7 identifier.
+   * @param input Validated flash-sale toggle payload.
+   * @returns Updated batch projection.
+   */
+  async toggleBatchFlashSale(
+    id: string,
+    input: ToggleBatchFlashSaleInput,
+  ): Promise<BatchProjection> {
+    const { hoursThreshold, discountPercent: defaultDiscountPercent } =
+      await resolveFlashSaleConfig(this.farmSettingsService, this.logger);
+    const now = new Date();
+    const cutoff = new Date(now.getTime() + hoursThreshold * TIME_IN_MS.HOUR);
+
+    const { previousStatus, updatedRow } = await this.db.transaction(
+      async (tx) => {
+        const [lockedBatch] = await tx
+          .select({
+            id: batches.id,
+            status: batches.status,
+            availableQuantity: batches.availableQuantity,
+            expirationDate: batches.expirationDate,
+          })
+          .from(batches)
+          .where(eq(batches.id, id))
+          .limit(1)
+          .for("update");
+
+        if (!lockedBatch) {
+          throw new NotFoundException({
+            code: API_ERROR_CODES.BATCH_NOT_FOUND,
+            detail: MESSAGES.BATCHES.NOT_FOUND,
+          });
+        }
+
+        if (input.enabled) {
+          const isSellableStatus =
+            lockedBatch.status === BatchStatus.IN_STOCK ||
+            lockedBatch.status === BatchStatus.NEAR_EXPIRY;
+          const hasStock = Number(lockedBatch.availableQuantity) > 0;
+          const isWithinWindow =
+            lockedBatch.expirationDate.getTime() > now.getTime() &&
+            lockedBatch.expirationDate.getTime() < cutoff.getTime();
+
+          if (!isSellableStatus || !hasStock || !isWithinWindow) {
+            throw new UnprocessableEntityException({
+              code: API_ERROR_CODES.BATCH_FLASH_SALE_NOT_ELIGIBLE,
+              detail: MESSAGES.BATCHES.FLASH_SALE_NOT_ELIGIBLE,
+            });
+          }
+
+          const resolvedDiscount =
+            input.discountPercent ?? defaultDiscountPercent;
+
+          await tx
+            .update(batches)
+            .set({
+              isFlashSale: true,
+              flashSaleDiscountPercent: resolvedDiscount,
+              status: BatchStatus.NEAR_EXPIRY,
+              updatedAt: now,
+            })
+            .where(eq(batches.id, lockedBatch.id));
+        } else {
+          await tx
+            .update(batches)
+            .set({
+              isFlashSale: false,
+              flashSaleDiscountPercent: null,
+              updatedAt: now,
+            })
+            .where(eq(batches.id, lockedBatch.id));
+        }
+
+        const [joined] = await tx
+          .select({
+            batch: BATCH_COLUMNS,
+            product: BATCH_PRODUCT_SUMMARY_COLUMNS,
+            season: BATCH_SEASON_SUMMARY_COLUMNS,
+          })
+          .from(batches)
+          .innerJoin(products, eq(batches.productId, products.id))
+          .innerJoin(seasons, eq(batches.seasonId, seasons.id))
+          .where(eq(batches.id, lockedBatch.id))
+          .limit(1);
+
+        if (!joined) {
+          throw new NotFoundException({
+            code: API_ERROR_CODES.BATCH_NOT_FOUND,
+            detail: MESSAGES.BATCHES.NOT_FOUND,
+          });
+        }
+
+        return {
+          previousStatus: lockedBatch.status,
+          updatedRow: joined,
+        };
+      },
+    );
+
+    if (
+      previousStatus === BatchStatus.IN_STOCK &&
+      updatedRow.batch.status === BatchStatus.NEAR_EXPIRY
+    ) {
+      await this.traceCacheService.invalidateByBatchCodes([
+        updatedRow.batch.batchCode,
+      ]);
+    }
+
+    return this.toProjection(updatedRow);
+  }
+
+  /**
    * Builds a deterministic QR label payload and public storefront trace URL for an existing batch.
    *
    * @param id Batch UUIDv7 identifier.
@@ -483,6 +696,8 @@ export class BatchesService {
       initialQuantity: Number(row.batch.initialQuantity),
       availableQuantity: Number(row.batch.availableQuantity),
       status: row.batch.status,
+      isFlashSale: row.batch.isFlashSale,
+      flashSaleDiscountPercent: row.batch.flashSaleDiscountPercent,
       createdAt: row.batch.createdAt.toISOString(),
       updatedAt: row.batch.updatedAt.toISOString(),
     };

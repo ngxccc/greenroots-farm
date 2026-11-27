@@ -382,6 +382,9 @@ export class WasteLogsService {
         .set({
           availableQuantity: newAvailableQuantity,
           status: nextBatchStatus,
+          ...(nextBatchStatus === BatchStatus.SOLD_OUT
+            ? { isFlashSale: false, flashSaleDiscountPercent: null }
+            : {}),
           updatedAt: now,
         })
         .where(eq(batches.id, batch.id));

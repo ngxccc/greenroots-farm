@@ -5,6 +5,7 @@ import {
   Header,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
 } from "@nestjs/common";
@@ -35,6 +36,7 @@ import {
   BatchQrLabelDto,
   CreateBatchDto,
   ListBatchesQueryDto,
+  ToggleBatchFlashSaleDto,
   type BatchProjection,
   type BatchQrLabelProjection,
 } from "./dto";
@@ -141,5 +143,29 @@ export class BatchesController {
   ): Promise<ApiResponse<BatchQrLabelProjection>> {
     const label = await this.batchesService.getBatchQrLabel(id);
     return apiSuccess(label);
+  }
+
+  @Patch(INVENTORY_ROUTES.BATCH_FLASH_SALE)
+  @ApiAuth(UserRole.SALES, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({
+    summary: "Toggle Rescue Flash Sale eligibility on a batch",
+    description:
+      "Enables or disables batch-level Rescue Flash Sale pricing without mutating product catalog prices, promoting eligible in-stock batches to near_expiry.",
+  })
+  @ApiParam({
+    name: "id",
+    type: "string",
+    format: "uuid",
+    description: "Batch UUIDv7 identifier",
+  })
+  @ApiOkResponseGeneric(BatchDto)
+  @ApiNotFoundResponseRfc9457()
+  @ApiUnprocessableEntityResponseRfc9457()
+  async toggleFlashSale(
+    @Param("id", new ZodValidationPipe(zUuidV7())) id: string,
+    @Body() dto: ToggleBatchFlashSaleDto,
+  ): Promise<ApiResponse<BatchProjection>> {
+    const updated = await this.batchesService.toggleBatchFlashSale(id, dto);
+    return apiSuccess(updated);
   }
 }

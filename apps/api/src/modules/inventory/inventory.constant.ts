@@ -73,3 +73,9 @@ export const BATCH_MIN_QUANTITY = 0.01;
 
 /** Length of the cryptographic random suffix in server-generated batch codes. */
 export const BATCH_CODE_RANDOM_LENGTH = 6;
+
+/** Minimum allowed percentage discount for a batch-level Rescue Flash Sale. */
+export const FLASH_SALE_DISCOUNT_MIN = 1;
+
+/** Maximum allowed percentage discount for a batch-level Rescue Flash Sale. */
+export const FLASH_SALE_DISCOUNT_MAX = 99;

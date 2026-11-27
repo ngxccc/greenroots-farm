@@ -2,6 +2,10 @@ import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { BatchStatus } from "@greenroots/shared";
 import { zUuidV7 } from "@/common/schemas/zod-primitives";
+import {
+  FLASH_SALE_DISCOUNT_MAX,
+  FLASH_SALE_DISCOUNT_MIN,
+} from "../inventory.constant";
 
 /**
  * Closed summary of the product linked to a harvested batch.
@@ -37,6 +41,13 @@ export const batchSchema = z.object({
   initialQuantity: z.number(),
   availableQuantity: z.number(),
   status: z.enum(BatchStatus),
+  isFlashSale: z.boolean(),
+  flashSaleDiscountPercent: z
+    .number()
+    .int()
+    .min(FLASH_SALE_DISCOUNT_MIN)
+    .max(FLASH_SALE_DISCOUNT_MAX)
+    .nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

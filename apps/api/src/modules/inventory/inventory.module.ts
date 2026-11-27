@@ -3,6 +3,7 @@ import { FarmsModule } from "@/modules/farms/farms.module";
 import { BatchesController } from "./batches.controller";
 import { BatchesExpiryService } from "./batches-expiry.service";
 import { BatchesService } from "./batches.service";
+import { InventoryController } from "./inventory.controller";
 import { WasteLogsController } from "./waste-logs.controller";
 import { WasteLogsService } from "./waste-logs.service";
 
@@ -12,7 +13,7 @@ import { WasteLogsService } from "./waste-logs.service";
  */
 @Module({
   imports: [FarmsModule],
-  controllers: [BatchesController, WasteLogsController],
+  controllers: [BatchesController, InventoryController, WasteLogsController],
   providers: [BatchesService, BatchesExpiryService, WasteLogsService],
   exports: [BatchesService, BatchesExpiryService, WasteLogsService],
 })

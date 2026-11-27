@@ -177,6 +177,9 @@ export class BatchesExpiryService implements OnModuleInit, OnModuleDestroy {
           .update(batches)
           .set({
             status: targetStatus,
+            ...(targetStatus === BatchStatus.EXPIRED
+              ? { isFlashSale: false, flashSaleDiscountPercent: null }
+              : {}),
             updatedAt: now,
           })
           .where(
