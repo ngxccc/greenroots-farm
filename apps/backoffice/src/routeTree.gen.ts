@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AdminRbacRouteImport } from './routes/admin/rbac'
 import { Route as CatalogPlansRouteImport } from './routes/catalog/plans'
+import { Route as CatalogProductsRouteImport } from './routes/catalog/products'
 import { Route as FarmingBatchesRouteImport } from './routes/farming/batches'
 import { Route as FarmingLogsRouteImport } from './routes/farming/logs'
 import { Route as FarmingPlotsRouteImport } from './routes/farming/plots'
@@ -52,6 +53,11 @@ const AdminRbacRoute = AdminRbacRouteImport.update({
 const CatalogPlansRoute = CatalogPlansRouteImport.update({
   id: '/catalog/plans',
   path: '/catalog/plans',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogProductsRoute = CatalogProductsRouteImport.update({
+  id: '/catalog/products',
+  path: '/catalog/products',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FarmingBatchesRoute = FarmingBatchesRouteImport.update({
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/admin/rbac': typeof AdminRbacRoute
   '/catalog/plans': typeof CatalogPlansRoute
+  '/catalog/products': typeof CatalogProductsRoute
   '/farming/batches': typeof FarmingBatchesRoute
   '/farming/logs': typeof FarmingLogsRoute
   '/farming/plots': typeof FarmingPlotsRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/admin/rbac': typeof AdminRbacRoute
   '/catalog/plans': typeof CatalogPlansRoute
+  '/catalog/products': typeof CatalogProductsRoute
   '/farming/batches': typeof FarmingBatchesRoute
   '/farming/logs': typeof FarmingLogsRoute
   '/farming/plots': typeof FarmingPlotsRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/admin/rbac': typeof AdminRbacRoute
   '/catalog/plans': typeof CatalogPlansRoute
+  '/catalog/products': typeof CatalogProductsRoute
   '/farming/batches': typeof FarmingBatchesRoute
   '/farming/logs': typeof FarmingLogsRoute
   '/farming/plots': typeof FarmingPlotsRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/admin/rbac'
     | '/catalog/plans'
+    | '/catalog/products'
     | '/farming/batches'
     | '/farming/logs'
     | '/farming/plots'
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/admin/rbac'
     | '/catalog/plans'
+    | '/catalog/products'
     | '/farming/batches'
     | '/farming/logs'
     | '/farming/plots'
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/admin/rbac'
     | '/catalog/plans'
+    | '/catalog/products'
     | '/farming/batches'
     | '/farming/logs'
     | '/farming/plots'
@@ -202,6 +214,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   AdminRbacRoute: typeof AdminRbacRoute
   CatalogPlansRoute: typeof CatalogPlansRoute
+  CatalogProductsRoute: typeof CatalogProductsRoute
   FarmingBatchesRoute: typeof FarmingBatchesRoute
   FarmingLogsRoute: typeof FarmingLogsRoute
   FarmingPlotsRoute: typeof FarmingPlotsRoute
@@ -254,6 +267,13 @@ declare module '@tanstack/react-router' {
       path: '/catalog/plans'
       fullPath: '/catalog/plans'
       preLoaderRoute: typeof CatalogPlansRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/products': {
+      id: '/catalog/products'
+      path: '/catalog/products'
+      fullPath: '/catalog/products'
+      preLoaderRoute: typeof CatalogProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/farming/batches': {
@@ -322,6 +342,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   AdminRbacRoute: AdminRbacRoute,
   CatalogPlansRoute: CatalogPlansRoute,
+  CatalogProductsRoute: CatalogProductsRoute,
   FarmingBatchesRoute: FarmingBatchesRoute,
   FarmingLogsRoute: FarmingLogsRoute,
   FarmingPlotsRoute: FarmingPlotsRoute,

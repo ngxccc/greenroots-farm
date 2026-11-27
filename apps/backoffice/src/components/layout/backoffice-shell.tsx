@@ -8,6 +8,7 @@ import {
   CalendarClock,
   ClipboardCheck,
   FileWarning,
+  FolderTree,
   Leaf,
   LogOut,
   PackageCheck,
@@ -76,6 +77,13 @@ const NAV_ITEMS: readonly NavItem[] = [
     label: "Cận hạn & Sale",
     code: "BO-07",
     icon: <AlertTriangle className="size-4" />,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    to: "/catalog/products",
+    label: "Danh mục & Sản phẩm",
+    code: "BO-11",
+    icon: <FolderTree className="size-4" />,
     roles: ["admin", "super_admin"],
   },
   {
