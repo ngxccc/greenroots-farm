@@ -27,6 +27,7 @@ export const staffOrderItemSchema = orderItemSchema.extend({
  */
 export const staffOrderSchema = orderSchema.extend({
   customerId: zUuidV7(),
+  subscriptionId: zUuidV7().nullable(),
   items: z.array(staffOrderItemSchema),
 });
 

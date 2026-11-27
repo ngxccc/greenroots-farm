@@ -15,6 +15,7 @@ export const subscriptionPlanSchema = z.object({
   weightPerDeliveryKg: z.number().positive(),
   basketDescription: z.string(),
   isActive: z.boolean(),
+  activeSubscriberCount: z.number().int().nonnegative().optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

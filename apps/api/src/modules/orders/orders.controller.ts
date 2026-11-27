@@ -38,6 +38,7 @@ import { apiSuccess, type ApiResponse } from "@/common/utils/api-response.util";
 import {
   CheckoutRequestDto,
   ListMyOrdersQueryDto,
+  ListStaffOrdersQueryDto,
   OrderDto,
   OrderPickListDto,
   StaffOrderDto,
@@ -62,6 +63,23 @@ import { OrdersService } from "./orders.service";
 @ApiInternalServerErrorResponseRfc9457()
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
+
+  @Get()
+  @ApiAuth(...FULFILLMENT_ALLOWED_ROLES)
+  @ApiOperation({
+    summary: "List staff fulfillment orders",
+    description:
+      "Returns a paginated queue of all customer and subscription orders with status, subscription indicator, and search filters for sales and admin staff.",
+  })
+  @ApiOkResponsePaginated(StaffOrderDto)
+  @ApiForbiddenResponseRfc9457()
+  @ApiTooManyRequestsResponseRfc9457()
+  async listStaffOrders(
+    @Query() query: ListStaffOrdersQueryDto,
+  ): Promise<ApiResponse<StaffOrderProjection[], PaginationMetaDto>> {
+    const { items, meta } = await this.ordersService.listStaffOrders(query);
+    return apiSuccess(items, meta);
+  }
 
   // Register static `me` route before `:id` so `/orders/me` is never captured as an order UUID parameter.
   @Get(ORDERS_ROUTES.ME)

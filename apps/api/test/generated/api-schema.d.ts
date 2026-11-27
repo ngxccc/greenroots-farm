@@ -1093,6 +1093,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List staff fulfillment orders
+         * @description Returns a paginated queue of all customer and subscription orders with status, subscription indicator, and search filters for sales and admin staff.
+         */
+        get: operations["OrdersController_listStaffOrders_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/me": {
         parameters: {
             query?: never;
@@ -2735,6 +2755,60 @@ export interface components {
              */
             folder: "farming_logs" | "complaints" | "products" | "waste_logs" | "plots" | "farms";
         };
+        StaffOrderDto: {
+            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+            id: string;
+            orderCode: string;
+            /** @enum {string} */
+            orderStatus: "pending_payment" | "pending_confirmation" | "confirmed" | "packing" | "shipping" | "delivered" | "completed" | "cancelled";
+            /** @enum {string} */
+            paymentMethod: "cod" | "payos" | "subscription";
+            /** @enum {string} */
+            paymentStatus: "pending" | "paid" | "failed" | "cancelled" | "refunded";
+            receiverName: string;
+            receiverPhone: string;
+            shippingAddress: string;
+            shippingDistanceKm: number;
+            shippingFeeVnd: number;
+            subtotalVnd: number;
+            discountAmountVnd: number;
+            loyaltyPointsUsed: number;
+            totalAmountVnd: number;
+            paymentUrl: string | null;
+            reservationExpiresAt: string | null;
+            deliveredAt: string | null;
+            items: {
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                id: string;
+                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                productId: string;
+                productName: string;
+                productSlug: string;
+                productImageUrl: string | null;
+                unit: string;
+                quantity: number;
+                unitPriceVnd: number;
+                lineTotalVnd: number;
+                allocations: {
+                    /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                    id: string;
+                    /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+                    batchId: string;
+                    batchCode: string;
+                    /** Format: date-time */
+                    expirationDate: string;
+                    allocatedQuantity: number;
+                    releasedAt: string | null;
+                }[];
+            }[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
+            customerId: string;
+            subscriptionId: string | null;
+        };
         OrderDto: {
             /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
             id: string;
@@ -2838,59 +2912,6 @@ export interface components {
              */
             paymentMethod: "cod" | "payos";
         };
-        StaffOrderDto: {
-            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
-            id: string;
-            orderCode: string;
-            /** @enum {string} */
-            orderStatus: "pending_payment" | "pending_confirmation" | "confirmed" | "packing" | "shipping" | "delivered" | "completed" | "cancelled";
-            /** @enum {string} */
-            paymentMethod: "cod" | "payos" | "subscription";
-            /** @enum {string} */
-            paymentStatus: "pending" | "paid" | "failed" | "cancelled" | "refunded";
-            receiverName: string;
-            receiverPhone: string;
-            shippingAddress: string;
-            shippingDistanceKm: number;
-            shippingFeeVnd: number;
-            subtotalVnd: number;
-            discountAmountVnd: number;
-            loyaltyPointsUsed: number;
-            totalAmountVnd: number;
-            paymentUrl: string | null;
-            reservationExpiresAt: string | null;
-            deliveredAt: string | null;
-            items: {
-                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
-                id: string;
-                /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
-                productId: string;
-                productName: string;
-                productSlug: string;
-                productImageUrl: string | null;
-                unit: string;
-                quantity: number;
-                unitPriceVnd: number;
-                lineTotalVnd: number;
-                allocations: {
-                    /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
-                    id: string;
-                    /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
-                    batchId: string;
-                    batchCode: string;
-                    /** Format: date-time */
-                    expirationDate: string;
-                    allocatedQuantity: number;
-                    releasedAt: string | null;
-                }[];
-            }[];
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-            /** @example 019315bc-3e9a-7a1b-8f3e-2b1d0a5c4e9f */
-            customerId: string;
-        };
         UpdateOrderStatusRequestDto: {
             /** @enum {string} */
             status: "pending_payment" | "pending_confirmation" | "confirmed" | "packing" | "shipping" | "delivered" | "completed" | "cancelled";
@@ -2983,6 +3004,7 @@ export interface components {
             weightPerDeliveryKg: number;
             basketDescription: string;
             isActive: boolean;
+            activeSubscriberCount?: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -12248,6 +12270,145 @@ export interface operations {
                      *       "title": "Conflict",
                      *       "status": 409,
                      *       "detail": "A conflict occurred with the current state of the resource",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/internal-server-error",
+                     *       "title": "Internal Server Error",
+                     *       "status": 500,
+                     *       "detail": "An unexpected internal server error occurred",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    OrdersController_listStaffOrders_v1: {
+        parameters: {
+            query?: {
+                status?: "pending_payment" | "pending_confirmation" | "confirmed" | "packing" | "shipping" | "delivered" | "completed" | "cancelled";
+                statuses?: string | ("pending_payment" | "pending_confirmation" | "confirmed" | "packing" | "shipping" | "delivered" | "completed" | "cancelled")[];
+                isSubscription?: "true" | "false";
+                search?: string;
+                page?: number | string;
+                limit?: number | string;
+                sort?: "createdAt:desc" | "createdAt:asc" | "totalAmount:desc" | "totalAmount:asc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiResponseDto"] & {
+                        data: components["schemas"]["StaffOrderDto"][];
+                        meta: components["schemas"]["PaginationMetaDto"];
+                    };
+                };
+            };
+            /** @description Validation failure (Bad Request) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/bad-request",
+                     *       "title": "Bad Request",
+                     *       "status": 400,
+                     *       "detail": "Submitted payload failed validation",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [
+                     *         {
+                     *           "name": "field",
+                     *           "reason": "Invalid property value"
+                     *         }
+                     *       ],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Authentication required or invalid token (Unauthorized) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/unauthorized",
+                     *       "title": "Unauthorized",
+                     *       "status": 401,
+                     *       "detail": "Authentication credentials are required or have expired",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /**
+             * @description Forbidden resource access (Forbidden)
+             *
+             *     Forbidden resource access (Forbidden)
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/forbidden",
+                     *       "title": "Forbidden",
+                     *       "status": 403,
+                     *       "detail": "You do not have permission to perform this action",
+                     *       "instance": "/api/v1/resource",
+                     *       "invalidParams": [],
+                     *       "timestamp": "2026-11-16T00:00:00.000Z"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Rfc9457ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit threshold exceeded (Too Many Requests) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/errors/too-many-requests",
+                     *       "title": "Too Many Requests",
+                     *       "status": 429,
+                     *       "detail": "Too many requests. Please try again later.",
                      *       "instance": "/api/v1/resource",
                      *       "invalidParams": [],
                      *       "timestamp": "2026-11-16T00:00:00.000Z"

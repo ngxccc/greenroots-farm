@@ -4,8 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { and, asc, eq, isNull } from "drizzle-orm";
-import { API_ERROR_CODES } from "@greenroots/shared";
+import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { API_ERROR_CODES, SubscriptionStatus } from "@greenroots/shared";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { extractDatabaseErrorDetails } from "@/common/utils/error.util";
@@ -15,6 +15,7 @@ import {
 } from "@/database/database.module";
 import {
   subscriptionPlans,
+  subscriptions,
   type SubscriptionPlan,
 } from "@/database/schemas/subscription.schema";
 import type {
@@ -103,13 +104,32 @@ export class SubscriptionPlansService {
    * @returns Deterministically ordered non-deleted subscription plans.
    */
   async listAdminPlans(): Promise<SubscriptionPlanProjection[]> {
-    const rows = await this.db
-      .select(SUBSCRIPTION_PLAN_COLUMNS)
-      .from(subscriptionPlans)
-      .where(isNull(subscriptionPlans.deletedAt))
-      .orderBy(asc(subscriptionPlans.price), asc(subscriptionPlans.id));
+    const [rows, countRows] = await Promise.all([
+      this.db
+        .select(SUBSCRIPTION_PLAN_COLUMNS)
+        .from(subscriptionPlans)
+        .where(isNull(subscriptionPlans.deletedAt))
+        .orderBy(asc(subscriptionPlans.price), asc(subscriptionPlans.id)),
+      this.db
+        .select({
+          planId: subscriptions.planId,
+          activeCount: count(),
+        })
+        .from(subscriptions)
+        .where(eq(subscriptions.status, SubscriptionStatus.ACTIVE))
+        .groupBy(subscriptions.planId),
+    ]);
 
-    return rows.map((row) => this.toPlanProjection(row));
+    const activeCountByPlanId = new Map<string, number>();
+    for (const entry of countRows) {
+      if (entry.planId) {
+        activeCountByPlanId.set(entry.planId, Number(entry.activeCount));
+      }
+    }
+
+    return rows.map((row) =>
+      this.toPlanProjection(row, activeCountByPlanId.get(row.id) ?? 0),
+    );
   }
 
   /**
@@ -211,6 +231,7 @@ export class SubscriptionPlansService {
 
   private toPlanProjection(
     row: SubscriptionPlanRow,
+    activeSubscriberCount?: number,
   ): SubscriptionPlanProjection {
     return {
       id: row.id,
@@ -222,6 +243,7 @@ export class SubscriptionPlansService {
       weightPerDeliveryKg: Number(row.weightPerDeliveryKg),
       basketDescription: row.basketDescription,
       isActive: row.isActive,
+      ...(activeSubscriberCount !== undefined ? { activeSubscriberCount } : {}),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
