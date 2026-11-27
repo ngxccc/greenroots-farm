@@ -1,8 +1,18 @@
 import { describe, expect, it } from "bun:test";
-import { API_ERROR_CODES, BUSINESS_RULES } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  BUSINESS_RULES,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from "@greenroots/shared";
 import type { OrderDto, ValidateCartResponse } from "../schemas/order.schema";
 import {
+  executeCancelOrderAction,
   executeCheckoutCodAction,
+  executeCheckoutOrderAction,
+  executeConfirmMockPayosAction,
+  executeGetOrderAction,
   executeValidateCartAction,
 } from "./order-actions";
 
@@ -315,6 +325,213 @@ describe("order-actions", () => {
         expect(unavailableResult.code).toBe(
           API_ERROR_CODES.SERVICE_UNAVAILABLE,
         );
+      }
+    });
+  });
+
+  describe("executeCheckoutOrderAction", () => {
+    it("forwards PayOS paymentMethod and returns pending payment link metadata", async () => {
+      let capturedMethod: string | undefined;
+      const mockOrder: OrderDto = {
+        id: SAMPLE_PRODUCT_ID,
+        orderCode: "GR-2026-0001",
+        orderStatus: OrderStatus.PENDING_PAYMENT,
+        paymentMethod: PaymentMethod.PAYOS,
+        paymentStatus: PaymentStatus.PENDING,
+        receiverName: "Nguyen Van A",
+        receiverPhone: "0901234567",
+        shippingAddress: "123 Le Loi",
+        shippingDistanceKm: 5,
+        shippingFeeVnd: 0,
+        subtotalVnd: 200_000,
+        discountAmountVnd: 0,
+        loyaltyPointsUsed: 0,
+        totalAmountVnd: 200_000,
+        paymentUrl: "https://mock.payos.local/checkout/987654",
+        reservationExpiresAt: "2026-11-27T10:15:00.000Z",
+        items: [],
+        createdAt: "2026-11-27T10:00:00.000Z",
+        updatedAt: "2026-11-27T10:00:00.000Z",
+      };
+
+      const result = await executeCheckoutOrderAction(
+        {
+          idempotencyKey: SAMPLE_IDEMPOTENCY_KEY,
+          items: [{ productId: SAMPLE_PRODUCT_ID, quantity: 1 }],
+          addressId: SAMPLE_ADDRESS_ID,
+          paymentMethod: PaymentMethod.PAYOS,
+        },
+        {
+          runWithRefresh: (op) => op(),
+          postCheckout: (_key, body) => {
+            capturedMethod = body.paymentMethod;
+            return Promise.resolve({
+              response: new Response(null, { status: 201 }),
+              data: { data: mockOrder },
+            });
+          },
+        },
+      );
+
+      expect(capturedMethod).toBe(PaymentMethod.PAYOS);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.order.paymentUrl).toBe(
+          "https://mock.payos.local/checkout/987654",
+        );
+      }
+    });
+  });
+
+  describe("executeGetOrderAction", () => {
+    it("rejects non-UUID order identifiers without calling API", async () => {
+      let called = false;
+      const result = await executeGetOrderAction("not-a-uuid", {
+        getOrderById: () => {
+          called = true;
+          return Promise.resolve({
+            response: new Response(null, { status: 200 }),
+          });
+        },
+      });
+
+      expect(called).toBe(false);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+      }
+    });
+  });
+
+  describe("executeConfirmMockPayosAction", () => {
+    it("fails closed in production environments without calling webhook", async () => {
+      let called = false;
+      const result = await executeConfirmMockPayosAction(
+        {
+          orderId: SAMPLE_PRODUCT_ID,
+          paymentUrl: "https://mock.payos.local/checkout/987654",
+          amountVnd: 200_000,
+          orderCode: "GR-2026-0001",
+        },
+        {
+          nodeEnv: "production",
+          postMockWebhook: () => {
+            called = true;
+            return Promise.resolve({
+              response: new Response(null, { status: 200 }),
+            });
+          },
+        },
+      );
+
+      expect(called).toBe(false);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.code).toBe(API_ERROR_CODES.FORBIDDEN);
+      }
+    });
+
+    it("rejects non-mock payment URLs even in non-production environments", async () => {
+      let called = false;
+      const result = await executeConfirmMockPayosAction(
+        {
+          orderId: SAMPLE_PRODUCT_ID,
+          paymentUrl: "https://pay.payos.vn/web/abc123",
+          amountVnd: 200_000,
+          orderCode: "GR-2026-0001",
+        },
+        {
+          nodeEnv: "development",
+          postMockWebhook: () => {
+            called = true;
+            return Promise.resolve({
+              response: new Response(null, { status: 200 }),
+            });
+          },
+        },
+      );
+
+      expect(called).toBe(false);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+      }
+    });
+
+    it("posts signed mock PayOS webhook in development environments", async () => {
+      let capturedOrderCode: unknown;
+      let capturedAmount: unknown;
+      const result = await executeConfirmMockPayosAction(
+        {
+          orderId: SAMPLE_PRODUCT_ID,
+          paymentUrl: "https://mock.payos.local/checkout/987654",
+          amountVnd: 200_000,
+          orderCode: "GR-2026-0001",
+        },
+        {
+          nodeEnv: "development",
+          postMockWebhook: (payload) => {
+            capturedOrderCode = payload.data.orderCode;
+            capturedAmount = payload.data.amount;
+            return Promise.resolve({
+              response: new Response(null, { status: 200 }),
+              data: { data: { received: true } },
+            });
+          },
+        },
+      );
+
+      expect(capturedOrderCode).toBe(987654);
+      expect(capturedAmount).toBe(200_000);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.received).toBe(true);
+      }
+    });
+  });
+
+  describe("executeCancelOrderAction", () => {
+    it("rejects malformed orderId locally without calling API", async () => {
+      let called = false;
+      const result = await executeCancelOrderAction("not-a-uuid", {
+        cancelOrderById: () => {
+          called = true;
+          return Promise.resolve({
+            response: new Response(null, { status: 200 }),
+          });
+        },
+      });
+
+      expect(called).toBe(false);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+      }
+    });
+
+    it("returns cancelled OrderDto when BFF cancel succeeds", async () => {
+      const cancelledOrder = {
+        id: SAMPLE_PRODUCT_ID,
+        orderCode: "GR-2026-0001",
+        orderStatus: OrderStatus.CANCELLED,
+        paymentStatus: PaymentStatus.CANCELLED,
+        paymentMethod: PaymentMethod.PAYOS,
+        paymentUrl: null,
+      } as OrderDto;
+
+      const result = await executeCancelOrderAction(SAMPLE_PRODUCT_ID, {
+        cancelOrderById: () =>
+          Promise.resolve({
+            response: new Response(null, { status: 200 }),
+            data: { data: cancelledOrder },
+          }),
+        runWithRefresh: (op) => op(),
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.order.orderStatus).toBe(OrderStatus.CANCELLED);
+        expect(result.order.paymentUrl).toBeNull();
       }
     });
   });

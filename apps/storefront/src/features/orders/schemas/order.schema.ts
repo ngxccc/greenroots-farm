@@ -1,4 +1,4 @@
-import { BUSINESS_RULES } from "@greenroots/shared";
+import { BUSINESS_RULES, PaymentMethod } from "@greenroots/shared";
 import { z } from "zod";
 import type { components } from "@/types/api-schema";
 
@@ -70,8 +70,24 @@ export const checkoutInputSchema = z
     addressId: z.uuid("Mã địa chỉ không hợp lệ.").optional(),
     loyaltyPoints: z.number().int().nonnegative().default(0),
     clientTotalVnd: z.number().int().nonnegative().optional(),
+    paymentMethod: z
+      .enum([PaymentMethod.COD, PaymentMethod.PAYOS])
+      .default(PaymentMethod.COD),
+  })
+  .strict();
+
+/**
+ * Strict schema for the non-production mock PayOS webhook bridge action.
+ */
+export const mockConfirmPayosInputSchema = z
+  .object({
+    orderId: z.uuid("Mã đơn hàng không hợp lệ."),
+    paymentUrl: z.url("Liên kết thanh toán không hợp lệ."),
+    amountVnd: z.number().int().positive("Số tiền thanh toán phải lớn hơn 0."),
+    orderCode: z.string().min(1, "Mã đơn hàng không được để trống."),
   })
   .strict();
 
 export type ValidateCartInput = z.input<typeof validateCartInputSchema>;
 export type CheckoutInput = z.input<typeof checkoutInputSchema>;
+export type MockConfirmPayosInput = z.input<typeof mockConfirmPayosInputSchema>;

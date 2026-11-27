@@ -14,7 +14,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@greenroots/ui";
-import { AlertTriangle, ArrowLeft, Leaf } from "lucide-react";
+import { AlertTriangle, Leaf } from "lucide-react";
+import { BackLink } from "@/components/common/back-link";
 import {
   ORDER_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
@@ -29,10 +30,13 @@ import {
   buildOrderTimelineSteps,
   canReorderOrder,
 } from "../utils/order-history.utils";
+import { resolvePayosPanelPhase } from "../utils/payos-payment.utils";
 import { ReorderButton } from "./reorder-button";
+import { PayosPaymentPanel } from "./payos-payment-panel";
 
 interface OrderDetailViewProps {
   readonly order: OrderDto;
+  readonly initialPaymentQuery?: string;
 }
 
 function resolveStepToneClass(state: OrderTimelineStep["state"]): string {
@@ -82,124 +86,143 @@ function OrderItemThumbnail({
  * Customer order detail view (SF-05 `/orders/[id]`) rendering an honest `OrderDto`
  * timeline, immutable receiver/address snapshot, line items, and totals.
  */
-export function OrderDetailView({ order }: OrderDetailViewProps) {
+export function OrderDetailView({
+  order: initialOrder,
+  initialPaymentQuery,
+}: OrderDetailViewProps) {
+  const [order, setOrder] = useState(initialOrder);
   const timelineSteps = buildOrderTimelineSteps(
     order.orderStatus,
     order.createdAt,
     order.updatedAt,
   );
   const showComplaintEntry = order.orderStatus === OrderStatus.DELIVERED;
+  // Avoid duplicating the reorder CTA when the inline PayOS expired/cancelled banner already renders it.
+  const showHeaderReorder =
+    canReorderOrder(order) && resolvePayosPanelPhase(order) !== "expired";
+
+  const hasHeaderActions = showHeaderReorder || showComplaintEntry;
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 pt-4 pb-8 lg:px-6 lg:pt-5 lg:pb-10">
-      <div>
-        <Link
-          href="/account/orders"
-          className="inline-flex items-center gap-1.5 rounded text-xs font-semibold text-brand-forest hover:underline focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
+      <div className="flex flex-col gap-2 border-b border-border-subtle pb-5">
+        <BackLink href="/account/orders" label="Quay lại đơn hàng của tôi" />
+
+        {/* Order Summary Header */}
+        <section
+          aria-label="Thông tin chung đơn hàng"
+          className="flex flex-col justify-between gap-4 md:flex-row md:items-center"
         >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          <span>Quay lại đơn hàng của tôi</span>
-        </Link>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold text-gray-900 tabular-nums">
+                {order.orderCode}
+              </h1>
+              <Badge
+                variant={
+                  order.orderStatus === OrderStatus.CANCELLED
+                    ? "destructive"
+                    : "default"
+                }
+              >
+                {ORDER_STATUS_LABELS[order.orderStatus]}
+              </Badge>
+              <Badge variant="outline">
+                {PAYMENT_METHOD_LABELS[order.paymentMethod]}
+              </Badge>
+            </div>
+            <p className="text-xs text-gray-500 tabular-nums">
+              Đặt lúc {formatViDateTime(order.createdAt)} — Cập nhật{" "}
+              {formatViDateTime(order.updatedAt)}
+            </p>
+          </div>
+
+          {hasHeaderActions ? (
+            <div className="flex flex-wrap items-center gap-2.5">
+              {showHeaderReorder ? (
+                <ReorderButton order={order} size="default" />
+              ) : null}
+
+              {showComplaintEntry ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <span className="inline-flex" tabIndex={0}>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            disabled
+                            className="gap-1.5"
+                          >
+                            <AlertTriangle
+                              className="size-4"
+                              aria-hidden="true"
+                            />
+                            <span>Gửi khiếu nại (Sắp ra mắt)</span>
+                          </Button>
+                        </span>
+                      }
+                    />
+                    <TooltipContent
+                      side="bottom"
+                      className="max-w-xs text-pretty"
+                    >
+                      Hỗ trợ khiếu nại trong 24h sau khi nhận hàng. Tính năng
+                      gửi trực tuyến đang được hoàn thiện — vui lòng liên hệ
+                      hotline {FARM_METADATA.hotline} để được xử lý ngay.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
       </div>
 
-      {/* Order Summary Header */}
-      <section
-        aria-label="Thông tin chung đơn hàng"
-        className="flex flex-col justify-between gap-4 border-b border-border-subtle pb-5 md:flex-row md:items-center"
-      >
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900 tabular-nums">
-              {order.orderCode}
-            </h1>
-            <Badge
-              variant={
-                order.orderStatus === OrderStatus.CANCELLED
-                  ? "destructive"
-                  : "default"
-              }
-            >
-              {ORDER_STATUS_LABELS[order.orderStatus]}
-            </Badge>
-            <Badge variant="outline">
-              {PAYMENT_METHOD_LABELS[order.paymentMethod]}
-            </Badge>
-          </div>
-          <p className="text-xs text-gray-500 tabular-nums">
-            Đặt lúc {formatViDateTime(order.createdAt)} — Cập nhật{" "}
-            {formatViDateTime(order.updatedAt)}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          {canReorderOrder(order) ? (
-            <ReorderButton order={order} size="default" />
-          ) : null}
-
-          {showComplaintEntry ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span className="inline-flex" tabIndex={0}>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        disabled
-                        className="gap-1.5"
-                      >
-                        <AlertTriangle className="size-4" aria-hidden="true" />
-                        <span>Gửi khiếu nại (Sắp ra mắt)</span>
-                      </Button>
-                    </span>
-                  }
-                />
-                <TooltipContent side="bottom" className="max-w-xs text-pretty">
-                  Hỗ trợ khiếu nại trong 24h sau khi nhận hàng. Tính năng gửi
-                  trực tuyến đang được hoàn thiện — vui lòng liên hệ hotline{" "}
-                  {FARM_METADATA.hotline} để được xử lý ngay.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : null}
-        </div>
-      </section>
+      <PayosPaymentPanel
+        order={order}
+        initialPaymentQuery={initialPaymentQuery}
+        onOrderUpdated={setOrder}
+      />
 
       {/* Status Timeline */}
       <section
         aria-label="Tiến trình trạng thái đơn hàng"
-        className="flex flex-col gap-4 border-b border-border-subtle pb-6"
+        className="flex flex-col gap-3 border-b border-border-subtle pb-6"
       >
         <h2 className="text-base font-bold text-gray-900">
-          Timeline trạng thái
+          Tiến trình đơn hàng
         </h2>
 
         <div
           className={
             timelineSteps.length === 2
-              ? "grid grid-cols-1 divide-y divide-border-subtle sm:grid-cols-2 sm:divide-x sm:divide-y-0"
-              : "grid grid-cols-1 divide-y divide-border-subtle sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-y-0"
+              ? "grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-0 sm:divide-x sm:divide-border-subtle"
+              : "grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4 lg:gap-0 lg:divide-x lg:divide-border-subtle"
           }
         >
           {timelineSteps.map((step) => (
             <div
               key={step.key}
-              className="flex flex-col gap-1 py-2 first:pt-0 lg:px-4 lg:py-0 lg:first:pl-0 lg:last:pr-0"
+              className="flex items-start gap-2 lg:px-4 lg:first:pl-0 lg:last:pr-0"
             >
-              <div
-                className={`text-xs font-semibold ${resolveStepToneClass(step.state)}`}
-              >
-                <span>{step.label}</span>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <div
+                  className={`text-xs font-semibold ${resolveStepToneClass(step.state)}`}
+                >
+                  <span>{step.label}</span>
+                </div>
+                {step.timestamp ? (
+                  <span className="text-[11px] text-gray-500 tabular-nums">
+                    {formatViDateTime(step.timestamp)}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-gray-400">
+                    {step.state === "upcoming" ? "Chờ cập nhật" : "Đã qua bước"}
+                  </span>
+                )}
               </div>
-              {step.timestamp ? (
-                <span className="text-xs text-gray-500 tabular-nums">
-                  {formatViDateTime(step.timestamp)}
-                </span>
-              ) : (
-                <span className="text-xs text-gray-400">
-                  {step.state === "upcoming" ? "Chờ cập nhật" : "Đã qua bước"}
-                </span>
-              )}
             </div>
           ))}
         </div>

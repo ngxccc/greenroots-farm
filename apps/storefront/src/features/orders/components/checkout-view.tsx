@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BUSINESS_RULES, UserRole } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  BUSINESS_RULES,
+  PaymentMethod,
+  UserRole,
+} from "@greenroots/shared";
 import {
   Alert,
   AlertDescription,
@@ -18,13 +23,14 @@ import {
 } from "@greenroots/ui";
 import {
   AlertTriangle,
-  ArrowLeft,
   Banknote,
   Loader2,
   MapPin,
   Plus,
+  QrCode,
   ShoppingBag,
 } from "lucide-react";
+import { BackLink } from "@/components/common/back-link";
 import { AddressDialog } from "@/components/common/address-dialog";
 import { DeliveryQuoteSummary } from "@/components/common/delivery-quote-summary";
 import { listAddressesAction } from "@/features/account/actions/address-actions";
@@ -35,7 +41,7 @@ import {
   findActiveDeliveryAddress,
   useDeliveryAddressStore,
 } from "@/stores/delivery-address.store";
-import { checkoutCodAction } from "../actions/order-actions";
+import { checkoutOrderAction } from "../actions/order-actions";
 import { useCartHydrated, useValidatedCart } from "../hooks/use-validated-cart";
 import type { OrderDto } from "../schemas/order.schema";
 import {
@@ -81,6 +87,10 @@ export function CheckoutView() {
   const [requestedLoyaltyInput, setRequestedLoyaltyInput] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitErrorCode, setSubmitErrorCode] = useState<string | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
+    typeof PaymentMethod.COD | typeof PaymentMethod.PAYOS
+  >(PaymentMethod.COD);
   const [confirmedOrder, setConfirmedOrder] = useState<OrderDto | null>(null);
 
   const idempotencyRef = useRef<{ signature: string; key: string } | null>(
@@ -231,6 +241,11 @@ export function CheckoutView() {
   const displayTotalVnd =
     validation?.totalAmountVnd ??
     Math.max(0, effectiveSubtotalVnd - discountVnd + shippingFeeVnd);
+  const isPayosZeroAmount = displayTotalVnd <= 0;
+  const effectivePaymentMethod =
+    selectedPaymentMethod === PaymentMethod.PAYOS && isPayosZeroAmount
+      ? PaymentMethod.COD
+      : selectedPaymentMethod;
 
   const meetsMov =
     validation?.meetsMinOrderValue ??
@@ -256,6 +271,7 @@ export function CheckoutView() {
     }
 
     setSubmitError(null);
+    setSubmitErrorCode(null);
     setIsSubmitting(true);
 
     const payloadItems = items.map((item) => ({
@@ -266,6 +282,7 @@ export function CheckoutView() {
       items: payloadItems,
       addressId: activeAddress.id,
       loyaltyPoints: effectiveLoyaltyPoints,
+      paymentMethod: effectivePaymentMethod,
     });
 
     if (
@@ -278,12 +295,13 @@ export function CheckoutView() {
       };
     }
 
-    const result = await checkoutCodAction({
+    const result = await checkoutOrderAction({
       idempotencyKey: idempotencyRef.current.key,
       items: payloadItems,
       addressId: activeAddress.id,
       loyaltyPoints: effectiveLoyaltyPoints,
       clientTotalVnd: displayTotalVnd,
+      paymentMethod: effectivePaymentMethod,
     });
 
     setIsSubmitting(false);
@@ -295,30 +313,23 @@ export function CheckoutView() {
         return;
       }
       setSubmitError(result.message);
+      setSubmitErrorCode(result.code);
       return;
     }
 
     idempotencyRef.current = null;
     clearCart();
+    if (effectivePaymentMethod === PaymentMethod.PAYOS) {
+      router.replace(`/orders/${result.order.id}`);
+      return;
+    }
     setConfirmedOrder(result.order);
   }
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 lg:px-6 lg:py-8">
       <div className="flex flex-col gap-2 border-b border-border-subtle pb-4">
-        <div>
-          <Link
-            href="/cart"
-            className={buttonVariants({
-              variant: "ghost",
-              size: "sm",
-              className: "-ml-2 gap-1.5 text-gray-600 hover:text-gray-900",
-            })}
-          >
-            <ArrowLeft className="size-4" aria-hidden="true" />
-            <span>Quay lại giỏ hàng</span>
-          </Link>
-        </div>
+        <BackLink href="/cart" label="Quay lại giỏ hàng" />
 
         <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
           Thanh toán đơn hàng
@@ -328,7 +339,18 @@ export function CheckoutView() {
       {activeError ? (
         <Alert variant="destructive">
           <AlertTriangle className="size-4" aria-hidden="true" />
-          <AlertDescription>{activeError}</AlertDescription>
+          <AlertDescription>
+            {activeError}
+            {submitErrorCode ===
+            API_ERROR_CODES.ORDER_PAYOS_PENDING_LIMIT_EXCEEDED ? (
+              <>
+                {" "}
+                <Link href="/account/orders" className="underline">
+                  Xem đơn hàng của tôi
+                </Link>
+              </>
+            ) : null}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -529,26 +551,84 @@ export function CheckoutView() {
             )}
           </section>
 
-          {/* Payment Method (COD only in #141) */}
+          {/* Payment Method */}
           <section className="space-y-3">
             <h2 className="text-base font-bold text-gray-900">
               Phương thức thanh toán
             </h2>
-            <div className="flex items-center gap-3 rounded-lg border border-brand-forest bg-green-50/50 p-3.5">
-              <Banknote
-                className="size-5 shrink-0 text-brand-forest"
-                aria-hidden="true"
-              />
-              <div>
-                <p className="text-sm font-bold text-gray-900">
-                  Thanh toán khi nhận hàng (COD)
-                </p>
-                <p className="text-xs text-gray-600">
-                  Kiểm tra độ tươi và mã truy xuất nguồn gốc trước khi thanh
-                  toán tiền mặt.
-                </p>
-              </div>
-            </div>
+            <RadioGroup
+              value={effectivePaymentMethod}
+              onValueChange={(value) => {
+                setSubmitError(null);
+                setSubmitErrorCode(null);
+                if (value === PaymentMethod.PAYOS && !isPayosZeroAmount) {
+                  setSelectedPaymentMethod(PaymentMethod.PAYOS);
+                } else {
+                  setSelectedPaymentMethod(PaymentMethod.COD);
+                }
+              }}
+              className="grid grid-cols-1 gap-3"
+            >
+              <Label
+                htmlFor="payment-method-cod"
+                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition-colors ${
+                  effectivePaymentMethod === PaymentMethod.COD
+                    ? "border-brand-forest bg-green-50/50"
+                    : "border-border-subtle bg-surface-card hover:bg-surface-warm"
+                }`}
+              >
+                <RadioGroupItem
+                  id="payment-method-cod"
+                  value={PaymentMethod.COD}
+                  className="mt-0.5"
+                />
+                <Banknote
+                  className="mt-0.5 size-5 shrink-0 text-brand-forest"
+                  aria-hidden="true"
+                />
+                <div className="space-y-0.5">
+                  <p className="text-sm font-bold text-gray-900">
+                    Thanh toán khi nhận hàng (COD)
+                  </p>
+                  <p className="text-xs font-normal text-gray-600">
+                    Kiểm tra độ tươi và mã truy xuất nguồn gốc trước khi thanh
+                    toán tiền mặt.
+                  </p>
+                </div>
+              </Label>
+
+              <Label
+                htmlFor="payment-method-payos"
+                className={`flex items-start gap-3 rounded-lg border p-3.5 transition-colors ${
+                  isPayosZeroAmount
+                    ? "cursor-not-allowed border-border-subtle bg-gray-50 opacity-60"
+                    : effectivePaymentMethod === PaymentMethod.PAYOS
+                      ? "cursor-pointer border-brand-forest bg-green-50/50"
+                      : "cursor-pointer border-border-subtle bg-surface-card hover:bg-surface-warm"
+                }`}
+              >
+                <RadioGroupItem
+                  id="payment-method-payos"
+                  value={PaymentMethod.PAYOS}
+                  disabled={isPayosZeroAmount}
+                  className="mt-0.5"
+                />
+                <QrCode
+                  className="mt-0.5 size-5 shrink-0 text-brand-forest"
+                  aria-hidden="true"
+                />
+                <div className="space-y-0.5">
+                  <p className="text-sm font-bold text-gray-900">
+                    Thanh toán VietQR qua PayOS
+                  </p>
+                  <p className="text-xs font-normal text-gray-600">
+                    {isPayosZeroAmount
+                      ? "Không áp dụng cho đơn hàng 0đ."
+                      : `Chuyển khoản nhanh 24/7 qua cổng PayOS. Mã giữ chỗ có hiệu lực ${BUSINESS_RULES.ORDER_PAYMENT_TIMEOUT_MINUTES} phút.`}
+                  </p>
+                </div>
+              </Label>
+            </RadioGroup>
           </section>
         </div>
 
@@ -653,6 +733,8 @@ export function CheckoutView() {
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                 Đang đặt hàng...
               </span>
+            ) : effectivePaymentMethod === PaymentMethod.PAYOS ? (
+              `Thanh toán PayOS — ${formatVnd(displayTotalVnd)}`
             ) : (
               `Đặt hàng COD — ${formatVnd(displayTotalVnd)}`
             )}

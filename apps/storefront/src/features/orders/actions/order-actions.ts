@@ -21,11 +21,14 @@ import {
 import {
   type CheckoutInput,
   checkoutInputSchema,
+  type MockConfirmPayosInput,
+  mockConfirmPayosInputSchema,
   type OrderDto,
   type ValidateCartInput,
   validateCartInputSchema,
   type ValidateCartResponse,
 } from "../schemas/order.schema";
+import { parseMockPayosOrderCode } from "../utils/payos-payment.utils";
 
 const CART_INSTANCE = "/cart";
 const CHECKOUT_INSTANCE = "/checkout";
@@ -52,6 +55,22 @@ export type CheckoutCodActionResult =
   | OrderActionFailure;
 
 /**
+ * Discriminated result returned by `getOrderAction` and `cancelOrderAction`.
+ */
+export type GetOrderActionResult =
+  | { readonly ok: true; readonly order: OrderDto }
+  | OrderActionFailure;
+
+export type CancelOrderActionResult = GetOrderActionResult;
+
+/**
+ * Discriminated result returned by `confirmMockPayosAction`.
+ */
+export type ConfirmMockPayosActionResult =
+  | { readonly ok: true; readonly received: boolean }
+  | OrderActionFailure;
+
+/**
  * Optional dependency overrides for isolated unit testing of order Server Actions.
  */
 export interface OrderActionDeps {
@@ -64,14 +83,40 @@ export interface OrderActionDeps {
   }>;
   readonly postCheckout?: (
     idempotencyKey: string,
-    body: Omit<CheckoutInput, "idempotencyKey" | "loyaltyPoints"> & {
+    body: Omit<
+      CheckoutInput,
+      "idempotencyKey" | "loyaltyPoints" | "paymentMethod"
+    > & {
       loyaltyPoints: number;
+      paymentMethod: typeof PaymentMethod.COD | typeof PaymentMethod.PAYOS;
     },
   ) => Promise<{
     response: Response;
     data?: { data: OrderDto };
     error?: unknown;
   }>;
+  readonly getOrderById?: (orderId: string) => Promise<{
+    response: Response;
+    data?: { data: OrderDto };
+    error?: unknown;
+  }>;
+  readonly cancelOrderById?: (orderId: string) => Promise<{
+    response: Response;
+    data?: { data: OrderDto };
+    error?: unknown;
+  }>;
+  readonly postMockWebhook?: (payload: {
+    code: string;
+    desc: string;
+    success: boolean;
+    data: Record<string, unknown>;
+    signature: string;
+  }) => Promise<{
+    response: Response;
+    data?: { data: { received: boolean } };
+    error?: unknown;
+  }>;
+  readonly nodeEnv?: string;
   readonly runWithRefresh?: typeof runWithServerActionRefresh;
   readonly clearCookies?: () => Promise<void>;
 }
@@ -208,7 +253,7 @@ export async function executeValidateCartAction(
  * @param deps Optional injectable adapters for unit testing.
  * @returns Created `OrderDto` or classified RFC 9457 failure.
  */
-export async function executeCheckoutCodAction(
+export async function executeCheckoutOrderAction(
   input: CheckoutInput,
   deps?: OrderActionDeps,
 ): Promise<CheckoutCodActionResult> {
@@ -234,10 +279,7 @@ export async function executeCheckoutCodAction(
             "Idempotency-Key": key,
           },
         },
-        body: {
-          ...reqBody,
-          paymentMethod: PaymentMethod.COD,
-        },
+        body: reqBody,
       }));
 
   return runProtectedOrderCall(
@@ -246,6 +288,200 @@ export async function executeCheckoutCodAction(
     (order) => ({ order }),
     deps,
   );
+}
+
+/**
+ * Executes `POST /api/v1/orders/checkout` with `paymentMethod = COD`.
+ */
+export async function executeCheckoutCodAction(
+  input: CheckoutInput,
+  deps?: OrderActionDeps,
+): Promise<CheckoutCodActionResult> {
+  return executeCheckoutOrderAction(
+    { ...input, paymentMethod: PaymentMethod.COD },
+    deps,
+  );
+}
+
+/**
+ * Polls `GET /api/v1/orders/{id}` through the Storefront BFF with automatic
+ * single-flight token refresh (`ADR-0036`).
+ *
+ * @param orderId UUIDv7 order identifier.
+ * @param deps Optional injectable adapters for unit testing.
+ * @returns Latest `OrderDto` or classified RFC 9457 failure.
+ */
+export async function executeGetOrderAction(
+  orderId: string,
+  deps?: OrderActionDeps,
+): Promise<GetOrderActionResult> {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      orderId,
+    )
+  ) {
+    return {
+      ...buildActionFailure(
+        undefined,
+        API_ERROR_CODES.VALIDATION_FAILED,
+        `/orders/${orderId}`,
+      ),
+      sessionInvalidated: false,
+    };
+  }
+
+  const getOrderById =
+    deps?.getOrderById ??
+    ((id) =>
+      api.GET("/api/v1/orders/{id}", {
+        params: { path: { id } },
+        cache: "no-store",
+      }));
+
+  return runProtectedOrderCall(
+    `/orders/${orderId}`,
+    () => getOrderById(orderId),
+    (order) => ({ order }),
+    deps,
+  );
+}
+
+/**
+ * Cancels a pending customer order via `POST /api/v1/orders/{id}/cancel`
+ * through the Storefront BFF with automatic single-flight token refresh (`ADR-0036`).
+ *
+ * @param orderId UUIDv7 order identifier.
+ * @param deps Optional injectable adapters for unit testing.
+ * @returns Updated cancelled `OrderDto` or classified RFC 9457 failure.
+ */
+export async function executeCancelOrderAction(
+  orderId: string,
+  deps?: OrderActionDeps,
+): Promise<CancelOrderActionResult> {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      orderId,
+    )
+  ) {
+    return {
+      ...buildActionFailure(
+        undefined,
+        API_ERROR_CODES.VALIDATION_FAILED,
+        `/orders/${orderId}/cancel`,
+      ),
+      sessionInvalidated: false,
+    };
+  }
+
+  const cancelOrderById =
+    deps?.cancelOrderById ??
+    ((id) =>
+      api.POST("/api/v1/orders/{id}/cancel", {
+        params: { path: { id } },
+      }));
+
+  return runProtectedOrderCall(
+    `/orders/${orderId}/cancel`,
+    () => cancelOrderById(orderId),
+    (order) => ({ order }),
+    deps,
+  );
+}
+
+/**
+ * Non-production BFF bridge that simulates a PayOS settlement webhook against
+ * `POST /api/v1/payments/payos/webhook` when `MockPaymentDriver` is active.
+ * Fails closed (`403 FORBIDDEN`) in `NODE_ENV === "production"`.
+ *
+ * @param input Order ID, mock `paymentUrl`, integer VND amount, and order code.
+ * @param deps Optional injectable adapters for unit testing.
+ * @returns Webhook acknowledgement or classified failure.
+ */
+export async function executeConfirmMockPayosAction(
+  input: MockConfirmPayosInput,
+  deps?: OrderActionDeps,
+): Promise<ConfirmMockPayosActionResult> {
+  const activeNodeEnv = deps?.nodeEnv ?? process.env.NODE_ENV;
+  if (activeNodeEnv === "production") {
+    return {
+      ...buildActionFailure(
+        undefined,
+        API_ERROR_CODES.FORBIDDEN,
+        CHECKOUT_INSTANCE,
+      ),
+      sessionInvalidated: false,
+    };
+  }
+
+  const parsed = mockConfirmPayosInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ...buildValidationFailure(
+        parsed.error,
+        API_ERROR_CODES.VALIDATION_FAILED,
+        `/orders/${input.orderId}`,
+      ),
+      sessionInvalidated: false,
+    };
+  }
+
+  const payosOrderCode = parseMockPayosOrderCode(parsed.data.paymentUrl);
+  if (payosOrderCode === null) {
+    return {
+      ...buildActionFailure(
+        undefined,
+        API_ERROR_CODES.VALIDATION_FAILED,
+        `/orders/${parsed.data.orderId}`,
+      ),
+      sessionInvalidated: false,
+    };
+  }
+
+  const postMockWebhook =
+    deps?.postMockWebhook ??
+    ((payload) =>
+      api.POST("/api/v1/payments/payos/webhook", {
+        body: payload,
+      }));
+
+  try {
+    const result = await postMockWebhook({
+      code: "00",
+      desc: "success",
+      success: true,
+      data: {
+        orderCode: payosOrderCode,
+        amount: parsed.data.amountVnd,
+        description: parsed.data.orderCode,
+        accountNumber: "MOCK-VA",
+        reference: `MOCK-${payosOrderCode}`,
+        transactionDateTime: new Date().toISOString(),
+        currency: "VND",
+        paymentLinkId: `mock-link-${payosOrderCode}`,
+        code: "00",
+        desc: "success",
+      },
+      signature: "mock-storefront-bridge",
+    });
+
+    if (!result.error && result.response.ok && result.data?.data) {
+      return { ok: true, received: result.data.data.received };
+    }
+
+    return {
+      ...buildActionFailure(
+        result.error,
+        resolveStatusFallbackCode(result.response.status),
+        `/orders/${parsed.data.orderId}`,
+      ),
+      sessionInvalidated: false,
+    };
+  } catch {
+    return {
+      ...buildNetworkFailure(),
+      sessionInvalidated: false,
+    };
+  }
 }
 
 /**
@@ -258,10 +494,46 @@ export async function validateCartAction(
 }
 
 /**
+ * Next.js Server Action placing a COD or PayOS order with `Idempotency-Key` protection.
+ */
+export async function checkoutOrderAction(
+  input: CheckoutInput,
+): Promise<CheckoutCodActionResult> {
+  return executeCheckoutOrderAction(input);
+}
+
+/**
  * Next.js Server Action placing a COD order with `Idempotency-Key` protection.
  */
 export async function checkoutCodAction(
   input: CheckoutInput,
 ): Promise<CheckoutCodActionResult> {
   return executeCheckoutCodAction(input);
+}
+
+/**
+ * Next.js Server Action polling the latest order snapshot for `/orders/[id]`.
+ */
+export async function getOrderAction(
+  orderId: string,
+): Promise<GetOrderActionResult> {
+  return executeGetOrderAction(orderId);
+}
+
+/**
+ * Next.js Server Action cancelling a pending customer order.
+ */
+export async function cancelOrderAction(
+  orderId: string,
+): Promise<CancelOrderActionResult> {
+  return executeCancelOrderAction(orderId);
+}
+
+/**
+ * Next.js Server Action triggering mock PayOS webhook settlement in non-production environments.
+ */
+export async function confirmMockPayosAction(
+  input: MockConfirmPayosInput,
+): Promise<ConfirmMockPayosActionResult> {
+  return executeConfirmMockPayosAction(input);
 }

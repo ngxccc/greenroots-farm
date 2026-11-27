@@ -1,4 +1,4 @@
-import { BUSINESS_RULES } from "@greenroots/shared";
+import { BUSINESS_RULES, PaymentMethod } from "@greenroots/shared";
 import { roundQuantity } from "@/lib/format";
 import type { CartItem } from "@/stores/cart.store";
 import type {
@@ -41,6 +41,7 @@ export function buildCheckoutPayloadSignature(params: {
   }[];
   readonly addressId?: string | null;
   readonly loyaltyPoints: number;
+  readonly paymentMethod?: PaymentMethod;
 }): string {
   const merged = new Map<string, number>();
   for (const item of params.items) {
@@ -56,6 +57,7 @@ export function buildCheckoutPayloadSignature(params: {
     items: normalizedItems,
     addressId: params.addressId ?? null,
     loyaltyPoints: Math.max(0, Math.floor(params.loyaltyPoints)),
+    paymentMethod: params.paymentMethod ?? PaymentMethod.COD,
   });
 }
 

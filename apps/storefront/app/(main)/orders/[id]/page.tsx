@@ -17,12 +17,20 @@ export const metadata: Metadata = {
 
 interface OrderDetailPageProps {
   readonly params: Promise<{ readonly id: string }>;
+  readonly searchParams: Promise<{ readonly payment?: string }>;
 }
 
-async function OrderDetailGate({ params }: OrderDetailPageProps) {
+async function OrderDetailGate({ params, searchParams }: OrderDetailPageProps) {
   // Force per-request dynamic execution before uncached params/session reads under cacheComponents.
   await connection();
-  const { id } = await params;
+  const [{ id }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+  const paymentQuery =
+    typeof resolvedSearchParams.payment === "string"
+      ? resolvedSearchParams.payment
+      : undefined;
 
   const resolution = await resolveCustomerOrderDetailSession(id);
 
@@ -42,16 +50,24 @@ async function OrderDetailGate({ params }: OrderDetailPageProps) {
     return <OrderDetailDegradedView />;
   }
 
-  return <OrderDetailView order={resolution.order} />;
+  return (
+    <OrderDetailView
+      order={resolution.order}
+      initialPaymentQuery={paymentQuery}
+    />
+  );
 }
 
 /**
  * Authenticated customer order detail route (`/orders/[id]`, SF-05).
  */
-export default function OrderDetailPage({ params }: OrderDetailPageProps) {
+export default function OrderDetailPage({
+  params,
+  searchParams,
+}: OrderDetailPageProps) {
   return (
     <Suspense fallback={<OrderDetailSkeleton />}>
-      <OrderDetailGate params={params} />
+      <OrderDetailGate params={params} searchParams={searchParams} />
     </Suspense>
   );
 }

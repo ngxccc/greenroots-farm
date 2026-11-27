@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, cache } from "react";
-import { AlertCircle, ArrowLeft } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import { BackLink } from "@/components/common/back-link";
 import {
   Alert,
   AlertDescription,
@@ -87,15 +88,11 @@ async function ProductDetailContent({ slug }: { readonly slug: string }) {
   return (
     <div className="w-full flex-1 bg-surface-card pb-16 lg:pb-0">
       <div className="mx-auto flex w-full max-w-6xl flex-col lg:gap-5 lg:px-6 lg:pt-5 lg:pb-10">
-        <div className="hidden lg:block">
-          <Link
-            href="/products"
-            className="inline-flex w-fit items-center gap-1.5 rounded text-xs font-semibold text-brand-forest hover:underline focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
-          >
-            <ArrowLeft className="size-4 shrink-0" aria-hidden="true" />
-            <span>Quay lại danh mục</span>
-          </Link>
-        </div>
+        <BackLink
+          href="/products"
+          label="Quay lại danh mục"
+          className="hidden lg:block"
+        />
 
         <section aria-label="Thông tin chi tiết sản phẩm">
           <ProductDetailHero product={product} dto={dto} />
