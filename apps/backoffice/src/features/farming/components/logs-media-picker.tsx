@@ -90,7 +90,7 @@ export function MediaAttachmentPicker({
         accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
         onChange={handleFileChange}
         disabled={disabled || remaining <= 0}
-        className="sr-only"
+        className="hidden"
         aria-label="Chọn ảnh hoặc video hiện trường"
       />
 
