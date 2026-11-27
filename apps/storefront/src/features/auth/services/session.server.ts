@@ -1,9 +1,16 @@
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
-import { UserRole } from "@greenroots/shared";
+import {
+  API_ERROR_CODES,
+  UserRole,
+  resolveSharedApiErrorMessage,
+} from "@greenroots/shared";
 import { api } from "@/lib/api-client";
 import type { CustomerAddress } from "@/features/account/types/address.types";
-import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
+import type {
+  CustomerActiveSession,
+  StorefrontSessionUser,
+} from "@/features/auth/types/auth.types";
 import {
   AUTH_DEGRADED_HEADER,
   REFRESH_TOKEN_COOKIE,
@@ -34,6 +41,9 @@ export interface ServerSessionDeps {
 const fetchCachedMe = cache(async () => api.GET("/api/v1/users/me"));
 const fetchCachedAddresses = cache(async () =>
   api.GET("/api/v1/users/me/addresses"),
+);
+const fetchCachedCustomerSessions = cache(async () =>
+  api.GET("/api/v1/auth/customer/sessions", { cache: "no-store" }),
 );
 
 /**
@@ -219,6 +229,31 @@ function extractProblemStatus(error: unknown): number | undefined {
   return undefined;
 }
 
+function extractProblemCode(error: unknown): string | undefined {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
+    return error.code;
+  }
+  return undefined;
+}
+
+function resolveSessionsDegradedMessage(result: {
+  readonly response?: { readonly status: number };
+  readonly error?: unknown;
+}): string {
+  const status = result.response?.status ?? extractProblemStatus(result.error);
+  const code =
+    extractProblemCode(result.error) ??
+    (status === 429
+      ? API_ERROR_CODES.TOO_MANY_REQUESTS
+      : API_ERROR_CODES.SERVICE_UNAVAILABLE);
+  return resolveSharedApiErrorMessage(code);
+}
+
 async function defaultIsAuthDegraded(): Promise<boolean> {
   const headerStore = await headers();
   return headerStore.get(AUTH_DEGRADED_HEADER) === "1";
@@ -301,6 +336,129 @@ export async function resolveAccountProfileSession(
 export const getAccountProfileSession = cache(
   async (): Promise<AccountProfileSessionResolution> =>
     resolveAccountProfileSession(),
+);
+
+/**
+ * Discriminated active-sessions sub-state rendered inside the `/account/profile` security section.
+ */
+export type CustomerSessionsState =
+  | {
+      readonly status: "loaded";
+      readonly sessions: readonly CustomerActiveSession[];
+    }
+  | {
+      readonly status: "degraded";
+      readonly errorMessage: string;
+    };
+
+/**
+ * Discriminated SSR outcome for `/account/profile` hydrating both user profile and active sessions.
+ */
+export type AccountProfileWithSessionsResolution =
+  | {
+      readonly status: "authenticated";
+      readonly user: StorefrontSessionUser;
+      readonly sessionsState: CustomerSessionsState;
+    }
+  | { readonly status: "unauthenticated" }
+  | { readonly status: "degraded" };
+
+/**
+ * Optional dependency overrides for isolated unit testing of `resolveAccountProfileWithSessions`.
+ */
+export interface AccountProfileWithSessionsDeps extends AccountProfileSessionDeps {
+  readonly fetchCustomerSessions?: () => Promise<{
+    response?: { readonly status: number };
+    data?: { data: CustomerActiveSession[] };
+    error?: unknown;
+  }>;
+}
+
+/**
+ * Resolves customer identity alongside live active customer sessions for `/account/profile`.
+ * Preserves profile rendering with an inline degraded sessions sub-state when only the
+ * sessions endpoint fails transiently (`5xx`/`429`), while rejecting `401` and non-customer roles.
+ *
+ * @param deps Optional header, token, profile, and sessions fetch overrides for tests.
+ * @returns Authenticated profile + active sessions sub-state, `unauthenticated`, or `degraded`.
+ */
+export async function resolveAccountProfileWithSessions(
+  deps?: AccountProfileWithSessionsDeps,
+): Promise<AccountProfileWithSessionsResolution> {
+  try {
+    const gate = await checkProtectedSessionGate(deps);
+    if (!gate.ready) {
+      return { status: gate.status };
+    }
+
+    const fetchMe = deps?.fetchMe ?? fetchCachedMe;
+    const fetchCustomerSessions =
+      deps?.fetchCustomerSessions ?? fetchCachedCustomerSessions;
+
+    const safeSessionsPromise: Promise<{
+      readonly response?: { readonly status: number };
+      readonly data?: { data: CustomerActiveSession[] };
+      readonly error?: unknown;
+    }> = fetchCustomerSessions().catch(() => ({
+      response: { status: 503 },
+      error: {
+        status: 503,
+        code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+      },
+    }));
+
+    const [meResult, sessionsResult] = await Promise.all([
+      fetchMe(),
+      safeSessionsPromise,
+    ]);
+
+    const meOutcome = classifyFetchOutcome(
+      meResult,
+      Boolean(meResult.data?.data),
+    );
+    if (meOutcome === "unauthenticated") {
+      return { status: "unauthenticated" };
+    }
+    if (meOutcome !== "ok" || !meResult.data?.data) {
+      return { status: "degraded" };
+    }
+    if (meResult.data.data.role !== UserRole.CUSTOMER) {
+      return { status: "unauthenticated" };
+    }
+
+    const sessionsArray = sessionsResult.data?.data;
+    const sessionsOutcome = classifyFetchOutcome(
+      sessionsResult,
+      Array.isArray(sessionsArray),
+    );
+    if (sessionsOutcome === "unauthenticated") {
+      return { status: "unauthenticated" };
+    }
+
+    const sessionsState: CustomerSessionsState =
+      sessionsOutcome === "ok" && Array.isArray(sessionsArray)
+        ? { status: "loaded", sessions: sessionsArray }
+        : {
+            status: "degraded",
+            errorMessage: resolveSessionsDegradedMessage(sessionsResult),
+          };
+
+    return {
+      status: "authenticated",
+      user: meResult.data.data,
+      sessionsState,
+    };
+  } catch {
+    return { status: "degraded" };
+  }
+}
+
+/**
+ * Per-request memoized protected `/account/profile` resolver hydrating user profile and active sessions (`React.cache`).
+ */
+export const getAccountProfileWithSessions = cache(
+  async (): Promise<AccountProfileWithSessionsResolution> =>
+    resolveAccountProfileWithSessions(),
 );
 
 /**

@@ -90,6 +90,7 @@ const STOREFRONT_RSC_UNCACHED_LOADERS = new Set([
   "getServerSession",
   "fetchApiHealth",
   "getAccountProfileSession",
+  "getAccountProfileWithSessions",
   "getHeaderAddresses",
   "getAccountAddressesSession",
 ]);
