@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "storage_instructions" text;

@@ -1,0 +1,42 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "82fb34f8-0ed3-4daf-84d0-3a067ff51fdc",
+  "prevIds": ["8a68207a-bb80-4641-81f8-7cbc142cecec"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "products",
+        "storage_instructions"
+      ],
+      "writes": [
+        "s|col|public.products.storage_instructions",
+        "n|col|public.products.storage_instructions",
+        "e|col|public.products.storage_instructions"
+      ],
+      "reads": ["n|tbl|public.products", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "products",
+        "name": "storage_instructions",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

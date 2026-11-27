@@ -60,6 +60,7 @@ export const products = snakeCase.table(
     name: varchar({ length: 255 }).notNull(),
     slug: varchar({ length: 255 }).notNull(),
     description: text(),
+    storageInstructions: text(),
     basePrice: integer().notNull(),
     salePrice: integer(),
     unit: varchar({ length: 50 }).default("kg").notNull(),
