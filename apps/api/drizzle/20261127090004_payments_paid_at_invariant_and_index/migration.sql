@@ -1,0 +1,3 @@
+UPDATE "payments" SET "paid_at" = COALESCE("paid_at", "updated_at") WHERE "status" IN ('paid', 'refunded') AND "paid_at" IS NULL;--> statement-breakpoint
+CREATE INDEX "payments_paid_at_idx" ON "payments" ("paid_at") WHERE "status" IN ('paid', 'refunded') AND "paid_at" IS NOT NULL;--> statement-breakpoint
+ALTER TABLE "payments" ADD CONSTRAINT "payments_paid_at_required" CHECK ("status" NOT IN ('paid', 'refunded') OR "paid_at" IS NOT NULL);

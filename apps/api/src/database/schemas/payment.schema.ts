@@ -54,9 +54,18 @@ export const payments = snakeCase.table(
     uniqueIndex("payments_order_code_uidx").on(table.orderCode),
     uniqueIndex("payments_reference_code_uidx").on(table.referenceCode),
     index("payments_status_idx").on(table.status),
+    index("payments_paid_at_idx")
+      .on(table.paidAt)
+      .where(
+        sql`${table.status} IN ('paid', 'refunded') AND ${table.paidAt} IS NOT NULL`,
+      ),
     check(
       "payments_order_or_subscription_required",
       sql`${table.orderId} IS NOT NULL OR ${table.subscriptionId} IS NOT NULL`,
+    ),
+    check(
+      "payments_paid_at_required",
+      sql`${table.status} NOT IN ('paid', 'refunded') OR ${table.paidAt} IS NOT NULL`,
     ),
   ],
 );

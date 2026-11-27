@@ -35,6 +35,7 @@ export interface CreateOrderOptions {
   readonly loyaltyPointsUsed?: number;
   readonly shippingFee?: number;
   readonly deliveredAt?: Date | null;
+  readonly paidAt?: Date | null;
   readonly items: readonly CreateOrderItemInput[];
 }
 
@@ -109,12 +110,21 @@ export async function createOrder(
     )
     .returning();
 
+  const paidAt =
+    options.paidAt !== undefined
+      ? options.paidAt
+      : paymentStatus === PaymentStatus.PAID ||
+          paymentStatus === PaymentStatus.REFUNDED
+        ? new Date()
+        : null;
+
   await db.insert(payments).values({
     orderId: createdOrder.id,
     amount: totalAmount,
     paymentMethod,
     status: paymentStatus,
     transactionType: PaymentTransactionType.PAYMENT,
+    paidAt,
   });
 
   return { order: createdOrder, items: createdItems };
