@@ -160,7 +160,7 @@ export function ProfileDetailsFormView({
               </span>
             </div>
             {emailVerified ? (
-              <Badge className="h-auto shrink-0 border-0 bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-brand-dark">
+              <Badge className="h-auto shrink-0 border-0 bg-transparent px-2.5 py-0.5 text-xs font-semibold text-brand-dark">
                 <CheckCircle2 aria-hidden="true" />
                 <span>Đã xác thực</span>
               </Badge>
