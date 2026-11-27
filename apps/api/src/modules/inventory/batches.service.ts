@@ -17,11 +17,7 @@ import {
   isNull,
   type SQL,
 } from "drizzle-orm";
-import {
-  API_ERROR_CODES,
-  BUSINESS_RULES,
-  BatchStatus,
-} from "@greenroots/shared";
+import { API_ERROR_CODES, BatchStatus } from "@greenroots/shared";
 import { env, resolvePublicStorefrontOrigin } from "@/common/config/env.config";
 import { PG_ERROR_CODE } from "@/common/constants/error.constant";
 import { MESSAGES } from "@/common/constants/messages.constant";
@@ -34,6 +30,7 @@ import {
   DATABASE_CONNECTION,
   type DrizzleDB,
 } from "@/database/database.module";
+import { resolveFlashSaleHoursThreshold } from "./inventory.helper";
 import { batches, products, seasons } from "@/database/schemas";
 import { FarmSettingsService } from "@/modules/farms/farm-settings.service";
 import { TraceCacheService } from "@/modules/farms/trace-cache.service";
@@ -454,28 +451,10 @@ export class BatchesService {
   }
 
   private async resolveHoursThreshold(): Promise<number> {
-    try {
-      const settings = await this.farmSettingsService.getSettings();
-      const hoursThreshold = settings.flashSaleConfig.hoursThreshold;
-
-      if (!Number.isFinite(hoursThreshold) || hoursThreshold <= 0) {
-        throw new UnprocessableEntityException({
-          code: API_ERROR_CODES.FARM_FLASH_SALE_CONFIG_INVALID,
-          detail: MESSAGES.FARMS.FLASH_SALE_CONFIG_INVALID,
-        });
-      }
-
-      return hoursThreshold;
-    } catch (error) {
-      if (error instanceof NotFoundException && env.NODE_ENV !== "production") {
-        this.logger.warn(
-          `Farm settings not found in ${env.NODE_ENV}; falling back to default ${BUSINESS_RULES.FLASH_SALE_HOURS_THRESHOLD}h threshold.`,
-        );
-        return BUSINESS_RULES.FLASH_SALE_HOURS_THRESHOLD;
-      }
-
-      throw error;
-    }
+    return resolveFlashSaleHoursThreshold(
+      this.farmSettingsService,
+      this.logger,
+    );
   }
 
   private formatCalendarDateVn(date: Date): string {
