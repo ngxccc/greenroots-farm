@@ -1,0 +1,577 @@
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Checkbox,
+  Input,
+  Label,
+} from "@greenroots/ui";
+import { AlertCircle, ExternalLink, FlaskConical, Upload } from "lucide-react";
+import { useState, type ChangeEvent } from "react";
+import { uploadSignedMedia } from "@/lib/cloudinary-upload";
+import {
+  formatDisplayDate,
+  type SoilTestResult,
+  type WaterTestResult,
+} from "../plots-seasons.utils";
+
+interface SoilTestEditorProps {
+  readonly value: SoilTestResult | null;
+  readonly onChange: (next: SoilTestResult | null) => void;
+}
+
+interface WaterTestEditorProps {
+  readonly value: WaterTestResult | null;
+  readonly onChange: (next: WaterTestResult | null) => void;
+}
+
+function createDefaultSoilTest(): SoilTestResult {
+  return {
+    ph: 6.5,
+    nitrogen_ppm: 45,
+    phosphorus_ppm: 30,
+    potassium_ppm: 120,
+    heavy_metals: {
+      lead_ppm: 0.1,
+      cadmium_ppm: 0.02,
+      pass: true,
+    },
+    tested_at: new Date().toISOString().slice(0, 10),
+  };
+}
+
+function createDefaultWaterTest(): WaterTestResult {
+  return {
+    ph: 6.8,
+    ec_ms_cm: 1.1,
+    dissolved_oxygen_ppm: 7.2,
+    e_coli_cfu_100ml: 0,
+    heavy_metals_pass: true,
+    tested_at: new Date().toISOString().slice(0, 10),
+  };
+}
+
+/**
+ * Editable structured soil test telemetry section with signed Cloudinary certificate upload.
+ */
+export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function handleCertificateUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !value) return;
+
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const result = await uploadSignedMedia(file, "plots");
+      onChange({ ...value, certificate_url: result.secureUrl });
+    } catch (error) {
+      setUploadError(
+        error instanceof Error
+          ? error.message
+          : "Không thể tải chứng nhận xét nghiệm đất.",
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3 border-t border-border-subtle pt-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="enable-soil-test"
+            checked={Boolean(value)}
+            onCheckedChange={(checked) =>
+              onChange(checked ? (value ?? createDefaultSoilTest()) : null)
+            }
+          />
+          <Label htmlFor="enable-soil-test" className="text-sm font-semibold">
+            Kết quả xét nghiệm đất (Soil Test)
+          </Label>
+        </div>
+        {value ? (
+          <Badge variant="outline" className="text-xs tabular-nums">
+            pH {value.ph}
+          </Badge>
+        ) : null}
+      </div>
+
+      {value ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="space-y-1">
+            <Label htmlFor="soil-ph" className="text-xs">
+              pH đất
+            </Label>
+            <Input
+              id="soil-ph"
+              type="number"
+              step="0.1"
+              value={value.ph}
+              onChange={(e) =>
+                onChange({ ...value, ph: Number(e.target.value) || 0 })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="soil-n" className="text-xs">
+              Nitơ (ppm)
+            </Label>
+            <Input
+              id="soil-n"
+              type="number"
+              step="0.1"
+              value={value.nitrogen_ppm}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  nitrogen_ppm: Number(e.target.value) || 0,
+                })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="soil-p" className="text-xs">
+              Phốt pho (ppm)
+            </Label>
+            <Input
+              id="soil-p"
+              type="number"
+              step="0.1"
+              value={value.phosphorus_ppm}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  phosphorus_ppm: Number(e.target.value) || 0,
+                })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="soil-k" className="text-xs">
+              Kali (ppm)
+            </Label>
+            <Input
+              id="soil-k"
+              type="number"
+              step="0.1"
+              value={value.potassium_ppm}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  potassium_ppm: Number(e.target.value) || 0,
+                })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="soil-lead" className="text-xs">
+              Chì Pb (ppm)
+            </Label>
+            <Input
+              id="soil-lead"
+              type="number"
+              step="0.01"
+              value={value.heavy_metals.lead_ppm}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  heavy_metals: {
+                    ...value.heavy_metals,
+                    lead_ppm: Number(e.target.value) || 0,
+                  },
+                })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="soil-cadmium" className="text-xs">
+              Cadimi Cd (ppm)
+            </Label>
+            <Input
+              id="soil-cadmium"
+              type="number"
+              step="0.01"
+              value={value.heavy_metals.cadmium_ppm}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  heavy_metals: {
+                    ...value.heavy_metals,
+                    cadmium_ppm: Number(e.target.value) || 0,
+                  },
+                })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="soil-tested-at" className="text-xs">
+              Ngày xét nghiệm
+            </Label>
+            <Input
+              id="soil-tested-at"
+              type="date"
+              value={value.tested_at.slice(0, 10)}
+              onChange={(e) =>
+                onChange({ ...value, tested_at: e.target.value })
+              }
+            />
+          </div>
+          <div className="col-span-2 flex items-end gap-2">
+            <div className="flex items-center gap-2 pb-2">
+              <Checkbox
+                id="soil-heavy-pass"
+                checked={value.heavy_metals.pass}
+                onCheckedChange={(checked) =>
+                  onChange({
+                    ...value,
+                    heavy_metals: {
+                      ...value.heavy_metals,
+                      pass: Boolean(checked),
+                    },
+                  })
+                }
+              />
+              <Label htmlFor="soil-heavy-pass" className="text-xs font-medium">
+                Đạt chuẩn kim loại nặng
+              </Label>
+            </div>
+          </div>
+
+          <div className="col-span-full space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label htmlFor="soil-cert-url" className="text-xs">
+                Chứng nhận phòng lab (certificate_url)
+              </Label>
+              <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-brand-forest hover:underline">
+                <Upload className="size-3.5" aria-hidden="true" />
+                <span>
+                  {uploading ? "Đang tải lên..." : "Tải ảnh chứng nhận"}
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={uploading}
+                  onChange={handleCertificateUpload}
+                  className="sr-only"
+                />
+              </label>
+            </div>
+            <Input
+              id="soil-cert-url"
+              type="url"
+              placeholder="https://res.cloudinary.com/..."
+              value={value.certificate_url ?? ""}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  certificate_url: e.target.value.trim() || undefined,
+                })
+              }
+            />
+            {uploadError ? (
+              <Alert variant="destructive" role="alert">
+                <AlertCircle className="size-4" aria-hidden="true" />
+                <AlertDescription className="text-xs">
+                  {uploadError}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Editable structured water test telemetry section with signed Cloudinary certificate upload.
+ */
+export function WaterTestEditor({ value, onChange }: WaterTestEditorProps) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function handleCertificateUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !value) return;
+
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const result = await uploadSignedMedia(file, "plots");
+      onChange({ ...value, certificate_url: result.secureUrl });
+    } catch (error) {
+      setUploadError(
+        error instanceof Error
+          ? error.message
+          : "Không thể tải chứng nhận xét nghiệm nước.",
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3 border-t border-border-subtle pt-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="enable-water-test"
+            checked={Boolean(value)}
+            onCheckedChange={(checked) =>
+              onChange(checked ? (value ?? createDefaultWaterTest()) : null)
+            }
+          />
+          <Label htmlFor="enable-water-test" className="text-sm font-semibold">
+            Kết quả xét nghiệm nước (Water Test)
+          </Label>
+        </div>
+        {value ? (
+          <Badge variant="outline" className="text-xs tabular-nums">
+            pH {value.ph}
+          </Badge>
+        ) : null}
+      </div>
+
+      {value ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="space-y-1">
+            <Label htmlFor="water-ph" className="text-xs">
+              pH nước
+            </Label>
+            <Input
+              id="water-ph"
+              type="number"
+              step="0.1"
+              value={value.ph}
+              onChange={(e) =>
+                onChange({ ...value, ph: Number(e.target.value) || 0 })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="water-ec" className="text-xs">
+              EC (mS/cm)
+            </Label>
+            <Input
+              id="water-ec"
+              type="number"
+              step="0.1"
+              value={value.ec_ms_cm}
+              onChange={(e) =>
+                onChange({ ...value, ec_ms_cm: Number(e.target.value) || 0 })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="water-do" className="text-xs">
+              Oxy hòa tan (ppm)
+            </Label>
+            <Input
+              id="water-do"
+              type="number"
+              step="0.1"
+              value={value.dissolved_oxygen_ppm}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  dissolved_oxygen_ppm: Number(e.target.value) || 0,
+                })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="water-ecoli" className="text-xs">
+              E.coli (CFU/100ml)
+            </Label>
+            <Input
+              id="water-ecoli"
+              type="number"
+              step="1"
+              value={value.e_coli_cfu_100ml}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  e_coli_cfu_100ml: Number(e.target.value) || 0,
+                })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="water-tested-at" className="text-xs">
+              Ngày xét nghiệm
+            </Label>
+            <Input
+              id="water-tested-at"
+              type="date"
+              value={value.tested_at.slice(0, 10)}
+              onChange={(e) =>
+                onChange({ ...value, tested_at: e.target.value })
+              }
+            />
+          </div>
+          <div className="flex items-end pb-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="water-heavy-pass"
+                checked={value.heavy_metals_pass}
+                onCheckedChange={(checked) =>
+                  onChange({
+                    ...value,
+                    heavy_metals_pass: Boolean(checked),
+                  })
+                }
+              />
+              <Label htmlFor="water-heavy-pass" className="text-xs font-medium">
+                Đạt chuẩn KLN
+              </Label>
+            </div>
+          </div>
+
+          <div className="col-span-full space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label htmlFor="water-cert-url" className="text-xs">
+                Chứng nhận phòng lab (certificate_url)
+              </Label>
+              <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-brand-forest hover:underline">
+                <Upload className="size-3.5" aria-hidden="true" />
+                <span>
+                  {uploading ? "Đang tải lên..." : "Tải ảnh chứng nhận"}
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={uploading}
+                  onChange={handleCertificateUpload}
+                  className="sr-only"
+                />
+              </label>
+            </div>
+            <Input
+              id="water-cert-url"
+              type="url"
+              placeholder="https://res.cloudinary.com/..."
+              value={value.certificate_url ?? ""}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  certificate_url: e.target.value.trim() || undefined,
+                })
+              }
+            />
+            {uploadError ? (
+              <Alert variant="destructive" role="alert">
+                <AlertCircle className="size-4" aria-hidden="true" />
+                <AlertDescription className="text-xs">
+                  {uploadError}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Compact lab telemetry display for soil and water test results on plot cards and table rows.
+ */
+export function LabTelemetrySummary({
+  soilTestResult,
+  waterTestResult,
+}: {
+  readonly soilTestResult: SoilTestResult | null;
+  readonly waterTestResult: WaterTestResult | null;
+}) {
+  if (!soilTestResult && !waterTestResult) {
+    return (
+      <span className="text-xs text-gray-500">Chưa có xét nghiệm đất/nước</span>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5 text-xs">
+      {soilTestResult ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <FlaskConical
+            className="size-3.5 shrink-0 text-brand-forest"
+            aria-hidden="true"
+          />
+          <span className="font-semibold text-gray-800">Đất:</span>
+          <span className="text-gray-700 tabular-nums">
+            pH {soilTestResult.ph} · NPK {soilTestResult.nitrogen_ppm}/
+            {soilTestResult.phosphorus_ppm}/{soilTestResult.potassium_ppm}
+          </span>
+          <Badge
+            variant="outline"
+            className={
+              soilTestResult.heavy_metals.pass
+                ? "border-emerald-200 bg-emerald-50 text-brand-dark"
+                : "border-red-200 bg-red-50 text-status-spoiled"
+            }
+          >
+            {soilTestResult.heavy_metals.pass ? "Đạt KLN" : "Vượt ngưỡng"}
+          </Badge>
+          <span className="text-gray-500 tabular-nums">
+            ({formatDisplayDate(soilTestResult.tested_at)})
+          </span>
+          {soilTestResult.certificate_url ? (
+            <a
+              href={soilTestResult.certificate_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-0.5 font-medium text-brand-forest hover:underline"
+            >
+              <span>Chứng nhận</span>
+              <ExternalLink className="size-3" aria-hidden="true" />
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
+      {waterTestResult ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <FlaskConical
+            className="size-3.5 shrink-0 text-brand-forest"
+            aria-hidden="true"
+          />
+          <span className="font-semibold text-gray-800">Nước:</span>
+          <span className="text-gray-700 tabular-nums">
+            pH {waterTestResult.ph} · EC {waterTestResult.ec_ms_cm} · DO{" "}
+            {waterTestResult.dissolved_oxygen_ppm}
+          </span>
+          <Badge
+            variant="outline"
+            className={
+              waterTestResult.heavy_metals_pass
+                ? "border-emerald-200 bg-emerald-50 text-brand-dark"
+                : "border-red-200 bg-red-50 text-status-spoiled"
+            }
+          >
+            {waterTestResult.heavy_metals_pass ? "Đạt chuẩn" : "Không đạt"}
+          </Badge>
+          <span className="text-gray-500 tabular-nums">
+            ({formatDisplayDate(waterTestResult.tested_at)})
+          </span>
+          {waterTestResult.certificate_url ? (
+            <a
+              href={waterTestResult.certificate_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-0.5 font-medium text-brand-forest hover:underline"
+            >
+              <span>Chứng nhận</span>
+              <ExternalLink className="size-3" aria-hidden="true" />
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
