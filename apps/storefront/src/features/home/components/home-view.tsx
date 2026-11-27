@@ -30,7 +30,7 @@ import {
   QrCode,
   ShieldCheck,
 } from "lucide-react";
-import { DELIVERY_DAY_LABELS } from "@/constants/domain-labels.constant";
+import { BUSINESS_RULES } from "@greenroots/shared";
 import { FARM_METADATA } from "@/constants/farm-metadata.constant";
 import { formatVnd } from "@/lib/format";
 import { buildTraceDetailHref } from "@/lib/navigation";
@@ -385,17 +385,20 @@ export function HomeViewContent({
                       <h3 className="text-base font-bold text-gray-900">
                         {plan.name}
                       </h3>
-                      <Badge className="rounded-full border-0 bg-green-100 text-brand-dark">
-                        {plan.totalDeliveries} lần giao / tháng
+                      <Badge className="rounded-full border-0 bg-green-100 text-brand-dark tabular-nums">
+                        {plan.totalDeliveries} chuyến ·{" "}
+                        {plan.weightPerDeliveryKg} kg/chuyến
                       </Badge>
                     </div>
+                    <p className="text-xs font-medium text-gray-800 tabular-nums">
+                      {plan.basketDescription} ({formatVnd(plan.unitPriceVnd)}
+                      /chuyến)
+                    </p>
                     <p className="text-xs text-gray-600">{plan.description}</p>
-                    <p className="text-xs font-semibold text-status-fresh">
-                      Miễn phí ship trong bán kính 20 km (
-                      {plan.supportedDeliveryDays
-                        .map((day) => DELIVERY_DAY_LABELS[day])
-                        .join(", ")}
-                      )
+                    <p className="text-xs font-semibold text-status-fresh tabular-nums">
+                      Miễn phí ship trong bán kính{" "}
+                      {BUSINESS_RULES.SHIPPING.SUBSCRIPTION_FREE_RADIUS_KM} km
+                      từ {FARM_METADATA.hubName}
                     </p>
                   </div>
 

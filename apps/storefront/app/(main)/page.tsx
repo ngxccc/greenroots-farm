@@ -5,15 +5,17 @@ import { HomeView } from "@/features/home/components/home-view";
 import { ProductGridSkeleton } from "@/features/home/components/product-card";
 import { fetchLiveHomeCatalog } from "@/features/catalog/services/catalog.service";
 import { fetchApiHealth } from "@/lib/health";
+import { fetchLiveSubscriptionPlans } from "@/services/subscription.service";
 
 async function HomeContent() {
   await connection();
-  const [{ reachable }, shelves] = await Promise.all([
+  const [{ reachable }, shelves, { plans }] = await Promise.all([
     fetchApiHealth(),
     fetchLiveHomeCatalog(),
+    fetchLiveSubscriptionPlans(),
   ]);
 
-  return <HomeView shelves={shelves} apiReachable={reachable} />;
+  return <HomeView shelves={shelves} plans={plans} apiReachable={reachable} />;
 }
 
 export default function HomePage() {
