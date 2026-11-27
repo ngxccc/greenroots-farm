@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -371,15 +372,19 @@ export function ProductsTab({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={toggleActiveMutation.isPending}
-                            onClick={() => toggleActiveMutation.mutate(product)}
-                          >
-                            {product.isActive ? "Đang bán" : "Đang ẩn"}
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={product.isActive}
+                              disabled={toggleActiveMutation.isPending}
+                              onCheckedChange={() =>
+                                toggleActiveMutation.mutate(product)
+                              }
+                              aria-label={`Chuyển trạng thái hiển thị ${product.name}`}
+                            />
+                            <span className="text-xs text-gray-600">
+                              {product.isActive ? "Đang bán" : "Đang ẩn"}
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="inline-flex items-center gap-1">
@@ -435,15 +440,15 @@ export function ProductsTab({
                           : formatVnd(product.basePriceVnd)}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toggleActiveMutation.mutate(product)}
-                      >
-                        {product.isActive ? "Bật" : "Ẩn"}
-                      </Button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Switch
+                        checked={product.isActive}
+                        disabled={toggleActiveMutation.isPending}
+                        onCheckedChange={() =>
+                          toggleActiveMutation.mutate(product)
+                        }
+                        aria-label={`Chuyển trạng thái hiển thị ${product.name}`}
+                      />
                       <Button
                         type="button"
                         variant="ghost"
