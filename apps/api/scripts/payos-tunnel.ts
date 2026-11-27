@@ -1,6 +1,6 @@
 import { confirmPayosWebhook } from "./confirm-payos-webhook";
 
-const DEFAULT_API_PORT = "3001";
+const DEFAULT_API_PORT = "3000";
 const TUNNEL_URL_PATTERN = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i;
 const TUNNEL_READY_TIMEOUT_MS = 20_000;
 
