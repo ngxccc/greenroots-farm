@@ -65,6 +65,7 @@ One decision per file. Read the ones that touch the area you are changing before
 - `docs/adr/0048-operational-analytics-gross-revenue-cohort-waste-and-delivered-anchor.md` — Operational analytics `grossItemRevenueVnd` without cashflow/discount leakage (`#250` vs. `#251`), `orders.delivered_at` partial index and `CHECK` invariant, harvest-cohort `wasteRatio`, and `grossItemRevenueVnd`-ranked `topProducts`.
 - `docs/adr/0049-financial-cashflow-analytics-cash-basis-and-paid-at-anchor.md` — `SUPER_ADMIN` financial cashflow analytics (`#251`), cash-basis PayOS (orders + subscriptions) vs. COD inflows and `bank_transfer` refunds anchored on `payments.paid_at`, `payments_paid_at_required` + `payments_paid_at_idx`, and live `pendingCodReceivableVnd` snapshot.
 - `docs/adr/0050-batch-flash-sale-toggle-and-fefo-checkout-pricing.md` — Opt-in batch-level Rescue Flash Sale state (`is_flash_sale`, `flash_sale_discount_percent`) on `batches`, `base_price`-anchored discount precedence (`ADR-0025`), auto-clear on `expired`/`sold_out`, and `(productId, unitPriceVnd)` FEFO `order_items` splitting in `OrdersService` (`#249`).
+- `docs/adr/0051-backoffice-httponly-refresh-cookie-and-staff-reset-origin.md` — `httpOnly` `gr_staff_refresh` cookie transport for `/api/v1/auth/staff/*` (`{ accessToken, user }` response), `Origin`-validated cookie refresh/logout, role-based `BACKOFFICE_URL` password-reset routing, and removal of Backoffice demo role bypasses (`#120`; amends `ADR-0039`).
 
 ### Context-Scoped Decisions
 
