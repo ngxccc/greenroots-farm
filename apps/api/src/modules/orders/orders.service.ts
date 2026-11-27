@@ -16,10 +16,12 @@ import {
   count,
   desc,
   eq,
+  ilike,
   inArray,
   isNotNull,
   isNull,
   lte,
+  or,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -41,6 +43,7 @@ import { TIME_IN_MS } from "@/common/constants/time.constant";
 import type { PaginationMetaDto } from "@/common/dto/api-response.dto";
 import { buildPaginationMeta } from "@/common/utils/api-response.util";
 import { extractDatabaseErrorDetails } from "@/common/utils/error.util";
+import { escapeLikePattern } from "@/common/utils/query.util";
 import {
   DATABASE_CONNECTION,
   type DrizzleDB,
@@ -73,6 +76,7 @@ import type {
   BatchAllocationSummaryProjection,
   CheckoutRequestInput,
   ListMyOrdersQuery,
+  ListStaffOrdersQuery,
   OrderItemProjection,
   OrderPickListProjection,
   OrderProjection,
@@ -115,6 +119,7 @@ import { ShippingService } from "./shipping/shipping.service";
 const ORDER_COLUMNS = {
   id: orders.id,
   customerId: orders.customerId,
+  subscriptionId: orders.subscriptionId,
   orderCode: orders.orderCode,
   orderStatus: orders.orderStatus,
   paymentMethod: orders.paymentMethod,
@@ -207,6 +212,82 @@ export class OrdersService {
     @Inject(PAYMENT_DRIVER_TOKEN)
     private readonly paymentDriver: PaymentDriver,
   ) {}
+
+  /**
+   * Lists all customer and subscription orders for backoffice staff fulfillment (`GET /api/v1/orders`).
+   *
+   * @param query Validated status, subscription indicator, search, and pagination parameters.
+   * @returns Paginated `StaffOrderProjection[]` including line items and active FEFO allocations.
+   */
+  async listStaffOrders(
+    query: ListStaffOrdersQuery,
+  ): Promise<{ items: StaffOrderProjection[]; meta: PaginationMetaDto }> {
+    const conditions: SQL[] = [];
+
+    if (query.statuses) {
+      conditions.push(inArray(orders.orderStatus, query.statuses));
+    } else if (query.status) {
+      conditions.push(eq(orders.orderStatus, query.status));
+    }
+
+    if (query.isSubscription === true) {
+      conditions.push(isNotNull(orders.subscriptionId));
+    } else if (query.isSubscription === false) {
+      conditions.push(isNull(orders.subscriptionId));
+    }
+
+    if (query.search) {
+      const pattern = `%${escapeLikePattern(query.search)}%`;
+      const searchCond = or(
+        ilike(orders.orderCode, pattern),
+        ilike(orders.receiverName, pattern),
+        ilike(orders.receiverPhone, pattern),
+      );
+      if (searchCond) {
+        conditions.push(searchCond);
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countRow] = await this.db
+      .select({ total: count() })
+      .from(orders)
+      .where(whereClause);
+
+    const total = Number(countRow?.total ?? 0);
+    const meta = buildPaginationMeta(total, query.page, query.limit);
+    const offset = (query.page - 1) * query.limit;
+
+    if (total === 0 || offset >= total) {
+      return { items: [], meta };
+    }
+
+    const orderByClause = ORDER_SORT_EXPRESSIONS.get(query.sort) ?? [
+      desc(orders.createdAt),
+      desc(orders.id),
+    ];
+
+    const orderRows = await this.db
+      .select(ORDER_COLUMNS)
+      .from(orders)
+      .where(whereClause)
+      .orderBy(...orderByClause)
+      .limit(query.limit)
+      .offset(offset);
+
+    if (orderRows.length === 0) {
+      return { items: [], meta };
+    }
+
+    const items = await Promise.all(
+      orderRows.map((row) =>
+        this.hydrateStaffOrderProjection(this.db, row, "active"),
+      ),
+    );
+
+    return { items, meta };
+  }
 
   /**
    * Lists the authenticated customer's orders with pagination, status filtering,
@@ -2135,7 +2216,7 @@ export class OrdersService {
   }
 
   private async hydrateStaffOrderProjection(
-    tx: DrizzleTx,
+    tx: DrizzleDB | DrizzleTx,
     orderRow: OrderRow,
     allocationScope: "active" | "released",
   ): Promise<StaffOrderProjection> {
@@ -2196,6 +2277,7 @@ export class OrdersService {
     return {
       ...this.mapOrderRowToProjection(orderRow, []),
       customerId: orderRow.customerId,
+      subscriptionId: orderRow.subscriptionId,
       items: staffItems,
     };
   }
