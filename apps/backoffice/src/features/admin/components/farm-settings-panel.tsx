@@ -841,7 +841,7 @@ export function FarmSettingsPanel() {
                 {pendingCert?.previewUrl.startsWith("blob:") ? (
                   <div className="flex items-center gap-4">
                     <img
-                      src={pendingCert.previewUrl}
+                      src={encodeURI(pendingCert.previewUrl)}
                       alt="Chứng nhận VietGAP chờ lưu"
                       className="h-20 w-28 rounded-lg border border-brand-forest/50 object-cover"
                     />
