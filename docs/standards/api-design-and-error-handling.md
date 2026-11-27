@@ -119,13 +119,15 @@ Errors return `application/problem+json` with `{ type, title, status, code, deta
 
 ## 10. Rate Limiting
 
-`CustomThrottlerGuard` runs first in the `APP_GUARD` pipeline, before `JwtAuthGuard` and `RolesGuard`, so volumetric traffic is dropped before JWT verification and database work. It is backed by `@nest-lab/throttler-storage-redis`.
+`CustomThrottlerGuard` runs first in the `APP_GUARD` pipeline, before `JwtAuthGuard` and `RolesGuard`, so volumetric traffic is dropped before JWT verification and database work. It is backed by `@nest-lab/throttler-storage-redis` and uses a single global `default` throttler (`100 requests / 60s`), overridden per route with `@Throttle({ default: { limit, ttl } })` or bypassed with `@SkipThrottle()` where another trust boundary applies.
 
-| Tier      | Limit                              | Scope                                       |
-| :-------- | :--------------------------------- | :------------------------------------------ |
-| `default` | 100 requests / 60s                 | Standard CRUD.                              |
-| `public`  | 300 requests / 60s                 | Catalog browsing, health checks.            |
-| `auth`    | 5 requests / 60s (100 in dev/test) | `/login`, `/register`, `/upload-signature`. |
+| Policy                             | Limit               | Scope                                                                                                                                                             |
+| :--------------------------------- | :------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Global `default`                   | 100 requests / 60s  | Standard CRUD and staff ledger (`GET /payments`).                                                                                                                 |
+| Public browse override             | 300 requests / 60s  | Catalog browsing (`GET /products`, `GET /categories`), `GET /subscription-plans`, and `GET /trace`.                                                               |
+| Auth overrides                     | 2–10 requests / 60s | `logout-all` (`2`), `resend-verification` / `forgot-password` (`3`), `login` / `register` / `reset-password` (`5`), `refresh` / `verify-email` / `logout` (`10`). |
+| Payment staff mutation             | 30 requests / 60s   | `POST /payments/:id/confirm-cod`.                                                                                                                                 |
+| Webhook bypass (`@SkipThrottle()`) | Unthrottled         | `POST /payments/payos/webhook` (authenticated by HMAC-SHA256 + idempotency).                                                                                      |
 
 - The guard fails open: a Redis stall or a check exceeding 2 seconds logs a warning and allows the request.
 - Exceeding a tier throws 429, which `GlobalExceptionFilter` renders as `type: "/errors/too-many-requests"` with `MESSAGES.COMMON.TOO_MANY_REQUESTS`.
