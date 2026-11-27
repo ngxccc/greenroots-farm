@@ -122,6 +122,7 @@ export type SubscriptionStatus =
 
 export const ComplaintStatus = {
   PENDING: "pending",
+  TRIAGED: "triaged",
   APPROVED: "approved",
   REJECTED: "rejected",
 } as const;
