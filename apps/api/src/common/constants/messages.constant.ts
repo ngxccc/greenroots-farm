@@ -266,6 +266,8 @@ export const MESSAGES = {
       "Proof media asset is missing on Cloudinary or exceeds allowed size/duration limits.",
     MEDIA_SERVICE_UNAVAILABLE:
       "Media verification service is temporarily unavailable.",
+    NOT_FOUND: "Complaint not found.",
+    INVALID_STATUS_TRANSITION: "Only pending complaints can be triaged.",
   },
   ADDRESS: {
     NOT_FOUND: "Address not found.",
