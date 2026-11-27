@@ -75,6 +75,7 @@
         "@tanstack/react-table": "^8.21.3",
         "lucide-react": "catalog:",
         "openapi-fetch": "catalog:",
+        "qrcode.react": "^4.2.0",
         "react": "catalog:",
         "react-dom": "catalog:",
         "zod": "catalog:",
@@ -1224,6 +1225,8 @@
     "prettier": ["prettier@3.10.1", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-70vp3ZUYoPlFbF9uiTdXHUUCGEIp7d4+6p+8DYbkm2jP7x/3i/paXVF6dopSI3zd/CEitrZN1rc4i85xWmmXlg=="],
 
     "proxy-addr": ["proxy-addr@2.0.8", "", { "dependencies": { "forwarded": "0.2.0", "ipaddr.js": "1.9.1" } }, "sha512-5nnx0yGyVUcY6t9RnWcARWtwT9F1D8O9rt08htPvnd49W1IgZtmLkhu9WfMzQj1cFxjHIO6connUNVW5k7AVyQ=="],
+
+    "qrcode.react": ["qrcode.react@4.2.0", "", { "peerDependencies": { "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-QpgqWi8rD9DsS9EP3z7BT+5lY5SFhsqGjpgW5DY/i3mK4M9DTBNz3ErMi8BWYEfI3L0d8GIbGmcdFAS1uIRGjA=="],
 
     "qs": ["qs@6.17.1", "", { "dependencies": { "es-define-property": "^1.0.1", "side-channel": "^1.1.1" } }, "sha512-jd3COkaKVgGUW+ZHyEHCG9bH7RoaaiWuMgzsIBjUMVjLAaWGWpoUAVwljVvBHxRu/2qEHnadLGZrkutYUBPQJA=="],
 

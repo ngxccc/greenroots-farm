@@ -21,6 +21,7 @@
     "@tanstack/react-table": "^8.21.3",
     "lucide-react": "catalog:",
     "openapi-fetch": "catalog:",
+    "qrcode.react": "^4.2.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "zod": "catalog:",
