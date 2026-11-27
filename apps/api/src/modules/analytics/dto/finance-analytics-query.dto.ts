@@ -1,10 +1,7 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
-import {
-  ANALYTICS_GRANULARITIES,
-  ANALYTICS_MAX_RANGE_DAYS,
-} from "../analytics.constant";
-import { getInclusiveDaySpan, getTodayInHoChiMinh } from "../analytics.util";
+import { ANALYTICS_GRANULARITIES } from "../analytics.constant";
+import { refineAnalyticsDateRange } from "../analytics.util";
 
 /**
  * Zod schema for `GET /api/v1/analytics/finance` query parameters.
@@ -16,29 +13,7 @@ export const financeAnalyticsQuerySchema = z
     granularity: z.enum(ANALYTICS_GRANULARITIES).default("day"),
   })
   .strict()
-  .superRefine((data, ctx) => {
-    const effectiveTo = data.to ?? getTodayInHoChiMinh();
-    if (data.from !== undefined) {
-      if (data.from > effectiveTo) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["to"],
-          message: "from must be less than or equal to to.",
-        });
-        return;
-      }
-
-      if (
-        getInclusiveDaySpan(data.from, effectiveTo) > ANALYTICS_MAX_RANGE_DAYS
-      ) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["to"],
-          message: `Date range must not exceed ${ANALYTICS_MAX_RANGE_DAYS} days.`,
-        });
-      }
-    }
-  });
+  .superRefine(refineAnalyticsDateRange);
 
 /** Validated query parameters for financial cashflow analytics. */
 export type FinanceAnalyticsQuery = z.infer<typeof financeAnalyticsQuerySchema>;

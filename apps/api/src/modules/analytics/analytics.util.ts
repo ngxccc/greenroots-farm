@@ -1,5 +1,7 @@
+import type { z } from "zod";
 import {
   ANALYTICS_DAY_MS,
+  ANALYTICS_MAX_RANGE_DAYS,
   ANALYTICS_TIMEZONE_OFFSET_MS,
   type AnalyticsGranularity,
 } from "./analytics.constant";
@@ -170,4 +172,38 @@ export function computeWasteRatio(
   const ratio = discardedQuantity / initialQuantity;
   const clamped = Math.min(1, Math.max(0, ratio));
   return Math.round(clamped * 10000) / 10000;
+}
+
+/**
+ * Zod `.superRefine` callback validating an optional `[from, to]` date window
+ * against `ANALYTICS_MAX_RANGE_DAYS` in `Asia/Ho_Chi_Minh`.
+ *
+ * @param data Query object containing optional `from` and `to` ISO dates.
+ * @param ctx Zod refinement context for attaching validation issues.
+ */
+export function refineAnalyticsDateRange(
+  data: { from?: string; to?: string },
+  ctx: z.RefinementCtx,
+): void {
+  if (data.from === undefined) {
+    return;
+  }
+
+  const effectiveTo = data.to ?? getTodayInHoChiMinh();
+  if (data.from > effectiveTo) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["to"],
+      message: "from must be less than or equal to to.",
+    });
+    return;
+  }
+
+  if (getInclusiveDaySpan(data.from, effectiveTo) > ANALYTICS_MAX_RANGE_DAYS) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["to"],
+      message: `Date range must not exceed ${ANALYTICS_MAX_RANGE_DAYS} days.`,
+    });
+  }
 }
