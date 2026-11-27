@@ -159,16 +159,19 @@ function CatalogProductsPage() {
           }
         }}
       >
-        <TabsList className="h-auto w-full self-start border border-border-subtle bg-surface-card p-1 sm:w-fit">
+        <TabsList
+          variant="line"
+          className="h-auto w-full justify-start gap-4 border-b border-border-subtle p-0 pb-1"
+        >
           <TabsTrigger
             value="products"
-            className="px-4 py-1.5 data-active:bg-brand-forest data-active:text-white"
+            className="flex-none px-2 py-2 text-sm font-semibold data-active:text-gray-900"
           >
             Sản phẩm
           </TabsTrigger>
           <TabsTrigger
             value="categories"
-            className="px-4 py-1.5 data-active:bg-brand-forest data-active:text-white"
+            className="flex-none px-2 py-2 text-sm font-semibold data-active:text-gray-900"
           >
             Cây danh mục 2 cấp
           </TabsTrigger>
