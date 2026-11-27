@@ -30,7 +30,7 @@ function AdminFarmSettingsPage() {
   }
 
   return (
-    <div className="flex w-full max-w-4xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div className="flex flex-col gap-1">
         <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
           Hệ thống
