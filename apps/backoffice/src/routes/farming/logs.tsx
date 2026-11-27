@@ -163,7 +163,7 @@ function FarmingLogsPage() {
                   className={cn(
                     "h-auto min-h-16 flex-col gap-1.5 rounded-xl p-3 text-xs font-bold whitespace-normal",
                     selected
-                      ? "border-2 border-brand-forest bg-green-50 text-brand-dark ring-2 ring-brand-forest/20 hover:bg-green-50 hover:text-brand-dark"
+                      ? "border-2 bg-green-50 text-brand-dark ring-2 ring-brand-forest/20 hover:bg-green-50 hover:text-brand-dark"
                       : "border border-gray-300 bg-surface-card text-gray-700 hover:border-gray-400 hover:bg-gray-50",
                   )}
                 >
