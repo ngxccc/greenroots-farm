@@ -1,20 +1,32 @@
-import { Card, CardContent } from "@greenroots/ui";
-import { createFileRoute } from "@tanstack/react-router";
+import { BUSINESS_RULES, UserRole } from "@greenroots/shared";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
+import {
+  getDefaultRouteForRole,
+  useAuthStore,
+} from "@/features/auth/stores/auth.store";
+import { NearExpiryView } from "@/features/inventory/expiry/components/near-expiry-view";
 
 export const Route = createFileRoute("/inventory/expiry")({
-  component: () => (
+  beforeLoad: () => {
+    const role = useAuthStore.getState().user?.role;
+    if (role && role !== UserRole.ADMIN && role !== UserRole.SUPER_ADMIN) {
+      // oxlint-disable-next-line typescript/only-throw-error
+      throw redirect({ to: getDefaultRouteForRole(role) });
+    }
+  },
+  component: NearExpiryPage,
+});
+
+function NearExpiryPage() {
+  return (
     <div className="flex w-full flex-col gap-6">
       <PageHeader
         eyebrow="Bán hàng & Kho"
-        title="Hàng cận hạn"
-        description="Theo dõi lô cận hạn dưới 48 giờ và bật Flash Sale trên Storefront."
+        title="Cảnh báo cận hạn & Flash Sale"
+        description={`Theo dõi các lô hàng còn dưới ${BUSINESS_RULES.FLASH_SALE_HOURS_THRESHOLD} giờ sử dụng và bật giá giải cứu Flash Sale trên Storefront.`}
       />
-      <Card className="border-border-subtle bg-surface-card">
-        <CardContent className="py-8 text-sm text-gray-600">
-          Chức năng đang được triển khai ở đợt tiếp theo.
-        </CardContent>
-      </Card>
+      <NearExpiryView />
     </div>
-  ),
-});
+  );
+}
