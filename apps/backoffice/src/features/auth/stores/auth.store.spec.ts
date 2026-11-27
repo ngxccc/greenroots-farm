@@ -3,22 +3,30 @@ import { getDefaultRouteForRole, useAuthStore } from "./auth.store";
 
 describe("useAuthStore", () => {
   beforeEach(() => {
-    useAuthStore.getState().logout();
+    useAuthStore.getState().clearSession();
   });
 
-  it("logs in a demo internal role and clears on logout", () => {
-    useAuthStore.getState().loginDemoRole("farm_staff");
-    expect(useAuthStore.getState().user?.role).toBe("farm_staff");
-    expect(useAuthStore.getState().accessToken).toBe("demo-jwt-farm_staff");
+  it("stores in-memory session and clears it on clearSession", () => {
+    // Invariant: INV-5
+    useAuthStore.getState().setSession("jwt-access-token", {
+      id: "0195a8f0-0001-7000-8000-000000000011",
+      fullName: "Kỹ sư Lê Văn Canh Tác",
+      email: "farm@greenroots.vn",
+      role: "farm_staff",
+    });
 
-    useAuthStore.getState().logout();
+    expect(useAuthStore.getState().user?.role).toBe("farm_staff");
+    expect(useAuthStore.getState().accessToken).toBe("jwt-access-token");
+
+    useAuthStore.getState().clearSession();
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().accessToken).toBeNull();
   });
 
-  it("ignores non-internal roles", () => {
-    useAuthStore.getState().loginDemoRole("customer");
-    expect(useAuthStore.getState().user).toBeNull();
+  it("omits demo role bypass methods from store state", () => {
+    // Invariant: INV-5
+    const state = useAuthStore.getState() as unknown as Record<string, unknown>;
+    expect(state.loginDemoRole).toBeUndefined();
   });
 
   it("routes farm_staff to mobile farming logs and desk roles to orders", () => {

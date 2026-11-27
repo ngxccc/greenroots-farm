@@ -1,19 +1,16 @@
-import type { UserRole } from "@greenroots/shared";
-import {
-  Alert,
-  AlertDescription,
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Input,
-} from "@greenroots/ui";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AlertCircle, Leaf } from "lucide-react";
+import { Button, Input, Label } from "@greenroots/ui";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type SubmitEvent } from "react";
-import { getDefaultRouteForRole, useAuthStore } from "@/stores/auth.store";
+import {
+  AuthCardShell,
+  AuthErrorAlert,
+  PasswordField,
+} from "@/features/auth/components/auth-card-shell";
+import {
+  getDefaultRouteForRole,
+  useAuthStore,
+} from "@/features/auth/stores/auth.store";
+import { api, extractApiErrorMessage } from "@/lib/api-client";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -22,116 +19,96 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [formNotice, setFormNotice] = useState<string | null>(null);
-  const loginDemoRole = useAuthStore((state) => state.loginDemoRole);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const setSession = useAuthStore((state) => state.setSession);
   const navigate = useNavigate();
 
-  function handleQuickLogin(role: UserRole) {
-    loginDemoRole(role);
-    void navigate({ to: getDefaultRouteForRole(role) });
-  }
-
-  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    setFormNotice(
-      "API /auth/login sẽ nối ở bước tiếp theo; dùng nút Demo bên dưới.",
-    );
+    setErrorMessage(null);
+    setSubmitting(true);
+
+    try {
+      const { data, error } = await api.POST("/api/v1/auth/staff/login", {
+        body: { email: email.trim(), password },
+      });
+
+      if (error) {
+        setErrorMessage(
+          extractApiErrorMessage(
+            error,
+            "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.",
+          ),
+        );
+        return;
+      }
+
+      const { accessToken, user } = data.data;
+      setSession(accessToken, user);
+      void navigate({ to: getDefaultRouteForRole(user.role) });
+    } catch {
+      setErrorMessage("Không thể kết nối tới máy chủ. Vui lòng thử lại.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-surface-warm p-4">
-      <Card className="w-full max-w-md border-border-subtle bg-white shadow-sm">
-        <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-brand-forest text-white">
-            <Leaf className="size-6" />
-          </div>
-          <CardTitle className="text-xl font-extrabold text-gray-900">
-            GreenRoots Backoffice
-          </CardTitle>
-          <CardDescription>
-            Cổng vận hành nội bộ — Farm Staff, Sales, Admin &amp; SuperAdmin
-          </CardDescription>
-        </CardHeader>
+    <AuthCardShell
+      title="Đăng nhập nội bộ"
+      description="Farm Staff, Sales, Admin & SuperAdmin"
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <AuthErrorAlert message={errorMessage} />
 
-        <CardContent className="space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {formNotice ? (
-              <Alert
-                role="status"
-                className="border-border-subtle bg-surface-warm text-gray-800"
-              >
-                <AlertCircle
-                  className="size-4 text-gray-500"
-                  aria-hidden="true"
-                />
-                <AlertDescription className="text-xs">
-                  {formNotice}
-                </AlertDescription>
-              </Alert>
-            ) : null}
-            <Input
-              type="email"
-              placeholder="Email nội bộ (@greenroots.vn)"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-11"
-            />
-            <Input
-              type="password"
-              placeholder="Mật khẩu"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="h-11"
-            />
-            <Button
-              type="submit"
-              className="h-11 w-full bg-brand-forest font-bold text-white hover:bg-brand-dark"
+        <div className="flex flex-col gap-1.5">
+          <Label
+            htmlFor="login-email"
+            className="text-xs font-semibold text-gray-700"
+          >
+            Email nội bộ
+          </Label>
+          <Input
+            id="login-email"
+            type="email"
+            placeholder="staff@greenroots.vn"
+            autoComplete="username"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-11 bg-surface-warm text-sm focus-visible:border-brand-forest"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <PasswordField
+            id="login-password"
+            label="Mật khẩu"
+            placeholder="Nhập mật khẩu của bạn"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <div className="flex justify-end pt-0.5">
+            <Link
+              to="/forgot-password"
+              className="text-xs font-semibold text-brand-forest hover:underline focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:outline-none"
             >
-              Đăng nhập
-            </Button>
-          </form>
-
-          <div className="space-y-2 border-t border-border-subtle pt-4">
-            <p className="text-center text-xs font-semibold text-gray-500">
-              Đăng nhập nhanh theo vai trò (Demo)
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleQuickLogin("farm_staff")}
-                className="min-h-12 text-xs font-semibold"
-              >
-                Farm Staff (Mobile)
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleQuickLogin("sales")}
-                className="min-h-12 text-xs font-semibold"
-              >
-                Sales (FEFO)
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleQuickLogin("admin")}
-                className="min-h-12 text-xs font-semibold"
-              >
-                Admin (Vận hành)
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleQuickLogin("super_admin")}
-                className="min-h-12 text-xs font-semibold"
-              >
-                SuperAdmin
-              </Button>
-            </div>
+              Quên mật khẩu?
+            </Link>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+
+        <Button
+          type="submit"
+          disabled={submitting}
+          className="mt-1 h-11 w-full bg-brand-forest font-bold text-white hover:bg-brand-dark"
+        >
+          {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
+        </Button>
+      </form>
+    </AuthCardShell>
   );
 }
