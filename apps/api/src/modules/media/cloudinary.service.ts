@@ -182,7 +182,8 @@ export class CloudinaryService {
     formData.append("timestamp", String(timestamp));
     formData.append("signature", signature);
 
-    const endpoint = `${CLOUDINARY_ADMIN_API_BASE_URL}/${encodeURIComponent(env.CLOUDINARY_CLOUD_NAME)}/${input.resourceType}/destroy`;
+    const resourcePath = input.resourceType === "video" ? "video" : "image";
+    const endpoint = `${CLOUDINARY_ADMIN_API_BASE_URL}/${encodeURIComponent(env.CLOUDINARY_CLOUD_NAME)}/${resourcePath}/destroy`;
     let response: Response;
     try {
       response = await fetch(endpoint, {

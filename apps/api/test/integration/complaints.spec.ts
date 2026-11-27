@@ -16,6 +16,7 @@ import { and, eq, sql } from "drizzle-orm";
 import {
   API_ERROR_CODES,
   BatchStatus,
+  ComplaintCategory,
   ComplaintRefundChannel,
   ComplaintResolution,
   ComplaintStatus,
@@ -155,7 +156,7 @@ describe("Complaints Integration", () => {
   describe("POST /api/v1/orders/:id/complaints", () => {
     it("creates a pending complaint for an owned delivered order within 24 hours", async () => {
       // Invariant: INV-CMP-2
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.DELIVERED,
         deliveredAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
@@ -166,6 +167,8 @@ describe("Complaints Integration", () => {
         .post(`/api/v1/orders/${order.id}/complaints`)
         .set(customerHeader)
         .send({
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [items[0]!.id],
           reason: "  <b>Rau</b>   cải bị dập khi nhận hàng  ",
           proofImageUrls: [VALID_IMAGE_URL],
           proofVideoUrl: VALID_VIDEO_URL,
@@ -191,7 +194,7 @@ describe("Complaints Integration", () => {
 
     it("stamps deliveredAt on shipping-to-delivered transition and allows complaint after completed within 24h", async () => {
       // Invariant: INV-CMP-2
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.SHIPPING,
         paymentStatus: PaymentStatus.PAID,
@@ -228,6 +231,8 @@ describe("Complaints Integration", () => {
         .post(`/api/v1/orders/${order.id}/complaints`)
         .set(customerHeader)
         .send({
+          category: ComplaintCategory.MISSING_ITEM,
+          affectedOrderItemIds: [items[0]!.id],
           reason: "Sản phẩm giao thiếu số lượng đặt mua",
           proofImageUrls: [VALID_IMAGE_URL],
         })
@@ -239,7 +244,7 @@ describe("Complaints Integration", () => {
 
     it("returns not-found when order belongs to another customer", async () => {
       // Invariant: INV-CMP-1
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.DELIVERED,
         deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
@@ -250,6 +255,8 @@ describe("Complaints Integration", () => {
         .post(`/api/v1/orders/${order.id}/complaints`)
         .set(otherCustomerHeader)
         .send({
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [items[0]!.id],
           reason: "Không phải chủ đơn hàng nhưng thử gửi khiếu nại",
           proofImageUrls: [VALID_IMAGE_URL],
         })
@@ -260,7 +267,7 @@ describe("Complaints Integration", () => {
     });
 
     it("rejects complaint when order is not delivered or completed", async () => {
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.SHIPPING,
         paymentStatus: PaymentStatus.PAID,
@@ -271,6 +278,8 @@ describe("Complaints Integration", () => {
         .post(`/api/v1/orders/${order.id}/complaints`)
         .set(customerHeader)
         .send({
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [items[0]!.id],
           reason: "Đơn đang giao chưa thể khiếu nại",
           proofImageUrls: [VALID_IMAGE_URL],
         })
@@ -282,7 +291,7 @@ describe("Complaints Integration", () => {
 
     it("rejects complaint submitted more than 24 hours after deliveredAt", async () => {
       // Invariant: INV-CMP-2
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.DELIVERED,
         deliveredAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
@@ -293,6 +302,8 @@ describe("Complaints Integration", () => {
         .post(`/api/v1/orders/${order.id}/complaints`)
         .set(customerHeader)
         .send({
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [items[0]!.id],
           reason: "Gửi khiếu nại sau khi đã quá hạn 24 giờ",
           proofImageUrls: [VALID_IMAGE_URL],
         })
@@ -304,7 +315,7 @@ describe("Complaints Integration", () => {
 
     it("rejects duplicate complaint submission for the same order", async () => {
       // Invariant: INV-CMP-3
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.DELIVERED,
         deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
@@ -315,6 +326,8 @@ describe("Complaints Integration", () => {
         .post(`/api/v1/orders/${order.id}/complaints`)
         .set(customerHeader)
         .send({
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [items[0]!.id],
           reason: "Khiếu nại lần thứ nhất cho đơn hàng",
           proofImageUrls: [VALID_IMAGE_URL],
         })
@@ -324,6 +337,8 @@ describe("Complaints Integration", () => {
         .post(`/api/v1/orders/${order.id}/complaints`)
         .set(customerHeader)
         .send({
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [items[0]!.id],
           reason: "Khiếu nại lần thứ hai cho cùng đơn hàng",
           proofImageUrls: [VALID_IMAGE_URL],
         })
@@ -334,7 +349,7 @@ describe("Complaints Integration", () => {
     });
 
     it("rejects staff role from customer complaint endpoint", async () => {
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.DELIVERED,
         deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
@@ -345,6 +360,8 @@ describe("Complaints Integration", () => {
         .post(`/api/v1/orders/${order.id}/complaints`)
         .set(salesHeader)
         .send({
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [items[0]!.id],
           reason: "Nhân viên không được gọi endpoint của khách",
           proofImageUrls: [VALID_IMAGE_URL],
         })
@@ -353,7 +370,7 @@ describe("Complaints Integration", () => {
 
     it("rejects invalid media constraints reported by server-side Cloudinary verification", async () => {
       // Invariant: INV-CMP-4
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.DELIVERED,
         deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
@@ -375,6 +392,8 @@ describe("Complaints Integration", () => {
         .post(`/api/v1/orders/${order.id}/complaints`)
         .set(customerHeader)
         .send({
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [items[0]!.id],
           reason: "Video vượt quá giới hạn 15 giây cho phép",
           proofImageUrls: [VALID_IMAGE_URL],
           proofVideoUrl: VALID_VIDEO_URL,
@@ -426,7 +445,7 @@ describe("Complaints Integration", () => {
 
     it("allows only one complaint under concurrent submissions for the same order", async () => {
       // Invariant: INV-CMP-3
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.DELIVERED,
         deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
@@ -438,6 +457,8 @@ describe("Complaints Integration", () => {
           .post(`/api/v1/orders/${order.id}/complaints`)
           .set(customerHeader)
           .send({
+            category: ComplaintCategory.DAMAGED_WILTED,
+            affectedOrderItemIds: [items[0]!.id],
             reason: "Gửi khiếu nại đồng thời lần một",
             proofImageUrls: [VALID_IMAGE_URL],
           }),
@@ -445,6 +466,8 @@ describe("Complaints Integration", () => {
           .post(`/api/v1/orders/${order.id}/complaints`)
           .set(customerHeader)
           .send({
+            category: ComplaintCategory.DAMAGED_WILTED,
+            affectedOrderItemIds: [items[0]!.id],
             reason: "Gửi khiếu nại đồng thời lần hai",
             proofImageUrls: [VALID_IMAGE_URL],
           }),
@@ -456,7 +479,7 @@ describe("Complaints Integration", () => {
 
     it("omits internal staff attribution fields from customer ComplaintDto", async () => {
       // Invariant: INV-CMP-8
-      const { order } = await createOrder(setup.db, {
+      const { order, items } = await createOrder(setup.db, {
         customerId,
         orderStatus: OrderStatus.DELIVERED,
         deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
@@ -467,6 +490,8 @@ describe("Complaints Integration", () => {
         .post(`/api/v1/orders/${order.id}/complaints`)
         .set(customerHeader)
         .send({
+          category: ComplaintCategory.DAMAGED_WILTED,
+          affectedOrderItemIds: [items[0]!.id],
           reason: "Kiểm tra cô lập trường nội bộ trên DTO khách hàng",
           proofImageUrls: [VALID_IMAGE_URL],
         })
@@ -475,7 +500,7 @@ describe("Complaints Integration", () => {
       const body = res.body as ApiResponse<Record<string, unknown>>;
       expect(body.data).not.toHaveProperty("triagedBy");
       expect(body.data).not.toHaveProperty("triagedAt");
-      expect(body.data).not.toHaveProperty("triageNote");
+      expect(body.data["triageNote"]).toBeNull();
       expect(body.data).not.toHaveProperty("resolvedBy");
     });
   });
