@@ -1,6 +1,6 @@
 import { Controller, Get, Header, Param, Query } from "@nestjs/common";
 import { ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { SkipThrottle, Throttle } from "@nestjs/throttler";
+import { Throttle } from "@nestjs/throttler";
 import {
   ApiBadRequestResponseRfc9457,
   ApiInternalServerErrorResponseRfc9457,
@@ -34,9 +34,8 @@ export class TraceController {
 
   @Get()
   @Public()
-  @SkipThrottle({ default: true, auth: true })
   @Throttle({
-    public: { limit: 300, ttl: 60000 },
+    default: { limit: 300, ttl: 60000 },
   })
   @Header("Cache-Control", "no-cache")
   @ApiOperation({
@@ -55,9 +54,8 @@ export class TraceController {
 
   @Get(FARMS_ROUTES.TRACE_BY_BATCH_CODE)
   @Public()
-  @SkipThrottle({ default: true, auth: true })
   @Throttle({
-    public: { limit: 300, ttl: 60000 },
+    default: { limit: 300, ttl: 60000 },
   })
   @Header("Cache-Control", "no-cache")
   @ApiOperation({

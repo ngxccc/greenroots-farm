@@ -44,16 +44,6 @@ import { SubscriptionsModule } from "@/modules/subscriptions/subscriptions.modul
           ttl: 60000,
           limit: 100,
         },
-        {
-          name: "public",
-          ttl: 60000,
-          limit: 300,
-        },
-        {
-          name: "auth",
-          ttl: 60000,
-          limit: env.NODE_ENV === "production" ? 5 : 100,
-        },
       ],
       storage:
         env.NODE_ENV === "test"

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
 import { ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { SkipThrottle, Throttle } from "@nestjs/throttler";
+import { Throttle } from "@nestjs/throttler";
 import { UserRole } from "@greenroots/shared";
 import {
   ApiAuth,
@@ -39,9 +39,8 @@ export class SubscriptionPlansController {
 
   @Get()
   @Public()
-  @SkipThrottle({ default: true, auth: true })
   @Throttle({
-    public: { limit: 300, ttl: 60000 },
+    default: { limit: 300, ttl: 60000 },
   })
   @ApiOperation({
     summary: "List active subscription plans",

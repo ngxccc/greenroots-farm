@@ -16,7 +16,7 @@ import {
   ApiParam,
   ApiTags,
 } from "@nestjs/swagger";
-import { SkipThrottle, Throttle } from "@nestjs/throttler";
+import { Throttle } from "@nestjs/throttler";
 import { UserRole } from "@greenroots/shared";
 import {
   ApiAuth,
@@ -57,9 +57,8 @@ export class CategoriesController {
 
   @Get()
   @Public()
-  @SkipThrottle({ default: true, auth: true })
   @Throttle({
-    public: { limit: 300, ttl: 60000 },
+    default: { limit: 300, ttl: 60000 },
   })
   @ApiOperation({
     summary: "List active catalog categories",
