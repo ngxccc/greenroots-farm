@@ -105,7 +105,7 @@ export function createSafeBlobPreviewUrl(file: File): string {
     URL.revokeObjectURL(url);
     throw new Error("Đường dẫn xem trước ảnh không hợp lệ.");
   }
-  return url;
+  return encodeURI(url);
 }
 
 /**
