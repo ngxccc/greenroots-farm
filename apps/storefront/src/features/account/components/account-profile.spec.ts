@@ -4,7 +4,10 @@ import path from "node:path";
 import { Window } from "happy-dom";
 import { createElement, useLayoutEffect } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
+import type {
+  CustomerActiveSession,
+  StorefrontSessionUser,
+} from "@/features/auth/types/auth.types";
 import { AccountProfileDegradedCard } from "./account-profile-view";
 import { AccountSidebarView } from "./account-sidebar";
 import { LoyaltyBalanceCard } from "./loyalty-balance-card";
@@ -329,6 +332,92 @@ describe("Account Profile UI Components", () => {
           await Promise.resolve();
         });
       });
+    });
+
+    it("renders active sessions with current badge, session count, and metadata fallbacks", () => {
+      const sessions: CustomerActiveSession[] = [
+        {
+          id: "0195a8f0-0001-7000-8000-000000000201",
+          deviceName:
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
+          ipAddress: "203.0.113.42",
+          createdAt: "2026-11-20T04:15:00.000Z",
+          expiresAt: "2026-11-27T04:15:00.000Z",
+          isCurrent: true,
+        },
+        {
+          id: "0195a8f0-0001-7000-8000-000000000202",
+          deviceName: null,
+          ipAddress: null,
+          createdAt: "2026-11-19T08:00:00.000Z",
+          expiresAt: "2026-11-26T08:00:00.000Z",
+          isCurrent: false,
+        },
+      ];
+
+      const html = renderToStaticMarkup(
+        createElement(SecuritySessionsView, {
+          sessionsState: { status: "loaded", sessions },
+          dialogOpen: false,
+          isPending: false,
+          errorMessage: null,
+          onDialogOpenChange: () => undefined,
+          onConfirmLogoutAll: () => undefined,
+        }),
+      );
+
+      expect(html).toContain("2 phiên hoạt động");
+      expect(html).toContain("Chrome · Windows");
+      expect(html).toContain("Phiên hiện tại");
+      expect(html).toContain("IP: 203.0.113.42");
+      expect(html).toContain("Đăng nhập: 11:15, 20/11/2026");
+      expect(html).toContain("Hết hạn: 11:15, 27/11/2026");
+      expect(html).toContain("Thiết bị không xác định");
+      expect(html).toContain("IP không xác định");
+      expect(html).not.toContain("0195a8f0-0001-7000-8000-000000000201");
+    });
+
+    it("renders inline status alert when active sessions list is empty", () => {
+      const html = renderToStaticMarkup(
+        createElement(SecuritySessionsView, {
+          sessionsState: { status: "loaded", sessions: [] },
+          dialogOpen: false,
+          isPending: false,
+          errorMessage: null,
+          onDialogOpenChange: () => undefined,
+          onConfirmLogoutAll: () => undefined,
+        }),
+      );
+
+      expect(html).toContain("0 phiên hoạt động");
+      expect(html).toContain('role="status"');
+      expect(html).toContain("Chưa có phiên đăng nhập nào đang hoạt động");
+      expect(html).toContain("Đăng xuất khỏi tất cả thiết bị");
+    });
+
+    it("renders inline error alert without leaking internal details when sessions loading degrades", () => {
+      const html = renderToStaticMarkup(
+        createElement(SecuritySessionsView, {
+          sessionsState: {
+            status: "degraded",
+            errorMessage:
+              "Hệ thống đang bảo trì hoặc tạm thời gián đoạn kết nối.",
+          },
+          dialogOpen: false,
+          isPending: false,
+          errorMessage: null,
+          onDialogOpenChange: () => undefined,
+          onConfirmLogoutAll: () => undefined,
+        }),
+      );
+
+      expect(html).toContain('role="alert"');
+      expect(html).toContain("Không thể tải danh sách phiên đăng nhập");
+      expect(html).toContain(
+        "Hệ thống đang bảo trì hoặc tạm thời gián đoạn kết nối.",
+      );
+      expect(html).not.toContain("phiên hoạt động");
+      expect(html).toContain("Đăng xuất khỏi tất cả thiết bị");
     });
   });
 

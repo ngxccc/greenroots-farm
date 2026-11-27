@@ -1,10 +1,18 @@
 import { describe, expect, it } from "bun:test";
+import {
+  API_ERROR_CODES,
+  resolveSharedApiErrorMessage,
+} from "@greenroots/shared";
 import type { CustomerAddress } from "@/features/account/types/address.types";
-import type { StorefrontSessionUser } from "@/features/auth/types/auth.types";
+import type {
+  CustomerActiveSession,
+  StorefrontSessionUser,
+} from "@/features/auth/types/auth.types";
 import { actionRefreshedTokenStorage } from "@/features/auth/services/server-token";
 import {
   resolveAccountAddressesSession,
   resolveAccountProfileSession,
+  resolveAccountProfileWithSessions,
   resolveHeaderAddresses,
   resolveServerSession,
   runWithServerActionRefresh,
@@ -37,6 +45,26 @@ const sampleUser: StorefrontSessionUser = {
   createdAt: "2026-11-20T00:00:00.000Z",
   updatedAt: "2026-11-20T00:00:00.000Z",
 };
+
+const sampleActiveSessions: CustomerActiveSession[] = [
+  {
+    id: "0195a8f0-0001-7000-8000-000000000101",
+    deviceName:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
+    ipAddress: "203.0.113.42",
+    createdAt: "2026-11-20T04:15:00.000Z",
+    expiresAt: "2026-11-27T04:15:00.000Z",
+    isCurrent: true,
+  },
+  {
+    id: "0195a8f0-0001-7000-8000-000000000102",
+    deviceName: null,
+    ipAddress: null,
+    createdAt: "2026-11-19T08:00:00.000Z",
+    expiresAt: "2026-11-26T08:00:00.000Z",
+    isCurrent: false,
+  },
+];
 
 describe("Server Auth Session", () => {
   describe("resolveServerSession", () => {
@@ -418,6 +446,197 @@ describe("Server Auth Session", () => {
 
       expect(profileResult).toEqual({ status: "unauthenticated" });
       expect(addressesResult).toEqual({ status: "unauthenticated" });
+    });
+  });
+
+  describe("resolveAccountProfileWithSessions", () => {
+    it("returns degraded immediately when proxy marks auth header degraded", async () => {
+      // Invariant: INV-SF-PROFILE-1
+      let called = false;
+      const resolution = await resolveAccountProfileWithSessions({
+        isDegraded: () => Promise.resolve(true),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () => {
+          called = true;
+          return Promise.resolve({ data: { data: sampleUser } });
+        },
+        fetchCustomerSessions: () => {
+          called = true;
+          return Promise.resolve({ data: { data: sampleActiveSessions } });
+        },
+      });
+
+      expect(called).toBe(false);
+      expect(resolution).toEqual({ status: "degraded" });
+    });
+
+    it("returns unauthenticated when token is absent, role is non-customer, or either endpoint fails authentication", async () => {
+      // Invariant: INV-SF-PROFILE-1
+      const missingToken = await resolveAccountProfileWithSessions({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve(undefined),
+      });
+      const unauthorizedSessions = await resolveAccountProfileWithSessions({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleUser },
+          }),
+        fetchCustomerSessions: () =>
+          Promise.resolve({
+            response: { status: 401 },
+            error: { status: 401 },
+          }),
+      });
+      const staffRole = await resolveAccountProfileWithSessions({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("staff-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: { ...sampleUser, role: "admin" } },
+          }),
+        fetchCustomerSessions: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: [] },
+          }),
+      });
+
+      expect(missingToken).toEqual({ status: "unauthenticated" });
+      expect(unauthorizedSessions).toEqual({ status: "unauthenticated" });
+      expect(staffRole).toEqual({ status: "unauthenticated" });
+    });
+
+    it("returns authenticated profile with active sessions when both endpoints succeed", async () => {
+      const populated = await resolveAccountProfileWithSessions({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleUser },
+          }),
+        fetchCustomerSessions: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleActiveSessions },
+          }),
+      });
+
+      expect(populated).toEqual({
+        status: "authenticated",
+        user: sampleUser,
+        sessionsState: {
+          status: "loaded",
+          sessions: sampleActiveSessions,
+        },
+      });
+
+      const empty = await resolveAccountProfileWithSessions({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleUser },
+          }),
+        fetchCustomerSessions: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: [] },
+          }),
+      });
+
+      expect(empty).toEqual({
+        status: "authenticated",
+        user: sampleUser,
+        sessionsState: {
+          status: "loaded",
+          sessions: [],
+        },
+      });
+    });
+
+    it("preserves authenticated profile with degraded sessions state when sessions endpoint fails transiently", async () => {
+      const upstreamUnavailable = await resolveAccountProfileWithSessions({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleUser },
+          }),
+        fetchCustomerSessions: () =>
+          Promise.resolve({
+            response: { status: 503 },
+            error: { status: 503 },
+          }),
+      });
+
+      expect(upstreamUnavailable).toEqual({
+        status: "authenticated",
+        user: sampleUser,
+        sessionsState: {
+          status: "degraded",
+          errorMessage: resolveSharedApiErrorMessage(
+            API_ERROR_CODES.SERVICE_UNAVAILABLE,
+          ),
+        },
+      });
+
+      const rateLimited = await resolveAccountProfileWithSessions({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleUser },
+          }),
+        fetchCustomerSessions: () =>
+          Promise.resolve({
+            response: { status: 429 },
+            error: { status: 429 },
+          }),
+      });
+
+      expect(rateLimited).toEqual({
+        status: "authenticated",
+        user: sampleUser,
+        sessionsState: {
+          status: "degraded",
+          errorMessage: resolveSharedApiErrorMessage(
+            API_ERROR_CODES.TOO_MANY_REQUESTS,
+          ),
+        },
+      });
+
+      const networkRejected = await resolveAccountProfileWithSessions({
+        isDegraded: () => Promise.resolve(false),
+        readToken: () => Promise.resolve("valid-jwt"),
+        fetchMe: () =>
+          Promise.resolve({
+            response: { status: 200 },
+            data: { data: sampleUser },
+          }),
+        fetchCustomerSessions: () =>
+          Promise.reject(new Error("ECONNREFUSED secret-token-value")),
+      });
+
+      expect(networkRejected.status).toBe("authenticated");
+      if (networkRejected.status === "authenticated") {
+        expect(networkRejected.sessionsState.status).toBe("degraded");
+        if (networkRejected.sessionsState.status === "degraded") {
+          expect(networkRejected.sessionsState.errorMessage).not.toContain(
+            "ECONNREFUSED",
+          );
+          expect(networkRejected.sessionsState.errorMessage).not.toContain(
+            "secret-token-value",
+          );
+        }
+      }
     });
   });
 });
