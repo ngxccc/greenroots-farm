@@ -11,4 +11,5 @@ export interface CloudinarySignatureResult {
   folder: string;
   resourceType: MediaResourceType;
   maxBytes: number;
+  publicId?: string;
 }

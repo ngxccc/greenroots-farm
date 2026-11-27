@@ -1,8 +1,17 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
-import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  Body,
+  Controller,
+  Delete,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Query,
+} from "@nestjs/common";
+import { ApiNoContentResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import {
   ApiAuth,
   ApiBadRequestResponseRfc9457,
+  ApiConflictResponseRfc9457,
   ApiForbiddenResponseRfc9457,
   ApiInternalServerErrorResponseRfc9457,
   ApiOkResponseGeneric,
@@ -13,6 +22,7 @@ import {
 import { apiSuccess, type ApiResponse } from "@/common/utils/api-response.util";
 import { CloudinaryService } from "./cloudinary.service";
 import {
+  DeleteComplaintMediaQueryDto,
   SignedUploadDto,
   SignedUploadResponseDto,
   type SignedUploadResponse,
@@ -45,7 +55,28 @@ export class MediaController {
     const signatureData = this.cloudinaryService.createUploadSignature(
       dto,
       user.role,
+      user.sub,
     );
     return apiSuccess(signatureData);
+  }
+
+  @ApiAuth()
+  @Delete(MEDIA_ROUTES.COMPLAINTS)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "Delete an unsubmitted complaint media asset from Cloudinary",
+    description:
+      "Deletes an uploaded complaint image or video owned by the authenticated user when not yet linked to a persisted complaint.",
+  })
+  @ApiNoContentResponse({
+    description: "Unsubmitted complaint media deleted from Cloudinary",
+  })
+  @ApiForbiddenResponseRfc9457()
+  @ApiConflictResponseRfc9457()
+  async deleteComplaintMedia(
+    @Query() query: DeleteComplaintMediaQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    await this.cloudinaryService.deleteComplaintMedia(query, user.sub);
   }
 }

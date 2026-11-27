@@ -9,6 +9,7 @@ import {
   setSystemTime,
 } from "bun:test";
 import {
+  ConflictException,
   ForbiddenException,
   Logger,
   UnprocessableEntityException,
@@ -452,6 +453,101 @@ describe("CloudinaryService", () => {
         caught = error;
       }
       expect(caught).toBeInstanceOf(Error);
+    });
+  });
+
+  describe("deleteComplaintMedia", () => {
+    const originalFetch = globalThis.fetch;
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it("binds owner-scoped publicId when signing complaints upload for a user", () => {
+      const result = service.createUploadSignature(
+        {
+          resourceType: "image",
+          fileSizeBytes: 1024,
+          folder: "complaints",
+        },
+        UserRole.CUSTOMER,
+        "019fa8bc-8f4d-7000-b366-e691f45cfb91",
+      );
+
+      expect(result.publicId).toStartWith(
+        "019fa8bc-8f4d-7000-b366-e691f45cfb91/",
+      );
+      expect(result.signature).not.toBe(EXPECTED_VIDEO_SIGNATURE);
+    });
+
+    it("rejects deleting complaint media outside the caller ownership prefix", async () => {
+      let caught: unknown;
+      try {
+        await service.deleteComplaintMedia(
+          {
+            url: `https://res.cloudinary.com/${TEST_CONFIG.CLOUD_NAME}/image/upload/v1/complaints/other-user/photo.webp`,
+            resourceType: "image",
+          },
+          "caller-user-id",
+        );
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(ForbiddenException);
+    });
+
+    it("rejects deleting media already linked to a submitted complaint", async () => {
+      const mockDb = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => Promise.resolve([{ id: "existing-complaint-id" }]),
+            }),
+          }),
+        }),
+      };
+      const serviceWithDb = new CloudinaryService(mockDb as never);
+
+      let caught: unknown;
+      try {
+        await serviceWithDb.deleteComplaintMedia(
+          {
+            url: `https://res.cloudinary.com/${TEST_CONFIG.CLOUD_NAME}/image/upload/v1/complaints/caller-user/photo.webp`,
+            resourceType: "image",
+          },
+          "caller-user",
+        );
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(ConflictException);
+    });
+
+    it("calls Cloudinary destroy endpoint for owned unsubmitted complaint media", async () => {
+      let capturedUrl = "";
+      globalThis.fetch = mock((input: string | URL | Request) => {
+        capturedUrl =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+        return Promise.resolve(
+          new Response(JSON.stringify({ result: "ok" }), { status: 200 }),
+        );
+      }) as unknown as typeof fetch;
+
+      await service.deleteComplaintMedia(
+        {
+          url: `https://res.cloudinary.com/${TEST_CONFIG.CLOUD_NAME}/image/upload/v1/complaints/caller-user/photo.webp`,
+          resourceType: "image",
+        },
+        "caller-user",
+      );
+
+      expect(capturedUrl).toContain(`/${TEST_CONFIG.CLOUD_NAME}/image/destroy`);
     });
   });
 });

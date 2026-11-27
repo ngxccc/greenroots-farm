@@ -34,6 +34,13 @@ export const signedUploadResponseSchema = z.object({
     .positive()
     .describe("Maximum allowed file size in bytes")
     .meta({ example: 5242880 }),
+  publicId: z
+    .string()
+    .optional()
+    .describe(
+      "Owner-scoped Cloudinary public_id (relative to folder) when bound server-side",
+    )
+    .meta({ example: "019fa8bc-8f4d-7000-b366-e691f45cfb91/a1b2c3d4" }),
 });
 
 export type SignedUploadResponse = z.infer<typeof signedUploadResponseSchema>;

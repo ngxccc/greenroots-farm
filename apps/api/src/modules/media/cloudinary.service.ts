@@ -1,10 +1,15 @@
+import { randomUUID } from "node:crypto";
 import {
+  ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
+  Optional,
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from "@nestjs/common";
+import { eq, or, sql } from "drizzle-orm";
 import {
   API_ERROR_CODES,
   BUSINESS_RULES,
@@ -13,7 +18,12 @@ import {
 import { MESSAGES } from "@/common/constants/messages.constant";
 import { sha256 } from "@/common/utils/crypto.util";
 import { env } from "@/common/config/env.config";
-import type { SignedUploadInput } from "./dto";
+import {
+  DATABASE_CONNECTION,
+  type DrizzleDB,
+} from "@/database/database.module";
+import { complaints } from "@/database/schemas";
+import type { DeleteComplaintMediaQuery, SignedUploadInput } from "./dto";
 import {
   CLOUDINARY_ADMIN_API_BASE_URL,
   CLOUDINARY_ADMIN_REQUEST_TIMEOUT_MS,
@@ -27,13 +37,21 @@ import type { CloudinarySignatureResult } from "./media.interface";
 export class CloudinaryService {
   private readonly logger = new Logger(CloudinaryService.name);
 
+  constructor(
+    @Optional()
+    @Inject(DATABASE_CONNECTION)
+    private readonly db?: DrizzleDB,
+  ) {}
+
   /**
    * Generates a signed upload signature for direct client-to-Cloudinary uploads.
    * Enforces INV-MEDIA-1 (<=5MB for images, <=15MB for videos) and role-to-folder permissions.
+   * Binds `public_id` to `<userId>/<uuid>` for `complaints` uploads when `userId` is provided.
    */
   createUploadSignature(
     input: SignedUploadInput,
     userRole?: UserRole,
+    userId?: string,
   ): CloudinarySignatureResult {
     const { resourceType, fileSizeBytes, folder } = input;
 
@@ -64,6 +82,10 @@ export class CloudinaryService {
     const cloudName = env.CLOUDINARY_CLOUD_NAME;
     const apiKey = env.CLOUDINARY_API_KEY;
     const apiSecret = env.CLOUDINARY_API_SECRET;
+    const publicId =
+      folder === "complaints" && userId
+        ? `${userId}/${randomUUID()}`
+        : undefined;
 
     if (env.MEDIA_DRIVER === "mock" || !apiSecret) {
       this.logger.warn(
@@ -77,12 +99,17 @@ export class CloudinaryService {
         folder,
         resourceType,
         maxBytes: maxAllowedBytes,
+        ...(publicId ? { publicId } : {}),
       };
     }
 
     // Cloudinary signature calculation:
-    // Sort parameters alphabetically: folder=...&timestamp=...
-    const paramsToSign = [`folder=${folder}`, `timestamp=${timestamp}`].sort();
+    // Sort parameters alphabetically: folder=...&public_id=...&timestamp=...
+    const paramsToSign = [
+      `folder=${folder}`,
+      ...(publicId ? [`public_id=${publicId}`] : []),
+      `timestamp=${timestamp}`,
+    ].sort();
     const stringToSign = `${paramsToSign.join("&")}${apiSecret}`;
     const signature = sha256(stringToSign);
     return {
@@ -93,7 +120,89 @@ export class CloudinaryService {
       folder,
       resourceType,
       maxBytes: maxAllowedBytes,
+      ...(publicId ? { publicId } : {}),
     };
+  }
+
+  /**
+   * Deletes an unsubmitted complaint media asset owned by `userId` from Cloudinary.
+   * Rejects assets outside `complaints/<userId>/` (`403`) and assets already linked to a complaint (`409`).
+   */
+  async deleteComplaintMedia(
+    input: DeleteComplaintMediaQuery,
+    userId: string,
+  ): Promise<void> {
+    const publicId = this.extractPublicId(input.url, input.resourceType);
+    if (!publicId || !publicId.startsWith(`complaints/${userId}/`)) {
+      throw new ForbiddenException({
+        code: API_ERROR_CODES.FORBIDDEN,
+        detail: MESSAGES.MEDIA.FOLDER_ACCESS_DENIED,
+      });
+    }
+
+    if (this.db) {
+      const [existing] = await this.db
+        .select({ id: complaints.id })
+        .from(complaints)
+        .where(
+          or(
+            sql`${complaints.proofImageUrls} @> ${JSON.stringify([input.url])}::jsonb`,
+            eq(complaints.proofVideoUrl, input.url),
+          ),
+        )
+        .limit(1);
+
+      if (existing) {
+        throw new ConflictException({
+          code: API_ERROR_CODES.CONFLICT,
+          detail: MESSAGES.COMMON.CONFLICT,
+        });
+      }
+    }
+
+    if (env.MEDIA_DRIVER === "mock" || !env.CLOUDINARY_API_SECRET) {
+      this.logger.warn(
+        "Media mock driver active or CLOUDINARY_API_SECRET unset; skipping remote Cloudinary destroy",
+      );
+      return;
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const paramsToSign = [
+      `public_id=${publicId}`,
+      `timestamp=${timestamp}`,
+    ].sort();
+    const signature = sha256(
+      `${paramsToSign.join("&")}${env.CLOUDINARY_API_SECRET}`,
+    );
+
+    const formData = new FormData();
+    formData.append("public_id", publicId);
+    formData.append("api_key", env.CLOUDINARY_API_KEY);
+    formData.append("timestamp", String(timestamp));
+    formData.append("signature", signature);
+
+    const endpoint = `${CLOUDINARY_ADMIN_API_BASE_URL}/${encodeURIComponent(env.CLOUDINARY_CLOUD_NAME)}/${input.resourceType}/destroy`;
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        body: formData,
+        signal: AbortSignal.timeout(CLOUDINARY_ADMIN_REQUEST_TIMEOUT_MS),
+      });
+    } catch {
+      throw new ServiceUnavailableException({
+        code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+        detail: MESSAGES.COMPLAINTS.MEDIA_SERVICE_UNAVAILABLE,
+      });
+    }
+
+    if (!response.ok) {
+      throw new ServiceUnavailableException({
+        code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+        detail: MESSAGES.COMPLAINTS.MEDIA_SERVICE_UNAVAILABLE,
+      });
+    }
   }
 
   /**
