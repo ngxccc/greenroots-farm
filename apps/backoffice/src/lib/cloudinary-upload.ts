@@ -94,6 +94,21 @@ export function buildCloudinaryFormData(
 }
 
 /**
+ * Creates a validated `blob:` object URL for local image preview before upload.
+ *
+ * @param file Validated image file selected by the user.
+ * @throws Error when the browser returns a non-`blob:` URL.
+ */
+export function createSafeBlobPreviewUrl(file: File): string {
+  const url = URL.createObjectURL(file);
+  if (!url.startsWith("blob:")) {
+    URL.revokeObjectURL(url);
+    throw new Error("Đường dẫn xem trước ảnh không hợp lệ.");
+  }
+  return url;
+}
+
+/**
  * Requests a short-lived HMAC signature from the API and uploads the file directly to Cloudinary.
  *
  * @param file Browser `File` to upload.
