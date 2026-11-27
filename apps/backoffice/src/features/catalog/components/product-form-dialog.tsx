@@ -22,8 +22,14 @@ import {
 } from "@greenroots/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, ImagePlus, Loader2, X } from "lucide-react";
-import { useRef, useState, type ChangeEvent, type SyntheticEvent } from "react";
-import { uploadSignedMedia } from "@/lib/cloudinary-upload";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type SyntheticEvent,
+} from "react";
+import { uploadSignedMedia, validateMediaFile } from "@/lib/cloudinary-upload";
 import {
   CATALOG_QUERY_KEYS,
   createProduct,
@@ -126,6 +132,23 @@ function ProductFormBody({
   const [imageUrls, setImageUrls] = useState<string[]>(
     editingProduct?.imageUrls ?? [],
   );
+  const [pendingImages, setPendingImages] = useState<
+    { readonly id: string; readonly file: File; readonly previewUrl: string }[]
+  >([]);
+  const pendingImagesRef = useRef(pendingImages);
+
+  useEffect(() => {
+    pendingImagesRef.current = pendingImages;
+  }, [pendingImages]);
+
+  useEffect(() => {
+    return () => {
+      for (const item of pendingImagesRef.current) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    };
+  }, []);
+
   const [isActive, setIsActive] = useState(editingProduct?.isActive ?? true);
   const [isVietGap, setIsVietGap] = useState(
     editingProduct?.isVietGap ?? false,
@@ -134,7 +157,6 @@ function ProductFormBody({
   const [isSubscriptionEligible, setIsSubscriptionEligible] = useState(
     editingProduct?.isSubscriptionEligible ?? true,
   );
-  const [isUploading, setIsUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -167,7 +189,14 @@ function ProductFormBody({
         throw new Error(priceError);
       }
 
-      const imageError = validateProductImages(imageUrls);
+      const uploadedUrls: string[] = [];
+      for (const item of pendingImages) {
+        const result = await uploadSignedMedia(item.file, "products", "image");
+        uploadedUrls.push(result.secureUrl);
+      }
+      const finalImageUrls = [...imageUrls, ...uploadedUrls];
+
+      const imageError = validateProductImages(finalImageUrls);
       if (imageError) {
         throw new Error(imageError);
       }
@@ -184,7 +213,7 @@ function ProductFormBody({
         salePriceVnd: parsedSalePrice,
         description: trimmedDesc ? trimmedDesc : null,
         storageInstructions: trimmedStorage ? trimmedStorage : null,
-        imageUrls,
+        imageUrls: finalImageUrls,
         isActive,
         isVietGap,
         isUsda,
@@ -197,6 +226,10 @@ function ProductFormBody({
       return createProduct(payload);
     },
     onSuccess: async (saved) => {
+      for (const item of pendingImages) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+      setPendingImages([]);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["admin", "products"] }),
         queryClient.invalidateQueries({
@@ -224,47 +257,62 @@ function ProductFormBody({
     }
   }
 
-  async function handleImageFilesSelected(
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
+  function handleImageFilesSelected(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
     if (files.length === 0) return;
 
-    const remainingSlots = MAX_PRODUCT_IMAGES - imageUrls.length;
+    const currentCount = imageUrls.length + pendingImages.length;
+    const remainingSlots = MAX_PRODUCT_IMAGES - currentCount;
     if (remainingSlots <= 0) {
       setFormError(
-        `Mỗi sản phẩm chỉ được tải lên tối đa ${MAX_PRODUCT_IMAGES} hình ảnh.`,
+        `Mỗi sản phẩm chỉ được chọn tối đa ${MAX_PRODUCT_IMAGES} hình ảnh.`,
       );
       return;
     }
 
-    const filesToUpload = files.slice(0, remainingSlots);
+    const candidates = files.slice(0, remainingSlots);
+    const nextPending: {
+      readonly id: string;
+      readonly file: File;
+      readonly previewUrl: string;
+    }[] = [];
+
+    for (const file of candidates) {
+      const validationError = validateMediaFile(file, "image");
+      if (validationError) {
+        for (const added of nextPending) {
+          URL.revokeObjectURL(added.previewUrl);
+        }
+        setFormError(validationError);
+        return;
+      }
+      nextPending.push({
+        id: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      });
+    }
+
     if (files.length > remainingSlots) {
       setFormError(
-        `Chỉ tải lên ${remainingSlots} ảnh đầu tiên (tối đa ${MAX_PRODUCT_IMAGES} ảnh/sản phẩm).`,
+        `Chỉ chọn ${remainingSlots} ảnh đầu tiên (tối đa ${MAX_PRODUCT_IMAGES} ảnh/sản phẩm).`,
       );
     } else {
       setFormError(null);
     }
 
-    setIsUploading(true);
-    try {
-      const uploadedUrls: string[] = [];
-      for (const file of filesToUpload) {
-        const result = await uploadSignedMedia(file, "products", "image");
-        uploadedUrls.push(result.secureUrl);
+    setPendingImages((prev) => [...prev, ...nextPending]);
+  }
+
+  function handleRemovePendingImage(id: string) {
+    setPendingImages((prev) => {
+      const target = prev.find((item) => item.id === id);
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
       }
-      setImageUrls((prev) =>
-        [...prev, ...uploadedUrls].slice(0, MAX_PRODUCT_IMAGES),
-      );
-    } catch (err) {
-      setFormError(
-        err instanceof Error ? err.message : "Không thể tải ảnh lên.",
-      );
-    } finally {
-      setIsUploading(false);
-    }
+      return prev.filter((item) => item.id !== id);
+    });
   }
 
   function handleRemoveImage(index: number) {
@@ -425,24 +473,21 @@ function ProductFormBody({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="prod-images">
-            Hình ảnh sản phẩm ({imageUrls.length}/{MAX_PRODUCT_IMAGES})
+            Hình ảnh sản phẩm ({imageUrls.length + pendingImages.length}/
+            {MAX_PRODUCT_IMAGES})
           </Label>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            disabled={isUploading || imageUrls.length >= MAX_PRODUCT_IMAGES}
+            disabled={
+              mutation.isPending ||
+              imageUrls.length + pendingImages.length >= MAX_PRODUCT_IMAGES
+            }
             onClick={() => fileInputRef.current?.click()}
           >
-            {isUploading ? (
-              <Loader2
-                className="mr-1.5 size-4 animate-spin"
-                aria-hidden="true"
-              />
-            ) : (
-              <ImagePlus className="mr-1.5 size-4" aria-hidden="true" />
-            )}
-            {isUploading ? "Đang tải lên..." : "Tải ảnh lên"}
+            <ImagePlus className="mr-1.5 size-4" aria-hidden="true" />
+            Chọn ảnh
           </Button>
           <Input
             id="prod-images"
@@ -455,7 +500,7 @@ function ProductFormBody({
           />
         </div>
 
-        {imageUrls.length > 0 ? (
+        {imageUrls.length > 0 || pendingImages.length > 0 ? (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
             {imageUrls.map((url, idx) => (
               <div
@@ -479,10 +524,33 @@ function ProductFormBody({
                 </Button>
               </div>
             ))}
+            {pendingImages.map((item, idx) => (
+              <div
+                key={item.id}
+                className="relative aspect-square overflow-hidden rounded-lg border border-brand-forest/50 bg-surface-warm"
+              >
+                <img
+                  src={item.previewUrl}
+                  alt={`Ảnh chờ tải lên ${idx + 1}`}
+                  className="size-full object-cover"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRemovePendingImage(item.id)}
+                  aria-label={`Bỏ ảnh chờ ${idx + 1}`}
+                  className="absolute top-1 right-1 size-6 rounded-full bg-gray-900/75 text-white hover:bg-gray-900 hover:text-white"
+                >
+                  <X className="size-3.5" aria-hidden="true" />
+                </Button>
+              </div>
+            ))}
           </div>
         ) : (
           <p className="text-xs text-gray-500">
-            Chưa có hình ảnh. Hỗ trợ JPEG, PNG, WebP tối đa 5MB/ảnh.
+            Chưa có hình ảnh. Hỗ trợ JPEG, PNG, WebP tối đa 5MB/ảnh (chỉ tải lên
+            khi bấm lưu).
           </p>
         )}
       </div>
@@ -543,15 +611,21 @@ function ProductFormBody({
           type="button"
           variant="outline"
           onClick={onClose}
-          disabled={mutation.isPending || isUploading}
+          disabled={mutation.isPending}
         >
           Hủy
         </Button>
         <Button
           type="submit"
-          disabled={mutation.isPending || isUploading}
+          disabled={mutation.isPending}
           className="bg-brand-forest text-white hover:bg-brand-dark"
         >
+          {mutation.isPending ? (
+            <Loader2
+              className="mr-1.5 size-4 animate-spin"
+              aria-hidden="true"
+            />
+          ) : null}
           {mutation.isPending
             ? "Đang lưu..."
             : editingProduct

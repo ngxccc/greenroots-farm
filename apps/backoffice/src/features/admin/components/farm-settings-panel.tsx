@@ -22,7 +22,13 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useRef, useState, type ChangeEvent, type SubmitEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type SubmitEvent,
+} from "react";
 import {
   mapFarmSettingsDtoToFormValues,
   mapFormValuesToUpdateFarmSettingsDto,
@@ -31,7 +37,7 @@ import {
   type FarmSettingsValidationErrors,
 } from "@/features/admin/farm-settings-validation";
 import { api, extractApiErrorMessage } from "@/lib/api-client";
-import { uploadSignedMedia } from "@/lib/cloudinary-upload";
+import { uploadSignedMedia, validateMediaFile } from "@/lib/cloudinary-upload";
 
 const FARM_SETTINGS_QUERY_KEY = ["farms", "settings"] as const;
 
@@ -56,6 +62,23 @@ export function FarmSettingsPanel() {
   } | null>(null);
   const [uploadingCert, setUploadingCert] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [pendingCert, setPendingCert] = useState<{
+    readonly file: File;
+    readonly previewUrl: string;
+  } | null>(null);
+  const pendingCertRef = useRef(pendingCert);
+
+  useEffect(() => {
+    pendingCertRef.current = pendingCert;
+  }, [pendingCert]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingCertRef.current) {
+        URL.revokeObjectURL(pendingCertRef.current.previewUrl);
+      }
+    };
+  }, []);
 
   const settingsQuery = useQuery({
     queryKey: FARM_SETTINGS_QUERY_KEY,
@@ -74,11 +97,13 @@ export function FarmSettingsPanel() {
     ? mapFarmSettingsDtoToFormValues(settingsQuery.data)
     : null;
   const formValues = draftValues ?? baselineValues;
-  const isDirty = Boolean(
-    draftValues &&
-    baselineValues &&
-    JSON.stringify(draftValues) !== JSON.stringify(baselineValues),
-  );
+  const isDirty =
+    pendingCert !== null ||
+    Boolean(
+      draftValues &&
+      baselineValues &&
+      JSON.stringify(draftValues) !== JSON.stringify(baselineValues),
+    );
 
   const updateMutation = useMutation({
     mutationFn: async (values: FarmSettingsFormValues) => {
@@ -137,34 +162,40 @@ export function FarmSettingsPanel() {
     }
   }
 
-  async function handleCertificateUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploadError(null);
-    setUploadingCert(true);
-    try {
-      const result = await uploadSignedMedia(file, "farms", "image");
-      updateField("certificationUrl", result.secureUrl);
-    } catch (err) {
-      setUploadError(
-        err instanceof Error
-          ? err.message
-          : "Không thể tải ảnh chứng nhận VietGAP.",
-      );
-    } finally {
-      setUploadingCert(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+  function clearPendingCert() {
+    if (pendingCert) {
+      URL.revokeObjectURL(pendingCert.previewUrl);
+      setPendingCert(null);
     }
   }
 
-  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+  function handleCertificateSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    if (!file) return;
+
+    const validationError = validateMediaFile(file, "image");
+    if (validationError) {
+      setUploadError(validationError);
+      return;
+    }
+
+    setUploadError(null);
+    clearPendingCert();
+    setPendingCert({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    });
+  }
+
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!formValues) return;
 
     setSubmitStatus(null);
+    setUploadError(null);
     const errors = validateFarmSettingsForm(formValues);
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -178,7 +209,30 @@ export function FarmSettingsPanel() {
     }
 
     setFieldErrors({});
-    updateMutation.mutate(formValues);
+    let valuesToSave = formValues;
+    if (pendingCert) {
+      setUploadingCert(true);
+      try {
+        const result = await uploadSignedMedia(
+          pendingCert.file,
+          "farms",
+          "image",
+        );
+        valuesToSave = { ...formValues, certificationUrl: result.secureUrl };
+        clearPendingCert();
+      } catch (err) {
+        setUploadError(
+          err instanceof Error
+            ? err.message
+            : "Không thể tải ảnh chứng nhận VietGAP.",
+        );
+        setUploadingCert(false);
+        return;
+      }
+      setUploadingCert(false);
+    }
+
+    updateMutation.mutate(valuesToSave);
   }
 
   if (settingsQuery.isPending || !formValues) {
@@ -737,29 +791,33 @@ export function FarmSettingsPanel() {
                       id="vietgap-upload"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
-                      onChange={handleCertificateUpload}
+                      onChange={handleCertificateSelected}
                       className="hidden"
                     />
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      disabled={uploadingCert}
+                      disabled={uploadingCert || updateMutation.isPending}
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <Upload className="size-3.5" aria-hidden="true" />
                       <span>
                         {uploadingCert
                           ? "Đang tải lên..."
-                          : "Tải ảnh chứng nhận"}
+                          : "Chọn ảnh chứng nhận"}
                       </span>
                     </Button>
-                    {formValues.certificationUrl && (
+                    {(pendingCert !== null ||
+                      Boolean(formValues.certificationUrl)) && (
                       <Button
                         type="button"
                         variant="destructive"
                         size="sm"
-                        onClick={() => updateField("certificationUrl", null)}
+                        onClick={() => {
+                          clearPendingCert();
+                          updateField("certificationUrl", null);
+                        }}
                       >
                         <Trash2 className="size-3.5" aria-hidden="true" />
                         <span>Gỡ ảnh</span>
@@ -776,7 +834,23 @@ export function FarmSettingsPanel() {
                   </Alert>
                 )}
 
-                {formValues.certificationUrl ? (
+                {pendingCert ? (
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={pendingCert.previewUrl}
+                      alt="Chứng nhận VietGAP chờ lưu"
+                      className="h-20 w-28 rounded-lg border border-brand-forest/50 object-cover"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">
+                        {pendingCert.file.name}
+                      </p>
+                      <p className="text-xs text-brand-forest">
+                        Ảnh sẽ được tải lên khi bạn bấm Lưu cấu hình.
+                      </p>
+                    </div>
+                  </div>
+                ) : formValues.certificationUrl ? (
                   <div className="flex items-center gap-4">
                     <img
                       src={formValues.certificationUrl}
@@ -816,9 +890,11 @@ export function FarmSettingsPanel() {
               variant="outline"
               disabled={updateMutation.isPending || uploadingCert}
               onClick={() => {
+                clearPendingCert();
                 setDraftValues(null);
                 setFieldErrors({});
                 setSubmitStatus(null);
+                setUploadError(null);
               }}
             >
               Hủy thay đổi
