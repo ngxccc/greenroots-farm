@@ -1,8 +1,15 @@
 import { BatchStatus, SeasonStatus } from "@greenroots/shared";
+import { TIME_IN_MS } from "@/common/constants/time.constant";
 
 /**
  * Runtime constants and derived sort unions for the Inventory Module (`ADR-0035`).
  */
+
+/** Interval between periodic batch expiry and near-expiry sweeps (5 minutes). */
+export const BATCH_EXPIRY_SWEEP_INTERVAL_MS = 5 * TIME_IN_MS.MINUTE;
+
+/** Maximum batch rows claimed per `FOR UPDATE SKIP LOCKED` sweep chunk (`INV-BEXP-4`). */
+export const BATCH_EXPIRY_SWEEP_BATCH_SIZE = 500;
 
 /** Whitelisted sort expressions for `GET /api/v1/batches`. */
 export const BATCH_SORT_OPTIONS = [
