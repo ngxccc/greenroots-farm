@@ -13,6 +13,7 @@ import {
 } from "@greenroots/ui";
 import { AlertCircle } from "lucide-react";
 import { useState, type SyntheticEvent } from "react";
+import { uploadSignedMedia } from "@/lib/cloudinary-upload";
 import {
   validatePlotInput,
   type CreatePlotDto,
@@ -23,7 +24,11 @@ import {
   type WaterTestDraft,
   type WaterTestResult,
 } from "../plots-seasons.utils";
-import { SoilTestEditor, WaterTestEditor } from "./lab-test-section";
+import {
+  SoilTestEditor,
+  WaterTestEditor,
+  type PendingCertPreview,
+} from "./lab-test-section";
 
 interface PlotDialogProps {
   readonly open: boolean;
@@ -90,6 +95,11 @@ function PlotDialogForm({
   const [waterTestResult, setWaterTestResult] = useState<WaterTestDraft | null>(
     plot?.waterTestResult ?? null,
   );
+  const [pendingSoilCert, setPendingSoilCert] =
+    useState<PendingCertPreview | null>(null);
+  const [pendingWaterCert, setPendingWaterCert] =
+    useState<PendingCertPreview | null>(null);
+  const [isUploadingCerts, setIsUploadingCerts] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
@@ -109,21 +119,41 @@ function PlotDialogForm({
     }
 
     setErrorMessage(null);
+    setIsUploadingCerts(true);
     try {
+      let nextSoil = soilTestResult;
+      if (nextSoil && pendingSoilCert) {
+        const uploaded = await uploadSignedMedia(pendingSoilCert.file, "plots");
+        nextSoil = { ...nextSoil, certificate_url: uploaded.secureUrl };
+        URL.revokeObjectURL(pendingSoilCert.previewUrl);
+        setPendingSoilCert(null);
+      }
+
+      let nextWater = waterTestResult;
+      if (nextWater && pendingWaterCert) {
+        const uploaded = await uploadSignedMedia(
+          pendingWaterCert.file,
+          "plots",
+        );
+        nextWater = { ...nextWater, certificate_url: uploaded.secureUrl };
+        URL.revokeObjectURL(pendingWaterCert.previewUrl);
+        setPendingWaterCert(null);
+      }
+
       await onSubmit({
         plotCode: plotCode.trim(),
         name: name.trim(),
         areaSqm: numericArea,
-        soilTestResult: soilTestResult
+        soilTestResult: nextSoil
           ? ({
-              ...soilTestResult,
-              tested_at: toIsoDateTime(soilTestResult.tested_at),
+              ...nextSoil,
+              tested_at: toIsoDateTime(nextSoil.tested_at),
             } as SoilTestResult)
           : null,
-        waterTestResult: waterTestResult
+        waterTestResult: nextWater
           ? ({
-              ...waterTestResult,
-              tested_at: toIsoDateTime(waterTestResult.tested_at),
+              ...nextWater,
+              tested_at: toIsoDateTime(nextWater.tested_at),
             } as WaterTestResult)
           : null,
       });
@@ -134,6 +164,8 @@ function PlotDialogForm({
           ? error.message
           : "Không thể lưu thông tin lô đất.",
       );
+    } finally {
+      setIsUploadingCerts(false);
     }
   }
 
@@ -175,9 +207,31 @@ function PlotDialogForm({
         />
       </div>
 
-      <SoilTestEditor value={soilTestResult} onChange={setSoilTestResult} />
+      <SoilTestEditor
+        value={soilTestResult}
+        onChange={(next) => {
+          setSoilTestResult(next);
+          if (!next && pendingSoilCert) {
+            URL.revokeObjectURL(pendingSoilCert.previewUrl);
+            setPendingSoilCert(null);
+          }
+        }}
+        pendingCert={pendingSoilCert}
+        onPendingCertChange={setPendingSoilCert}
+      />
 
-      <WaterTestEditor value={waterTestResult} onChange={setWaterTestResult} />
+      <WaterTestEditor
+        value={waterTestResult}
+        onChange={(next) => {
+          setWaterTestResult(next);
+          if (!next && pendingWaterCert) {
+            URL.revokeObjectURL(pendingWaterCert.previewUrl);
+            setPendingWaterCert(null);
+          }
+        }}
+        pendingCert={pendingWaterCert}
+        onPendingCertChange={setPendingWaterCert}
+      />
 
       {errorMessage ? (
         <Alert variant="destructive" role="alert">
@@ -193,16 +247,20 @@ function PlotDialogForm({
           type="button"
           variant="outline"
           onClick={onClose}
-          disabled={isPending}
+          disabled={isPending || isUploadingCerts}
         >
           Hủy
         </Button>
         <Button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || isUploadingCerts}
           className="bg-brand-forest text-white hover:bg-brand-dark"
         >
-          {isPending ? "Đang lưu..." : plot ? "Lưu thay đổi" : "Tạo lô đất"}
+          {isPending || isUploadingCerts
+            ? "Đang lưu..."
+            : plot
+              ? "Lưu thay đổi"
+              : "Tạo lô đất"}
         </Button>
       </DialogFooter>
     </form>

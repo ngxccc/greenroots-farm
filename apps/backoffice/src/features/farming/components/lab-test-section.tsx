@@ -2,13 +2,20 @@ import {
   Alert,
   AlertDescription,
   Badge,
+  Button,
   Checkbox,
   Input,
   Label,
 } from "@greenroots/ui";
-import { AlertCircle, ExternalLink, FlaskConical, Upload } from "lucide-react";
+import {
+  AlertCircle,
+  ExternalLink,
+  FlaskConical,
+  Upload,
+  X,
+} from "lucide-react";
 import { useState, type ChangeEvent } from "react";
-import { uploadSignedMedia } from "@/lib/cloudinary-upload";
+import { validateMediaFile } from "@/lib/cloudinary-upload";
 import {
   formatDisplayDate,
   type SoilTestDraft,
@@ -17,14 +24,23 @@ import {
   type WaterTestResult,
 } from "../plots-seasons.utils";
 
+export interface PendingCertPreview {
+  readonly file: File;
+  readonly previewUrl: string;
+}
+
 interface SoilTestEditorProps {
   readonly value: SoilTestDraft | null;
   readonly onChange: (next: SoilTestDraft | null) => void;
+  readonly pendingCert?: PendingCertPreview | null;
+  readonly onPendingCertChange?: (next: PendingCertPreview | null) => void;
 }
 
 interface WaterTestEditorProps {
   readonly value: WaterTestDraft | null;
   readonly onChange: (next: WaterTestDraft | null) => void;
+  readonly pendingCert?: PendingCertPreview | null;
+  readonly onPendingCertChange?: (next: PendingCertPreview | null) => void;
 }
 
 function createEmptySoilTest(): SoilTestDraft {
@@ -62,31 +78,35 @@ function parseNullableNumber(raw: string): number | null {
 }
 
 /**
- * Editable structured soil test telemetry section with signed Cloudinary certificate upload.
+ * Editable structured soil test telemetry section with deferred signed Cloudinary certificate upload.
  */
-export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
-  const [uploading, setUploading] = useState(false);
+export function SoilTestEditor({
+  value,
+  onChange,
+  pendingCert,
+  onPendingCertChange,
+}: SoilTestEditorProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  async function handleCertificateUpload(event: ChangeEvent<HTMLInputElement>) {
+  function handleCertificateSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !value) return;
 
-    setUploadError(null);
-    setUploading(true);
-    try {
-      const result = await uploadSignedMedia(file, "plots");
-      onChange({ ...value, certificate_url: result.secureUrl });
-    } catch (error) {
-      setUploadError(
-        error instanceof Error
-          ? error.message
-          : "Không thể tải chứng nhận xét nghiệm đất.",
-      );
-    } finally {
-      setUploading(false);
+    const validationError = validateMediaFile(file, "image");
+    if (validationError) {
+      setUploadError(validationError);
+      return;
     }
+
+    setUploadError(null);
+    if (pendingCert) {
+      URL.revokeObjectURL(pendingCert.previewUrl);
+    }
+    onPendingCertChange?.({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    });
   }
 
   return (
@@ -275,19 +295,42 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
                 className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-brand-forest hover:underline"
               >
                 <Upload className="size-3.5" aria-hidden="true" />
-                <span>
-                  {uploading ? "Đang tải lên..." : "Tải ảnh chứng nhận"}
-                </span>
+                <span>Chọn ảnh chứng nhận</span>
               </Label>
               <Input
                 id="soil-cert-file"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
-                disabled={uploading}
-                onChange={handleCertificateUpload}
+                onChange={handleCertificateSelected}
                 className="hidden"
               />
             </div>
+            {pendingCert ? (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-brand-forest/40 bg-green-50/50 p-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <img
+                    src={pendingCert.previewUrl}
+                    alt="Chứng nhận đất chờ lưu"
+                    className="size-10 shrink-0 rounded object-cover"
+                  />
+                  <span className="truncate text-xs text-gray-700">
+                    {pendingCert.file.name} (chờ lưu)
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    URL.revokeObjectURL(pendingCert.previewUrl);
+                    onPendingCertChange?.(null);
+                  }}
+                  aria-label="Bỏ ảnh chứng nhận đất"
+                >
+                  <X className="size-3.5" aria-hidden="true" />
+                </Button>
+              </div>
+            ) : null}
             <Input
               id="soil-cert-url"
               type="url"
@@ -316,31 +359,35 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
 }
 
 /**
- * Editable structured water test telemetry section with signed Cloudinary certificate upload.
+ * Editable structured water test telemetry section with deferred signed Cloudinary certificate upload.
  */
-export function WaterTestEditor({ value, onChange }: WaterTestEditorProps) {
-  const [uploading, setUploading] = useState(false);
+export function WaterTestEditor({
+  value,
+  onChange,
+  pendingCert,
+  onPendingCertChange,
+}: WaterTestEditorProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  async function handleCertificateUpload(event: ChangeEvent<HTMLInputElement>) {
+  function handleCertificateSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !value) return;
 
-    setUploadError(null);
-    setUploading(true);
-    try {
-      const result = await uploadSignedMedia(file, "plots");
-      onChange({ ...value, certificate_url: result.secureUrl });
-    } catch (error) {
-      setUploadError(
-        error instanceof Error
-          ? error.message
-          : "Không thể tải chứng nhận xét nghiệm nước.",
-      );
-    } finally {
-      setUploading(false);
+    const validationError = validateMediaFile(file, "image");
+    if (validationError) {
+      setUploadError(validationError);
+      return;
     }
+
+    setUploadError(null);
+    if (pendingCert) {
+      URL.revokeObjectURL(pendingCert.previewUrl);
+    }
+    onPendingCertChange?.({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    });
   }
 
   return (
@@ -482,19 +529,42 @@ export function WaterTestEditor({ value, onChange }: WaterTestEditorProps) {
                 className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-brand-forest hover:underline"
               >
                 <Upload className="size-3.5" aria-hidden="true" />
-                <span>
-                  {uploading ? "Đang tải lên..." : "Tải ảnh chứng nhận"}
-                </span>
+                <span>Chọn ảnh chứng nhận</span>
               </Label>
               <Input
                 id="water-cert-file"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
-                disabled={uploading}
-                onChange={handleCertificateUpload}
+                onChange={handleCertificateSelected}
                 className="hidden"
               />
             </div>
+            {pendingCert ? (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-brand-forest/40 bg-green-50/50 p-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <img
+                    src={pendingCert.previewUrl}
+                    alt="Chứng nhận nước chờ lưu"
+                    className="size-10 shrink-0 rounded object-cover"
+                  />
+                  <span className="truncate text-xs text-gray-700">
+                    {pendingCert.file.name} (chờ lưu)
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    URL.revokeObjectURL(pendingCert.previewUrl);
+                    onPendingCertChange?.(null);
+                  }}
+                  aria-label="Bỏ ảnh chứng nhận nước"
+                >
+                  <X className="size-3.5" aria-hidden="true" />
+                </Button>
+              </div>
+            ) : null}
             <Input
               id="water-cert-url"
               type="url"
