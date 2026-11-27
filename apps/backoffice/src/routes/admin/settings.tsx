@@ -1,6 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from "@greenroots/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import { ShieldAlert } from "lucide-react";
+import { PageHeader } from "@/components/layout/page-header";
 import { FarmSettingsPanel } from "@/features/admin/components/farm-settings-panel";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 
@@ -31,16 +32,11 @@ function AdminFarmSettingsPage() {
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
-          Hệ thống
-        </p>
-        <h1 className="text-2xl font-bold text-gray-900">Cấu hình Nông trại</h1>
-        <p className="text-sm text-gray-600">
-          Quản lý hồ sơ pháp lý, tọa độ xuất phát, quy tắc bán kính giao hàng,
-          Flash Sale, cổng thanh toán và chứng nhận VietGAP.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Hệ thống"
+        title="Cấu hình Nông trại"
+        description="Quản lý hồ sơ pháp lý, tọa độ xuất phát, quy tắc bán kính giao hàng, Flash Sale, cổng thanh toán và chứng nhận VietGAP."
+      />
 
       <FarmSettingsPanel />
     </div>

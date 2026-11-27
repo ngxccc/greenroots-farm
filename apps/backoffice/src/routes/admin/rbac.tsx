@@ -1,6 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from "@greenroots/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import { ShieldAlert } from "lucide-react";
+import { PageHeader } from "@/components/layout/page-header";
 import { StaffRbacPanel } from "@/features/admin/components/staff-rbac-panel";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 
@@ -31,18 +32,11 @@ function AdminRbacPage() {
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
-          Hệ thống
-        </p>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Nhân sự &amp; Phân quyền
-        </h1>
-        <p className="text-sm text-gray-600">
-          Quản lý tài khoản nhân viên nội bộ, phân quyền RBAC và thu hồi phiên
-          đăng nhập tức thời theo ADR-0019.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Hệ thống"
+        title="Quản lý Nhân sự"
+        description="Quản lý tài khoản nhân viên nội bộ, phân quyền vai trò và thu hồi phiên đăng nhập tức thời."
+      />
 
       <StaffRbacPanel currentUserId={user.id} />
     </div>

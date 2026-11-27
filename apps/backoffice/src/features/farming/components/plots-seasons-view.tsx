@@ -37,6 +37,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/page-header";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import {
   createPlot,
@@ -291,35 +292,31 @@ export function PlotsSeasonsView() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-extrabold text-gray-900">
-            Quản Lý Mùa Vụ &amp; Lô Đất
-          </h1>
-          <p className="text-xs text-gray-500">
-            Chu kỳ canh tác &amp; chỉ số xét nghiệm đất/nước
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={openCreatePlot}
-            className="min-h-10"
-          >
-            Thêm lô đất
-          </Button>
-          <Button
-            type="button"
-            onClick={() => openCreateSeason()}
-            disabled={plots.length === 0}
-            className="min-h-10 bg-brand-forest text-white hover:bg-brand-dark"
-          >
-            Tạo mùa vụ
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Canh tác"
+        title="Quản lý Mùa vụ"
+        description="Chu kỳ canh tác, lô đất và chỉ số xét nghiệm đất/nước."
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={openCreatePlot}
+              className="min-h-10"
+            >
+              Thêm lô đất
+            </Button>
+            <Button
+              type="button"
+              onClick={() => openCreateSeason()}
+              disabled={plots.length === 0}
+              className="min-h-10 bg-brand-forest text-white hover:bg-brand-dark"
+            >
+              Tạo mùa vụ
+            </Button>
+          </>
+        }
+      />
 
       {actionFeedback ? (
         <Alert
