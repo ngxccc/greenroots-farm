@@ -330,7 +330,7 @@ export function WasteProposalTab({
                 accept="image/jpeg,image/png,image/webp"
                 multiple
                 onChange={handleFilesSelected}
-                className="sr-only"
+                className="hidden"
               />
               <Button
                 type="button"
