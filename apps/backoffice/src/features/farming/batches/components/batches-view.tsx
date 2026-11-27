@@ -28,8 +28,14 @@ import {
   cn,
 } from "@greenroots/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
 import { AlertCircle, Plus, QrCode, Search, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   createBatch,
@@ -52,6 +58,137 @@ import { QrLabelPrintDialog } from "./qr-label-print-dialog";
 import { WasteProposalTab } from "./waste-proposal-tab";
 
 type BatchFilterStatus = "all" | BatchStatus;
+
+const columnHelper = createColumnHelper<BatchDto>();
+
+function buildBatchColumns({
+  onPrintQr,
+  onProposeWaste,
+}: {
+  readonly onPrintQr: (batch: BatchDto) => void;
+  readonly onProposeWaste: (batchId: string) => void;
+}) {
+  return [
+    columnHelper.accessor("batchCode", {
+      header: "Mã lô",
+      cell: (info) => (
+        <span className="font-semibold text-gray-900 tabular-nums">
+          {info.getValue()}
+        </span>
+      ),
+    }),
+    columnHelper.display({
+      id: "productSeason",
+      header: "Sản phẩm / Mùa vụ",
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-gray-900">
+            {row.original.product.name}
+          </span>
+          <span className="text-xs text-gray-500">
+            {row.original.season.seasonName}
+          </span>
+        </div>
+      ),
+    }),
+    columnHelper.display({
+      id: "stock",
+      header: "Tồn kho",
+      cell: ({ row }) => (
+        <span className="tabular-nums">
+          <span className="font-semibold text-gray-900">
+            {row.original.availableQuantity}
+          </span>{" "}
+          <span className="text-gray-500">
+            / {row.original.initialQuantity} {row.original.product.unit}
+          </span>
+        </span>
+      ),
+    }),
+    columnHelper.display({
+      id: "dates",
+      header: "Thu hoạch / HSD",
+      cell: ({ row }) => (
+        <div className="flex flex-col text-xs text-gray-600 tabular-nums">
+          <span>TH: {formatVietnamDate(row.original.harvestDate)}</span>
+          <span className="font-medium text-gray-900">
+            HSD: {formatVietnamDate(row.original.expirationDate)}
+          </span>
+        </div>
+      ),
+    }),
+    columnHelper.display({
+      id: "hsdAlert",
+      header: "Cảnh báo HSD",
+      cell: ({ row }) => {
+        const hsd = computeHsdStatus(
+          row.original.expirationDate,
+          row.original.status,
+        );
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge
+              variant="outline"
+              className={cn("w-fit font-medium", hsd.badgeClassName)}
+            >
+              {hsd.label}
+            </Badge>
+            <span className="text-xs text-gray-500 tabular-nums">
+              {hsd.countdownText}
+            </span>
+          </div>
+        );
+      },
+    }),
+    columnHelper.accessor("status", {
+      header: "Trạng thái",
+      cell: (info) => {
+        const statusMeta = BATCH_STATUS_META[info.getValue()];
+        return (
+          <Badge
+            variant="outline"
+            className={cn("font-medium", statusMeta.badgeClassName)}
+          >
+            {statusMeta.label}
+          </Badge>
+        );
+      },
+    }),
+    columnHelper.display({
+      id: "actions",
+      header: () => <div className="text-right">Thao tác</div>,
+      cell: ({ row }) => {
+        const batch = row.original;
+        return (
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onPrintQr(batch)}
+            >
+              <QrCode className="size-3.5" aria-hidden="true" />
+              In tem QR
+            </Button>
+            {batch.status !== BatchStatus.SOLD_OUT &&
+            batch.availableQuantity > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={`Đề xuất hủy lô ${batch.batchCode}`}
+                onClick={() => onProposeWaste(batch.id)}
+              >
+                <Trash2 className="size-3.5" aria-hidden="true" />
+                Hủy
+              </Button>
+            ) : null}
+          </div>
+        );
+      },
+    }),
+  ];
+}
 
 const BATCH_FILTER_OPTIONS: readonly {
   readonly value: BatchFilterStatus;
@@ -163,10 +300,26 @@ export function BatchesView() {
     });
   }, [batches, searchQuery, statusFilter]);
 
-  function handleProposeWaste(batchId: string): void {
+  const handleProposeWaste = useCallback((batchId: string): void => {
     setPreselectedWasteBatchId(batchId);
     setActiveTab("waste");
-  }
+  }, []);
+
+  const columns = useMemo(
+    () =>
+      buildBatchColumns({
+        onPrintQr: setQrBatch,
+        onProposeWaste: handleProposeWaste,
+      }),
+    [handleProposeWaste],
+  );
+
+  // oxlint-disable-next-line react/incompatible-library
+  const table = useReactTable({
+    data: filteredBatches,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -324,118 +477,34 @@ export function BatchesView() {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Mã lô</TableHead>
-                      <TableHead>Sản phẩm / Mùa vụ</TableHead>
-                      <TableHead>Tồn kho</TableHead>
-                      <TableHead>Thu hoạch / HSD</TableHead>
-                      <TableHead>Cảnh báo HSD</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                      <TableHead className="text-right">Thao tác</TableHead>
-                    </TableRow>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <TableHead key={header.id}>
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext(),
+                                )}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    ))}
                   </TableHeader>
                   <TableBody>
-                    {filteredBatches.map((batch) => {
-                      const statusMeta = BATCH_STATUS_META[batch.status];
-                      const hsd = computeHsdStatus(
-                        batch.expirationDate,
-                        batch.status,
-                      );
-                      return (
-                        <TableRow key={batch.id}>
-                          <TableCell className="font-semibold text-gray-900 tabular-nums">
-                            {batch.batchCode}
+                    {table.getRowModel().rows.map((row) => (
+                      <TableRow key={row.id}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
                           </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-medium text-gray-900">
-                                {batch.product.name}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {batch.season.seasonName}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="tabular-nums">
-                            <span className="font-semibold text-gray-900">
-                              {batch.availableQuantity}
-                            </span>{" "}
-                            <span className="text-gray-500">
-                              / {batch.initialQuantity} {batch.product.unit}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-xs text-gray-600 tabular-nums">
-                            <div className="flex flex-col">
-                              <span>
-                                TH: {formatVietnamDate(batch.harvestDate)}
-                              </span>
-                              <span className="font-medium text-gray-900">
-                                HSD: {formatVietnamDate(batch.expirationDate)}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1">
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "w-fit font-medium",
-                                  hsd.badgeClassName,
-                                )}
-                              >
-                                {hsd.label}
-                              </Badge>
-                              <span className="text-xs text-gray-500 tabular-nums">
-                                {hsd.countdownText}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "font-medium",
-                                statusMeta.badgeClassName,
-                              )}
-                            >
-                              {statusMeta.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setQrBatch(batch)}
-                              >
-                                <QrCode
-                                  className="size-3.5"
-                                  aria-hidden="true"
-                                />
-                                In tem QR
-                              </Button>
-                              {batch.status !== BatchStatus.SOLD_OUT &&
-                              batch.availableQuantity > 0 ? (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  aria-label={`Đề xuất hủy lô ${batch.batchCode}`}
-                                  onClick={() => handleProposeWaste(batch.id)}
-                                >
-                                  <Trash2
-                                    className="size-3.5"
-                                    aria-hidden="true"
-                                  />
-                                  Hủy
-                                </Button>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                        ))}
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               )}
