@@ -37,7 +37,11 @@ import {
   type FarmSettingsValidationErrors,
 } from "@/features/admin/farm-settings-validation";
 import { api, extractApiErrorMessage } from "@/lib/api-client";
-import { uploadSignedMedia, validateMediaFile } from "@/lib/cloudinary-upload";
+import {
+  createSafeBlobPreviewUrl,
+  uploadSignedMedia,
+  validateMediaFile,
+} from "@/lib/cloudinary-upload";
 
 const FARM_SETTINGS_QUERY_KEY = ["farms", "settings"] as const;
 
@@ -186,7 +190,7 @@ export function FarmSettingsPanel() {
     clearPendingCert();
     setPendingCert({
       file,
-      previewUrl: URL.createObjectURL(file),
+      previewUrl: createSafeBlobPreviewUrl(file),
     });
   }
 
@@ -834,7 +838,7 @@ export function FarmSettingsPanel() {
                   </Alert>
                 )}
 
-                {pendingCert ? (
+                {pendingCert?.previewUrl.startsWith("blob:") ? (
                   <div className="flex items-center gap-4">
                     <img
                       src={pendingCert.previewUrl}
