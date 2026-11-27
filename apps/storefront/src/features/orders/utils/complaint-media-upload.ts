@@ -47,7 +47,7 @@ export function readVideoDurationSeconds(file: File): Promise<number | null> {
       },
       { once: true },
     );
-    video.src = url;
+    video.src = encodeURI(url);
   });
 }
 
