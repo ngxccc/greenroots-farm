@@ -1789,6 +1789,7 @@ export interface components {
         RefreshTokenDto: {
             refreshToken: string;
         };
+        /** @default {} */
         LogoutDto: {
             refreshToken?: string;
         };

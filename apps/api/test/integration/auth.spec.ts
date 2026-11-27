@@ -1896,12 +1896,12 @@ describe("Authentication Integration", () => {
       expect(deleted).toBeUndefined();
     });
 
-    it("rejects request when refreshToken field is missing", async () => {
+    it("returns success idempotently when body is empty for cookie-based logout", async () => {
       const res = await request(getHttpServer())
         .post("/api/v1/auth/logout")
         .send({});
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(200);
     });
 
     it("rejects request body containing unrecognized properties", async () => {

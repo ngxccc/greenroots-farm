@@ -11,7 +11,9 @@ export const logoutSchema = z
       .max(255)
       .optional(),
   })
-  .strict();
+  .strict()
+  .optional()
+  .default({});
 
 export type LogoutInput = z.infer<typeof logoutSchema>;
 export type LogoutDtoType = LogoutInput;

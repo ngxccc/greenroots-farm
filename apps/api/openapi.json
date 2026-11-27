@@ -17135,6 +17135,7 @@
             "maxLength": 255
           }
         },
+        "default": {},
         "additionalProperties": false
       },
       "ActiveSessionDto": {
