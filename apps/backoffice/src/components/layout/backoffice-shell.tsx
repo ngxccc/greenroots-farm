@@ -59,11 +59,11 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 const NAV_GROUPS: readonly NavGroup[] = [
   {
-    title: "Nông trại & Canh tác",
+    title: "Canh tác",
     items: [
       {
         to: "/farming/plots",
-        label: "Mùa vụ & Lô đất",
+        label: "Mùa vụ",
         icon: <Sprout className="size-4 shrink-0" aria-hidden="true" />,
         roles: ["farm_staff", "admin", "super_admin"],
       },
@@ -75,18 +75,18 @@ const NAV_GROUPS: readonly NavGroup[] = [
       },
       {
         to: "/farming/batches",
-        label: "Lô thu hoạch & Tem QR",
+        label: "Lô thu hoạch",
         icon: <Boxes className="size-4 shrink-0" aria-hidden="true" />,
         roles: ["farm_staff", "admin", "super_admin"],
       },
     ],
   },
   {
-    title: "Kho & Đơn hàng",
+    title: "Bán hàng & Kho",
     items: [
       {
         to: "/orders",
-        label: "Đơn hàng & Điều phối",
+        label: "Đơn hàng",
         icon: <Truck className="size-4 shrink-0" aria-hidden="true" />,
         roles: ["sales", "admin", "super_admin"],
       },
@@ -104,30 +104,30 @@ const NAV_GROUPS: readonly NavGroup[] = [
       },
       {
         to: "/inventory/expiry",
-        label: "Cận hạn & Flash Sale",
+        label: "Hàng cận hạn",
         icon: <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />,
         roles: ["admin", "super_admin"],
       },
     ],
   },
   {
-    title: "Danh mục & Tài chính",
+    title: "Sản phẩm & Tài chính",
     items: [
       {
         to: "/catalog/products",
-        label: "Danh mục & Sản phẩm",
+        label: "Sản phẩm",
         icon: <FolderTree className="size-4 shrink-0" aria-hidden="true" />,
         roles: ["admin", "super_admin"],
       },
       {
         to: "/catalog/plans",
-        label: "Gói rau định kỳ & Báo cáo",
+        label: "Gói định kỳ",
         icon: <CalendarClock className="size-4 shrink-0" aria-hidden="true" />,
         roles: ["admin", "super_admin"],
       },
       {
         to: "/finance/payments",
-        label: "Đối soát & Dòng tiền",
+        label: "Đối soát thanh toán",
         icon: <Receipt className="size-4 shrink-0" aria-hidden="true" />,
         roles: ["super_admin"],
       },
@@ -138,13 +138,13 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       {
         to: "/admin/rbac",
-        label: "Nhân sự & Phân quyền",
+        label: "Nhân sự",
         icon: <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />,
         roles: ["super_admin"],
       },
       {
         to: "/admin/settings",
-        label: "Cấu hình Nông trại",
+        label: "Cấu hình nông trại",
         icon: (
           <SlidersHorizontal className="size-4 shrink-0" aria-hidden="true" />
         ),
