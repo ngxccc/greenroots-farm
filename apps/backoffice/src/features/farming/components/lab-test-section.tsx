@@ -285,7 +285,7 @@ export function SoilTestEditor({ value, onChange }: SoilTestEditorProps) {
                 accept="image/jpeg,image/png,image/webp"
                 disabled={uploading}
                 onChange={handleCertificateUpload}
-                className="sr-only"
+                className="hidden"
               />
             </div>
             <Input
@@ -492,7 +492,7 @@ export function WaterTestEditor({ value, onChange }: WaterTestEditorProps) {
                 accept="image/jpeg,image/png,image/webp"
                 disabled={uploading}
                 onChange={handleCertificateUpload}
-                className="sr-only"
+                className="hidden"
               />
             </div>
             <Input

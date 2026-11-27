@@ -1,114 +1,172 @@
 import type { UserRole } from "@greenroots/shared";
-import { Badge, Button, cn } from "@greenroots/ui";
+import {
+  Badge,
+  Button,
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@greenroots/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   AlertTriangle,
   Boxes,
   CalendarClock,
+  ChevronsUpDown,
   ClipboardCheck,
   FileWarning,
   FolderTree,
   Leaf,
   LogOut,
   PackageCheck,
+  PanelLeftClose,
+  PanelLeftOpen,
   Receipt,
   ShieldCheck,
+  SlidersHorizontal,
   Sprout,
   Truck,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { fetchApiHealth, logoutStaffSession } from "@/lib/api-client";
 
 interface NavItem {
   readonly to: string;
   readonly label: string;
-  readonly code: string;
   readonly icon: ReactNode;
   readonly roles: readonly UserRole[];
 }
 
-const NAV_ITEMS: readonly NavItem[] = [
+interface NavGroup {
+  readonly title: string;
+  readonly items: readonly NavItem[];
+}
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  guest: "Khách",
+  customer: "Khách hàng",
+  farm_staff: "Nhân viên nông trại",
+  sales: "Nhân viên kinh doanh",
+  admin: "Quản trị viên",
+  super_admin: "Quản trị viên cấp cao",
+};
+
+const NAV_GROUPS: readonly NavGroup[] = [
   {
-    to: "/farming/plots",
-    label: "Mùa vụ & Đất",
-    code: "BO-01",
-    icon: <Sprout className="size-5" />,
-    roles: ["farm_staff", "admin", "super_admin"],
+    title: "Nông trại & Canh tác",
+    items: [
+      {
+        to: "/farming/plots",
+        label: "Mùa vụ & Lô đất",
+        icon: <Sprout className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["farm_staff", "admin", "super_admin"],
+      },
+      {
+        to: "/farming/logs",
+        label: "Nhật ký canh tác",
+        icon: <ClipboardCheck className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["farm_staff", "admin", "super_admin"],
+      },
+      {
+        to: "/farming/batches",
+        label: "Lô thu hoạch & Tem QR",
+        icon: <Boxes className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["farm_staff", "admin", "super_admin"],
+      },
+    ],
   },
   {
-    to: "/farming/logs",
-    label: "Nhật ký",
-    code: "BO-02",
-    icon: <ClipboardCheck className="size-5" />,
-    roles: ["farm_staff", "admin", "super_admin"],
+    title: "Kho & Đơn hàng",
+    items: [
+      {
+        to: "/orders",
+        label: "Đơn hàng & Điều phối",
+        icon: <Truck className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["sales", "admin", "super_admin"],
+      },
+      {
+        to: "/orders/complaints",
+        label: "Khiếu nại",
+        icon: <FileWarning className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["sales", "admin", "super_admin"],
+      },
+      {
+        to: "/inventory/waste",
+        label: "Duyệt xuất hủy",
+        icon: <PackageCheck className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["admin", "super_admin"],
+      },
+      {
+        to: "/inventory/expiry",
+        label: "Cận hạn & Flash Sale",
+        icon: <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["admin", "super_admin"],
+      },
+    ],
   },
   {
-    to: "/farming/batches",
-    label: "Lô & Đề xuất hủy",
-    code: "BO-03",
-    icon: <Boxes className="size-5" />,
-    roles: ["farm_staff", "admin", "super_admin"],
+    title: "Danh mục & Tài chính",
+    items: [
+      {
+        to: "/catalog/products",
+        label: "Danh mục & Sản phẩm",
+        icon: <FolderTree className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["admin", "super_admin"],
+      },
+      {
+        to: "/catalog/plans",
+        label: "Gói rau định kỳ & Báo cáo",
+        icon: <CalendarClock className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["admin", "super_admin"],
+      },
+      {
+        to: "/finance/payments",
+        label: "Đối soát & Dòng tiền",
+        icon: <Receipt className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["super_admin"],
+      },
+    ],
   },
   {
-    to: "/orders",
-    label: "Đơn & FEFO",
-    code: "BO-04",
-    icon: <Truck className="size-4" />,
-    roles: ["sales", "admin", "super_admin"],
-  },
-  {
-    to: "/orders/complaints",
-    label: "Khiếu nại",
-    code: "BO-05",
-    icon: <FileWarning className="size-4" />,
-    roles: ["sales", "admin", "super_admin"],
-  },
-  {
-    to: "/inventory/waste",
-    label: "Duyệt xuất hủy",
-    code: "BO-06",
-    icon: <PackageCheck className="size-4" />,
-    roles: ["admin", "super_admin"],
-  },
-  {
-    to: "/inventory/expiry",
-    label: "Cận hạn & Sale",
-    code: "BO-07",
-    icon: <AlertTriangle className="size-4" />,
-    roles: ["admin", "super_admin"],
-  },
-  {
-    to: "/catalog/products",
-    label: "Danh mục & Sản phẩm",
-    code: "BO-11",
-    icon: <FolderTree className="size-4" />,
-    roles: ["admin", "super_admin"],
-  },
-  {
-    to: "/catalog/plans",
-    label: "Gói & Báo cáo",
-    code: "BO-08",
-    icon: <CalendarClock className="size-4" />,
-    roles: ["admin", "super_admin"],
-  },
-  {
-    to: "/finance/payments",
-    label: "Đối soát PayOS",
-    code: "BO-09",
-    icon: <Receipt className="size-4" />,
-    roles: ["super_admin"],
-  },
-  {
-    to: "/admin/rbac",
-    label: "RBAC & Cấu hình",
-    code: "BO-10",
-    icon: <ShieldCheck className="size-4" />,
-    roles: ["super_admin"],
+    title: "Hệ thống",
+    items: [
+      {
+        to: "/admin/rbac",
+        label: "Nhân sự & Phân quyền",
+        icon: <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />,
+        roles: ["super_admin"],
+      },
+      {
+        to: "/admin/settings",
+        label: "Cấu hình Nông trại",
+        icon: (
+          <SlidersHorizontal className="size-4 shrink-0" aria-hidden="true" />
+        ),
+        roles: ["super_admin"],
+      },
+    ],
   },
 ];
 
+function getInitials(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0];
+  if (!first) return "GR";
+  if (parts.length === 1) return first.slice(0, 2).toUpperCase();
+  const last = parts[parts.length - 1];
+  return `${first[0] ?? ""}${last?.[0] ?? ""}`.toUpperCase();
+}
+
+/**
+ * Shared Backoffice layout shell providing grouped desktop navigation, mobile farm-staff bottom bar,
+ * and an account dropdown menu.
+ */
 export function BackofficeShell({
   children,
 }: {
@@ -117,6 +175,29 @@ export function BackofficeShell({
   const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("gr_bo_sidebar_collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  function toggleSidebar() {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(
+          "gr_bo_sidebar_collapsed",
+          next ? "1" : "0",
+        );
+      } catch {
+        // Ignore storage quota or private-mode restrictions.
+      }
+      return next;
+    });
+  }
 
   const { data: health } = useQuery({
     queryKey: ["api-health"],
@@ -130,9 +211,13 @@ export function BackofficeShell({
   }
 
   const isFarmStaff = user.role === "farm_staff";
-  const visibleItems = NAV_ITEMS.filter((item) =>
-    item.roles.includes(user.role),
-  );
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => item.roles.includes(user.role)),
+  })).filter((group) => group.items.length > 0);
+  const mobileItems = visibleGroups.flatMap((group) => group.items);
+  const roleLabel = ROLE_LABELS[user.role];
+  const initials = getInitials(user.fullName);
 
   async function handleLogout() {
     await logoutStaffSession();
@@ -142,45 +227,81 @@ export function BackofficeShell({
   if (isFarmStaff) {
     return (
       <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-surface-warm">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border-subtle bg-white px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-brand-forest text-white">
-              <Leaf className="size-5" />
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border-subtle bg-surface-card px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-brand-forest text-white">
+              <Leaf className="size-5" aria-hidden="true" />
             </span>
             <div>
-              <p className="text-sm font-bold text-gray-900">GreenRoots Farm</p>
-              <p className="text-xs text-gray-500">{user.fullName}</p>
+              <p className="text-sm font-bold text-gray-900">GreenRoots</p>
+              <p className="text-xs text-brand-forest">Vận hành Nông trại</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleLogout}
-            aria-label="Đăng xuất"
-            className="min-h-12 min-w-12"
-          >
-            <LogOut className="size-5 text-gray-600" />
-          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Menu tài khoản"
+                  className="h-10 gap-2 px-2"
+                >
+                  <span className="flex size-7 items-center justify-center rounded-full bg-green-50 text-xs font-semibold text-brand-dark">
+                    {initials}
+                  </span>
+                  <ChevronsUpDown
+                    className="size-3.5 text-gray-400"
+                    aria-hidden="true"
+                  />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="flex flex-col gap-0.5">
+                  <span className="truncate text-sm font-semibold text-gray-900">
+                    {user.fullName}
+                  </span>
+                  <span className="text-xs font-normal text-brand-forest">
+                    {roleLabel}
+                  </span>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => void handleLogout()}
+              >
+                <LogOut className="size-4" aria-hidden="true" />
+                <span>Đăng xuất</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
 
         <main className="flex-1 p-4 pb-24">{children}</main>
 
-        <nav className="fixed right-0 bottom-0 left-0 z-20 mx-auto grid max-w-md grid-cols-3 border-t border-border-subtle bg-white">
-          {visibleItems.map((item) => {
+        <nav
+          aria-label="Điều hướng nông trại"
+          className="fixed right-0 bottom-0 left-0 z-20 mx-auto grid max-w-md grid-cols-3 border-t border-border-subtle bg-surface-card"
+        >
+          {mobileItems.map((item) => {
             const active = pathname === item.to;
             return (
               <Link
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 text-xs font-semibold transition",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 px-1 text-center text-[11px] font-semibold transition",
                   active
-                    ? "bg-green-50 text-brand-forest"
+                    ? "bg-green-50 text-brand-dark"
                     : "text-gray-500 hover:text-gray-900",
                 )}
               >
                 {item.icon}
-                <span>{item.label}</span>
+                <span className="truncate">{item.label}</span>
               </Link>
             );
           })}
@@ -191,69 +312,202 @@ export function BackofficeShell({
 
   return (
     <div className="flex min-h-dvh bg-surface-warm">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-border-subtle bg-white">
-        <div className="flex items-center gap-2.5 border-b border-border-subtle px-4 py-4">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-brand-forest text-white">
-            <Leaf className="size-5" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-extrabold text-gray-900">
-              GreenRoots Desk
-            </p>
-            <p className="truncate text-xs text-gray-500">{user.role}</p>
+      <aside
+        className={cn(
+          "flex shrink-0 flex-col justify-between border-r border-border-subtle bg-surface-card transition-[width] duration-200",
+          sidebarCollapsed ? "w-16" : "w-64",
+        )}
+      >
+        <div className="flex flex-col">
+          <div
+            className={cn(
+              "flex items-center border-b border-border-subtle py-4",
+              sidebarCollapsed
+                ? "justify-center px-2"
+                : "justify-between gap-2 px-4",
+            )}
+          >
+            {sidebarCollapsed ? null : (
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-forest text-white">
+                  <Leaf className="size-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-gray-900">
+                    GreenRoots
+                  </p>
+                  <p className="truncate text-xs font-medium text-brand-forest">
+                    Vận hành Nông trại
+                  </p>
+                </div>
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              aria-label={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"}
+              aria-expanded={!sidebarCollapsed}
+              title={sidebarCollapsed ? "Mở rộng menu" : "Thu gọn menu"}
+              className="shrink-0 text-gray-500 hover:text-gray-900"
+            >
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="size-4" aria-hidden="true" />
+              ) : (
+                <PanelLeftClose className="size-4" aria-hidden="true" />
+              )}
+            </Button>
           </div>
-        </div>
 
-        <nav className="flex-1 space-y-1 p-3">
-          {visibleItems.map((item) => {
-            const active = pathname === item.to;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
+          <nav
+            aria-label="Điều hướng quản trị"
+            className={cn("space-y-4", sidebarCollapsed ? "p-2" : "p-3")}
+          >
+            {visibleGroups.map((group, groupIndex) => (
+              <div
+                key={group.title}
                 className={cn(
-                  "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold transition",
-                  active
-                    ? "bg-brand-forest text-white"
-                    : "text-gray-700 hover:bg-green-50 hover:text-brand-forest",
+                  "space-y-1",
+                  sidebarCollapsed && groupIndex > 0
+                    ? "border-t border-border-subtle pt-3"
+                    : undefined,
                 )}
               >
-                <span className="flex items-center gap-2.5">
-                  {item.icon}
-                  <span>{item.label}</span>
-                </span>
-                <span
+                {sidebarCollapsed ? null : (
+                  <p className="px-2.5 py-1 text-[11px] font-semibold tracking-wide text-gray-500 uppercase">
+                    {group.title}
+                  </p>
+                )}
+                <div className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const active = pathname === item.to;
+                    return (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        aria-current={active ? "page" : undefined}
+                        aria-label={sidebarCollapsed ? item.label : undefined}
+                        title={sidebarCollapsed ? item.label : undefined}
+                        className={cn(
+                          "flex items-center rounded-lg py-2 text-sm transition-colors",
+                          sidebarCollapsed
+                            ? "justify-center px-2"
+                            : "gap-2.5 px-2.5",
+                          active
+                            ? "bg-green-50 font-semibold text-brand-dark"
+                            : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            active ? "text-brand-dark" : "text-gray-500",
+                          )}
+                        >
+                          {item.icon}
+                        </span>
+                        {sidebarCollapsed ? null : (
+                          <span className="truncate">{item.label}</span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+        </div>
+
+        <div
+          className={cn(
+            "flex items-center border-t border-border-subtle",
+            sidebarCollapsed
+              ? "justify-center p-2"
+              : "justify-between gap-2 p-3",
+          )}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  aria-label={sidebarCollapsed ? "Menu tài khoản" : undefined}
+                  title={
+                    sidebarCollapsed
+                      ? `${user.fullName} (${roleLabel})`
+                      : undefined
+                  }
                   className={cn(
-                    "text-[11px]",
-                    active ? "text-green-100" : "text-gray-400",
+                    "h-auto",
+                    sidebarCollapsed
+                      ? "size-10 justify-center p-0"
+                      : "min-w-0 flex-1 justify-between gap-2 px-2 py-1.5 text-left",
                   )}
                 >
-                  {item.code}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="space-y-3 border-t border-border-subtle p-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500">API :3000</span>
-            <Badge
-              variant={health?.reachable ? "secondary" : "destructive"}
-              className="text-[11px]"
-            >
-              {health?.reachable ? "Online" : "Offline"}
-            </Badge>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLogout}
-            className="w-full justify-start gap-2"
-          >
-            <LogOut className="size-4" />
-            <span>Đăng xuất</span>
-          </Button>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-xs font-semibold text-brand-dark">
+                      {initials}
+                    </span>
+                    {sidebarCollapsed ? null : (
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate text-sm font-semibold text-gray-900">
+                          {user.fullName}
+                        </span>
+                        <span className="truncate text-xs font-normal text-brand-forest">
+                          {roleLabel}
+                        </span>
+                      </span>
+                    )}
+                  </span>
+                  {sidebarCollapsed ? null : (
+                    <ChevronsUpDown
+                      className="size-4 shrink-0 text-gray-400"
+                      aria-hidden="true"
+                    />
+                  )}
+                </Button>
+              }
+            />
+            <DropdownMenuContent side="top" align="start" className="w-56">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="flex flex-col gap-0.5">
+                  <span className="truncate text-sm font-semibold text-gray-900">
+                    {user.fullName}
+                  </span>
+                  <span className="text-xs font-normal text-gray-500">
+                    {roleLabel}
+                  </span>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <div className="flex items-center justify-between px-2 py-1.5 text-xs">
+                <span className="text-gray-500">Trạng thái API</span>
+                <Badge
+                  variant={health?.reachable ? "secondary" : "destructive"}
+                  className="text-[11px]"
+                >
+                  {health?.reachable ? "Online" : "Offline"}
+                </Badge>
+              </div>
+              {user.role === "super_admin" ? (
+                <DropdownMenuItem
+                  onClick={() => void navigate({ to: "/admin/settings" })}
+                >
+                  <SlidersHorizontal className="size-4" aria-hidden="true" />
+                  <span>Cấu hình Nông trại</span>
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => void handleLogout()}
+              >
+                <LogOut className="size-4" aria-hidden="true" />
+                <span>Đăng xuất</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 

@@ -33,7 +33,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Pencil,
-  Plus,
   Search,
   Trash2,
 } from "lucide-react";
@@ -298,7 +297,7 @@ export function PlotsSeasonsView() {
             Quản Lý Mùa Vụ &amp; Lô Đất
           </h1>
           <p className="text-xs text-gray-500">
-            BO-01 · Chu kỳ canh tác &amp; chỉ số xét nghiệm đất/nước
+            Chu kỳ canh tác &amp; chỉ số xét nghiệm đất/nước
           </p>
         </div>
 
@@ -307,19 +306,17 @@ export function PlotsSeasonsView() {
             type="button"
             variant="outline"
             onClick={openCreatePlot}
-            className="min-h-10 gap-1.5"
+            className="min-h-10"
           >
-            <Plus className="size-4" aria-hidden="true" />
-            <span>Thêm lô đất</span>
+            Thêm lô đất
           </Button>
           <Button
             type="button"
             onClick={() => openCreateSeason()}
             disabled={plots.length === 0}
-            className="min-h-10 gap-1.5 bg-brand-forest text-white hover:bg-brand-dark"
+            className="min-h-10 bg-brand-forest text-white hover:bg-brand-dark"
           >
-            <Plus className="size-4" aria-hidden="true" />
-            <span>Tạo mùa vụ</span>
+            Tạo mùa vụ
           </Button>
         </div>
       </div>
@@ -416,9 +413,19 @@ export function PlotsSeasonsView() {
           setActiveTab(value === "plots" ? "plots" : "seasons")
         }
       >
-        <TabsList className="w-full justify-start sm:w-auto">
-          <TabsTrigger value="seasons">Mùa vụ ({seasons.length})</TabsTrigger>
-          <TabsTrigger value="plots">Lô đất ({plots.length})</TabsTrigger>
+        <TabsList className="h-auto w-full self-start border border-border-subtle bg-surface-card p-1 sm:w-fit">
+          <TabsTrigger
+            value="seasons"
+            className="px-4 py-1.5 data-active:bg-brand-forest data-active:text-white"
+          >
+            Mùa vụ ({seasons.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="plots"
+            className="px-4 py-1.5 data-active:bg-brand-forest data-active:text-white"
+          >
+            Lô đất ({plots.length})
+          </TabsTrigger>
         </TabsList>
 
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -458,7 +465,18 @@ export function PlotsSeasonsView() {
                   aria-label="Lọc theo lô đất"
                   className="w-full sm:w-44"
                 >
-                  <SelectValue placeholder="Tất cả lô đất" />
+                  <SelectValue placeholder="Tất cả lô đất">
+                    {plotFilter === "all"
+                      ? "Tất cả lô đất"
+                      : (() => {
+                          const selected = plots.find(
+                            (p) => p.id === plotFilter,
+                          );
+                          return selected
+                            ? `${selected.plotCode} · ${selected.name}`
+                            : "Tất cả lô đất";
+                        })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả lô đất</SelectItem>
@@ -790,10 +808,9 @@ export function PlotsSeasonsView() {
                             type="button"
                             variant="outline"
                             onClick={() => openCreateSeason(plot.id)}
-                            className="min-h-11 flex-1 gap-1.5"
+                            className="min-h-11 flex-1"
                           >
-                            <Plus className="size-4" aria-hidden="true" />
-                            <span>Tạo mùa vụ</span>
+                            Tạo mùa vụ
                           </Button>
 
                           <Button
@@ -898,13 +915,8 @@ export function PlotsSeasonsView() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => openCreateSeason(plot.id)}
-                                  className="gap-1"
                                 >
-                                  <Plus
-                                    className="size-3.5"
-                                    aria-hidden="true"
-                                  />
-                                  <span>Mùa vụ</span>
+                                  + Mùa vụ
                                 </Button>
 
                                 <Button

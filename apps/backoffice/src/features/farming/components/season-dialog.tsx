@@ -153,7 +153,16 @@ function SeasonDialogForm({
           disabled={Boolean(season && season.status !== "planning")}
         >
           <SelectTrigger id="season-plot" className="w-full">
-            <SelectValue placeholder="Chọn lô đất" />
+            <SelectValue placeholder="Chọn lô đất">
+              {plotId
+                ? (() => {
+                    const selected = plots.find((p) => p.id === plotId);
+                    return selected
+                      ? `${selected.plotCode} · ${selected.name} (${selected.areaSqm} m²)`
+                      : undefined;
+                  })()
+                : undefined}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {plots.map((plot) => (

@@ -321,7 +321,22 @@ function ProductFormBody({
             onValueChange={(value) => value && setCategoryId(value)}
           >
             <SelectTrigger id="prod-category" className="w-full">
-              <SelectValue placeholder="Chọn danh mục" />
+              <SelectValue placeholder="Chọn danh mục">
+                {categoryId
+                  ? (() => {
+                      for (const { category, children } of categoryTree) {
+                        if (category.id === categoryId) {
+                          return `${category.name} (Danh mục gốc)`;
+                        }
+                        const child = children.find((c) => c.id === categoryId);
+                        if (child) {
+                          return `${category.name} > ${child.name}`;
+                        }
+                      }
+                      return undefined;
+                    })()
+                  : undefined}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {categoryTree.map(({ category, children }) => (

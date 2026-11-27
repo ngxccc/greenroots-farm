@@ -14,6 +14,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AdminRbacRouteImport } from './routes/admin/rbac'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as CatalogPlansRouteImport } from './routes/catalog/plans'
 import { Route as CatalogProductsRouteImport } from './routes/catalog/products'
 import { Route as FarmingBatchesRouteImport } from './routes/farming/batches'
@@ -48,6 +49,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const AdminRbacRoute = AdminRbacRouteImport.update({
   id: '/admin/rbac',
   path: '/admin/rbac',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CatalogPlansRoute = CatalogPlansRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/admin/rbac': typeof AdminRbacRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/catalog/plans': typeof CatalogPlansRoute
   '/catalog/products': typeof CatalogProductsRoute
   '/farming/batches': typeof FarmingBatchesRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/admin/rbac': typeof AdminRbacRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/catalog/plans': typeof CatalogPlansRoute
   '/catalog/products': typeof CatalogProductsRoute
   '/farming/batches': typeof FarmingBatchesRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/admin/rbac': typeof AdminRbacRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/catalog/plans': typeof CatalogPlansRoute
   '/catalog/products': typeof CatalogProductsRoute
   '/farming/batches': typeof FarmingBatchesRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/admin/rbac'
+    | '/admin/settings'
     | '/catalog/plans'
     | '/catalog/products'
     | '/farming/batches'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/admin/rbac'
+    | '/admin/settings'
     | '/catalog/plans'
     | '/catalog/products'
     | '/farming/batches'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/admin/rbac'
+    | '/admin/settings'
     | '/catalog/plans'
     | '/catalog/products'
     | '/farming/batches'
@@ -213,6 +225,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   AdminRbacRoute: typeof AdminRbacRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   CatalogPlansRoute: typeof CatalogPlansRoute
   CatalogProductsRoute: typeof CatalogProductsRoute
   FarmingBatchesRoute: typeof FarmingBatchesRoute
@@ -260,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/rbac'
       fullPath: '/admin/rbac'
       preLoaderRoute: typeof AdminRbacRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/catalog/plans': {
@@ -341,6 +361,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   AdminRbacRoute: AdminRbacRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   CatalogPlansRoute: CatalogPlansRoute,
   CatalogProductsRoute: CatalogProductsRoute,
   FarmingBatchesRoute: FarmingBatchesRoute,

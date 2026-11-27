@@ -104,11 +104,11 @@ function CatalogProductsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <p className="text-xs font-semibold text-gray-500">
-            BO-11 · Danh mục cửa hàng
+            Danh mục cửa hàng
           </p>
           <h1 className="text-2xl font-bold text-gray-900">
             Quản lý Danh mục &amp; Sản phẩm
@@ -159,9 +159,19 @@ function CatalogProductsPage() {
           }
         }}
       >
-        <TabsList>
-          <TabsTrigger value="products">Sản phẩm</TabsTrigger>
-          <TabsTrigger value="categories">Cây danh mục 2 cấp</TabsTrigger>
+        <TabsList className="h-auto w-full self-start border border-border-subtle bg-surface-card p-1 sm:w-fit">
+          <TabsTrigger
+            value="products"
+            className="px-4 py-1.5 data-active:bg-brand-forest data-active:text-white"
+          >
+            Sản phẩm
+          </TabsTrigger>
+          <TabsTrigger
+            value="categories"
+            className="px-4 py-1.5 data-active:bg-brand-forest data-active:text-white"
+          >
+            Cây danh mục 2 cấp
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="mt-4">
