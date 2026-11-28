@@ -54,6 +54,7 @@ async function waitForOperation(
   response: OperationResponse,
   apiKey: string,
   label: string,
+  maxAttempts = 60,
 ): Promise<void> {
   const opId =
     response.operation?.id ?? (response.status ? response.id : undefined);
@@ -64,10 +65,12 @@ async function waitForOperation(
     "succeeded",
     "success",
     "done",
+    "finished",
     "failed",
     "error",
   ]);
-  for (let attempt = 0; attempt < 30; attempt++) {
+  let lastStatus = "unknown";
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const op = await botkeepRequest<OperationResponse>(
       `/operations/${opId}`,
       apiKey,
@@ -75,19 +78,21 @@ async function waitForOperation(
         method: "GET",
       },
     );
-    const status = (op.operation?.status ?? op.status ?? "").toLowerCase();
-    if (status === "failed" || status === "error") {
+    lastStatus = (op.operation?.status ?? op.status ?? "").toLowerCase();
+    if (lastStatus === "failed" || lastStatus === "error") {
       throw new Error(
         `${label} operation ${opId} failed: ${op.operation?.error ?? op.error ?? JSON.stringify(op)}`,
       );
     }
-    if (terminal.has(status)) {
-      console.log(`${label} operation ${opId} finished (${status}).`);
+    if (terminal.has(lastStatus)) {
+      console.log(`${label} operation ${opId} finished (${lastStatus}).`);
       return;
     }
-    await Bun.sleep(2000);
+    await Bun.sleep(3000);
   }
-  throw new Error(`${label} operation ${opId} timed out`);
+  throw new Error(
+    `${label} operation ${opId} timed out (last status: ${lastStatus})`,
+  );
 }
 
 async function main(): Promise<void> {
