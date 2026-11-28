@@ -1,6 +1,6 @@
 {
   "name": "@greenroots/storefront",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "GreenRoots Farm Customer Storefront - Next.js 16, React 19, Tailwind CSS v4 and Base UI",
   "private": true,
   "type": "module",
