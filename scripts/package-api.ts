@@ -2,12 +2,13 @@ import {
   cpSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 interface PackageManifest {
@@ -19,19 +20,72 @@ interface PackageManifest {
   dependencies?: Record<string, string>;
 }
 
-function parseOutDir(argv: string[]): { outDir: string; isTemp: boolean } {
+const STRIP_SUFFIXES = [".d.ts", ".d.mts", ".d.cts", ".map", ".md"];
+
+const BOOT_SCRIPT = `import { existsSync, rmSync, unlinkSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+
+const ARCHIVE = "deploy.tar.gz";
+
+if (existsSync(ARCHIVE)) {
+  for (const dir of ["dist", "vendor", "node_modules"]) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  const result = spawnSync("tar", ["-xzf", ARCHIVE], { stdio: "inherit" });
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+  unlinkSync(ARCHIVE);
+}
+
+await import("./dist/main.js");
+`;
+
+function parseArgs(argv: string[]): {
+  outDir: string;
+  isTemp: boolean;
+  archivePath?: string;
+} {
   const outIndex = argv.indexOf("--out");
+  const archiveIndex = argv.indexOf("--archive");
+
+  let archivePath: string | undefined;
+  if (archiveIndex !== -1) {
+    const candidate = argv[archiveIndex + 1];
+    if (!candidate) {
+      throw new Error("--archive requires a file path");
+    }
+    archivePath = resolve(candidate);
+  }
+
   if (outIndex !== -1) {
     const candidate = argv[outIndex + 1];
     if (!candidate) {
       throw new Error("--out requires a directory path");
     }
-    return { outDir: resolve(candidate), isTemp: false };
+    return { outDir: resolve(candidate), isTemp: false, archivePath };
   }
   return {
     outDir: mkdtempSync(join(tmpdir(), "greenroots-api-deploy-")),
     isTemp: true,
+    archivePath,
   };
+}
+
+function stripNonRuntimeFiles(dir: string): void {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      stripNonRuntimeFiles(fullPath);
+      continue;
+    }
+    if (
+      entry.name.startsWith("LICENSE") ||
+      STRIP_SUFFIXES.some((suffix) => entry.name.endsWith(suffix))
+    ) {
+      rmSync(fullPath, { force: true });
+    }
+  }
 }
 
 function readJson<T>(filePath: string): T {
@@ -40,7 +94,7 @@ function readJson<T>(filePath: string): T {
 
 function main(): void {
   const repoRoot = resolve(import.meta.dirname, "..");
-  const { outDir, isTemp } = parseOutDir(process.argv.slice(2));
+  const { outDir, isTemp, archivePath } = parseArgs(process.argv.slice(2));
 
   const rootPkg = readJson<PackageManifest>(resolve(repoRoot, "package.json"));
   const apiPkg = readJson<PackageManifest>(
@@ -113,6 +167,27 @@ function main(): void {
   );
   if (installResult.status !== 0) {
     process.exit(installResult.status ?? 1);
+  }
+
+  stripNonRuntimeFiles(resolve(outDir, "node_modules"));
+
+  if (archivePath) {
+    const archiveDir = dirname(archivePath);
+    mkdirSync(archiveDir, { recursive: true });
+    writeFileSync(join(archiveDir, "boot.mjs"), BOOT_SCRIPT);
+
+    const tarResult = spawnSync(
+      "tar",
+      ["-czf", archivePath, "-C", outDir, "."],
+      {
+        stdio: "inherit",
+      },
+    );
+    if (tarResult.status !== 0) {
+      process.exit(tarResult.status ?? 1);
+    }
+    console.log(`Packaged API archive at ${archivePath}`);
+    return;
   }
 
   console.log(`Packaged API deployment artifact at ${outDir}`);
