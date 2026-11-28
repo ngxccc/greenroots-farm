@@ -1,0 +1,72 @@
+name: Deploy API
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Run Database Migrations
+    runs-on: ubuntu-22.04
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          install: "true"
+          doppler: "true"
+          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
+
+      - name: Run Drizzle migrations
+        run: bun run --cwd apps/api doppler:db:migrate
+
+  deploy:
+    name: Build & Deploy API to Botkeep
+    needs: migrate
+    runs-on: ubuntu-22.04
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          install: "true"
+
+      - name: Build API
+        run: bun run --cwd apps/api build
+
+      - name: Package standalone API artifact
+        run: bun scripts/package-api.ts --out /tmp/greenroots-api-deploy
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends lftp
+
+      - name: Sync artifact to Botkeep via SFTP
+        env:
+          SFTP_HOST: ${{ secrets.BOTKEEP_SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.BOTKEEP_SFTP_PORT }}
+          SFTP_USER: ${{ secrets.BOTKEEP_SFTP_USER }}
+          SFTP_PASS: ${{ secrets.BOTKEEP_SFTP_PASS }}
+        run: |
+          lftp -u "$SFTP_USER","$SFTP_PASS" -p "$SFTP_PORT" "sftp://$SFTP_HOST" << 'EOF'
+          set sftp:auto-confirm yes
+          set net:max-retries 3
+          set net:timeout 30
+          mirror --reverse --delete --parallel=4 --verbose /tmp/greenroots-api-deploy /
+          bye
+          EOF
