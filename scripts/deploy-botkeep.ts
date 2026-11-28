@@ -5,9 +5,17 @@ import { resolve } from "node:path";
 const API_BASE = "https://api.botkeep.cloud/api/v1/developer";
 
 interface OperationResponse {
-  operation?: { id?: string; status?: string; error?: string };
+  operation?: {
+    id?: string;
+    status?: string;
+    phase?: string;
+    finishedAt?: number | null;
+    error?: string;
+  };
   id?: string;
   status?: string;
+  queueState?: string;
+  runtimeState?: string;
   revision?: string;
   error?: string;
 }
@@ -78,14 +86,28 @@ async function waitForOperation(
         method: "GET",
       },
     );
-    lastStatus = (op.operation?.status ?? op.status ?? "").toLowerCase();
-    if (lastStatus === "failed" || lastStatus === "error") {
+    lastStatus = (
+      op.queueState ??
+      op.operation?.status ??
+      op.status ??
+      op.operation?.phase ??
+      ""
+    ).toLowerCase();
+    const phase = (op.operation?.phase ?? "").toLowerCase();
+    if (
+      lastStatus === "failed" ||
+      lastStatus === "error" ||
+      phase === "failed" ||
+      phase === "error"
+    ) {
       throw new Error(
         `${label} operation ${opId} failed: ${op.operation?.error ?? op.error ?? JSON.stringify(op)}`,
       );
     }
-    if (terminal.has(lastStatus)) {
-      console.log(`${label} operation ${opId} finished (${lastStatus}).`);
+    if (terminal.has(lastStatus) || op.operation?.finishedAt != null) {
+      console.log(
+        `${label} operation ${opId} finished (queueState=${lastStatus || "n/a"}, runtimeState=${op.runtimeState ?? "n/a"}).`,
+      );
       return;
     }
     await Bun.sleep(3000);
