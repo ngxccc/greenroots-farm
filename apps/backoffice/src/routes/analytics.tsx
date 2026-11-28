@@ -1,24 +1,32 @@
-import { Card, CardContent } from "@greenroots/ui";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
+import { canAccessOperationsAnalytics } from "@/features/analytics/analytics-utils";
+import { OperationsAnalyticsView } from "@/features/analytics/components/operations-analytics-view";
+import {
+  getDefaultRouteForRole,
+  useAuthStore,
+} from "@/features/auth/stores/auth.store";
 
 export const Route = createFileRoute("/analytics")({
+  beforeLoad: () => {
+    const role = useAuthStore.getState().user?.role;
+    if (role && !canAccessOperationsAnalytics(role)) {
+      // oxlint-disable-next-line typescript/only-throw-error
+      throw redirect({ to: getDefaultRouteForRole(role) });
+    }
+  },
   component: OperationsAnalyticsPage,
 });
 
 function OperationsAnalyticsPage() {
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         eyebrow="Sản phẩm & Tài chính"
         title="Báo cáo vận hành"
-        description="Theo dõi doanh thu, tỷ lệ hao hụt và sản phẩm bán chạy."
+        description="Theo dõi doanh thu gộp, tỷ lệ hao hụt theo lô và nhóm sản phẩm bán chạy."
       />
-      <Card className="border-border-subtle bg-surface-card shadow-sm">
-        <CardContent className="p-6 text-sm text-gray-600">
-          Biểu đồ vận hành đang được tích hợp.
-        </CardContent>
-      </Card>
+      <OperationsAnalyticsView />
     </div>
   );
 }
