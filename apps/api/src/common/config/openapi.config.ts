@@ -82,7 +82,7 @@ export function setupOpenApiAndScalar(app: INestApplication): void {
     "/api/docs",
     apiReference({
       content: document,
-      theme: "saturn",
+      theme: "deepSpace",
     }),
   );
 }
