@@ -76,7 +76,7 @@ Required checks:
 ## 6. Deploy
 
 - No deploy workflow exists until a real target with secrets and an environment does. Do not ship a placeholder that only repeats the quality gate.
-- When a target lands, add `api.yml` with `push` to `main`, a `Production` environment, and the deploy steps.
+- When a target lands, add `api.yml` with `push` to `main`, a `production` environment, and the deploy steps.
 - Migrations run as an explicit deploy step, never as a startup side effect.
 
 ## 7. Local Checks
