@@ -51,7 +51,7 @@ jobs:
         run: bun run --cwd apps/api build
 
       - name: Package standalone API artifact
-        run: bun scripts/package-api.ts --out /tmp/greenroots-api-deploy
+        run: bun scripts/package-api.ts --out "${{ runner.temp }}/greenroots-api-deploy"
 
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends lftp
@@ -67,6 +67,6 @@ jobs:
           set sftp:auto-confirm yes
           set net:max-retries 3
           set net:timeout 30
-          mirror --reverse --delete --parallel=4 --verbose /tmp/greenroots-api-deploy /
+          mirror --reverse --delete --parallel=4 --verbose "${{ runner.temp }}/greenroots-api-deploy" /
           bye
           EOF
