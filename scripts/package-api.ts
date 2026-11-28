@@ -1,11 +1,13 @@
 import {
   cpSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 interface PackageManifest {
@@ -17,18 +19,19 @@ interface PackageManifest {
   dependencies?: Record<string, string>;
 }
 
-const DEFAULT_OUT_DIR = "/tmp/greenroots-api-deploy";
-
-function parseOutDir(argv: string[]): string {
+function parseOutDir(argv: string[]): { outDir: string; isTemp: boolean } {
   const outIndex = argv.indexOf("--out");
   if (outIndex !== -1) {
     const candidate = argv[outIndex + 1];
     if (!candidate) {
       throw new Error("--out requires a directory path");
     }
-    return resolve(candidate);
+    return { outDir: resolve(candidate), isTemp: false };
   }
-  return resolve(DEFAULT_OUT_DIR);
+  return {
+    outDir: mkdtempSync(join(tmpdir(), "greenroots-api-deploy-")),
+    isTemp: true,
+  };
 }
 
 function readJson<T>(filePath: string): T {
@@ -37,7 +40,7 @@ function readJson<T>(filePath: string): T {
 
 function main(): void {
   const repoRoot = resolve(import.meta.dirname, "..");
-  const outDir = parseOutDir(process.argv.slice(2));
+  const { outDir, isTemp } = parseOutDir(process.argv.slice(2));
 
   const rootPkg = readJson<PackageManifest>(resolve(repoRoot, "package.json"));
   const apiPkg = readJson<PackageManifest>(
@@ -66,7 +69,9 @@ function main(): void {
     resolvedDeps[pkgName] = version;
   }
 
-  rmSync(outDir, { recursive: true, force: true });
+  if (!isTemp) {
+    rmSync(outDir, { recursive: true, force: true });
+  }
   mkdirSync(resolve(outDir, "vendor/shared"), { recursive: true });
 
   cpSync(resolve(repoRoot, "apps/api/dist"), resolve(outDir, "dist"), {
