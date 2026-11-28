@@ -1,6 +1,6 @@
 {
   "name": "@greenroots/api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "GreenRoots Farm REST API - NestJS 12, Drizzle ORM, PostgreSQL and Redis",
   "private": true,
   "type": "module",
