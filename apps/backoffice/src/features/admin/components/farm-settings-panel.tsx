@@ -552,7 +552,7 @@ export function FarmSettingsPanel() {
 
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="ship-free-threshold">
-                    Ngưỡng miễn phí (km)
+                    Ngưỡng miễn phụ phí (km)
                   </Label>
                   <Input
                     id="ship-free-threshold"

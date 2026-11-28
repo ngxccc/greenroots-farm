@@ -85,14 +85,14 @@ export function validateShippingRadii(config: {
   }
 
   if (!Number.isFinite(config.freeKmThreshold) || config.freeKmThreshold <= 0) {
-    errors.freeKmThreshold = "Ngưỡng miễn phí giao hàng phải lớn hơn 0 km.";
+    errors.freeKmThreshold = "Ngưỡng miễn phụ phí phải lớn hơn 0 km.";
   } else if (
     Number.isFinite(config.maxRadiusKm) &&
     config.maxRadiusKm > 0 &&
     config.freeKmThreshold > config.maxRadiusKm
   ) {
     errors.freeKmThreshold =
-      "Ngưỡng miễn phí giao hàng không được vượt quá bán kính giao tối đa.";
+      "Ngưỡng miễn phụ phí không được vượt quá bán kính giao tối đa.";
   }
 
   return errors;
