@@ -50,26 +50,15 @@ jobs:
       - name: Build API
         run: bun run --cwd apps/api build
 
-      - name: Package standalone API archive
-        run: |
-          bun scripts/package-api.ts \
-            --out "${{ runner.temp }}/greenroots-api-stage" \
-            --archive "${{ runner.temp }}/greenroots-api-upload/deploy.tar.gz"
+      - name: Package standalone API artifact
+        run: bun scripts/package-api.ts --out "${{ runner.temp }}/greenroots-api-stage"
 
-      - name: Install lftp
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends lftp
+      - name: Archive API bundle
+        working-directory: ${{ runner.temp }}/greenroots-api-stage
+        run: zip -r "${{ runner.temp }}/greenroots-api.zip" dist vendor package.json
 
-      - name: Sync archive to Botkeep via SFTP
+      - name: Upload, extract, and restart on Botkeep
         env:
-          SFTP_HOST: ${{ secrets.BOTKEEP_SFTP_HOST }}
-          SFTP_PORT: ${{ secrets.BOTKEEP_SFTP_PORT }}
-          SFTP_USER: ${{ secrets.BOTKEEP_SFTP_USER }}
-          SFTP_PASS: ${{ secrets.BOTKEEP_SFTP_PASS }}
-        run: |
-          lftp -u "$SFTP_USER","$SFTP_PASS" -p "$SFTP_PORT" "sftp://$SFTP_HOST" << 'EOF'
-          set sftp:auto-confirm yes
-          set net:max-retries 3
-          set net:timeout 30
-          mirror --reverse --parallel=2 --verbose "${{ runner.temp }}/greenroots-api-upload" /
-          bye
-          EOF
+          BOTKEEP_API_KEY: ${{ secrets.BOTKEEP_API_KEY }}
+          BOTKEEP_WORKLOAD_ID: ${{ secrets.BOTKEEP_WORKLOAD_ID }}
+        run: bun scripts/deploy-botkeep.ts --zip "${{ runner.temp }}/greenroots-api.zip"
