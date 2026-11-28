@@ -126,14 +126,51 @@ function main(): void {
   if (!isTemp) {
     rmSync(outDir, { recursive: true, force: true });
   }
+  mkdirSync(resolve(outDir, "dist"), { recursive: true });
   mkdirSync(resolve(outDir, "vendor/shared"), { recursive: true });
 
-  cpSync(resolve(repoRoot, "apps/api/dist"), resolve(outDir, "dist"), {
-    recursive: true,
-  });
-  cpSync(
+  const bundleResult = spawnSync(
+    "bun",
+    [
+      "build",
+      resolve(repoRoot, "apps/api/dist/main.js"),
+      "--packages=external",
+      "--target=bun",
+      "--outfile",
+      resolve(outDir, "dist/main.js"),
+    ],
+    {
+      cwd: repoRoot,
+      stdio: "inherit",
+    },
+  );
+  if (bundleResult.status !== 0) {
+    process.exit(bundleResult.status ?? 1);
+  }
+  const sharedPkg = readJson<PackageManifest>(
     resolve(repoRoot, "packages/shared/package.json"),
+  );
+  const {
+    catalog: _catalog,
+    dependencies: sharedDeps,
+    ...sharedRest
+  } = sharedPkg as PackageManifest & {
+    devDependencies?: Record<string, string>;
+    scripts?: Record<string, string>;
+  };
+  delete sharedRest.devDependencies;
+  delete sharedRest.scripts;
+
+  writeFileSync(
     resolve(outDir, "vendor/shared/package.json"),
+    `${JSON.stringify(
+      {
+        ...sharedRest,
+        ...(sharedDeps ? { dependencies: sharedDeps } : {}),
+      },
+      null,
+      2,
+    )}\n`,
   );
   cpSync(
     resolve(repoRoot, "packages/shared/src"),
