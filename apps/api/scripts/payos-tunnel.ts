@@ -3,6 +3,10 @@ import { confirmPayosWebhook } from "./confirm-payos-webhook";
 const DEFAULT_API_PORT = "3000";
 const TUNNEL_URL_PATTERN = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i;
 const TUNNEL_READY_TIMEOUT_MS = 20_000;
+const TUNNEL_PROPAGATION_ATTEMPTS = 10;
+const TUNNEL_PROPAGATION_INTERVAL_MS = 1_500;
+const PAYOS_CONFIRM_ATTEMPTS = 4;
+const PAYOS_CONFIRM_RETRY_MS = 2_500;
 
 function resolvePort(): number {
   const raw = process.argv[2] ?? process.env["PORT"] ?? DEFAULT_API_PORT;
@@ -83,6 +87,53 @@ async function waitForTunnelUrl(
   return url;
 }
 
+async function waitForTunnelPropagated(tunnelOrigin: string): Promise<void> {
+  const healthUrl = `${tunnelOrigin}/api/v1/health`;
+  for (let attempt = 1; attempt <= TUNNEL_PROPAGATION_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(healthUrl, {
+        signal: AbortSignal.timeout(3_000),
+      });
+      if (response.status < 500) {
+        return;
+      }
+    } catch {
+      // Edge DNS or tunnel route still propagating
+    }
+    if (attempt < TUNNEL_PROPAGATION_ATTEMPTS) {
+      await Bun.sleep(TUNNEL_PROPAGATION_INTERVAL_MS);
+    }
+  }
+  throw new Error(
+    `Tunnel did not become reachable at ${healthUrl}. Ensure apps/api is running on the target port.`,
+  );
+}
+
+async function confirmWebhookWithRetry(tunnelOrigin: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= PAYOS_CONFIRM_ATTEMPTS; attempt += 1) {
+    try {
+      await confirmPayosWebhook(tunnelOrigin);
+      return;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      const isTransientWebhookError =
+        message.includes("Webhook url invalid") ||
+        message.includes("timed out") ||
+        message.includes("fetch failed");
+      if (!isTransientWebhookError || attempt === PAYOS_CONFIRM_ATTEMPTS) {
+        throw error;
+      }
+      console.info(
+        `[payos:tunnel] Waiting for PayOS DNS propagation (retry ${attempt}/${PAYOS_CONFIRM_ATTEMPTS - 1})...`,
+      );
+      await Bun.sleep(PAYOS_CONFIRM_RETRY_MS);
+    }
+  }
+  throw lastError;
+}
+
 async function main(): Promise<void> {
   if (process.env.NODE_ENV === "production") {
     throw new Error(
@@ -119,7 +170,8 @@ async function main(): Promise<void> {
     const tunnelOrigin = await waitForTunnelUrl(proc);
     console.info(`[payos:tunnel] Tunnel ready: ${tunnelOrigin}`);
 
-    await confirmPayosWebhook(tunnelOrigin);
+    await waitForTunnelPropagated(tunnelOrigin);
+    await confirmWebhookWithRetry(tunnelOrigin);
     console.info(
       "[payos:tunnel] Active. Keep this terminal open while testing PayOS webhooks (Ctrl+C to close).",
     );
